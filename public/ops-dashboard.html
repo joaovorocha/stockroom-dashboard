@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Looker Dashboards - San Francisco | Suitsupply</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/shared-header.css">
+  <style>
+    .ops-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ops-header h1 {
+      font-size: 24px;
+    }
+
+    .ops-container {
+      padding: 24px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    .ops-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+
+    .ops-tab {
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      border-radius: 4px;
+    }
+
+    .ops-tab.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .ops-tab:hover:not(.active) {
+      background: var(--surface);
+    }
+
+    .dashboard-frame {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .dashboard-frame iframe {
+      display: block;
+      width: 100%;
+      height: 900px;
+      border: none;
+    }
+
+    .dashboard-info {
+      padding: 16px 20px;
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .dashboard-info h3 {
+      font-size: 16px;
+    }
+
+    .dashboard-info .badge {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header (No Refresh Bar on Ops Dashboard) -->
+  <header class="header">
+    <div class="header-brand">
+      <a href="/dashboard" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Daily Game Plan</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/shipments" id="navShipments">Shipments</a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" class="active" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="switchUserBtn">Switch User</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Looker Dashboards Sub-header -->
+  <div class="ops-subheader" style="padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border);">
+    <h2 style="font-size: 18px; margin: 0;">Looker Dashboards</h2>
+  </div>
+
+  <div class="ops-container">
+    <div class="ops-tabs">
+      <button class="ops-tab active" data-tab="stores">Stores Performance</button>
+      <button class="ops-tab" data-tab="loans">Loans Dashboard</button>
+    </div>
+
+    <div id="storesTab" class="tab-content">
+      <div class="dashboard-frame">
+        <div class="dashboard-info">
+          <h3>Stores Performance - Previous Week</h3>
+          <span class="badge">Last Week Data</span>
+        </div>
+        <iframe
+          src="https://lookersuitsupply.cloud.looker.com/embed/dashboards/1104?Period=last+week&Location+Name=San+Francisco&Regional+Manager=&Region="
+          allowfullscreen>
+        </iframe>
+      </div>
+    </div>
+
+    <div id="loansTab" class="tab-content" style="display: none;">
+      <div class="dashboard-frame">
+        <div class="dashboard-info">
+          <h3>Loans Dashboard</h3>
+          <span class="badge">Current Status</span>
+        </div>
+        <div style="padding: 40px; text-align: center;">
+          <p style="color: var(--text-secondary); margin-bottom: 20px;">Loans data is loaded from CSV files.</p>
+          <div id="loansData"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
+  </footer>
+
+  <script>
+    // Check auth
+    async function checkAuth() {
+      const response = await fetch('/api/auth/check');
+      const data = await response.json();
+      if (!data.authenticated) {
+        window.location.href = '/login-v2';
+        return;
+      }
+      document.getElementById('userName').textContent = data.user.name;
+    }
+
+    // Load loans data
+    async function loadLoansData() {
+      const response = await fetch('/api/gameplan/loans');
+      const data = await response.json();
+
+      const container = document.getElementById('loansData');
+      if (data.overdue && data.overdue.length > 0) {
+        container.innerHTML = `
+          <div class="card" style="max-width: 600px; margin: 0 auto; text-align: left;">
+            <div class="card-header">
+              <h3>Overdue Loans (${data.overdue.length})</h3>
+            </div>
+            <div class="card-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Period</th>
+                    <th>Location</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${data.overdue.map(l => `
+                    <tr>
+                      <td>${l.employeeName}</td>
+                      <td>${l.period}</td>
+                      <td>${l.location}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      } else {
+        container.innerHTML = '<p style="color: var(--success);">No overdue loans!</p>';
+      }
+    }
+
+    // Tab switching
+    document.querySelectorAll('.ops-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.ops-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + 'Tab').style.display = 'block';
+      });
+    });
+
+    // Init
+    checkAuth();
+    loadLoansData();
+  </script>
+  <script src="/js/shared-header.js"></script>
+</body>
+</html>

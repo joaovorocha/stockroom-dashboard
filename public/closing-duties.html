@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Closing Duties - Daily Game Plan | San Francisco</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/shared-header.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    .duties-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .duties-tabs .tab {
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-secondary);
+      border-radius: 6px 6px 0 0;
+      transition: all 0.2s;
+    }
+    .duties-tabs .tab.active {
+      background: var(--primary);
+      color: #fff;
+    }
+    .duties-tabs .tab:hover:not(.active) {
+      background: var(--surface);
+    }
+    .duty-card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .duty-card.completed {
+      border-color: var(--success);
+      background: #f0fff4;
+    }
+    .duty-card.pending {
+      border-color: #ffc107;
+      background: #fffbeb;
+    }
+    .duty-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .duty-name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+    .duty-status {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .duty-status.completed {
+      background: var(--success);
+      color: #fff;
+    }
+    .duty-status.pending {
+      background: #ffc107;
+      color: #000;
+    }
+    .duty-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .duty-photos {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .duty-photo {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+    .duty-photo:hover {
+      transform: scale(1.05);
+    }
+    .submit-form {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .photo-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .photo-preview img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    .history-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+    .date-nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 12px;
+      background: var(--surface);
+      border-radius: 8px;
+    }
+    .date-nav input[type="date"] {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .summary-card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+    .summary-card .value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .summary-card .label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+    .employee-duty-row {
+      display: flex;
+      align-items: center;
+      padding: 12px;
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+    .employee-duty-row .name {
+      flex: 1;
+      font-weight: 500;
+    }
+    .employee-duty-row .section {
+      flex: 1;
+      color: var(--text-secondary);
+    }
+    .employee-duty-row .status {
+      width: 100px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header (No Refresh Bar on Closing Duties) -->
+  <header class="header">
+    <div class="header-brand">
+      <a href="/dashboard" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Daily Game Plan</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/shipments" id="navShipments">Shipments</a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" class="active" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="switchUserBtn">Switch User</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
+    <main class="main-content">
+      <section class="section">
+        <div class="section-header">
+          <h2>Closing Duties</h2>
+        </div>
+
+        <!-- Tabs -->
+        <div class="duties-tabs">
+          <button class="tab active" data-tab="submit">Submit Duties</button>
+          <button class="tab" data-tab="today">Today's Status</button>
+          <button class="tab" data-tab="history">History</button>
+        </div>
+
+        <!-- Submit Tab (now first) -->
+        <div id="submitTab" class="tab-content">
+          <!-- Assigned Duties Section -->
+          <div id="assignedDutiesSection" style="margin-bottom: 24px;">
+            <h3 style="margin-bottom: 12px;">Your Assigned Duties</h3>
+            <div id="assignedDuties">
+              <p style="color: var(--text-muted);">Loading...</p>
+            </div>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; margin-bottom: 12px;">
+            <button type="button" class="btn btn-secondary" id="toggleUnassigned">Submit unassigned duty</button>
+          </div>
+
+          <div class="submit-form" id="unassignedForm" style="display:none; margin-top: 8px;">
+            <h3 style="margin-bottom: 20px;">Submit Closing Duty</h3>
+            <form id="closingForm">
+              <input type="hidden" id="submitName">
+              <input type="hidden" id="employee-id-input">
+              <input type="hidden" id="employee-name-input">
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label>Closing Duty</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <select class="form-control" id="submitSection" required style="flex:1;" disabled>
+                  <option value="">Pick an assigned duty above or enable unassigned</option>
+                  </select>
+                </div>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">Use the quick buttons in "Your Assigned Duties" or enable unassigned to pick any section.</div>
+              </div>
+              <div class="form-group">
+                <label>Photos (required for duty completion)</label>
+                <input type="file" class="form-control" id="submitPhotos" accept="image/*" multiple>
+                <div class="photo-preview" id="photoPreview"></div>
+              </div>
+              <div class="form-group">
+                <label>Notes</label>
+                <textarea class="form-control" id="submitNotes" rows="3" placeholder="Any notes about completion..."></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Submit Closing Duty</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Today's Status Tab -->
+        <div id="todayTab" class="tab-content" style="display:none;">
+          <div class="summary-cards">
+            <div class="summary-card">
+              <div class="value" id="totalSections">0</div>
+              <div class="label">Total Sections</div>
+            </div>
+            <div class="summary-card">
+              <div class="value" id="completedCount">0</div>
+              <div class="label">Completed</div>
+            </div>
+            <div class="summary-card">
+              <div class="value" id="pendingCount">0</div>
+              <div class="label">Pending</div>
+            </div>
+            <div class="summary-card">
+              <div class="value" id="completionPct">0%</div>
+              <div class="label">Completion</div>
+            </div>
+          </div>
+
+          <h3 style="margin-bottom: 16px;">Section Status</h3>
+          <div id="todayDuties"></div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="historyTab" class="tab-content" style="display:none;">
+          <div class="date-nav">
+            <button class="btn btn-sm btn-secondary" id="prevDay">&larr; Previous</button>
+            <input type="date" id="historyDate">
+            <button class="btn btn-sm btn-secondary" id="nextDay">Next &rarr;</button>
+            <button class="btn btn-sm btn-outline" id="todayBtn">Today</button>
+          </div>
+          <h3 style="margin-bottom: 16px;">Submissions for <span id="historyDateDisplay"></span></h3>
+          <div id="historyList"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Photo Modal -->
+  <div class="modal-overlay" id="photoModal">
+    <div class="modal" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3>Photo</h3>
+        <button class="modal-close" id="closePhotoModal">&times;</button>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <img id="modalPhoto" src="" style="max-width: 100%; max-height: 70vh;">
+        <div id="photoCaption" style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);"></div>
+        <div style="margin-top: 12px; display:flex; justify-content: center; gap:12px;">
+          <button class="btn btn-sm btn-secondary" id="prevPhoto">Previous</button>
+          <button class="btn btn-sm btn-primary" id="nextPhoto">Next</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
+  </footer>
+
+  <script>
+    let currentUser = null;
+    let settings = { closingSections: [] };
+    let closingDuties = [];
+    let employees = { SA: [] };
+    let selectedDate = new Date().toISOString().split('T')[0];
+    let allowUnassigned = false;
+    let historyPhotos = [];
+    let modalIndex = 0;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkAuth();
+      await loadSettings();
+      await loadEmployees();
+      await loadTodayDuties();
+      renderAssignedDuties();
+      setupEventListeners();
+    });
+
+    async function loadEmployees() {
+      try {
+        const response = await fetch('/api/gameplan/employees');
+        const data = await response.json();
+        employees = data.employees || { SA: [] };
+      } catch (e) { console.error(e); }
+    }
+
+    function renderAssignedDuties() {
+      const container = document.getElementById('assignedDuties');
+
+      if (!currentUser) {
+        container.innerHTML = '<p style="color: var(--text-muted);">Please log in to see your assigned duties.</p>';
+        return;
+      }
+
+      // Find current user in employees
+      let userEmployee = null;
+      for (const type of Object.keys(employees)) {
+        userEmployee = employees[type].find(e =>
+          e.name?.toLowerCase() === currentUser.name?.toLowerCase() ||
+          e.id === currentUser.employeeId ||
+          e.id === currentUser.userId
+        );
+        if (userEmployee) break;
+      }
+
+      const assignedSections = userEmployee?.closingSections || [];
+      const submittedToday = closingDuties.filter(d => d.userName === currentUser.name);
+      const submittedSections = submittedToday.map(d => d.section);
+
+      // Lock the select to assigned by default
+      const select = document.getElementById('submitSection');
+      if (!allowUnassigned) {
+        select.disabled = true;
+        select.value = '';
+      }
+
+      if (assignedSections.length === 0) {
+        container.innerHTML = `
+          <div style="padding: 16px; background: var(--surface); border-radius: 8px; margin-bottom: 12px;">
+            <p style="margin: 0; color: var(--text-secondary);">No sections assigned to you for today.</p>
+            <p style="margin: 8px 0 0; font-size: 13px; color: var(--text-muted);">You can still submit duties for unassigned sections below.</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '<div style="display: grid; gap: 12px;">';
+
+      assignedSections.forEach((section, idx) => {
+        const safeSection = section.replace(/"/g, '&quot;');
+        const isComplete = submittedSections.includes(section);
+        html += `
+          <div style="padding: 14px 16px; background: ${isComplete ? '#f0fff4' : '#fffbeb'}; border: 1px solid ${isComplete ? 'var(--success)' : '#ffc107'}; border-radius: 6px; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-weight: 600;">${section}</span>
+              ${isComplete ? '<span style="color: var(--success); font-size: 13px;">Completed</span>' : ''}
+            </div>
+            ${isComplete ? '' : `
+              <div style="margin-top: 10px; display: grid; gap: 8px;">
+                <div style="font-size: 13px;">Upload photos for <strong>${section}</strong></div>
+                <input type="file" id="assignedPhotos-${idx}" accept="image/*" multiple />
+                <textarea id="assignedNotes-${idx}" rows="2" class="form-control" placeholder="Notes (optional)" style="margin: 0;"></textarea>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <button class="btn btn-sm btn-primary assigned-submit" data-index="${idx}" data-section="${safeSection}">Submit Now</button>
+                  <span id="assignedStatus-${idx}" style="font-size: 12px; color: var(--text-secondary);"></span>
+                </div>
+              </div>
+            `}
+          </div>
+        `;
+      });
+
+      // Add KPI summary
+      const completedCount = submittedSections.filter(s => assignedSections.includes(s)).length;
+      const total = assignedSections.length;
+      const completionPct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+
+      html += `
+        </div>
+        <div style="margin-top: 16px; padding: 12px; background: var(--surface); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 13px; color: var(--text-secondary);">Your Completion Rate</span>
+          <span style="font-weight: 600; color: ${completionPct >= 100 ? 'var(--success)' : completionPct >= 50 ? '#ffc107' : 'var(--danger)'};">${completedCount}/${total} (${completionPct}%)</span>
+        </div>
+      `;
+
+      container.innerHTML = html;
+
+      // Bind submit handlers for assigned cards
+      container.querySelectorAll('.assigned-submit').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const idx = parseInt(btn.dataset.index, 10);
+          submitAssigned(idx, btn.dataset.section);
+        });
+      });
+    }
+
+    async function submitAssigned(idx, section) {
+      const photosInput = document.getElementById(`assignedPhotos-${idx}`);
+      const notesInput = document.getElementById(`assignedNotes-${idx}`);
+      const statusEl = document.getElementById(`assignedStatus-${idx}`);
+      if (!photosInput || !notesInput) return;
+
+      if (!photosInput.files.length) {
+        statusEl.textContent = 'Add at least one photo.';
+        statusEl.style.color = 'var(--danger)';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('userId', document.getElementById('employee-id-input').value || currentUser?.userId || currentUser?.employeeId || '');
+      formData.append('userName', document.getElementById('employee-name-input').value || currentUser?.name || '');
+      formData.append('section', section);
+      formData.append('notes', notesInput.value);
+      formData.append('date', selectedDate);
+
+      Array.from(photosInput.files).forEach(file => formData.append('photos', file));
+
+      try {
+        statusEl.textContent = 'Uploading...';
+        statusEl.style.color = 'var(--text-secondary)';
+        const response = await fetch('/api/closing-duties/submit', {
+          method: 'POST',
+          body: formData
+        });
+        if (response.ok) {
+          statusEl.textContent = 'Uploaded!';
+          statusEl.style.color = 'var(--success)';
+          photosInput.value = '';
+          notesInput.value = '';
+          await loadTodayDuties();
+        } else {
+          statusEl.textContent = 'Failed to upload. Try again.';
+          statusEl.style.color = 'var(--danger)';
+        }
+      } catch (err) {
+        statusEl.textContent = 'Error uploading. Check connection.';
+        statusEl.style.color = 'var(--danger)';
+      }
+    }
+
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/auth/check');
+        const data = await response.json();
+        if (data.authenticated) {
+          currentUser = data.user;
+          document.getElementById('userName').textContent = currentUser.name;
+          const userSwitch = document.querySelector('.user-switch');
+          if (userSwitch) {
+            userSwitch.innerHTML = '<a href="#" id="logoutLink">Not you? Switch</a>';
+            document.getElementById('logoutLink')?.addEventListener('click', logout);
+          }
+          document.getElementById('employee-id-input').value = currentUser.userId || currentUser.employeeId || '';
+          document.getElementById('employee-name-input').value = currentUser.name || '';
+          document.getElementById('submitName').value = currentUser.name || '';
+          if ((currentUser.isManager || currentUser.isAdmin) && document.getElementById('adminLink')) {
+            document.getElementById('adminLink').style.display = 'inline';
+          }
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login-v2';
+    }
+
+    async function loadSettings() {
+      try {
+        const response = await fetch('/api/gameplan/settings');
+        settings = await response.json();
+        populateSections();
+      } catch (e) { console.error(e); }
+    }
+
+    function populateSections() {
+      const select = document.getElementById('submitSection');
+      select.innerHTML = '<option value="">Select duty...</option>';
+      (settings.closingSections || []).forEach(s => {
+        select.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+      });
+    }
+
+    async function loadTodayDuties() {
+      try {
+        const response = await fetch(`/api/closing-duties/${selectedDate}`);
+        const data = await response.json();
+        closingDuties = Array.isArray(data?.submissions) ? data.submissions : [];
+        renderTodayStatus();
+        renderHistory();
+        renderAssignedDuties();
+      } catch (e) {
+        console.error(e);
+        closingDuties = [];
+        renderTodayStatus();
+      }
+    }
+
+    function renderTodayStatus() {
+      const sections = settings.closingSections || [];
+      const container = document.getElementById('todayDuties');
+      container.innerHTML = '';
+
+      let completed = 0;
+      let pending = 0;
+
+      const dutiesArray = Array.isArray(closingDuties) ? closingDuties : [];
+
+      sections.forEach(section => {
+        const duty = dutiesArray.find(d => d.section === section.name);
+        const isCompleted = !!duty;
+        if (isCompleted) completed++; else pending++;
+
+        container.innerHTML += `
+          <div class="duty-card ${isCompleted ? 'completed' : 'pending'}">
+            <div class="duty-header">
+              <span class="duty-name">${section.name}</span>
+              <span class="duty-status ${isCompleted ? 'completed' : 'pending'}">${isCompleted ? 'Completed' : 'Pending'}</span>
+            </div>
+            ${isCompleted ? `
+              <div class="duty-meta">
+                <span>By: ${duty.userName || duty.employeeName || 'Unknown'}</span>
+                <span>Time: ${new Date(duty.submittedAt).toLocaleTimeString()}</span>
+              </div>
+              ${duty.photos && duty.photos.length ? `
+                <div class="duty-photos">
+                  ${duty.photos.map(p => {
+                    const src = p.path || p;
+                    return `<img src="${src}" class="duty-photo" onclick="showPhoto('${src}')">`;
+                  }).join('')}
+                </div>
+              ` : ''}
+              ${duty.notes ? `<p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${duty.notes}</p>` : ''}
+            ` : `<p style="color: var(--text-muted); font-size: 13px;">Not yet submitted</p>`}
+          </div>
+        `;
+      });
+
+      document.getElementById('totalSections').textContent = sections.length;
+      document.getElementById('completedCount').textContent = completed;
+      document.getElementById('pendingCount').textContent = pending;
+      document.getElementById('completionPct').textContent = sections.length ? Math.round((completed / sections.length) * 100) + '%' : '0%';
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('historyList');
+      document.getElementById('historyDateDisplay').textContent = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+      const dutiesArray = Array.isArray(closingDuties) ? closingDuties : [];
+
+      historyPhotos = dutiesArray.flatMap(duty => (duty.photos || []).map(p => ({
+        src: p.path || p,
+        section: duty.section,
+        user: duty.userName || duty.employeeName || 'Unknown',
+        time: duty.submittedAt
+      })));
+
+      if (!dutiesArray.length) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No submissions for this date.</p>';
+        return;
+      }
+
+      let photoCursor = 0;
+
+      container.innerHTML = dutiesArray.map(duty => {
+        const photosHtml = (duty.photos || []).map(p => {
+          const src = p.path || p;
+          const idx = photoCursor++;
+          return `<div style="position: relative;">
+              <img src="${src}" alt="Closing duty photo" class="duty-photo" onclick="openHistoryPhoto(${idx})">
+            </div>`;
+        }).join('');
+
+        return `
+        <div class="duty-card completed">
+          <div class="duty-header">
+            <span class="duty-name">${duty.section}</span>
+            <span class="duty-status completed">Completed</span>
+          </div>
+          <div class="duty-meta">
+            <span>By: ${duty.userName || duty.employeeName || 'Unknown'}</span>
+            <span>Time: ${new Date(duty.submittedAt).toLocaleTimeString()}</span>
+          </div>
+          ${photosHtml ? `
+            <div class="duty-photos">
+              ${photosHtml}
+            </div>
+          ` : ''}
+          ${duty.notes ? `<p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${duty.notes}</p>` : ''}
+        </div>
+      `;
+      }).join('');
+    }
+
+    function showPhoto(src) {
+      historyPhotos = [{ src, section: '', user: '' }];
+      modalIndex = 0;
+      renderPhotoModal();
+      document.getElementById('photoModal').classList.add('active');
+    }
+
+    function openHistoryPhoto(idx) {
+      if (!historyPhotos.length) return;
+      modalIndex = idx;
+      renderPhotoModal();
+      document.getElementById('photoModal').classList.add('active');
+    }
+
+    function renderPhotoModal() {
+      const item = historyPhotos[modalIndex];
+      if (!item) return;
+      document.getElementById('modalPhoto').src = item.src;
+      document.getElementById('photoCaption').textContent = `${item.section || 'Unknown section'}${item.user ? ' • ' + item.user : ''}`;
+    }
+
+    function setupEventListeners() {
+      // Tabs
+      document.querySelectorAll('.duties-tabs .tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.duties-tabs .tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+          document.getElementById(tab.dataset.tab + 'Tab').style.display = 'block';
+        });
+      });
+
+      // Photo preview (no limit)
+      document.getElementById('submitPhotos').addEventListener('change', (e) => {
+        const preview = document.getElementById('photoPreview');
+        preview.innerHTML = '';
+        Array.from(e.target.files).forEach(file => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            preview.innerHTML += `<img src="${ev.target.result}">`;
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+
+      // Allow submitting unassigned duty: enable select
+      document.getElementById('toggleUnassigned').addEventListener('click', () => {
+        const select = document.getElementById('submitSection');
+        allowUnassigned = true;
+        select.disabled = false;
+        select.value = '';
+        select.focus();
+        document.getElementById('unassignedForm').style.display = 'block';
+      });
+
+      // Form submit
+      document.getElementById('closingForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData();
+        const sectionValue = document.getElementById('submitSection').value;
+        const photosInput = document.getElementById('submitPhotos');
+
+        if (!sectionValue) {
+          alert('Please select a closing duty section.');
+          return;
+        }
+
+        if (photosInput.files.length === 0) {
+          alert('Please attach at least one photo.');
+          return;
+        }
+
+        formData.append('userId', document.getElementById('employee-id-input').value || currentUser?.userId || currentUser?.employeeId || '');
+        formData.append('userName', document.getElementById('employee-name-input').value || currentUser?.name || '');
+        formData.append('section', sectionValue);
+        formData.append('notes', document.getElementById('submitNotes').value);
+        formData.append('date', selectedDate);
+
+        const files = photosInput.files;
+        for (let i = 0; i < files.length; i++) {
+          formData.append('photos', files[i]);
+        }
+
+        try {
+          const response = await fetch('/api/closing-duties/submit', {
+            method: 'POST',
+            body: formData
+          });
+          if (response.ok) {
+            alert('Closing duty submitted successfully!');
+            document.getElementById('closingForm').reset();
+            document.getElementById('photoPreview').innerHTML = '';
+            if (currentUser) {
+              document.getElementById('submitName').value = currentUser.name;
+            }
+            allowUnassigned = false;
+            document.getElementById('submitSection').disabled = true;
+            await loadTodayDuties();
+            renderAssignedDuties();
+          }
+        } catch (e) {
+          alert('Error submitting duty');
+        }
+      });
+
+      // Date navigation
+      document.getElementById('historyDate').value = selectedDate;
+      document.getElementById('historyDate').addEventListener('change', (e) => {
+        selectedDate = e.target.value;
+        loadTodayDuties();
+      });
+      document.getElementById('prevDay').addEventListener('click', () => {
+        const d = new Date(selectedDate);
+        d.setDate(d.getDate() - 1);
+        selectedDate = d.toISOString().split('T')[0];
+        document.getElementById('historyDate').value = selectedDate;
+        loadTodayDuties();
+      });
+      document.getElementById('nextDay').addEventListener('click', () => {
+        const d = new Date(selectedDate);
+        d.setDate(d.getDate() + 1);
+        selectedDate = d.toISOString().split('T')[0];
+        document.getElementById('historyDate').value = selectedDate;
+        loadTodayDuties();
+      });
+      document.getElementById('todayBtn').addEventListener('click', () => {
+        selectedDate = new Date().toISOString().split('T')[0];
+        document.getElementById('historyDate').value = selectedDate;
+        loadTodayDuties();
+      });
+
+      // Photo modal
+      document.getElementById('closePhotoModal').addEventListener('click', () => {
+        document.getElementById('photoModal').classList.remove('active');
+      });
+      document.getElementById('photoModal').addEventListener('click', (e) => {
+        if (e.target.id === 'photoModal') document.getElementById('photoModal').classList.remove('active');
+      });
+      document.getElementById('prevPhoto').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!historyPhotos.length) return;
+        modalIndex = (modalIndex - 1 + historyPhotos.length) % historyPhotos.length;
+        renderPhotoModal();
+      });
+      document.getElementById('nextPhoto').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!historyPhotos.length) return;
+        modalIndex = (modalIndex + 1) % historyPhotos.length;
+        renderPhotoModal();
+      });
+    }
+  </script>
+  <script src="/js/shared-header.js"></script>
+</body>
+</html>

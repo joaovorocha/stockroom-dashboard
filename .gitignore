@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+.env.*
+ecosystem.config.json
+
+# SSL certificates
+ssl/
+*.pem
+*.key
+*.crt
+
+# Sensitive data
+data/users.json
+data/shipments.json
+data/activity-log.json
+
+# Logs
+logs/
+*.log
+.pm2/
+
+# OS files
+.DS_Store
+
+# Uploads
+data/feedback-uploads/
+files/

@@ -1,0 +1,160 @@
+{
+  "lastUpdated": "2025-12-18",
+  "store": {
+    "name": "San Francisco",
+    "code": "SR-US-SanFrancisco-Maiden"
+  },
+  "zones": [
+    {
+      "id": "zone-1",
+      "name": "Zone A - Entrance"
+    },
+    {
+      "id": "zone-2",
+      "name": "Zone B - Suits"
+    },
+    {
+      "id": "zone-3",
+      "name": "Zone C - Casual"
+    },
+    {
+      "id": "zone-4",
+      "name": "Zone D - Accessories"
+    },
+    {
+      "id": "zone-5",
+      "name": "Zone E - Fitting Rooms"
+    },
+    {
+      "id": "zone-6",
+      "name": "Floor"
+    }
+  ],
+  "fittingRooms": [
+    {
+      "id": "fr-1",
+      "name": "Big Guy"
+    },
+    {
+      "id": "fr-2",
+      "name": "Hallway 1"
+    },
+    {
+      "id": "fr-3",
+      "name": "Hallway 2"
+    },
+    {
+      "id": "fr-4",
+      "name": "Hosp 1"
+    },
+    {
+      "id": "fr-5",
+      "name": "Hosp 2"
+    },
+    {
+      "id": "fr-6",
+      "name": "Hosp 3"
+    }
+  ],
+  "shifts": [
+    {
+      "id": "shift-1",
+      "name": "Open (9:30 AM - 6:00 PM)"
+    },
+    {
+      "id": "shift-2",
+      "name": "Mid (11:00 AM - 7:30 PM)"
+    },
+    {
+      "id": "shift-3",
+      "name": "Close (12:30 PM - 9:00 PM)"
+    },
+    {
+      "id": "shift-4",
+      "name": "Full (9:30 AM - 9:00 PM)"
+    }
+  ],
+  "closingSections": [
+    {
+      "id": "cs-1",
+      "name": "Men's Suits"
+    },
+    {
+      "id": "cs-2",
+      "name": "Men's Casual"
+    },
+    {
+      "id": "cs-3",
+      "name": "Accessories"
+    },
+    {
+      "id": "cs-4",
+      "name": "Shirts & Ties"
+    },
+    {
+      "id": "cs-5",
+      "name": "Shoes"
+    },
+    {
+      "id": "cs-6",
+      "name": "Outerwear"
+    },
+    {
+      "id": "cs-7",
+      "name": "Fitting Rooms"
+    },
+    {
+      "id": "cs-8",
+      "name": "Stockroom"
+    }
+  ],
+  "managementRoles": [
+    {
+      "id": "mod",
+      "name": "MOD (Manager on Duty)"
+    },
+    {
+      "id": "host",
+      "name": "HOST"
+    }
+  ],
+  "tailorStations": [
+    {
+      "id": "ts-1",
+      "name": "Station 1"
+    },
+    {
+      "id": "ts-2",
+      "name": "Station 2"
+    },
+    {
+      "id": "ts-3",
+      "name": "Station 3"
+    },
+    {
+      "id": "ts-4",
+      "name": "Station 4"
+    },
+    {
+      "id": "ts-5",
+      "name": "Station 5"
+    },
+    {
+      "id": "ts-6",
+      "name": "Station 6"
+    }
+  ],
+  "lunchTimes": [
+    "11:00",
+    "11:30",
+    "12:00",
+    "12:30",
+    "13:00",
+    "13:30",
+    "14:00",
+    "14:30",
+    "15:00",
+    "15:30",
+    "16:00"
+  ]
+}

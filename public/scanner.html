@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scanner - Daily Game Plan | San Francisco</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/shared-header.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    .scanner-box {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+    }
+    .scanner-input {
+      font-size: 18px;
+      padding: 16px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      border: 2px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+    .scanner-input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .scanner-status {
+      padding: 16px;
+      border-radius: 8px;
+      margin-top: 16px;
+      display: none;
+    }
+    .scanner-status.success {
+      display: block;
+      background: #e8f5e9;
+      color: #2e7d32;
+      border: 1px solid #2e7d32;
+    }
+    .scanner-status.error {
+      display: block;
+      background: #ffebee;
+      color: #c62828;
+      border: 1px solid #c62828;
+    }
+    .camera-container {
+      margin-top: 24px;
+      display: none;
+    }
+    .camera-container.active {
+      display: block;
+    }
+    #cameraVideo {
+      width: 100%;
+      max-width: 500px;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+    }
+    .instructions {
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 24px;
+      text-align: left;
+    }
+    .instructions h4 {
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .instructions ul {
+      list-style: disc;
+      padding-left: 20px;
+      color: var(--text-secondary);
+    }
+    .instructions li {
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-brand">
+      <a href="/dashboard" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\'logo-text\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Daily Game Plan</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/shipments" id="navShipments">Shipments</a>
+      <a href="/scanner" class="active" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="switchUserBtn">Switch User</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
+    <main class="main-content">
+      <section class="section">
+        <div class="section-header">
+          <h2>Barcode / QR Code Scanner</h2>
+        </div>
+
+        <div class="scanner-box">
+          <p style="color: var(--text-secondary); margin-bottom: 16px;">Scan with USB scanner or use camera</p>
+
+          <input type="text" id="scannerInput" class="scanner-input" placeholder="Scan barcode here..." autofocus autocomplete="off">
+
+          <div style="display: flex; gap: 12px; justify-content: center;">
+            <button class="btn btn-primary" id="cameraBtn">Open Camera</button>
+            <button class="btn btn-secondary" id="clearBtn">Clear</button>
+          </div>
+
+          <div class="camera-container" id="cameraContainer">
+            <video id="cameraVideo" autoplay playsinline></video>
+            <button class="btn btn-secondary" id="closeCameraBtn" style="margin-top: 12px;">Close Camera</button>
+          </div>
+
+          <div class="scanner-status" id="scannerStatus"></div>
+        </div>
+
+        <div class="instructions">
+          <h4>Scanner Behavior</h4>
+          <ul>
+            <li><strong>Data Matrix:</strong> Copies data to clipboard and opens Inventory System</li>
+            <li><strong>PSUS Order QR Code:</strong> Opens MAO Order Status (PSUS + 8 digits)</li>
+            <li>Ignores any data before "PSUS" and after the 8 digits</li>
+            <li>Press Enter or Tab after scanning to process</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkAuth();
+      setupScanner();
+    });
+
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/auth/check');
+        const data = await response.json();
+        if (data.authenticated) {
+          document.getElementById('userName').textContent = data.user.name;
+          document.querySelector('.user-switch').innerHTML = '<a href="#" onclick="logout()">Not you? Switch</a>';
+          if (data.user.isManager || data.user.isAdmin) {
+            document.getElementById('adminLink').style.display = 'inline';
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login-v2';
+    }
+
+    function setupScanner() {
+      const input = document.getElementById('scannerInput');
+      const status = document.getElementById('scannerStatus');
+
+      input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          e.preventDefault();
+          processScan(input.value);
+        }
+      });
+
+      document.getElementById('clearBtn').addEventListener('click', () => {
+        input.value = '';
+        status.className = 'scanner-status';
+        input.focus();
+      });
+
+      document.getElementById('cameraBtn').addEventListener('click', openCamera);
+      document.getElementById('closeCameraBtn').addEventListener('click', closeCamera);
+    }
+
+    function processScan(data) {
+      const status = document.getElementById('scannerStatus');
+      const input = document.getElementById('scannerInput');
+
+      if (!data.trim()) {
+        status.className = 'scanner-status error';
+        status.textContent = 'No data scanned';
+        return;
+      }
+
+      // Check for PSUS order number
+      const psusMatch = data.match(/PSUS(\d{8})/i);
+      if (psusMatch) {
+        const orderNumber = 'PSUS' + psusMatch[1];
+        status.className = 'scanner-status success';
+        status.textContent = `Order found: ${orderNumber} - Opening MAO...`;
+
+        // Open MAO order status
+        window.open(`https://mao.suitsupply.com/order/${orderNumber}`, '_blank');
+        input.value = '';
+        input.focus();
+        return;
+      }
+
+      // Data Matrix - copy to clipboard and open inventory system
+      navigator.clipboard.writeText(data).then(() => {
+        status.className = 'scanner-status success';
+        status.textContent = `Data copied: ${data.substring(0, 30)}... - Opening Inventory System`;
+
+        // Open inventory system
+        window.open('https://inventory.suitsupply.com/', '_blank');
+        input.value = '';
+        input.focus();
+      }).catch(() => {
+        status.className = 'scanner-status error';
+        status.textContent = 'Failed to copy to clipboard';
+      });
+    }
+
+    let videoStream = null;
+
+    async function openCamera() {
+      try {
+        const video = document.getElementById('cameraVideo');
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment' }
+        });
+        video.srcObject = videoStream;
+        document.getElementById('cameraContainer').classList.add('active');
+      } catch (e) {
+        alert('Camera access denied or not available');
+      }
+    }
+
+    function closeCamera() {
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+      }
+      document.getElementById('cameraContainer').classList.remove('active');
+      document.getElementById('scannerInput').focus();
+    }
+  </script>
+  <script src="/js/shared-header.js"></script>
+</body>
+</html>

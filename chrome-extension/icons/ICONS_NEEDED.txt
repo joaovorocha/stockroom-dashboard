@@ -1,0 +1,23 @@
+ICONS NEEDED FOR CHROME EXTENSION
+==================================
+
+Create 3 PNG icon files in this folder:
+
+1. icon16.png - 16x16 pixels (toolbar icon)
+2. icon48.png - 48x48 pixels (extension management)
+3. icon128.png - 128x128 pixels (Chrome Web Store)
+
+QUICK SOLUTION:
+- Use any simple package/box icon
+- Use SuitSupply logo if available
+- Generate at: https://favicon.io or https://www.canva.com
+
+TEMPORARY WORKAROUND:
+You can use any PNG images (just rename them) to get the extension working for testing.
+The extension will function without proper icons, but Chrome may show warnings.
+
+DESIGN SUGGESTIONS:
+- Black and white color scheme (matches dashboard)
+- Simple box or shipping icon
+- Letter "S" for SuitSupply
+- Package with tracking barcode

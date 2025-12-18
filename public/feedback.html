@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Feedback - Daily Game Plan | San Francisco</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/shared-header.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    .feedback-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .feedback-tabs .tab {
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-secondary);
+      border-radius: 6px 6px 0 0;
+    }
+    .feedback-tabs .tab.active {
+      background: var(--primary);
+      color: #fff;
+    }
+    .feedback-form {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .feedback-card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .feedback-card.new { border-left: 4px solid #ffc107; }
+    .feedback-card.reviewed { border-left: 4px solid #2196f3; }
+    .feedback-card.resolved { border-left: 4px solid var(--success); }
+    .feedback-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .feedback-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .feedback-status {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .feedback-status.new { background: #fff3cd; color: #856404; }
+    .feedback-status.reviewed { background: #e3f2fd; color: #1565c0; }
+    .feedback-status.resolved { background: #d4edda; color: #155724; }
+    .feedback-text {
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+    .feedback-images {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .feedback-images img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .feedback-images img:hover {
+      transform: scale(1.05);
+    }
+    .image-preview-container {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .image-preview {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+    .image-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    .image-preview .remove-btn {
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      width: 20px;
+      height: 20px;
+      background: var(--danger);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 20px;
+    }
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--primary);
+      background: var(--surface);
+    }
+    .drop-zone input {
+      display: none;
+    }
+    .response-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      padding: 12px;
+      border-radius: 6px;
+    }
+    .response-section h5 {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+    .category-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      background: var(--surface);
+      color: var(--text-secondary);
+      margin-right: 8px;
+    }
+    .image-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .image-modal.active {
+      display: flex;
+    }
+    .image-modal img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 8px;
+    }
+    .image-modal .close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      color: #fff;
+      font-size: 30px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-brand">
+      <a href="/dashboard" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Daily Game Plan</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/shipments" id="navShipments">Shipments</a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/feedback" class="active" id="navFeedback">Feedback</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="switchUserBtn">Switch User</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
+    <main class="main-content">
+      <section class="section">
+        <div class="section-header">
+          <h2>Feedback</h2>
+        </div>
+
+        <div class="feedback-tabs">
+          <button class="tab active" data-tab="submit">Submit Feedback</button>
+          <button class="tab" data-tab="my">My Feedback</button>
+          <button class="tab" data-tab="all" id="allTab" style="display:none;">All Feedback</button>
+        </div>
+
+        <!-- Submit Tab -->
+        <div id="submitTab" class="tab-content">
+          <div class="feedback-form">
+            <h3 style="margin-bottom: 20px;">Share Your Feedback</h3>
+            <form id="feedbackForm">
+              <input type="hidden" id="employeeName">
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label>Category</label>
+                  <select class="form-control" id="category">
+                    <option value="general">General</option>
+                    <option value="operations">Operations</option>
+                    <option value="customer-service">Customer Service</option>
+                    <option value="product">Product</option>
+                    <option value="suggestion">Suggestion</option>
+                    <option value="issue">Issue/Problem</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Your Feedback *</label>
+                <textarea class="form-control" id="feedbackText" rows="4" required placeholder="Share your thoughts, suggestions, or report an issue..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>Attach Images (Optional)</label>
+                <div class="drop-zone" id="dropZone">
+                  <input type="file" id="imageInput" accept="image/*" multiple>
+                  <p style="margin: 0; color: var(--text-muted);">Click or drag images here (max 5 images, 5MB each)</p>
+                </div>
+                <div class="image-preview-container" id="previewContainer"></div>
+              </div>
+              <button type="submit" class="btn btn-primary">Submit Feedback</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- My Feedback Tab -->
+        <div id="myTab" class="tab-content" style="display:none;">
+          <h3 style="margin-bottom: 16px;">Your Submitted Feedback</h3>
+          <div id="myFeedbackList"></div>
+        </div>
+
+        <!-- All Feedback Tab (Managers Only) -->
+        <div id="allTabContent" class="tab-content" style="display:none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <h3>All Feedback</h3>
+            <div>
+              <select class="form-control" id="statusFilter" style="width: auto;">
+                <option value="">All Status</option>
+                <option value="new">New</option>
+                <option value="reviewed">Reviewed</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </div>
+          </div>
+          <div id="allFeedbackList"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Image Modal -->
+  <div class="image-modal" id="imageModal">
+    <span class="close" onclick="closeImageModal()">&times;</span>
+    <img id="modalImage" src="">
+  </div>
+
+  <footer class="footer">
+    <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
+  </footer>
+
+  <script>
+    let currentUser = null;
+    let feedbackList = [];
+    let selectedFiles = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkAuth();
+      await loadFeedback();
+      setupEventListeners();
+    });
+
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/auth/check');
+        const data = await response.json();
+        if (data.authenticated) {
+          currentUser = data.user;
+          document.getElementById('userName').textContent = currentUser.name;
+          document.querySelector('.user-switch').innerHTML = '<a href="#" id="logoutLink">Not you? Switch</a>';
+          document.getElementById('logoutLink')?.addEventListener('click', logout);
+          document.getElementById('employeeName').value = currentUser.name;
+          if (currentUser.isManager || currentUser.isAdmin) {
+            document.getElementById('adminLink').style.display = 'inline';
+            document.getElementById('allTab').style.display = 'inline-block';
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login-v2';
+    }
+
+    async function loadFeedback() {
+      try {
+        const response = await fetch('/api/feedback');
+        feedbackList = await response.json();
+        renderMyFeedback();
+        if (currentUser?.isManager || currentUser?.isAdmin) {
+          renderAllFeedback();
+        }
+      } catch (e) {
+        feedbackList = [];
+      }
+    }
+
+    function renderMyFeedback() {
+      const container = document.getElementById('myFeedbackList');
+      const myFeedback = currentUser
+        ? feedbackList.filter(f => f.employeeId === currentUser.employeeId || f.employeeName === currentUser.name)
+        : [];
+
+      if (!myFeedback.length) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No feedback submitted yet.</p>';
+        return;
+      }
+
+      container.innerHTML = myFeedback.map(f => renderFeedbackCard(f, false)).join('');
+    }
+
+    function renderAllFeedback() {
+      const container = document.getElementById('allFeedbackList');
+      const statusFilter = document.getElementById('statusFilter').value;
+      const filtered = statusFilter
+        ? feedbackList.filter(f => f.status === statusFilter)
+        : feedbackList;
+
+      if (!filtered.length) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No feedback found.</p>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(f => renderFeedbackCard(f, true)).join('');
+    }
+
+    function renderFeedbackCard(f, isManager = false) {
+      const date = new Date(f.submittedAt).toLocaleDateString();
+      const images = (f.images || []).map(img =>
+        `<img src="${img}" alt="Feedback image" onclick="showImage('${img}')">`
+      ).join('');
+
+      let managerActions = '';
+      if (isManager) {
+        managerActions = `
+          <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
+            ${f.status !== 'reviewed' ? `<button class="btn btn-sm btn-outline" onclick="updateStatus('${f.id}', 'reviewed')">Mark Reviewed</button>` : ''}
+            ${f.status !== 'resolved' ? `<button class="btn btn-sm btn-primary" onclick="updateStatus('${f.id}', 'resolved')">Mark Resolved</button>` : ''}
+            <button class="btn btn-sm btn-outline" onclick="showRespondModal('${f.id}')">Respond</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteFeedback('${f.id}')">Delete</button>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="feedback-card ${f.status}">
+          <div class="feedback-header">
+            <div>
+              <span class="category-badge">${f.category || 'general'}</span>
+              <span class="feedback-meta">${f.employeeName || 'Anonymous'} - ${date}</span>
+            </div>
+            <span class="feedback-status ${f.status}">${f.status}</span>
+          </div>
+          <div class="feedback-text">${f.text}</div>
+          ${images ? `<div class="feedback-images">${images}</div>` : ''}
+          ${f.response ? `
+            <div class="response-section">
+              <h5>Response from ${f.respondedBy || 'Management'}</h5>
+              <p style="margin: 0;">${f.response}</p>
+            </div>
+          ` : ''}
+          ${managerActions}
+        </div>
+      `;
+    }
+
+    async function updateStatus(id, status) {
+      try {
+        await fetch(`/api/feedback/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        await loadFeedback();
+      } catch (e) {
+        alert('Error updating status');
+      }
+    }
+
+    async function deleteFeedback(id) {
+      if (!confirm('Are you sure you want to delete this feedback?')) return;
+      try {
+        await fetch(`/api/feedback/${id}`, { method: 'DELETE' });
+        await loadFeedback();
+      } catch (e) {
+        alert('Error deleting feedback');
+      }
+    }
+
+    function showRespondModal(id) {
+      const response = prompt('Enter your response:');
+      if (response && response.trim()) {
+        respondToFeedback(id, response);
+      }
+    }
+
+    async function respondToFeedback(id, response) {
+      try {
+        await fetch(`/api/feedback/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ response, respondedBy: currentUser?.name, status: 'reviewed' })
+        });
+        await loadFeedback();
+      } catch (e) {
+        alert('Error responding to feedback');
+      }
+    }
+
+    function showImage(src) {
+      document.getElementById('modalImage').src = src;
+      document.getElementById('imageModal').classList.add('active');
+    }
+
+    function closeImageModal() {
+      document.getElementById('imageModal').classList.remove('active');
+    }
+
+    function setupEventListeners() {
+      // Tabs
+      document.querySelectorAll('.feedback-tabs .tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.feedback-tabs .tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+          const tabId = tab.dataset.tab === 'all' ? 'allTabContent' : tab.dataset.tab + 'Tab';
+          document.getElementById(tabId).style.display = 'block';
+        });
+      });
+
+      // Status filter
+      document.getElementById('statusFilter')?.addEventListener('change', renderAllFeedback);
+
+      // Image drop zone
+      const dropZone = document.getElementById('dropZone');
+      const imageInput = document.getElementById('imageInput');
+
+      dropZone.addEventListener('click', () => imageInput.click());
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+      });
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+      });
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        handleFiles(e.dataTransfer.files);
+      });
+      imageInput.addEventListener('change', () => {
+        handleFiles(imageInput.files);
+      });
+
+      // Form submit
+      document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitFeedback();
+      });
+
+      // Close modal on click outside
+      document.getElementById('imageModal').addEventListener('click', (e) => {
+        if (e.target.id === 'imageModal') closeImageModal();
+      });
+    }
+
+    function handleFiles(files) {
+      const maxFiles = 5;
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      for (let i = 0; i < files.length && selectedFiles.length < maxFiles; i++) {
+        const file = files[i];
+        if (!file.type.startsWith('image/')) {
+          alert('Only image files are allowed');
+          continue;
+        }
+        if (file.size > maxSize) {
+          alert('File size must be under 5MB');
+          continue;
+        }
+        selectedFiles.push(file);
+        addPreview(file, selectedFiles.length - 1);
+      }
+    }
+
+    function addPreview(file, index) {
+      const container = document.getElementById('previewContainer');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const div = document.createElement('div');
+        div.className = 'image-preview';
+        div.innerHTML = `
+          <img src="${e.target.result}" alt="Preview">
+          <button type="button" class="remove-btn" onclick="removeImage(${index})">&times;</button>
+        `;
+        container.appendChild(div);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeImage(index) {
+      selectedFiles.splice(index, 1);
+      renderPreviews();
+    }
+
+    function renderPreviews() {
+      const container = document.getElementById('previewContainer');
+      container.innerHTML = '';
+      selectedFiles.forEach((file, index) => addPreview(file, index));
+    }
+
+    async function submitFeedback() {
+      const text = document.getElementById('feedbackText').value;
+      if (!text.trim()) {
+        alert('Please enter your feedback');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('text', text);
+      formData.append('employeeName', document.getElementById('employeeName').value || 'Anonymous');
+      formData.append('employeeId', currentUser?.employeeId || '');
+      formData.append('category', document.getElementById('category').value);
+
+      selectedFiles.forEach(file => {
+        formData.append('images', file);
+      });
+
+      try {
+        const response = await fetch('/api/feedback', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (response.ok) {
+          alert('Feedback submitted successfully!');
+          document.getElementById('feedbackForm').reset();
+          selectedFiles = [];
+          document.getElementById('previewContainer').innerHTML = '';
+          if (currentUser) {
+            document.getElementById('employeeName').value = currentUser.name;
+          }
+          await loadFeedback();
+        } else {
+          alert('Error submitting feedback');
+        }
+      } catch (e) {
+        alert('Error submitting feedback');
+      }
+    }
+  </script>
+  <script src="/js/shared-header.js"></script>
+</body>
+</html>

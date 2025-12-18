@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Daily Game Plan | San Francisco</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <style>
+    body {
+      display: flex;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+    }
+
+    .login-container {
+      display: flex;
+      width: 100%;
+      max-width: 1200px;
+      margin: auto;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+
+    .login-brand {
+      flex: 1;
+      background: #000;
+      color: #fff;
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .login-brand img {
+      width: 180px;
+      margin-bottom: 40px;
+    }
+
+    .login-brand h1 {
+      font-size: 36px;
+      font-weight: 300;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .login-brand h1 span {
+      display: block;
+      font-weight: 600;
+    }
+
+    .login-brand p {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.7);
+      line-height: 1.6;
+    }
+
+    .login-brand .location {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .login-form-container {
+      flex: 1;
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .login-form h2 {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .login-form p {
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+    }
+
+    .login-form .form-group {
+      margin-bottom: 24px;
+    }
+
+    .login-form .form-control {
+      padding: 14px 16px;
+      font-size: 15px;
+    }
+
+    .login-form .btn-primary {
+      width: 100%;
+      padding: 14px;
+      font-size: 15px;
+      margin-top: 8px;
+    }
+
+    .login-error {
+      background: #f8d7da;
+      color: #721c24;
+      padding: 12px 16px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .login-error.show {
+      display: block;
+    }
+
+    .login-footer {
+      margin-top: 40px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .login-footer a {
+      color: var(--text-secondary);
+    }
+
+    @media (max-width: 768px) {
+      .login-container {
+        flex-direction: column;
+        margin: 20px;
+        border-radius: 8px;
+      }
+
+      .login-brand {
+        padding: 40px;
+      }
+
+      .login-brand h1 {
+        font-size: 28px;
+      }
+
+      .login-form-container {
+        padding: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-brand">
+      <img src="/images/suitsupply-logo.svg" alt="Suitsupply" onerror="this.style.display='none'">
+      <h1>Daily <span>Game Plan</span></h1>
+      <p>Your daily operations dashboard for managing team assignments, store metrics, and performance tracking.</p>
+      <div class="location">San Francisco Store</div>
+    </div>
+
+    <div class="login-form-container">
+      <form class="login-form" id="loginForm">
+        <h2>Welcome back</h2>
+        <p>Sign in to access your dashboard</p>
+
+        <div class="login-error" id="loginError">
+          Invalid employee ID or password. Please try again.
+        </div>
+
+        <div class="form-group">
+          <label for="employeeId">Employee ID</label>
+          <input type="text" id="employeeId" class="form-control" placeholder="Enter your employee ID" required>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
+        </div>
+
+        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="remember" style="width: auto;">
+          <label for="remember" style="margin: 0; text-transform: none; font-size: 14px; color: var(--text-secondary);">Remember me for 30 days</label>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Sign In</button>
+      </form>
+
+      <div class="login-footer">
+        <p>Developed by Victor Rocha | 831-998-3808</p>
+        <p style="margin-top: 8px;">Need help? Contact your manager on duty.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const employeeId = document.getElementById('employeeId').value;
+      const password = document.getElementById('password').value;
+      const remember = document.getElementById('remember').checked;
+
+      try {
+        console.log('Logging in...');
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ employeeId, password, remember }),
+          credentials: 'include'
+        });
+
+        console.log('Response status:', response.status);
+        const data = await response.json();
+        console.log('Response data:', data);
+
+        if (data.success) {
+          console.log('Login success, redirecting...');
+          window.location.replace('/dashboard');
+        } else {
+          console.log('Login failed:', data.error);
+          document.getElementById('loginError').classList.add('show');
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        document.getElementById('loginError').textContent = 'Connection error. Please try again.';
+        document.getElementById('loginError').classList.add('show');
+      }
+    });
+  </script>
+</body>
+</html>

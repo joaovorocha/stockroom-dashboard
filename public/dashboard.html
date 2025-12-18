@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Game Plan - San Francisco | Suitsupply</title>
+  <link rel="stylesheet" href="/css/theme.css?v=13">
+  <link rel="stylesheet" href="/css/shared-header.css?v=13">
+  <link rel="stylesheet" href="/css/dashboard.css?v=13">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <a href="/dashboard" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Daily Game Plan</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+
+    <nav class="header-nav">
+      <a href="/dashboard" class="active" id="navGamePlan">Game Plan</a>
+      <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName"></span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="switchUserBtn">Switch User</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="dashboard-layout">
+    <!-- Left Side - Main Content -->
+    <main class="main-content">
+      <!-- Status Banner - Shows when game plan not published (at TOP) -->
+      <div class="status-banner" id="statusBanner" style="display:none;">
+        <div class="status-icon">!</div>
+        <div class="status-text">
+          <strong>Game Plan Not Published</strong>
+          <span>Today's game plan is being prepared. Contact your manager on duty.</span>
+        </div>
+      </div>
+
+      <!-- Welcome Section -->
+      <section class="section welcome-section" id="welcomeSection">
+        <div class="welcome-card">
+          <div class="welcome-header">
+            <div class="welcome-profile">
+              <img src="" alt="" id="welcomeAvatar" class="welcome-avatar-large" onerror="this.style.display='none'; document.getElementById('avatarPlaceholder').style.display='flex'">
+              <div class="welcome-avatar-placeholder" id="avatarPlaceholder" style="display:none;"></div>
+              <div class="welcome-info">
+                <h2>Welcome, <span id="welcomeName">--</span>!</h2>
+                <p class="welcome-role" id="welcomeRole">--</p>
+              </div>
+            </div>
+            <!-- Data Import Status (moved here for SA view) -->
+            <div class="data-import-box" id="dataImportBox" style="display:none;">
+              <div class="import-icon">📊</div>
+              <div class="import-info">
+                <strong>Data Import</strong>
+                <span id="lastLookerSync">--</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- SA KPIs Row (shown on top for SA) -->
+          <div class="welcome-kpis-row" id="welcomeKpisRow" style="display:none;">
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiSales">--</span>
+              <span class="kpi-label">WTD Sales</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiIPC">--</span>
+              <span class="kpi-label">IPC</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiUPT">--</span>
+              <span class="kpi-label">UPT</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiATV">--</span>
+              <span class="kpi-label">ATV</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiSPH">--</span>
+              <span class="kpi-label">SPH</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiTarget">--</span>
+              <span class="kpi-label">Today's Target</span>
+            </div>
+          </div>
+
+          <div class="welcome-details" id="welcomeDetails">
+            <!-- Populated by JS based on employee type -->
+          </div>
+
+          <!-- Expandable Assignment Boxes -->
+          <div class="expandable-assignments" id="expandableAssignments" style="display:none;">
+            <!-- Fitting Room Box -->
+            <div class="expandable-box" id="fittingRoomBox">
+              <div class="expandable-header" onclick="toggleExpandable('fittingRoom')">
+                <span class="expandable-icon">🚪</span>
+                <span class="expandable-title">Fitting Room</span>
+                <span class="expandable-value" id="myFittingRoom">--</span>
+                <span class="expandable-arrow" id="fittingRoomArrow">▼</span>
+              </div>
+              <div class="expandable-content" id="fittingRoomContent" style="display:none;">
+                <div class="expandable-list" id="fittingRoomList"></div>
+              </div>
+            </div>
+
+            <!-- Zone Box -->
+            <div class="expandable-box" id="zoneBox">
+              <div class="expandable-header" onclick="toggleExpandable('zone')">
+                <span class="expandable-icon">📍</span>
+                <span class="expandable-title">Zone</span>
+                <span class="expandable-value" id="myZone">--</span>
+                <span class="expandable-arrow" id="zoneArrow">▼</span>
+              </div>
+              <div class="expandable-content" id="zoneContent" style="display:none;">
+                <div class="expandable-list" id="zoneList"></div>
+              </div>
+            </div>
+
+            <!-- Closing Duties Box -->
+            <div class="expandable-box" id="closingDutiesBox">
+              <div class="expandable-header" onclick="toggleExpandable('closingDuties')">
+                <span class="expandable-icon">🧹</span>
+                <span class="expandable-title">Closing Duties</span>
+                <span class="expandable-value" id="myClosingDuties">--</span>
+                <span class="expandable-arrow" id="closingDutiesArrow">▼</span>
+              </div>
+              <div class="expandable-content" id="closingDutiesContent" style="display:none;">
+                <div class="expandable-list" id="closingDutiesList"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lunch Timeline Section -->
+          <div class="lunch-timeline-section" id="lunchTimelineSection" style="display:none;">
+            <div class="timeline-header">
+              <span class="timeline-icon">🍽️</span>
+              <span class="timeline-title">Team Lunch Schedule</span>
+              <span class="my-lunch-time" id="myLunchTime">Your lunch: --</span>
+            </div>
+            <div class="lunch-timeline" id="lunchTimeline">
+              <!-- Timeline populated by JS -->
+            </div>
+          </div>
+
+          <!-- Store Info for SA - Now shows Game Plan Notes -->
+          <div class="welcome-store-info" id="welcomeStoreInfo" style="display:none;">
+            <div class="notes-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span class="store-info-label">📝 Today's Notes:</span>
+              <span class="notes-author" id="notesAuthor" style="font-size: 12px; color: var(--text-secondary);"></span>
+            </div>
+            <div class="notes-content" id="notesPreview" style="background: var(--surface); border-radius: 8px; padding: 16px; line-height: 1.6;">--</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Management & BOH Section - Quick reference for who's on duty -->
+      <section class="section management-quick-section" id="managementQuickSection">
+        <div class="section-header">
+          <h2>👔 On Duty Today</h2>
+        </div>
+        <div class="management-quick-grid" id="managementQuickGrid">
+          <!-- Populated by JS - shows MOD and key info -->
+        </div>
+      </section>
+
+      <!-- Last Week Store Overview -->
+      <section class="section metrics-section">
+        <div class="section-header">
+          <h2>Last Week Store Overview</h2>
+          <div class="section-actions">
+            <button class="btn btn-sm btn-outline" id="toggleMetrics">Hide</button>
+          </div>
+        </div>
+        <div class="metrics-content" id="metricsContent">
+          <div class="metrics-row">
+            <div class="metric-card highlight">
+              <span class="metric-label">WTD Sales</span>
+              <span class="metric-value" id="wtdSales">--</span>
+              <span class="metric-change" id="wtdChange">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Target</span>
+              <span class="metric-value" id="targetAmount">--</span>
+              <span class="metric-change" id="vsTarget">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">SPH</span>
+              <span class="metric-value" id="sph">--</span>
+              <span class="metric-change" id="sphChange">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">IPC</span>
+              <span class="metric-value" id="ipc">--</span>
+              <span class="metric-change" id="ipcChange">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Drop-offs</span>
+              <span class="metric-value" id="dropoffs">--</span>
+            </div>
+            <div class="metric-card warning clickable" id="loansCard" onclick="showLoansModal()">
+              <span class="metric-label">Loans Overdue</span>
+              <span class="metric-value" id="loansOverdueTotal">0</span>
+              <span class="metric-change" id="loansOverdueNames">--</span>
+              <span class="metric-hint">Click for details</span>
+            </div>
+          </div>
+          <div class="product-mix-row">
+            <span class="mix-label">Last Week Mix:</span>
+            <span class="mix-item formal"><span id="formalPct">--</span> Formal</span>
+            <span class="mix-item casual"><span id="casualPct">--</span> Casual</span>
+            <span class="mix-item tuxedo"><span id="tuxedoPct">--</span> Tuxedo</span>
+            <span class="mix-total">= 100%</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Operations Dashboard - Consolidated -->
+      <section class="section operations-section" id="operationsSection">
+        <div class="section-header">
+          <h2>📊 Operations Dashboard</h2>
+          <button class="btn btn-sm btn-outline" id="toggleOperations">Hide</button>
+        </div>
+        <div class="operations-content" id="operationsContent">
+          <!-- Operations Health Cards -->
+          <div class="ops-subsection">
+            <h4 class="ops-subsection-title">Health Metrics</h4>
+            <div class="metrics-row">
+              <div class="metric-card" id="tailorProdCard">
+                <span class="metric-label">Tailor Productivity</span>
+                <span class="metric-value" id="tailorProductivity">--</span>
+                <span class="metric-change neutral">Current Week</span>
+              </div>
+              <div class="metric-card" id="ontimeCard">
+                <span class="metric-label">On-Time Alterations</span>
+                <span class="metric-value" id="ontimeAlterations">--</span>
+                <span class="metric-change neutral">Target: 95%</span>
+              </div>
+              <div class="metric-card" id="overdueAltsCard">
+                <span class="metric-label">Overdue Alterations</span>
+                <span class="metric-value" id="overdueAlterations">--</span>
+                <span class="metric-change neutral">Count</span>
+              </div>
+              <div class="metric-card" id="invAccuracyCard">
+                <span class="metric-label">Inventory Accuracy</span>
+                <span class="metric-value" id="inventoryAccuracy">--</span>
+                <span class="metric-change neutral">Target: 99%</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Inventory Issues Cards -->
+          <div class="ops-subsection">
+            <h4 class="ops-subsection-title">Inventory Issues</h4>
+            <div class="metrics-row">
+              <div class="metric-card warning" id="missingCard">
+                <span class="metric-label">Missing Items</span>
+                <span class="metric-value" id="missingItems">--</span>
+                <span class="metric-change neutral">% of inventory</span>
+              </div>
+              <div class="metric-card warning" id="overdueReservedCard">
+                <span class="metric-label">Overdue Reserved</span>
+                <span class="metric-value" id="overdueReserved">--</span>
+                <span class="metric-change neutral">% of reserved</span>
+              </div>
+              <div class="metric-card" id="unexpectedCard">
+                <span class="metric-label">Unexpected Items</span>
+                <span class="metric-value" id="unexpectedItems">--</span>
+                <span class="metric-change neutral">% of inventory</span>
+              </div>
+              <div class="metric-card" id="pullbacksCard">
+                <span class="metric-label">Due Pullbacks</span>
+                <span class="metric-value" id="duePullbacks">--</span>
+                <span class="metric-change neutral">Count</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Customer Reserved Orders -->
+          <div class="ops-subsection">
+            <h4 class="ops-subsection-title">Customer Reserved Orders <span class="section-count-inline" id="ordersCount">0 orders</span></h4>
+            <div class="orders-summary">
+              <div class="summary-stat alert">
+                <span class="summary-value" id="orders30Days">0</span>
+                <span class="summary-label">30+ Days</span>
+              </div>
+              <div class="summary-stat warning">
+                <span class="summary-value" id="orders60Days">0</span>
+                <span class="summary-label">60+ Days</span>
+              </div>
+              <div class="summary-stat critical">
+                <span class="summary-value" id="orders90Days">0</span>
+                <span class="summary-label">90+ Days</span>
+              </div>
+              <div class="summary-stat missing">
+                <span class="summary-value" id="missingReservedCount">0</span>
+                <span class="summary-label">Missing</span>
+              </div>
+            </div>
+            <div class="orders-table-container collapsed" id="ordersTableContainer">
+              <table class="orders-table" id="ordersTable">
+                <thead>
+                  <tr>
+                    <th>Fulfillment ID</th>
+                    <th>Created</th>
+                    <th>Days Old</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersTableBody">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Daily Scan Log (formerly Count Leaderboard) -->
+          <div class="ops-subsection">
+            <h4 class="ops-subsection-title">Daily Scan Log</h4>
+            <div class="scan-log-content" id="scanLogContent">
+              <div class="scan-log-grid" id="scanLogGrid">
+                <!-- Populated by JS with employee photos -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Tailor Productivity Trend -->
+          <div class="ops-subsection">
+            <h4 class="ops-subsection-title">Tailor Productivity Trend 
+              <span class="trend-legend">
+                <span class="legend-item"><span class="legend-color y2024"></span>2024</span>
+                <span class="legend-item"><span class="legend-color y2025"></span>2025</span>
+              </span>
+            </h4>
+            <div class="trend-summary">
+              <div class="trend-stat">
+                <span class="trend-value" id="ytdAvg2024">--</span>
+                <span class="trend-label">2024 YTD Avg</span>
+              </div>
+              <div class="trend-stat highlight">
+                <span class="trend-value" id="ytdAvg2025">--</span>
+                <span class="trend-label">2025 YTD Avg</span>
+              </div>
+            </div>
+            <div class="trend-chart-container">
+              <canvas id="tailorTrendChart" height="200"></canvas>
+            </div>
+          </div>
+
+          <!-- Appointments / Waitwhile Widget -->
+          <div class="ops-subsection">
+            <h4 class="ops-subsection-title">📅 Appointments This Week <span class="section-count-inline" id="appointmentsWeekNum">Week --</span></h4>
+            <div class="appointments-summary">
+              <div class="summary-stat highlight">
+                <span class="summary-value" id="appointmentsTotal">0</span>
+                <span class="summary-label">Total Visits</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-value" id="appointmentsBooked">0</span>
+                <span class="summary-label">Appointments</span>
+              </div>
+              <div class="summary-stat">
+                <span class="summary-value" id="appointmentsWalkIns">0</span>
+                <span class="summary-label">Walk-Ins</span>
+              </div>
+              <div class="summary-stat warning">
+                <span class="summary-value" id="appointmentsDropOff">0%</span>
+                <span class="summary-label">Drop-Off Rate</span>
+              </div>
+            </div>
+            <div class="appointments-breakdown">
+              <div class="breakdown-item">
+                <span class="breakdown-label">🛍️ Shopping</span>
+                <span class="breakdown-value" id="appointmentsShopping">0</span>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-label">📦 Pickup</span>
+                <span class="breakdown-value" id="appointmentsPickup">0</span>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-label">💼 Consultation</span>
+                <span class="breakdown-value" id="appointmentsConsultation">0</span>
+              </div>
+              <div class="breakdown-item">
+                <span class="breakdown-label">📋 Other</span>
+                <span class="breakdown-value" id="appointmentsOther">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Best Sellers Widget -->
+          <div class="ops-subsection">
+            <h4 class="ops-subsection-title">🏆 Best Sellers
+              <div class="best-sellers-toggle">
+                <button class="toggle-btn active" id="toggleByRevenue">By Revenue</button>
+                <button class="toggle-btn" id="toggleByQuantity">By Quantity</button>
+              </div>
+            </h4>
+            <div class="best-sellers-list" id="bestSellersList">
+              <!-- Populated by JS -->
+              <div class="best-seller-placeholder">Loading best sellers...</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sales Associates -->
+      <section class="section" id="saSection">
+        <div class="section-header">
+          <h2>Sales Associates</h2>
+          <div class="section-actions">
+            <span class="section-count" id="saCount">0</span>
+            <button class="btn btn-sm btn-outline expand-btn" id="expandSA" style="display:none;">Show All</button>
+          </div>
+        </div>
+        <div class="employee-grid" id="saGrid"></div>
+      </section>
+
+      <!-- BOH -->
+      <section class="section" id="bohSection">
+        <div class="section-header">
+          <h2>Back of House</h2>
+          <div class="section-actions">
+            <span class="section-count" id="bohCount">0</span>
+            <button class="btn btn-sm btn-outline expand-btn" id="expandBOH" style="display:none;">Show All</button>
+          </div>
+        </div>
+        <div class="employee-grid" id="bohGrid"></div>
+      </section>
+
+      <!-- Management (Detailed - hidden by default, shown when clicking quick section) -->
+      <section class="section collapsible collapsed" id="managementSection" style="display:none;">
+        <div class="section-header">
+          <h2>Management Details</h2>
+          <div class="section-actions">
+            <span class="section-count" id="mgmtCount">0</span>
+            <button class="btn btn-sm btn-outline expand-btn" id="expandMgmt" style="display:none;">Show All</button>
+            <button class="btn btn-sm btn-outline collapse-btn" id="collapseMgmt">▼</button>
+          </div>
+        </div>
+        <div class="employee-grid collapsible-content" id="mgmtGrid"></div>
+      </section>
+
+      <!-- Tailors -->
+      <section class="section" id="tailorsSection">
+        <div class="section-header">
+          <h2>Tailors</h2>
+          <div class="section-actions">
+            <span class="section-count" id="tailorCount">0</span>
+            <button class="btn btn-sm btn-outline expand-btn" id="expandTailors" style="display:none;">Show All</button>
+          </div>
+        </div>
+        <div class="employee-grid" id="tailorGrid"></div>
+      </section>
+
+      <!-- Looker Dashboard - Always visible -->
+      <section class="section" id="lookerSection">
+        <div class="section-header">
+          <h2>Live Dashboard</h2>
+          <button class="btn btn-sm btn-outline" id="toggleLooker">Hide</button>
+        </div>
+        <div class="looker-container" id="lookerContainer">
+          <iframe
+            id="lookerFrame"
+            src="https://lookersuitsupply.cloud.looker.com/embed/dashboards/603?Regional+Manager=&Region=&Location=San+Francisco&Predefined+Period=Last+Week&Select+Currency=USD&Location+Type=Store%2COutlet&Employee+Name="
+            width="100%"
+            height="800"
+            frameborder="0">
+          </iframe>
+        </div>
+      </section>
+    </main>
+
+    <!-- Right Sidebar - Manager Actions Only (Notes moved inline) -->
+    <aside class="sidebar">
+      <!-- Manager Actions -->
+      <div class="manager-actions" id="managerActions" style="display:none;">
+        <h4>Manager Actions</h4>
+        <a href="/gameplan-edit" class="btn btn-primary btn-block">Edit Game Plan</a>
+      </div>
+      
+      <!-- Data Import Status -->
+      <div class="import-status-card" id="importStatusCard">
+        <h4>📊 Data Import</h4>
+        <div class="import-info">
+          <span class="import-label">Last Looker sync:</span>
+          <span class="import-value" id="sidebarLastSync">--</span>
+        </div>
+        <div class="import-info">
+          <span class="import-label">Records imported:</span>
+          <span class="import-value" id="recordsImported">--</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
+  </footer>
+
+  <!-- Emoji Picker -->
+  <div class="emoji-picker" id="emojiPicker" style="display:none;">
+    <div class="emoji-grid">
+      <span>&#128512;</span><span>&#128515;</span><span>&#128516;</span><span>&#128513;</span><span>&#128517;</span>
+      <span>&#128514;</span><span>&#129315;</span><span>&#128522;</span><span>&#128519;</span><span>&#128578;</span>
+      <span>&#128521;</span><span>&#128524;</span><span>&#128525;</span><span>&#129392;</span><span>&#128536;</span>
+      <span>&#128077;</span><span>&#128078;</span><span>&#128079;</span><span>&#128588;</span><span>&#128170;</span>
+      <span>&#127919;</span><span>&#128293;</span><span>&#11088;</span><span>&#128175;</span><span>&#9989;</span>
+      <span>&#10060;</span><span>&#9888;&#65039;</span><span>&#128226;</span><span>&#128161;</span><span>&#128204;</span>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>Manage Settings</h3>
+        <button class="modal-close" id="closeSettings">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="settings-tabs">
+          <button class="tab active" data-tab="zones">Zones</button>
+          <button class="tab" data-tab="fittingRooms">Fitting Rooms</button>
+          <button class="tab" data-tab="shifts">Shifts</button>
+          <button class="tab" data-tab="sections">Closing Duties</button>
+        </div>
+        <div class="settings-content" id="settingsContent"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="closeSettingsBtn">Close</button>
+        <button class="btn btn-primary" id="saveSettingsBtn">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metrics Editor Modal -->
+  <div class="modal-overlay" id="metricsModal">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3>Edit Metrics</h3>
+        <button class="modal-close" id="closeMetrics">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>WTD Sales ($)</label>
+          <input type="number" class="form-control" id="editWtdSales">
+        </div>
+        <div class="form-group">
+          <label>Target ($)</label>
+          <input type="number" class="form-control" id="editTargetAmount">
+        </div>
+        <div class="form-group">
+          <label>Sales Per Hour ($)</label>
+          <input type="number" class="form-control" id="editSph">
+        </div>
+        <div class="form-group">
+          <label>Items Per Customer</label>
+          <input type="number" step="0.01" class="form-control" id="editIpc">
+        </div>
+        <div class="form-group">
+          <label>Drop-offs (%)</label>
+          <input type="number" step="0.1" class="form-control" id="editDropoffs">
+        </div>
+        <hr>
+        <h4>Product Mix</h4>
+        <div class="grid grid-3">
+          <div class="form-group">
+            <label>Formal (%)</label>
+            <input type="number" class="form-control" id="editFormal">
+          </div>
+          <div class="form-group">
+            <label>Casual (%)</label>
+            <input type="number" class="form-control" id="editCasual">
+          </div>
+          <div class="form-group">
+            <label>Tuxedo (%)</label>
+            <input type="number" class="form-control" id="editTuxedo">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelMetrics">Cancel</button>
+        <button class="btn btn-primary" id="saveMetrics">Save Metrics</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loans Detail Modal -->
+  <div class="modal-overlay" id="loansModal">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>Loans Overdue Details</h3>
+        <button class="modal-close" id="closeLoans">&times;</button>
+      </div>
+      <div class="modal-body" id="loansModalBody">
+        <p style="color: var(--text-muted);">No overdue loans.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="document.getElementById('loansModal').classList.remove('active')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/shared-header.js?v=13"></script>
+  <script src="/js/dashboard.js?v=13"></script>
+</body>
+</html>

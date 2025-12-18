@@ -1,0 +1,107 @@
+[
+  {
+    "id": "user-001_1766024519642",
+    "userId": "user-001",
+    "userName": "Jordan Dillard",
+    "date": "2025-12-18",
+    "submittedAt": "2025-12-18T02:21:59.642Z",
+    "photos": [
+      {
+        "filename": "user-001_1766024519609.png",
+        "path": "/closing-duties/2025-12-18/user-001_1766024519609.png",
+        "size": 316364,
+        "uploadedAt": "2025-12-18T02:21:59.642Z"
+      }
+    ],
+    "notes": "",
+    "photoCount": 1
+  },
+  {
+    "id": "user-001_1766024980913",
+    "userId": "user-001",
+    "userName": "Jordan Dillard",
+    "date": "2025-12-18",
+    "submittedAt": "2025-12-18T02:29:40.914Z",
+    "photos": [
+      {
+        "filename": "user-001_1766024980800.png",
+        "path": "/closing-duties/2025-12-18/user-001_1766024980800.png",
+        "size": 1807178,
+        "uploadedAt": "2025-12-18T02:29:40.913Z"
+      }
+    ],
+    "notes": "",
+    "photoCount": 1
+  },
+  {
+    "id": "user-001_1766025014856",
+    "userId": "user-001",
+    "userName": "Jordan Dillard",
+    "date": "2025-12-18",
+    "submittedAt": "2025-12-18T02:30:14.856Z",
+    "photos": [
+      {
+        "filename": "user-001_1766025014787.png",
+        "path": "/closing-duties/2025-12-18/user-001_1766025014787.png",
+        "size": 876155,
+        "uploadedAt": "2025-12-18T02:30:14.855Z"
+      }
+    ],
+    "notes": "",
+    "photoCount": 1
+  },
+  {
+    "id": "user-001_1766025390888",
+    "userId": "user-001",
+    "userName": "Jordan Dillard",
+    "date": "2025-12-18",
+    "submittedAt": "2025-12-18T02:36:30.888Z",
+    "photos": [
+      {
+        "filename": "user-001_1766025390840.png",
+        "path": "/closing-duties/2025-12-18/user-001_1766025390840.png",
+        "size": 317790,
+        "uploadedAt": "2025-12-18T02:36:30.888Z"
+      }
+    ],
+    "notes": "",
+    "section": "Men's Casual",
+    "photoCount": 1
+  },
+  {
+    "id": "user-001_1766025940182",
+    "userId": "user-001",
+    "userName": "Jordan Dillard",
+    "date": "2025-12-18",
+    "submittedAt": "2025-12-18T02:45:40.182Z",
+    "photos": [
+      {
+        "filename": "user-001_1766025940152.png",
+        "path": "/closing-duties/2025-12-18/user-001_1766025940152.png",
+        "size": 316364,
+        "uploadedAt": "2025-12-18T02:45:40.182Z"
+      }
+    ],
+    "notes": "",
+    "section": "Shoes",
+    "photoCount": 1
+  },
+  {
+    "id": "user-001_1766026008470",
+    "userId": "user-001",
+    "userName": "Jordan Dillard",
+    "date": "2025-12-18",
+    "submittedAt": "2025-12-18T02:46:48.470Z",
+    "photos": [
+      {
+        "filename": "user-001_1766026008418.png",
+        "path": "/closing-duties/2025-12-18/user-001_1766026008418.png",
+        "size": 556317,
+        "uploadedAt": "2025-12-18T02:46:48.470Z"
+      }
+    ],
+    "notes": "",
+    "section": "Men's Suits",
+    "photoCount": 1
+  }
+]

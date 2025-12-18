@@ -1,0 +1,752 @@
+{
+  "date": "2025-12-18",
+  "source": "looker",
+  "importedAt": "2025-12-18T17:15:11.019Z",
+  "wtd": {
+    "salesAmount": 90000,
+    "salesVsPY": -3.2,
+    "target": 104500,
+    "vsTarget": -13.9
+  },
+  "metrics": {
+    "salesPerHour": 200,
+    "sphVsPY": -39,
+    "itemsPerCustomer": 2.6,
+    "ipcVsPY": -17.9,
+    "apc": 738,
+    "apcVsPY": -18.2,
+    "cpc": 1.62,
+    "cpcVsPY": -9.6,
+    "dropOffs": 33.2,
+    "dropOffsVsPY": -10.6
+  },
+  "lastWeekSales": {
+    "formal": 60,
+    "casual": 20,
+    "tuxedo": 18,
+    "notDefined": 1
+  },
+  "todayPickups": null,
+  "operationsHealth": {
+    "tailorProductivity": 77,
+    "onTimeAlterations": 94,
+    "overdueAlterations": 0,
+    "inventoryAccuracy": 99.7
+  },
+  "inventoryIssues": {
+    "missingItems": 6,
+    "overdueReserved": 5.5,
+    "unexpectedItems": 0.8,
+    "duePullbacks": 0,
+    "dueLoans": 1
+  },
+  "customerReservedOrders": {
+    "orders": [
+      {
+        "fulfillmentId": "PSUS024550431",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-15",
+        "daysOld": 33
+      },
+      {
+        "fulfillmentId": "PSUS024538581",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-15",
+        "daysOld": 33
+      },
+      {
+        "fulfillmentId": "PSUS024152951",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-14",
+        "daysOld": 34
+      },
+      {
+        "fulfillmentId": "PSUS024343803",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-13",
+        "daysOld": 35
+      },
+      {
+        "fulfillmentId": "PSUS024174842",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-12",
+        "daysOld": 36
+      },
+      {
+        "fulfillmentId": "PSUS024032521",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-11",
+        "daysOld": 37
+      },
+      {
+        "fulfillmentId": "PSUS024401901",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-08",
+        "daysOld": 40
+      },
+      {
+        "fulfillmentId": "PSUS024274272",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-07",
+        "daysOld": 41
+      },
+      {
+        "fulfillmentId": "PSUS024343801",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-06",
+        "daysOld": 42
+      },
+      {
+        "fulfillmentId": "PSUS024317151",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-04",
+        "daysOld": 44
+      },
+      {
+        "fulfillmentId": "PSUS024244881",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-11-01",
+        "daysOld": 47
+      },
+      {
+        "fulfillmentId": "PSUS024114282",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-31",
+        "daysOld": 48
+      },
+      {
+        "fulfillmentId": "PSUS024174841",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-28",
+        "daysOld": 51
+      },
+      {
+        "fulfillmentId": "PSUS024131691",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-26",
+        "daysOld": 53
+      },
+      {
+        "fulfillmentId": "PSUS024105431",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-25",
+        "daysOld": 54
+      },
+      {
+        "fulfillmentId": "PSUS023981153",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-24",
+        "daysOld": 55
+      },
+      {
+        "fulfillmentId": "PSUS024019061",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-21",
+        "daysOld": 58
+      },
+      {
+        "fulfillmentId": "PSUS024017811",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-21",
+        "daysOld": 58
+      },
+      {
+        "fulfillmentId": "PSUS023921191",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-17",
+        "daysOld": 62
+      },
+      {
+        "fulfillmentId": "PSUS023811551",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-12",
+        "daysOld": 67
+      },
+      {
+        "fulfillmentId": "PSUS022828344",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-10",
+        "daysOld": 69
+      },
+      {
+        "fulfillmentId": "PSUS023388431",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-10",
+        "daysOld": 69
+      },
+      {
+        "fulfillmentId": "PSUS023286831",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-10",
+        "daysOld": 69
+      },
+      {
+        "fulfillmentId": "PSUS023272794",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-07",
+        "daysOld": 72
+      },
+      {
+        "fulfillmentId": "PSUS023663451",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-06",
+        "daysOld": 73
+      },
+      {
+        "fulfillmentId": "PSUS023615741",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-04",
+        "daysOld": 75
+      },
+      {
+        "fulfillmentId": "PSUS022979124",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-03",
+        "daysOld": 76
+      },
+      {
+        "fulfillmentId": "PSUS023263542",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-10-01",
+        "daysOld": 78
+      },
+      {
+        "fulfillmentId": "PSUS023401341",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-26",
+        "daysOld": 83
+      },
+      {
+        "fulfillmentId": "PSUS023301033",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-24",
+        "daysOld": 85
+      },
+      {
+        "fulfillmentId": "PSUS022693532",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-22",
+        "daysOld": 87
+      },
+      {
+        "fulfillmentId": "04824457222",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-15",
+        "daysOld": 94
+      },
+      {
+        "fulfillmentId": "PSUS022945933",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-15",
+        "daysOld": 94
+      },
+      {
+        "fulfillmentId": "PSUS023059032",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-12",
+        "daysOld": 97
+      },
+      {
+        "fulfillmentId": "04810102532",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-10",
+        "daysOld": 99
+      },
+      {
+        "fulfillmentId": "PSUS022809042",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-09",
+        "daysOld": 100
+      },
+      {
+        "fulfillmentId": "PSUS022976872",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-09",
+        "daysOld": 100
+      },
+      {
+        "fulfillmentId": "PSUS022768342",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-09",
+        "daysOld": 100
+      },
+      {
+        "fulfillmentId": "PSUS022954771",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-08",
+        "daysOld": 101
+      },
+      {
+        "fulfillmentId": "PSUS022964731",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-08",
+        "daysOld": 101
+      },
+      {
+        "fulfillmentId": "PSUS022922521",
+        "location": "San Francisco",
+        "lastReadDate": "2025-09-27",
+        "createdDate": "2025-09-06",
+        "daysOld": 103
+      },
+      {
+        "fulfillmentId": "PSUS022452202",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-09-05",
+        "daysOld": 104
+      },
+      {
+        "fulfillmentId": "PSUS022608003",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-08-29",
+        "daysOld": 111
+      },
+      {
+        "fulfillmentId": "PSUS022673931",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-08-27",
+        "daysOld": 113
+      },
+      {
+        "fulfillmentId": "PSUS021661911",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-08-04",
+        "daysOld": 136
+      },
+      {
+        "fulfillmentId": "04728931151",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-07-23",
+        "daysOld": 148
+      },
+      {
+        "fulfillmentId": "PSUS020760162",
+        "location": "San Francisco",
+        "lastReadDate": "2025-12-17",
+        "createdDate": "2025-06-06",
+        "daysOld": 195
+      }
+    ],
+    "missingReserved": [
+      {
+        "fulfillmentId": "PSUS022979121",
+        "location": "San Francisco",
+        "status": "Missing",
+        "lastReadDate": "2025-11-26",
+        "createdDate": ""
+      },
+      {
+        "fulfillmentId": "PSUS021157892",
+        "location": "San Francisco",
+        "status": "Missing",
+        "lastReadDate": "2025-10-13",
+        "createdDate": "2025-06-23"
+      },
+      {
+        "fulfillmentId": "04679758491",
+        "location": "San Francisco",
+        "status": "Missing",
+        "lastReadDate": "2025-10-14",
+        "createdDate": ""
+      },
+      {
+        "fulfillmentId": "PSUS022828343",
+        "location": "San Francisco",
+        "status": "Missing",
+        "lastReadDate": "2025-10-28",
+        "createdDate": ""
+      },
+      {
+        "fulfillmentId": "PSUS023283971",
+        "location": "San Francisco",
+        "status": "Missing",
+        "lastReadDate": "2025-10-10",
+        "createdDate": ""
+      },
+      {
+        "fulfillmentId": "PSUS023272791",
+        "location": "San Francisco",
+        "status": "Missing",
+        "lastReadDate": "2025-10-21",
+        "createdDate": ""
+      },
+      {
+        "fulfillmentId": "PSUS019521761",
+        "location": "San Francisco",
+        "status": "Missing",
+        "lastReadDate": "2025-11-28",
+        "createdDate": ""
+      },
+      {
+        "fulfillmentId": "PSUS022828341",
+        "location": "San Francisco",
+        "status": "Missing",
+        "lastReadDate": "2025-12-16",
+        "createdDate": ""
+      }
+    ],
+    "summary": {
+      "total": 47,
+      "over30Days": 47,
+      "over60Days": 29,
+      "over90Days": 16,
+      "oldestDays": 195,
+      "missing": 14,
+      "totalReserved": 275
+    }
+  },
+  "employeeCountPerformance": {
+    "employees": [
+      {
+        "name": "Ivan Ramos",
+        "location": "San Francisco",
+        "accuracy": 99.9,
+        "missedReserved": 0,
+        "countsDone": 1,
+        "rankAccuracy": 1,
+        "rankCounts": 3,
+        "rankMissing": 1
+      },
+      {
+        "name": "Daniel iraheta",
+        "location": "San Francisco",
+        "accuracy": 99.8,
+        "missedReserved": 0,
+        "countsDone": 3,
+        "rankAccuracy": 2,
+        "rankCounts": 1,
+        "rankMissing": 1
+      },
+      {
+        "name": "Daniel Valdez",
+        "location": "San Francisco",
+        "accuracy": 99.6,
+        "missedReserved": 0,
+        "countsDone": 2,
+        "rankAccuracy": 3,
+        "rankCounts": 2,
+        "rankMissing": 1
+      }
+    ],
+    "summary": {
+      "avgAccuracy": 99.8,
+      "totalCounts": 6
+    }
+  },
+  "tailorProductivityTrend": {
+    "weeks": [
+      {
+        "week": 1,
+        "productivity2024": 53,
+        "productivity2025": 56
+      },
+      {
+        "week": 2,
+        "productivity2024": 71,
+        "productivity2025": 71
+      },
+      {
+        "week": 3,
+        "productivity2024": 89,
+        "productivity2025": 79
+      },
+      {
+        "week": 4,
+        "productivity2024": 72,
+        "productivity2025": 89
+      },
+      {
+        "week": 5,
+        "productivity2024": 57,
+        "productivity2025": 75
+      },
+      {
+        "week": 6,
+        "productivity2024": 93,
+        "productivity2025": 85
+      },
+      {
+        "week": 7,
+        "productivity2024": 73,
+        "productivity2025": 77
+      },
+      {
+        "week": 8,
+        "productivity2024": 96,
+        "productivity2025": 80
+      },
+      {
+        "week": 9,
+        "productivity2024": 85,
+        "productivity2025": 90
+      },
+      {
+        "week": 10,
+        "productivity2024": 94,
+        "productivity2025": 100
+      },
+      {
+        "week": 11,
+        "productivity2024": 84,
+        "productivity2025": 94
+      },
+      {
+        "week": 12,
+        "productivity2024": 99,
+        "productivity2025": 90
+      },
+      {
+        "week": 13,
+        "productivity2024": 89,
+        "productivity2025": 98
+      },
+      {
+        "week": 14,
+        "productivity2024": 81,
+        "productivity2025": 97
+      },
+      {
+        "week": 15,
+        "productivity2024": 89,
+        "productivity2025": 101
+      },
+      {
+        "week": 16,
+        "productivity2024": 82,
+        "productivity2025": 84
+      },
+      {
+        "week": 17,
+        "productivity2024": 93,
+        "productivity2025": 80
+      },
+      {
+        "week": 18,
+        "productivity2024": 84,
+        "productivity2025": 93
+      },
+      {
+        "week": 19,
+        "productivity2024": 95,
+        "productivity2025": 94
+      },
+      {
+        "week": 20,
+        "productivity2024": 91,
+        "productivity2025": 93
+      },
+      {
+        "week": 21,
+        "productivity2024": 82,
+        "productivity2025": 94
+      },
+      {
+        "week": 22,
+        "productivity2024": 81,
+        "productivity2025": 97
+      },
+      {
+        "week": 23,
+        "productivity2024": 78,
+        "productivity2025": 100
+      },
+      {
+        "week": 24,
+        "productivity2024": 77,
+        "productivity2025": 100
+      },
+      {
+        "week": 25,
+        "productivity2024": 86,
+        "productivity2025": 119
+      },
+      {
+        "week": 26,
+        "productivity2024": 82,
+        "productivity2025": 102
+      },
+      {
+        "week": 27,
+        "productivity2024": 81,
+        "productivity2025": 96
+      },
+      {
+        "week": 28,
+        "productivity2024": 72,
+        "productivity2025": 106
+      },
+      {
+        "week": 29,
+        "productivity2024": 89,
+        "productivity2025": 105
+      },
+      {
+        "week": 30,
+        "productivity2024": 83,
+        "productivity2025": 119
+      },
+      {
+        "week": 31,
+        "productivity2024": 81,
+        "productivity2025": 116
+      },
+      {
+        "week": 32,
+        "productivity2024": 84,
+        "productivity2025": 121
+      },
+      {
+        "week": 33,
+        "productivity2024": 84,
+        "productivity2025": 129
+      },
+      {
+        "week": 34,
+        "productivity2024": 72,
+        "productivity2025": 120
+      },
+      {
+        "week": 35,
+        "productivity2024": 82,
+        "productivity2025": 125
+      },
+      {
+        "week": 36,
+        "productivity2024": 83,
+        "productivity2025": 117
+      },
+      {
+        "week": 37,
+        "productivity2024": 93,
+        "productivity2025": 118
+      },
+      {
+        "week": 38,
+        "productivity2024": 97,
+        "productivity2025": 109
+      },
+      {
+        "week": 39,
+        "productivity2024": 87,
+        "productivity2025": 110
+      },
+      {
+        "week": 40,
+        "productivity2024": 105,
+        "productivity2025": 111
+      },
+      {
+        "week": 41,
+        "productivity2024": 92,
+        "productivity2025": 115
+      },
+      {
+        "week": 42,
+        "productivity2024": 87,
+        "productivity2025": 110
+      },
+      {
+        "week": 43,
+        "productivity2024": 88,
+        "productivity2025": 106
+      },
+      {
+        "week": 44,
+        "productivity2024": 80,
+        "productivity2025": 111
+      },
+      {
+        "week": 45,
+        "productivity2024": 82,
+        "productivity2025": 92
+      },
+      {
+        "week": 46,
+        "productivity2024": 87,
+        "productivity2025": 81
+      },
+      {
+        "week": 47,
+        "productivity2024": 87,
+        "productivity2025": 75
+      },
+      {
+        "week": 48,
+        "productivity2024": 86,
+        "productivity2025": 87
+      },
+      {
+        "week": 49,
+        "productivity2024": 79,
+        "productivity2025": 93
+      },
+      {
+        "week": 50,
+        "productivity2024": 84,
+        "productivity2025": 77
+      },
+      {
+        "week": 51,
+        "productivity2024": 80,
+        "productivity2025": 74
+      },
+      {
+        "week": 52,
+        "productivity2024": 49,
+        "productivity2025": 0
+      }
+    ],
+    "currentWeek": {
+      "week": 51,
+      "productivity2024": 80,
+      "productivity2025": 74
+    },
+    "ytdAvg2024": 83,
+    "ytdAvg2025": 97
+  }
+}

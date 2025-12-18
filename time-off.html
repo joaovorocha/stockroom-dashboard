@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time Off Calendar - San Francisco | Suitsupply</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/shared-header.css">
+  <style>
+    .timeoff-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .timeoff-container {
+      display: grid;
+      grid-template-columns: 1fr 350px;
+      gap: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .calendar-section {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .calendar-nav {
+      display: flex;
+      gap: 8px;
+    }
+
+    .calendar-nav button {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      background: var(--background);
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+    }
+
+    .calendar-day-header {
+      padding: 12px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .calendar-day {
+      min-height: 100px;
+      padding: 8px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .calendar-day:nth-child(7n) {
+      border-right: none;
+    }
+
+    .calendar-day.other-month {
+      background: var(--surface);
+      opacity: 0.5;
+    }
+
+    .calendar-day.today {
+      background: #e3f2fd;
+    }
+
+    .day-number {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .timeoff-event {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .timeoff-event:hover {
+      opacity: 0.8;
+    }
+
+    .timeoff-event.approved {
+      background: #d4edda;
+      color: #155724;
+      font-weight: 500;
+    }
+
+    .timeoff-event.pending {
+      background: #fff3cd;
+      color: #856404;
+      opacity: 0.6;
+      border: 1px dashed #ffc107;
+    }
+
+    .timeoff-event.denied {
+      background: #f8d7da;
+      color: #721c24;
+      text-decoration: line-through;
+      opacity: 0.5;
+    }
+
+    /* Event detail modal */
+    .event-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .event-modal.active {
+      display: flex;
+    }
+    .event-modal-content {
+      background: var(--background);
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .event-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .event-modal-header h3 {
+      margin: 0;
+    }
+    .event-modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: var(--text-secondary);
+    }
+    .event-detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .event-detail-row:last-child {
+      border-bottom: none;
+    }
+    .event-detail-label {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+    .event-detail-value {
+      font-weight: 500;
+    }
+    .approval-info {
+      margin-top: 16px;
+      padding: 12px;
+      background: var(--surface);
+      border-radius: 6px;
+    }
+    .approval-info.approved {
+      background: #d4edda;
+    }
+    .approval-info.denied {
+      background: #f8d7da;
+    }
+    .approval-info.pending {
+      background: #fff3cd;
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      padding: 12px 20px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+    .legend-dot.approved { background: #d4edda; border: 1px solid #155724; }
+    .legend-dot.pending { background: #fff3cd; border: 1px dashed #ffc107; opacity: 0.6; }
+    .legend-dot.denied { background: #f8d7da; border: 1px solid #721c24; }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .request-card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .request-card h3 {
+      margin-bottom: 16px;
+      font-size: 16px;
+    }
+
+    .pending-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .pending-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: var(--surface);
+      border-radius: 4px;
+    }
+
+    .pending-info {
+      flex: 1;
+    }
+
+    .pending-info .name {
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+
+    .pending-info .dates {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .pending-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .pending-actions button {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    @media (max-width: 1024px) {
+      .timeoff-container {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header (No Refresh Bar on Time Off) -->
+  <header class="header">
+    <div class="header-brand">
+      <a href="/dashboard" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Daily Game Plan</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/shipments" id="navShipments">Shipments</a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" class="active" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="switchUserBtn">Switch User</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="timeoff-container">
+    <div class="calendar-section">
+      <div class="calendar-header">
+        <div class="calendar-nav">
+          <button id="prevMonth">&larr;</button>
+          <button id="nextMonth">&rarr;</button>
+        </div>
+        <h2 id="currentMonth">December 2025</h2>
+        <button class="btn btn-sm btn-primary" id="todayBtn">Today</button>
+      </div>
+      <div class="calendar-grid" id="calendarGrid">
+        <div class="calendar-day-header">Sun</div>
+        <div class="calendar-day-header">Mon</div>
+        <div class="calendar-day-header">Tue</div>
+        <div class="calendar-day-header">Wed</div>
+        <div class="calendar-day-header">Thu</div>
+        <div class="calendar-day-header">Fri</div>
+        <div class="calendar-day-header">Sat</div>
+      </div>
+      <div class="legend">
+        <div class="legend-item">
+          <span class="legend-dot approved"></span>
+          <span>Approved</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot pending"></span>
+          <span>Pending</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-dot denied"></span>
+          <span>Denied</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="request-card">
+        <h3>Request Time Off</h3>
+        <form id="requestForm">
+          <div class="form-group">
+            <label>Start Date</label>
+            <input type="date" class="form-control" id="startDate" required>
+          </div>
+          <div class="form-group">
+            <label>End Date</label>
+            <input type="date" class="form-control" id="endDate" required>
+          </div>
+          <div class="form-group">
+            <label>Reason</label>
+            <select class="form-control" id="reason">
+              <option value="vacation">Vacation</option>
+              <option value="sick">Sick Leave</option>
+              <option value="personal">Personal</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Notes (optional)</label>
+            <textarea class="form-control" id="notes" rows="2"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Request</button>
+        </form>
+      </div>
+
+      <div class="request-card" id="pendingCard">
+        <h3>Pending Requests</h3>
+        <div class="pending-list" id="pendingList">
+          <p style="color: var(--text-muted); text-align: center;">No pending requests</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Event Detail Modal -->
+  <div class="event-modal" id="eventModal">
+    <div class="event-modal-content">
+      <div class="event-modal-header">
+        <h3>Time Off Details</h3>
+        <button class="event-modal-close" onclick="closeEventModal()">&times;</button>
+      </div>
+      <div id="eventModalBody"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
+  </footer>
+
+  <script>
+    let allEvents = []; // Store all events for modal lookup
+    let currentUser = null;
+    let currentDate = new Date();
+    let timeOffData = { requests: [], approved: [], denied: [] };
+
+    async function checkAuth() {
+      const response = await fetch('/api/auth/check');
+      const data = await response.json();
+      if (!data.authenticated) {
+        window.location.href = '/login-v2';
+        return;
+      }
+      currentUser = data.user;
+      document.getElementById('userName').textContent = data.user.name;
+
+      // Show pending card only for managers
+      if (!data.user.isManager && !data.user.isAdmin) {
+        document.getElementById('pendingCard').style.display = 'none';
+      }
+    }
+
+    async function loadTimeOffData() {
+      try {
+        const response = await fetch('/api/timeoff');
+        if (response.ok) {
+          timeOffData = await response.json();
+          renderCalendar();
+          renderPendingRequests();
+        }
+      } catch (error) {
+        console.error('Error loading time off data:', error);
+      }
+    }
+
+    function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      // Keep headers
+      grid.innerHTML = `
+        <div class="calendar-day-header">Sun</div>
+        <div class="calendar-day-header">Mon</div>
+        <div class="calendar-day-header">Tue</div>
+        <div class="calendar-day-header">Wed</div>
+        <div class="calendar-day-header">Thu</div>
+        <div class="calendar-day-header">Fri</div>
+        <div class="calendar-day-header">Sat</div>
+      `;
+
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+
+      document.getElementById('currentMonth').textContent =
+        currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startPadding = firstDay.getDay();
+      const totalDays = lastDay.getDate();
+
+      const today = new Date();
+
+      // Combine all events
+      allEvents = [
+        ...(timeOffData.approved || []).map(e => ({...e, status: 'approved'})),
+        ...(timeOffData.requests || []).map(e => ({...e, status: 'pending'})),
+        ...(timeOffData.denied || []).map(e => ({...e, status: 'denied'}))
+      ];
+
+      // Previous month padding
+      const prevLastDay = new Date(year, month, 0).getDate();
+      for (let i = startPadding - 1; i >= 0; i--) {
+        const dayEl = document.createElement('div');
+        dayEl.className = 'calendar-day other-month';
+        dayEl.innerHTML = `<span class="day-number">${prevLastDay - i}</span>`;
+        grid.appendChild(dayEl);
+      }
+
+      // Current month days
+      for (let day = 1; day <= totalDays; day++) {
+        const dayEl = document.createElement('div');
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+        const isToday = today.getDate() === day && today.getMonth() === month && today.getFullYear() === year;
+        dayEl.className = `calendar-day ${isToday ? 'today' : ''}`;
+
+        let eventsHtml = '';
+
+        allEvents.forEach(event => {
+          const start = new Date(event.startDate);
+          const end = new Date(event.endDate);
+          const current = new Date(dateStr);
+
+          if (current >= start && current <= end) {
+            const status = event.status || 'pending';
+            eventsHtml += `<div class="timeoff-event ${status}" onclick="showEventDetails('${event.id}')">${event.employeeName || 'Unknown'}</div>`;
+          }
+        });
+
+        dayEl.innerHTML = `
+          <span class="day-number">${day}</span>
+          ${eventsHtml}
+        `;
+        grid.appendChild(dayEl);
+      }
+
+      // Next month padding
+      const endPadding = 42 - (startPadding + totalDays);
+      for (let i = 1; i <= endPadding; i++) {
+        const dayEl = document.createElement('div');
+        dayEl.className = 'calendar-day other-month';
+        dayEl.innerHTML = `<span class="day-number">${i}</span>`;
+        grid.appendChild(dayEl);
+      }
+    }
+
+    function showEventDetails(eventId) {
+      const event = allEvents.find(e => e.id === eventId);
+      if (!event) return;
+
+      const modalBody = document.getElementById('eventModalBody');
+
+      const startDate = new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      const endDate = new Date(event.endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+      let approvalHtml = '';
+      if (event.status === 'approved') {
+        const approvedDate = event.approvedAt ? new Date(event.approvedAt).toLocaleString() : '';
+        approvalHtml = `
+          <div class="approval-info approved">
+            <strong>Approved</strong><br>
+            <span style="font-size: 13px;">By ${event.approvedBy || 'Manager'}</span><br>
+            <span style="font-size: 12px; color: var(--text-secondary);">${approvedDate}</span>
+          </div>
+        `;
+      } else if (event.status === 'denied') {
+        const deniedDate = event.deniedAt ? new Date(event.deniedAt).toLocaleString() : '';
+        approvalHtml = `
+          <div class="approval-info denied">
+            <strong>Denied</strong><br>
+            <span style="font-size: 13px;">By ${event.deniedBy || 'Manager'}</span><br>
+            <span style="font-size: 12px; color: var(--text-secondary);">${deniedDate}</span>
+          </div>
+        `;
+      } else {
+        const submittedDate = event.submittedAt ? new Date(event.submittedAt).toLocaleString() : '';
+        approvalHtml = `
+          <div class="approval-info pending">
+            <strong>Pending Approval</strong><br>
+            <span style="font-size: 12px; color: var(--text-secondary);">Submitted: ${submittedDate}</span>
+          </div>
+        `;
+      }
+
+      modalBody.innerHTML = `
+        <div class="event-detail-row">
+          <span class="event-detail-label">Employee</span>
+          <span class="event-detail-value">${event.employeeName || 'Unknown'}</span>
+        </div>
+        <div class="event-detail-row">
+          <span class="event-detail-label">Start Date</span>
+          <span class="event-detail-value">${startDate}</span>
+        </div>
+        <div class="event-detail-row">
+          <span class="event-detail-label">End Date</span>
+          <span class="event-detail-value">${endDate}</span>
+        </div>
+        <div class="event-detail-row">
+          <span class="event-detail-label">Reason</span>
+          <span class="event-detail-value">${event.reason || 'Not specified'}</span>
+        </div>
+        ${event.notes ? `
+          <div class="event-detail-row">
+            <span class="event-detail-label">Notes</span>
+            <span class="event-detail-value">${event.notes}</span>
+          </div>
+        ` : ''}
+        ${approvalHtml}
+      `;
+
+      document.getElementById('eventModal').classList.add('active');
+    }
+
+    function closeEventModal() {
+      document.getElementById('eventModal').classList.remove('active');
+    }
+
+    // Close modal on outside click
+    document.getElementById('eventModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'eventModal') closeEventModal();
+    });
+
+    function renderPendingRequests() {
+      const list = document.getElementById('pendingList');
+      const pending = timeOffData.requests || [];
+
+      if (pending.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No pending requests</p>';
+        return;
+      }
+
+      list.innerHTML = pending.map(req => `
+        <div class="pending-item">
+          <div class="pending-info">
+            <div class="name">${req.employeeName}</div>
+            <div class="dates">${req.startDate} to ${req.endDate}</div>
+          </div>
+          ${currentUser?.isManager || currentUser?.isAdmin ? `
+            <div class="pending-actions">
+              <button class="btn btn-sm btn-success" onclick="handleRequest('${req.id}', 'approve')">Approve</button>
+              <button class="btn btn-sm btn-danger" onclick="handleRequest('${req.id}', 'deny')">Deny</button>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    async function handleRequest(id, action) {
+      try {
+        await fetch(`/api/timeoff/${id}/${action}`, { method: 'POST' });
+        await loadTimeOffData();
+      } catch (error) {
+        alert('Error processing request');
+      }
+    }
+
+    document.getElementById('requestForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const request = {
+        startDate: document.getElementById('startDate').value,
+        endDate: document.getElementById('endDate').value,
+        reason: document.getElementById('reason').value,
+        notes: document.getElementById('notes').value
+      };
+
+      try {
+        const response = await fetch('/api/timeoff/request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(request)
+        });
+
+        if (response.ok) {
+          alert('Request submitted!');
+          document.getElementById('requestForm').reset();
+          await loadTimeOffData();
+        } else {
+          alert('Error submitting request');
+        }
+      } catch (error) {
+        alert('Error submitting request');
+      }
+    });
+
+    document.getElementById('prevMonth').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      renderCalendar();
+    });
+
+    document.getElementById('nextMonth').addEventListener('click', () => {
+      currentDate.setMonth(currentDate.getMonth() + 1);
+      renderCalendar();
+    });
+
+    document.getElementById('todayBtn').addEventListener('click', () => {
+      currentDate = new Date();
+      renderCalendar();
+    });
+
+    // Init
+    checkAuth();
+    loadTimeOffData();
+  </script>
+  <script src="/js/shared-header.js"></script>
+</body>
+</html>

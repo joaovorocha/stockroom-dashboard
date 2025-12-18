@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "SuitSupply Shipment Capture",
+  "version": "1.0.0",
+  "description": "Capture shipment details from UPS and send to Stockroom Dashboard",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.ups.com/*",
+    "https://wwwapps.ups.com/*",
+    "https://*.ups.com/*",
+    "https://192.168.12.103:3000/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.ups.com/*",
+        "https://wwwapps.ups.com/*",
+        "https://*.ups.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

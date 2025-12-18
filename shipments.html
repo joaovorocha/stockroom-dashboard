@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shipments - Daily Game Plan | San Francisco</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/shared-header.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    .shipment-card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .shipment-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .tracking-number {
+      font-weight: 600;
+      font-size: 16px;
+      font-family: monospace;
+    }
+    .shipment-status {
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: capitalize;
+    }
+    .shipment-status.delivered { background: var(--success); color: #fff; }
+    .shipment-status.in-transit { background: #2196f3; color: #fff; }
+    .shipment-status.pending { background: #ffc107; color: #000; }
+    .shipment-status.requested { background: #9c27b0; color: #fff; }
+    .shipment-details {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      font-size: 13px;
+    }
+    .detail-item label {
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+    .ups-link {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .ups-link a {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .filter-bar {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .filter-bar input, .filter-bar select {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .filter-bar input { flex: 1; min-width: 200px; }
+    .summary-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .summary-item {
+      flex: 1;
+      background: var(--surface);
+      padding: 16px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .summary-item .count {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .summary-item .label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-brand">
+      <a href="/dashboard" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Daily Game Plan</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/shipments" class="active" id="navShipments">Shipments</a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="switchUserBtn">Switch User</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
+    <main class="main-content">
+      <section class="section">
+        <div class="section-header">
+          <h2>Shipments</h2>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" id="processingBtn" style="display:none;">Processing</button>
+            <button class="btn btn-primary" id="requestBtn">+ Request Shipment</button>
+          </div>
+        </div>
+
+        <div class="summary-row">
+          <div class="summary-item">
+            <div class="count" id="totalCount">0</div>
+            <div class="label">Total</div>
+          </div>
+          <div class="summary-item">
+            <div class="count" id="pendingCount">0</div>
+            <div class="label">Requested</div>
+          </div>
+          <div class="summary-item">
+            <div class="count" id="shippedCount">0</div>
+            <div class="label">Shipped</div>
+          </div>
+          <div class="summary-item">
+            <div class="count" id="transitCount">0</div>
+            <div class="label">In Transit</div>
+          </div>
+          <div class="summary-item">
+            <div class="count" id="deliveredCount">0</div>
+            <div class="label">Delivered</div>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+          <input type="text" id="searchInput" placeholder="Search tracking number or customer...">
+          <select id="statusFilter">
+            <option value="">All Status</option>
+            <option value="requested">Requested</option>
+            <option value="shipped">Shipped</option>
+            <option value="in-transit">In Transit</option>
+            <option value="delivered">Delivered</option>
+          </select>
+          <button class="btn btn-secondary" id="refreshBtn">Refresh</button>
+        </div>
+
+        <div id="shipmentsList"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Request Shipment Modal -->
+  <div class="modal-overlay" id="requestModal">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>Request Shipment</h3>
+        <button class="modal-close" id="closeModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="requestForm">
+          <input type="hidden" id="employeeName">
+          <input type="hidden" id="employeeId">
+          <div class="form-group">
+            <label>Customer Name *</label>
+            <input type="text" class="form-control" id="customerName" required>
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label>Order Number</label>
+              <input type="text" class="form-control" id="orderNumber" placeholder="PSUS...">
+            </div>
+            <div class="form-group">
+              <label>Carrier</label>
+              <select class="form-control" id="carrier">
+                <option value="UPS">UPS</option>
+                <option value="FedEx">FedEx</option>
+                <option value="USPS">USPS</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Shipping Address *</label>
+            <textarea class="form-control" id="address" rows="2" required></textarea>
+          </div>
+          <div class="form-group">
+            <label>Notes / Special Instructions</label>
+            <textarea class="form-control" id="notes" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="submitBtn">Submit Request</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
+  </footer>
+
+  <script>
+    let shipments = [];
+    let currentUser = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkAuth();
+      await loadShipments();
+      setupEventListeners();
+    });
+
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/auth/check', { credentials: 'include' });
+        const data = await response.json();
+        if (data.authenticated) {
+          currentUser = data.user;
+          document.getElementById('userName').textContent = currentUser.name;
+          // Auto-fill name/ID from session
+          document.getElementById('employeeName').value = currentUser.name;
+          document.getElementById('employeeId').value = currentUser.employeeId;
+          // Make fields readonly
+          document.getElementById('employeeName').readOnly = true;
+          document.getElementById('employeeId').readOnly = true;
+          document.getElementById('employeeName').style.background = '#f5f5f5';
+          document.getElementById('employeeId').style.background = '#f5f5f5';
+          // Show Processing button for BOH/managers only
+          const canProcess = ['MANAGEMENT', 'BOH', 'ADMIN'].includes(currentUser.role) || currentUser.isManager || currentUser.isAdmin;
+          if (canProcess) {
+            document.getElementById('processingBtn').style.display = 'inline-flex';
+          }
+          if (currentUser.isManager || currentUser.isAdmin) {
+            document.getElementById('navAdmin').style.display = 'inline';
+          }
+        } else {
+          alert('Please log in to access shipments.');
+          window.location.href = '/login-v2';
+        }
+      } catch (e) {
+        window.location.href = '/login-v2';
+      }
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login-v2';
+    }
+
+    async function loadShipments() {
+      try {
+        const response = await fetch('/api/shipments');
+        shipments = await response.json();
+        updateSummary();
+        renderShipments();
+      } catch (e) {
+        console.error(e);
+        shipments = [];
+      }
+    }
+
+    function updateSummary() {
+      document.getElementById('totalCount').textContent = shipments.length;
+      document.getElementById('pendingCount').textContent = shipments.filter(s => s.status === 'requested').length;
+      document.getElementById('shippedCount').textContent = shipments.filter(s => s.status === 'shipped').length;
+      document.getElementById('transitCount').textContent = shipments.filter(s => s.status === 'in-transit').length;
+      document.getElementById('deliveredCount').textContent = shipments.filter(s => s.status === 'delivered').length;
+    }
+
+    function renderShipments() {
+      const container = document.getElementById('shipmentsList');
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const status = document.getElementById('statusFilter').value;
+
+      let filtered = shipments.filter(s => {
+        const matchSearch = !search || s.trackingNumber?.toLowerCase().includes(search) || s.customerName?.toLowerCase().includes(search);
+        const matchStatus = !status || s.status === status;
+        return matchSearch && matchStatus;
+      });
+
+      if (!filtered.length) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No shipments found.</p>';
+        return;
+      }
+
+      container.innerHTML = filtered.map(s => `
+        <div class="shipment-card">
+          <div class="shipment-header">
+            <span class="tracking-number">${s.trackingNumber || 'Pending'}</span>
+            <span class="shipment-status ${s.status}">${s.status?.replace('-', ' ')}</span>
+          </div>
+          <div class="shipment-details">
+            <div class="detail-item">
+              <label>Customer</label>
+              <span>${s.customerName || '-'}</span>
+            </div>
+            <div class="detail-item">
+              <label>Order #</label>
+              <span>${s.orderNumber ? `<a href="https://mao.suitsupply.com/order/${s.orderNumber}" target="_blank" style="color: var(--primary); text-decoration: none;">${s.orderNumber} &rarr;</a>` : '-'}</span>
+            </div>
+            <div class="detail-item">
+              <label>Carrier</label>
+              <span>${s.carrier || 'UPS'}</span>
+            </div>
+          </div>
+          ${s.address ? `<p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${s.address}</p>` : ''}
+          ${s.trackingNumber ? `
+            <div class="ups-link">
+              <a href="https://www.ups.com/track?tracknum=${s.trackingNumber}" target="_blank">Track on UPS &rarr;</a>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    function setupEventListeners() {
+      document.getElementById('searchInput').addEventListener('input', renderShipments);
+      document.getElementById('statusFilter').addEventListener('change', renderShipments);
+      document.getElementById('refreshBtn').addEventListener('click', loadShipments);
+
+      // Processing page (BOH/managers only)
+      document.getElementById('processingBtn').addEventListener('click', () => {
+        window.location.href = '/shipments-processing';
+      });
+
+      document.getElementById('requestBtn').addEventListener('click', () => {
+        document.getElementById('requestModal').classList.add('active');
+      });
+      document.getElementById('closeModal').addEventListener('click', () => {
+        document.getElementById('requestModal').classList.remove('active');
+      });
+      document.getElementById('cancelBtn').addEventListener('click', () => {
+        document.getElementById('requestModal').classList.remove('active');
+      });
+
+      document.getElementById('submitBtn').addEventListener('click', async () => {
+        const shipment = {
+          employeeName: document.getElementById('employeeName').value,
+          employeeId: document.getElementById('employeeId').value,
+          customerName: document.getElementById('customerName').value,
+          orderNumber: document.getElementById('orderNumber').value,
+          carrier: document.getElementById('carrier').value,
+          address: document.getElementById('address').value,
+          notes: document.getElementById('notes').value,
+          status: 'requested',
+          createdAt: new Date().toISOString()
+        };
+
+        if (!shipment.employeeName || !shipment.customerName || !shipment.address) {
+          alert('Please fill in required fields');
+          return;
+        }
+
+        try {
+          await fetch('/api/shipments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(shipment)
+          });
+          document.getElementById('requestModal').classList.remove('active');
+          document.getElementById('requestForm').reset();
+          if (currentUser) {
+            document.getElementById('employeeName').value = currentUser.name;
+            document.getElementById('employeeId').value = currentUser.employeeId;
+          }
+          await loadShipments();
+          alert('Shipment request submitted!');
+        } catch (e) {
+          alert('Error submitting request');
+        }
+      });
+    }
+  </script>
+  <script src="/js/shared-header.js"></script>
+</body>
+</html>

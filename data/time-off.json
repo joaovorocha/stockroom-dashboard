@@ -1,0 +1,33 @@
+{
+  "requests": [],
+  "approved": [
+    {
+      "id": "req-1766026504898",
+      "employeeId": "6543",
+      "employeeName": "Jordan Dillard",
+      "startDate": "2025-12-18",
+      "endDate": "2025-12-20",
+      "reason": "vacation",
+      "notes": "",
+      "status": "approved",
+      "submittedAt": "2025-12-18T02:55:04.899Z",
+      "approvedBy": "Victor Rocha",
+      "approvedAt": "2025-12-18T02:55:19.422Z"
+    }
+  ],
+  "denied": [
+    {
+      "id": "req-1766026471465",
+      "employeeId": "30744",
+      "employeeName": "Victor Rocha",
+      "startDate": "2025-12-17",
+      "endDate": "2025-12-26",
+      "reason": "vacation",
+      "notes": "",
+      "status": "denied",
+      "submittedAt": "2025-12-18T02:54:31.465Z",
+      "deniedBy": "Victor Rocha",
+      "deniedAt": "2025-12-18T02:54:39.909Z"
+    }
+  ]
+}

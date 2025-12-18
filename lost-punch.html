@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lost Punch - Daily Game Plan | San Francisco</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/shared-header.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    .punch-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .punch-tabs .tab {
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-secondary);
+      border-radius: 6px 6px 0 0;
+    }
+    .punch-tabs .tab.active {
+      background: var(--primary);
+      color: #fff;
+    }
+    .punch-form {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+    }
+    .punch-card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .punch-card.approved {
+      border-color: var(--success);
+    }
+    .punch-card.pending {
+      border-color: #ffc107;
+    }
+    .punch-card.denied {
+      border-color: var(--danger);
+    }
+    .punch-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .punch-date {
+      font-weight: 600;
+    }
+    .punch-status {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .punch-status.approved { background: var(--success); color: #fff; }
+    .punch-status.pending { background: #ffc107; color: #000; }
+    .punch-status.denied { background: var(--danger); color: #fff; }
+    .punch-details {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      font-size: 13px;
+    }
+    .punch-details label {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header (No Refresh Bar on Lost Punch) -->
+  <header class="header">
+    <div class="header-brand">
+      <a href="/dashboard" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Daily Game Plan</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/shipments" id="navShipments">Shipments</a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" class="active" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="switchUserBtn">Switch User</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
+    <main class="main-content">
+      <section class="section">
+        <div class="section-header">
+          <h2>Lost Punch Form</h2>
+        </div>
+
+        <div class="punch-tabs">
+          <button class="tab active" data-tab="submit">Submit Lost Punch</button>
+          <button class="tab" data-tab="history">My History</button>
+          <button class="tab" data-tab="review" id="reviewTab" style="display:none;">Review Requests</button>
+        </div>
+
+        <!-- Submit Tab -->
+        <div id="submitTab" class="tab-content">
+          <div class="punch-form">
+            <h3 style="margin-bottom: 20px;">Report a Missed Punch</h3>
+            <form id="punchForm">
+              <input type="hidden" id="employeeName">
+              <input type="hidden" id="employeeId">
+              <div class="grid grid-2">
+                <div class="form-group">
+                  <label>Date of Missed Punch *</label>
+                  <input type="date" class="form-control" id="missedDate" required>
+                </div>
+                <div class="form-group">
+                  <label>Time of Missed Punch *</label>
+                  <input type="time" class="form-control" id="missedTime" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Punch Type *</label>
+                <select class="form-control" id="punchType" required>
+                  <option value="">Select...</option>
+                  <option value="clock-in">Clock In</option>
+                  <option value="clock-out">Clock Out</option>
+                  <option value="meal-start">Meal Start</option>
+                  <option value="meal-end">Meal End</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Reason *</label>
+                <textarea class="form-control" id="reason" rows="3" required placeholder="Explain why you missed your punch..."></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary">Submit Lost Punch</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- History Tab -->
+        <div id="historyTab" class="tab-content" style="display:none;">
+          <h3 style="margin-bottom: 16px;">Your Lost Punch Requests</h3>
+          <div id="historyList"></div>
+        </div>
+
+        <!-- Review Tab (Managers Only) -->
+        <div id="reviewTabContent" class="tab-content" style="display:none;">
+          <h3 style="margin-bottom: 16px;">Pending Requests for Review</h3>
+          <div id="reviewList"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
+  </footer>
+
+  <script>
+    let currentUser = null;
+    let punches = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkAuth();
+      await loadPunches();
+      setupEventListeners();
+    });
+
+    async function checkAuth() {
+      try {
+        const response = await fetch('/api/auth/check');
+        const data = await response.json();
+        if (data.authenticated) {
+          currentUser = data.user;
+          document.getElementById('userName').textContent = currentUser.name;
+          document.querySelector('.user-switch').innerHTML = '<a href="#" id="logoutLink">Not you? Switch</a>';
+          document.getElementById('logoutLink')?.addEventListener('click', logout);
+          document.getElementById('employeeName').value = currentUser.name;
+          document.getElementById('employeeId').value = currentUser.employeeId;
+          if (currentUser.isManager || currentUser.isAdmin) {
+            document.getElementById('adminLink').style.display = 'inline';
+            document.getElementById('reviewTab').style.display = 'inline-block';
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login-v2';
+    }
+
+    async function loadPunches() {
+      try {
+        const response = await fetch('/api/lost-punch');
+        punches = await response.json();
+        renderHistory();
+        renderReview();
+      } catch (e) {
+        punches = [];
+      }
+    }
+
+    function renderHistory() {
+      const container = document.getElementById('historyList');
+      const myPunches = currentUser ? punches.filter(p => p.employeeId === currentUser.employeeId) : [];
+
+      if (!myPunches.length) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No lost punch requests found.</p>';
+        return;
+      }
+
+      container.innerHTML = myPunches.map(p => `
+        <div class="punch-card ${p.status}">
+          <div class="punch-header">
+            <span class="punch-date">${new Date(p.missedDate).toLocaleDateString()}</span>
+            <span class="punch-status ${p.status}">${p.status}</span>
+          </div>
+          <div class="punch-details">
+            <div><label>Time</label><br>${p.missedTime}</div>
+            <div><label>Type</label><br>${p.punchType?.replace('-', ' ')}</div>
+          </div>
+          <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${p.reason}</p>
+          ${p.reviewedBy ? `
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted);">
+              <strong>${p.status === 'approved' ? 'Approved' : 'Reviewed'}</strong> by ${p.reviewedBy}
+              ${p.reviewedAt ? ' on ' + new Date(p.reviewedAt).toLocaleDateString() + ' at ' + new Date(p.reviewedAt).toLocaleTimeString() : ''}
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    function renderReview() {
+      const container = document.getElementById('reviewList');
+      const pendingPunches = punches.filter(p => p.status === 'pending');
+
+      if (!pendingPunches.length) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No pending requests to review.</p>';
+        return;
+      }
+
+      // Batch actions header
+      let html = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px; background: var(--surface); border-radius: 6px;">
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+            <span>Select All (${pendingPunches.length})</span>
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" onclick="batchApprove()">Approve Selected</button>
+            <button class="btn btn-sm btn-danger" onclick="batchDeny()">Deny Selected</button>
+          </div>
+        </div>
+      `;
+
+      html += pendingPunches.map(p => `
+        <div class="punch-card pending">
+          <div class="punch-header">
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" class="punch-checkbox" value="${p.id}">
+              <span class="punch-date">${p.employeeName} - ${new Date(p.missedDate).toLocaleDateString()}</span>
+            </label>
+            <span class="punch-status pending">Pending</span>
+          </div>
+          <div class="punch-details">
+            <div><label>Time</label><br>${p.missedTime}</div>
+            <div><label>Type</label><br>${p.punchType?.replace('-', ' ')}</div>
+            <div><label>Submitted</label><br>${p.submittedAt ? new Date(p.submittedAt).toLocaleDateString() : '-'}</div>
+          </div>
+          <p style="margin-top: 8px; font-size: 13px;">${p.reason}</p>
+          <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-primary" onclick="approvePunch('${p.id}')">Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="denyPunch('${p.id}')">Deny</button>
+          </div>
+        </div>
+      `).join('');
+
+      container.innerHTML = html;
+    }
+
+    function toggleSelectAll() {
+      const selectAll = document.getElementById('selectAll');
+      document.querySelectorAll('.punch-checkbox').forEach(cb => {
+        cb.checked = selectAll.checked;
+      });
+    }
+
+    function getSelectedPunchIds() {
+      return Array.from(document.querySelectorAll('.punch-checkbox:checked')).map(cb => cb.value);
+    }
+
+    async function batchApprove() {
+      const ids = getSelectedPunchIds();
+      if (ids.length === 0) {
+        alert('Please select at least one punch to approve');
+        return;
+      }
+      if (!confirm(`Approve ${ids.length} punch(es)?`)) return;
+      await batchUpdate(ids, 'approved');
+    }
+
+    async function batchDeny() {
+      const ids = getSelectedPunchIds();
+      if (ids.length === 0) {
+        alert('Please select at least one punch to deny');
+        return;
+      }
+      if (!confirm(`Deny ${ids.length} punch(es)?`)) return;
+      await batchUpdate(ids, 'denied');
+    }
+
+    async function batchUpdate(ids, status) {
+      try {
+        await fetch('/api/lost-punch/batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids, status, reviewedBy: currentUser?.name })
+        });
+        await loadPunches();
+        alert(`${ids.length} punch(es) ${status} successfully!`);
+      } catch (e) {
+        alert('Error updating punches');
+      }
+    }
+
+    async function approvePunch(id) {
+      await updatePunchStatus(id, 'approved');
+    }
+
+    async function denyPunch(id) {
+      await updatePunchStatus(id, 'denied');
+    }
+
+    async function updatePunchStatus(id, status) {
+      try {
+        await fetch(`/api/lost-punch/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, reviewedBy: currentUser?.name })
+        });
+        await loadPunches();
+      } catch (e) {
+        alert('Error updating status');
+      }
+    }
+
+    function setupEventListeners() {
+      // Tabs
+      document.querySelectorAll('.punch-tabs .tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.punch-tabs .tab').forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+          const tabId = tab.dataset.tab === 'review' ? 'reviewTabContent' : tab.dataset.tab + 'Tab';
+          document.getElementById(tabId).style.display = 'block';
+        });
+      });
+
+      // Form submit
+      document.getElementById('punchForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const punch = {
+          employeeName: document.getElementById('employeeName').value,
+          employeeId: document.getElementById('employeeId').value,
+          missedDate: document.getElementById('missedDate').value,
+          missedTime: document.getElementById('missedTime').value,
+          punchType: document.getElementById('punchType').value,
+          reason: document.getElementById('reason').value,
+          status: 'pending',
+          submittedAt: new Date().toISOString()
+        };
+
+        try {
+          await fetch('/api/lost-punch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(punch)
+          });
+          alert('Lost punch submitted successfully!');
+          document.getElementById('punchForm').reset();
+          if (currentUser) {
+            document.getElementById('employeeName').value = currentUser.name;
+            document.getElementById('employeeId').value = currentUser.employeeId;
+          }
+          await loadPunches();
+        } catch (e) {
+          alert('Error submitting lost punch');
+        }
+      });
+    }
+  </script>
+  <script src="/js/shared-header.js"></script>
+</body>
+</html>
