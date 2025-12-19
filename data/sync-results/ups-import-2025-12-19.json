@@ -130,5 +130,82 @@
     "createdShipments": [],
     "emailsDeleted": 0,
     "errors": []
+  },
+  {
+    "startTime": "2025-12-19T02:00:00.324Z",
+    "endTime": "2025-12-19T02:00:09.699Z",
+    "success": true,
+    "emailsProcessed": 0,
+    "shipmentsCreated": 0,
+    "trackingNumbers": [],
+    "createdShipments": [],
+    "emailsDeleted": 0,
+    "errors": []
+  },
+  {
+    "startTime": "2025-12-19T02:10:00.587Z",
+    "endTime": "2025-12-19T02:10:15.045Z",
+    "success": true,
+    "emailsProcessed": 0,
+    "shipmentsCreated": 0,
+    "trackingNumbers": [],
+    "createdShipments": [],
+    "emailsDeleted": 0,
+    "errors": []
+  },
+  {
+    "startTime": "2025-12-19T02:20:00.323Z",
+    "endTime": "2025-12-19T02:20:05.633Z",
+    "success": true,
+    "emailsProcessed": 0,
+    "shipmentsCreated": 0,
+    "trackingNumbers": [],
+    "createdShipments": [],
+    "emailsDeleted": 0,
+    "errors": []
+  },
+  {
+    "startTime": "2025-12-19T02:30:00.383Z",
+    "endTime": "2025-12-19T02:30:04.347Z",
+    "success": true,
+    "emailsProcessed": 0,
+    "shipmentsCreated": 0,
+    "trackingNumbers": [],
+    "createdShipments": [],
+    "emailsDeleted": 0,
+    "errors": []
+  },
+  {
+    "startTime": "2025-12-19T02:40:00.403Z",
+    "endTime": "2025-12-19T02:40:04.766Z",
+    "success": true,
+    "emailsProcessed": 0,
+    "shipmentsCreated": 0,
+    "trackingNumbers": [],
+    "createdShipments": [],
+    "emailsDeleted": 0,
+    "errors": []
+  },
+  {
+    "startTime": "2025-12-19T02:50:00.273Z",
+    "endTime": "2025-12-19T02:50:04.254Z",
+    "success": true,
+    "emailsProcessed": 0,
+    "shipmentsCreated": 0,
+    "trackingNumbers": [],
+    "createdShipments": [],
+    "emailsDeleted": 0,
+    "errors": []
+  },
+  {
+    "startTime": "2025-12-19T03:00:00.901Z",
+    "endTime": "2025-12-19T03:00:04.786Z",
+    "success": true,
+    "emailsProcessed": 0,
+    "shipmentsCreated": 0,
+    "trackingNumbers": [],
+    "createdShipments": [],
+    "emailsDeleted": 0,
+    "errors": []
   }
 ]

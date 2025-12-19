@@ -214,6 +214,11 @@
     .edit-card-info h4 {
       font-size: 15px;
       margin: 0 0 4px;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      display: block;
     }
 
     .edit-card-info span {
@@ -470,6 +475,18 @@
       background: #fde047 !important;
       color: #7a5d00 !important;
     }
+    .changed {
+      background: #fde047 !important;
+    }
+    .saved {
+      background: #22c55e !important;
+      color: #fff !important;
+    }
+    .day-off {
+      background: #e5e7eb !important;
+      color: #6b7280 !important;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
@@ -602,6 +619,7 @@
           <button class="btn btn-secondary" id="cancelCopyBtn">Cancel</button>
           <button class="btn btn-primary" id="confirmCopyBtn">Copy Selected</button>
         </div>
+        <div id="copySourceInfo" style="margin: 8px 0; font-size: 13px; color: #555;"></div>
       </div>
     </div>
 
@@ -861,7 +879,7 @@
       const lunchOptions = (settings.lunchTimes || []).map(t =>
         `<option value="${t}">${t}</option>`).join('');
 
-      (employees.MANAGEMENT || []).forEach(emp => {
+      (employees.MANAGEMENT || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
         const photoHtml = emp.imageUrl
           ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -906,6 +924,7 @@
     }
 
     function renderSA() {
+      console.log('[DEBUG] renderSA employees:', JSON.parse(JSON.stringify(employees.SA)));
       console.log('[EDIT] renderSA called');
       const grid = document.getElementById('saGrid');
       const count = document.getElementById('saCount');
@@ -934,7 +953,7 @@
         `<option value="${t}">${t}</option>`).join('');
       const closingDuties = settings.closingSections || [];
 
-      (employees.SA || []).forEach(emp => {
+      (employees.SA || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
         const photoHtml = emp.imageUrl
           ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -955,6 +974,7 @@
         }).join('');
 
         // In renderSA, for each employee:
+        const assignedDuties = new Set((employees.SA.concat(employees.MANAGEMENT || [])).filter(e => e.id !== emp.id).map(e => Array.isArray(e.closingSections) ? e.closingSections[0] : '').filter(Boolean));
         const zoneTaken = (employees.SA.concat(employees.MANAGEMENT || [])).some(e => e.id !== emp.id && e.zone === emp.zone && emp.zone);
         const zoneSelectClass = emp.zone ? (zoneTaken ? 'zone-taken' : 'zone-available') : '';
 
@@ -962,23 +982,29 @@
         const frSelectClass = emp.fittingRoom ? (frTaken ? 'zone-taken' : 'zone-available') : '';
 
         grid.innerHTML += `
-          <div class="edit-card" data-id="${emp.id}" data-type="SA">
+          <div class="edit-card${emp.dayStatus === 'off' ? ' day-off' : ''}" data-id="${emp.id}" data-type="SA">
             <div class="edit-card-header">
               ${photoHtml}
               <div class="edit-card-info">
                 <h4>${emp.name}</h4>
-                <span>Sales Associate</span>
+                <span>Sales Associate${emp.dayStatus === 'off' ? ' (Off)' : ''}</span>
               </div>
             </div>
             <div class="edit-card-fields">
+              <div class="edit-field">
+                <label>Day Off</label>
+                <select data-field="dayStatus">
+                  <option value="">None</option>
+                  <option value="off"${emp.dayStatus === 'off' ? ' selected' : ''}>Day Off</option>
+                </select>
+              </div>
               <div class="edit-field">
                 <label>Zone</label>
                 <select data-field="zone" class="${zoneSelectClass}">
                   <option value="">Select...</option>
                   ${(settings.zones || []).map(z => {
                     const taken = (employees.SA.concat(employees.MANAGEMENT || [])).some(e => e.id !== emp.id && e.zone === z.name);
-                    const dot = taken ? '🟢' : '🟡';
-                    return `<option value="${z.name}"${taken ? ' disabled' : ''}${emp.zone === z.name ? ' selected' : ''}>${dot} ${z.name}${taken ? ' (Taken)' : ''}</option>`;
+                    return `<option value="${z.name}"${taken ? ' disabled' : ''}${emp.zone === z.name ? ' selected' : ''}>${z.name}${taken ? ' (Taken)' : ''}</option>`;
                   }).join('')}
                 </select>
               </div>
@@ -988,8 +1014,7 @@
                   <option value="">Select...</option>
                   ${(settings.fittingRooms || []).map(fr => {
                     const taken = (employees.SA || []).some(e => e.id !== emp.id && e.fittingRoom === fr.name);
-                    const dot = taken ? '🟢' : '🟡';
-                    return `<option value="${fr.name}"${taken ? ' disabled' : ''}${emp.fittingRoom === fr.name ? ' selected' : ''}>${dot} ${fr.name}${taken ? ' (Taken)' : ''}</option>`;
+                    return `<option value="${fr.name}"${taken ? ' disabled' : ''}${emp.fittingRoom === fr.name ? ' selected' : ''}>${fr.name}${taken ? ' (Taken)' : ''}</option>`;
                   }).join('')}
                 </select>
               </div>
@@ -1006,12 +1031,10 @@
               </div>
               <div class="edit-field">
                 <label>Closing Duties</label>
-                <select data-field="closingSections">
-                  <option value="">Select...</option>
+                <select data-field="closingSections" multiple size="4">
                   ${(settings.closingSections || []).map(d => {
-                    // Disable if already assigned to another employee
-                    const taken = (employees.SA.concat(employees.MANAGEMENT || [])).some(e => e.id !== emp.id && Array.isArray(e.closingSections) && e.closingSections.includes(d.name));
-                    return `<option value="${d.name}"${taken ? ' disabled' : ''}${(emp.closingSections || []).includes(d.name) ? ' selected' : ''}>${d.name}${taken ? ' (Taken)' : ''}</option>`;
+                    const selected = (emp.closingSections || []).includes(d.name);
+                    return `<option value="${d.name}"${selected ? ' selected' : ''}>${d.name}</option>`;
                   }).join('')}
                 </select>
               </div>
@@ -1040,7 +1063,7 @@
       const lunchOptions = (settings.lunchTimes || []).map(t =>
         `<option value="${t}">${t}</option>`).join('');
 
-      (employees.BOH || []).forEach(emp => {
+      (employees.BOH || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
         const photoHtml = emp.imageUrl
           ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -1098,7 +1121,7 @@
       const lunchOptions = (settings.lunchTimes || []).map(t =>
         `<option value="${t}">${t}</option>`).join('');
 
-      (employees.TAILOR || []).forEach(emp => {
+      (employees.TAILOR || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
         const photoHtml = emp.imageUrl
           ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -1150,11 +1173,7 @@
 
           if (field === 'closingSections') {
             // Handle duty chips
-            const selected = [];
-            el.querySelectorAll('.duty-chip.selected').forEach(chip => {
-              selected.push(chip.dataset.duty);
-            });
-            fields[field] = selected;
+            fields[field] = Array.from(el.selectedOptions).map(opt => opt.value);
           } else if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
             fields[field] = el.value;
           }
@@ -1175,33 +1194,32 @@
       
       document.addEventListener('change', function(e) {
         const select = e.target;
-        // Only process zone and fitting room selects
-        if (!select.matches('select[data-field="zone"], select[data-field="fittingRoom"]')) {
+        if (!select.matches('select[data-field="zone"], select[data-field="fittingRoom"], select[data-field="closingSections"]')) {
           return;
         }
-        const value = select.value;
-        const field = select.dataset.field;
-        const currentCard = select.closest('.edit-card');
-        if (!currentCard || !value) return; // Allow clearing the selection
-        const currentEmpName = currentCard.querySelector('h4')?.textContent;
-        // Check if this value is already assigned to another employee
-        const allCards = document.querySelectorAll('.edit-card');
-        for (const card of allCards) {
-          if (card === currentCard) continue; // Skip current employee
-          const otherSelect = card.querySelector(`select[data-field="${field}"]`);
-          if (otherSelect && otherSelect.value === value) {
-            const otherEmpName = card.querySelector('h4')?.textContent;
-            const fieldLabel = field === 'zone' ? 'Zone' : 'Fitting Room';
-            alert(`⚠️ ${fieldLabel} "${value}" is already assigned to ${otherEmpName}.\n\nPlease select a different ${fieldLabel.toLowerCase()}.`);
-            // Reset to previous value or empty
-            select.value = '';
-            return;
+        // Update employees data structure
+        const card = select.closest('.edit-card');
+        if (card) {
+          const empId = card.dataset.id;
+          let found = null;
+          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
+            if (!found) found = (employees[role] || []).find(e => e.id === empId);
+          });
+          if (found) {
+            const field = select.dataset.field;
+            if (field === 'closingSections') {
+              found[field] = Array.from(select.selectedOptions).map(opt => opt.value);
+            } else {
+              found[field] = select.value;
+            }
+            console.log(`[DEBUG] Updated employee ${found.name} (${found.id}) field ${field} to`, select.value);
           }
         }
-        // If fitting room was changed, re-render Sales Associates to update options
-        if (field === 'fittingRoom' && typeof renderSA === 'function') {
-          setTimeout(renderSA, 0);
-        }
+        // Re-render all sections to update dropdowns
+        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+        if (typeof renderBOH === 'function') setTimeout(renderBOH, 0);
+        if (typeof renderTailors === 'function') setTimeout(renderTailors, 0);
+        if (typeof renderManagement === 'function') setTimeout(renderManagement, 0);
       });
       
       // Handle closing duties validation
@@ -1520,55 +1538,40 @@
         }
       }
 
+      // 1. Copy from Yesterday fallback logic
       async function copyFromYesterdayFields() {
         try {
-          const yesterday = new Date();
-          yesterday.setDate(yesterday.getDate() - 1);
-          const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-          const selectedFields = Array.from(copyFields).filter(cb => cb.checked).map(cb => cb.value);
-          if (selectedFields.length === 0) {
-            alert('Please select at least one field to copy.');
+          let sourceDate;
+          let data;
+          let daysBack = 1;
+          while (daysBack < 14) { // Look back up to 2 weeks
+            const date = new Date();
+            date.setDate(date.getDate() - daysBack);
+            const dateStr = date.toISOString().split('T')[0];
+            const response = await fetch(`/api/gameplan/date/${dateStr}`);
+            if (response.ok) {
+              data = await response.json();
+              if (data.employees && data.employees.length > 0) {
+                sourceDate = dateStr;
+                break;
+              }
+            }
+            daysBack++;
+          }
+          if (!data || !sourceDate) {
+            alert('No previous game plan found to copy.');
             return;
           }
-
-          const response = await fetch(`/api/gameplan/date/${yesterdayStr}`);
-          if (response.ok) {
-            const data = await response.json();
-            copyFieldsToEmployees(data, selectedFields);
-            saveCopyPreferences();
-            copyModalOverlay.classList.remove('show');
-            hasUnsavedChanges = true;
-            alert('Fields copied from yesterday!');
-          } else {
-            alert('No game plan found for yesterday.');
-          }
+          copyFieldsToEmployees(data, Array.from(copyFields).filter(cb => cb.checked).map(cb => cb.value));
+          saveCopyPreferences();
+          copyModalOverlay.classList.remove('show');
+          hasUnsavedChanges = true;
+          alert(`Fields copied from ${sourceDate}!`);
+          document.getElementById('copySourceInfo').textContent = `Copied from: ${sourceDate}`;
         } catch (error) {
           console.error('Error copying:', error);
-          alert('Error loading yesterday plan.');
+          alert('Error loading previous game plan.');
         }
-      }
-
-      function copyFieldsToEmployees(yesterdayData, fieldsToCopy) {
-        if (!yesterdayData.employees) return;
-        yesterdayData.employees.forEach(yEmp => {
-          // Find the matching employee in the current employees array
-          let found = null;
-          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
-            if (!found) found = (employees[role] || []).find(e => e.id === yEmp.id);
-          });
-          if (found) {
-            fieldsToCopy.forEach(field => {
-              if (yEmp.hasOwnProperty(field)) {
-                found[field] = Array.isArray(yEmp[field]) ? [...yEmp[field]] : yEmp[field];
-              }
-            });
-          }
-        });
-        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
-        if (typeof renderBOH === 'function') setTimeout(renderBOH, 0);
-        if (typeof renderTailors === 'function') setTimeout(renderTailors, 0);
-        if (typeof renderManagement === 'function') setTimeout(renderManagement, 0);
       }
     }
   </script>
