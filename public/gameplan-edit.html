@@ -115,9 +115,69 @@
 
     .section-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 16px;
       margin-bottom: 32px;
+    }
+
+    .notes-card-toggle {
+      transition: transform 0.2s ease;
+    }
+
+    .notes-card.collapsed .notes-card-toggle {
+      transform: rotate(-90deg);
+    }
+
+    .notes-card.collapsed .notes-card-body {
+      display: none;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--background);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 24px;
+      width: 90%;
+      max-width: 520px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+
+    .copy-fields-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .copy-fields-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 24px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
     }
 
     .edit-card {
@@ -231,9 +291,19 @@
     }
 
     .duty-chip.selected {
-      background: var(--primary);
+      background: #22c55e;
       color: #fff;
-      border-color: var(--primary);
+      border-color: #22c55e;
+    }
+    .duty-chip.taken {
+      background: #22c55e;
+      color: #fff;
+      border-color: #22c55e;
+    }
+    .duty-chip.unassigned {
+      background: #fde047;
+      color: #7a5d00;
+      border-color: #fde047;
     }
 
     .duty-chip:hover {
@@ -368,6 +438,38 @@
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+  
+    .notes-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 32px; overflow: hidden; }
+    .notes-card-header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+    .notes-card-header:hover { background: #f5f5f5; }
+    .notes-card-toggle { transition: transform 0.2s; }
+    .notes-card.collapsed .notes-card-toggle { transform: rotate(-90deg); }
+    .notes-card.collapsed .notes-card-body { display: none; }
+    .notes-card-body { padding: 20px; }
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
+    .modal { background: var(--background); border-radius: 12px; padding: 24px; width: 90%; max-width: 450px; }
+    .modal-header { display: flex; justify-content: space-between; margin-bottom: 16px; font-weight: 600; }
+    .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; }
+    .copy-fields-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+    .copy-fields-list label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+    .btn { display: inline-flex; align-items: center; padding: 10px 20px; font-size: 14px; font-weight: 500; border-radius: 6px; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: #1a1a1a; }
+    .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+    .btn-secondary:hover { background: #e5e5e5; }
+    .btn-outline-danger { background: transparent; color: #dc2626; border-color: #dc2626; }
+    .btn-outline-danger:hover { background: #dc2626; color: #fff; }
+
+    .zone-taken {
+      background: #22c55e !important;
+      color: #fff !important;
+    }
+    .zone-available {
+      background: #fde047 !important;
+      color: #7a5d00 !important;
+    }
   </style>
 </head>
 <body>
@@ -411,42 +513,23 @@
     <div class="edit-header">
       <div>
         <h2>Edit Game Plan</h2>
-        <p style="color: var(--text-secondary); font-size: 14px;">Assign zones, shifts, duties, and targets for today</p>
+        <span id="lastEditedBy" style="font-size: 12px; color: var(--text-secondary);"></span>
       </div>
       <div class="edit-actions">
-        <button class="btn btn-secondary" id="clearAllBtn" style="background:#f87171;" title="Clear all assignments">Clear All</button>
+        <button class="btn btn-sm" id="copyYesterdayBtn">📋 Copy from Yesterday</button>
+        <button class="btn btn-secondary" id="clearAllBtn" style="background:#f87171;">Clear All</button>
         <a href="/dashboard" class="btn btn-secondary">Cancel</a>
         <button class="btn btn-primary" id="saveAllBtn">Publish</button>
       </div>
     </div>
 
-    <!-- Looker Data Import Banner -->
-    <div class="looker-import-banner" id="lookerBanner">
-      <div class="banner-icon">📊</div>
-      <div class="banner-content">
-        <strong>Looker Data Imported</strong>
-        <span id="importTimestamp">Last sync: --</span>
-      </div>
-      <div class="banner-note">
-        <span class="readonly-indicator">🔒</span> KPIs, Sales, and Metrics are imported from Looker (read-only)
-      </div>
-    </div>
-
-    <!-- Legend for editable vs read-only fields -->
-    <div class="edit-legend">
-      <span class="legend-item editable">✏️ Editable fields</span>
-      <span class="legend-item readonly">🔒 Looker data (read-only)</span>
-    </div>
-
     <!-- Game Plan Notes Section -->
-    <section class="notes-edit-section">
-      <div class="section-title">
-        <h3>📝 Game Plan Notes</h3>
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <span class="last-edited-info" id="lastEditedBy" style="font-size: 12px; color: var(--text-secondary);"></span>
-          <button class="btn btn-sm btn-outline" id="copyYesterdayNotesBtn">📋 Copy from Yesterday</button>
-        </div>
+    <section class="notes-card" id="notesCard">
+      <div class="notes-card-header" id="notesCardHeader">
+        <h3 style="margin:0">📝 Notes</h3>
+        <span class="notes-card-toggle">▼</span>
       </div>
+      <div class="notes-card-body">
       <div class="notes-editor-container">
         <div class="notes-toolbar" id="notesToolbar">
           <!-- Font Family -->
@@ -496,43 +579,134 @@
         </div>
         <div class="notes-editor" id="notesEditor" contenteditable="true" placeholder="Enter today's game plan notes..."></div>
       </div>
+      </div>
     </section>
 
+    <!-- Copy from Yesterday Modal -->
+    <div class="modal-overlay" id="copyModalOverlay">
+      <div class="modal">
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Copy from Yesterday</div>
+        <div style="margin-bottom: 16px; color: var(--text-secondary);">Select fields to copy:</div>
+        <div class="copy-fields-list">
+          <label><input type="checkbox" value="role" class="copy-field"> Position</label>
+          <label><input type="checkbox" value="shift" class="copy-field"> Shift</label>
+          <label><input type="checkbox" value="lunch" class="copy-field"> Lunch</label>
+          <label><input type="checkbox" value="zone" class="copy-field"> Zone</label>
+          <label><input type="checkbox" value="fittingRoom" class="copy-field"> Fitting Room</label>
+          <label><input type="checkbox" value="target" class="copy-field"> Target</label>
+          <label><input type="checkbox" value="closingSections" class="copy-field"> Closing Duties</label>
+          <label><input type="checkbox" value="station" class="copy-field"> Tailor Station</label>
+        </div>
+        <label style="margin: 12px 0;"><input type="checkbox" id="selectAllFields"> <strong>Select All</strong></label>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="cancelCopyBtn">Cancel</button>
+          <button class="btn btn-primary" id="confirmCopyBtn">Copy Selected</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Management Section (includes BOH management) -->
-    <section class="management-section">
-      <div class="section-title">
+
+    <section class="section-card management-section">
+      <div class="section-title section-toggle" data-target="mgmtGrid">
         <h3>Management</h3>
-        <span class="section-count" id="mgmtCount">0</span>
+        <div class="section-title-right">
+          <span class="section-count" id="mgmtCount">0</span>
+          <button class="toggle-btn" type="button" aria-label="Toggle Management">▼</button>
+        </div>
       </div>
       <div class="section-grid" id="mgmtGrid"></div>
     </section>
 
     <!-- Sales Associates Section -->
-    <section>
-      <div class="section-title">
+
+    <section class="section-card">
+      <div class="section-title section-toggle" data-target="saGrid">
         <h3>Sales Associates</h3>
-        <span class="section-count" id="saCount">0</span>
+        <div class="section-title-right">
+          <span class="section-count" id="saCount">0</span>
+          <button class="toggle-btn" type="button" aria-label="Toggle Sales Associates">▼</button>
+        </div>
       </div>
       <div class="section-grid" id="saGrid"></div>
     </section>
 
     <!-- Back of House Section -->
-    <section>
-      <div class="section-title">
+
+    <section class="section-card">
+      <div class="section-title section-toggle" data-target="bohGrid">
         <h3>Back of House</h3>
-        <span class="section-count" id="bohCount">0</span>
+        <div class="section-title-right">
+          <span class="section-count" id="bohCount">0</span>
+          <button class="toggle-btn" type="button" aria-label="Toggle Back of House">▼</button>
+        </div>
       </div>
       <div class="section-grid" id="bohGrid"></div>
     </section>
 
     <!-- Tailors Section -->
-    <section>
-      <div class="section-title">
+
+    <section class="section-card">
+      <div class="section-title section-toggle" data-target="tailorGrid">
         <h3>Tailors</h3>
-        <span class="section-count" id="tailorCount">0</span>
+        <div class="section-title-right">
+          <span class="section-count" id="tailorCount">0</span>
+          <button class="toggle-btn" type="button" aria-label="Toggle Tailors">▼</button>
+        </div>
       </div>
       <div class="section-grid" id="tailorGrid"></div>
     </section>
+          <style>
+            .section-card {
+              background: #f1f3f7;
+              border-radius: 10px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+              margin-bottom: 32px;
+              padding: 18px 18px 0 18px;
+            }
+            .section-title {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              margin-bottom: 10px;
+            }
+            .section-title h3 {
+              margin: 0;
+              font-size: 1.2em;
+              font-weight: 600;
+            }
+            .section-title-right {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .section-count {
+              background: #e0e3ea;
+              color: #374151;
+              border-radius: 6px;
+              font-size: 15px;
+              font-weight: 600;
+              padding: 2px 10px;
+              min-width: 28px;
+              text-align: center;
+            }
+          </style>
+      <style>
+        .toggle-btn {
+          background: none;
+          border: none;
+          font-size: 18px;
+          cursor: pointer;
+          margin-left: 8px;
+          transition: transform 0.2s;
+        }
+        .collapsed-section .toggle-btn {
+          transform: rotate(-90deg);
+        }
+        .collapsed-section .section-grid {
+          display: none;
+        }
+      </style>
   </div>
 
   <div class="save-indicator" id="saveIndicator">Changes saved!</div>
@@ -549,6 +723,14 @@
     let hasUnsavedChanges = false;
 
     document.addEventListener('DOMContentLoaded', async () => {
+      // Section expand/collapse logic
+      document.querySelectorAll('.section-toggle').forEach(title => {
+        const btn = title.querySelector('.toggle-btn');
+        const section = title.closest('section');
+        btn.addEventListener('click', () => {
+          section.classList.toggle('collapsed-section');
+        });
+      });
       try {
         console.log('[EDIT] Starting initialization...');
         await checkAuth();
@@ -738,6 +920,16 @@
         `<option value="${z.name}">${z.name}</option>`).join('');
       const frOptions = (settings.fittingRooms || []).map(fr =>
         `<option value="${fr.name}">${fr.name}</option>`).join('');
+
+      // For each employee, only show unassigned fitting rooms or their own
+      function getFittingRoomOptions(currentEmp) {
+        // Collect all fitting rooms assigned to other employees
+        const assigned = new Set((employees.SA || []).filter(e => e.id !== currentEmp.id && e.fittingRoom).map(e => e.fittingRoom));
+        return (settings.fittingRooms || []).map(fr => {
+          const taken = assigned.has(fr.name);
+          return `<option value="${fr.name}"${taken ? ' disabled style=\"display:none\"' : ''}${currentEmp.fittingRoom === fr.name ? ' selected' : ''}>${fr.name}</option>`;
+        }).join('');
+      }
       const lunchOptions = (settings.lunchTimes || []).map(t =>
         `<option value="${t}">${t}</option>`).join('');
       const closingDuties = settings.closingSections || [];
@@ -748,10 +940,26 @@
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
 
         const selectedDuties = emp.closingSections || [];
-        const dutiesHtml = closingDuties.map(d => `
-          <span class="duty-chip ${selectedDuties.includes(d.name) ? 'selected' : ''}"
-                data-duty="${d.name}">${d.name}</span>
-        `).join('');
+        // Find all assigned closing duties
+        const allAssignedDuties = new Set((employees.SA.concat(employees.MANAGEMENT || [])).flatMap(e => Array.isArray(e.closingSections) ? e.closingSections : []));
+        const dutiesHtml = closingDuties.map(d => {
+          let chipClass = '';
+          if (selectedDuties.includes(d.name)) {
+            chipClass = 'selected'; // green for this employee
+          } else if (allAssignedDuties.has(d.name)) {
+            chipClass = 'taken'; // green for taken by others
+          } else {
+            chipClass = 'unassigned'; // yellow for blank
+          }
+          return `<span class="duty-chip ${chipClass}" data-duty="${d.name}">${d.name}</span>`;
+        }).join('');
+
+        // In renderSA, for each employee:
+        const zoneTaken = (employees.SA.concat(employees.MANAGEMENT || [])).some(e => e.id !== emp.id && e.zone === emp.zone && emp.zone);
+        const zoneSelectClass = emp.zone ? (zoneTaken ? 'zone-taken' : 'zone-available') : '';
+
+        const frTaken = (employees.SA || []).some(e => e.id !== emp.id && e.fittingRoom === emp.fittingRoom && emp.fittingRoom);
+        const frSelectClass = emp.fittingRoom ? (frTaken ? 'zone-taken' : 'zone-available') : '';
 
         grid.innerHTML += `
           <div class="edit-card" data-id="${emp.id}" data-type="SA">
@@ -765,16 +973,24 @@
             <div class="edit-card-fields">
               <div class="edit-field">
                 <label>Zone</label>
-                <select data-field="zone">
+                <select data-field="zone" class="${zoneSelectClass}">
                   <option value="">Select...</option>
-                  ${zoneOptions.replace(`value="${emp.zone}"`, `value="${emp.zone}" selected`)}
+                  ${(settings.zones || []).map(z => {
+                    const taken = (employees.SA.concat(employees.MANAGEMENT || [])).some(e => e.id !== emp.id && e.zone === z.name);
+                    const dot = taken ? '🟢' : '🟡';
+                    return `<option value="${z.name}"${taken ? ' disabled' : ''}${emp.zone === z.name ? ' selected' : ''}>${dot} ${z.name}${taken ? ' (Taken)' : ''}</option>`;
+                  }).join('')}
                 </select>
               </div>
               <div class="edit-field">
                 <label>Fitting Room</label>
-                <select data-field="fittingRoom">
+                <select data-field="fittingRoom" class="${frSelectClass}">
                   <option value="">Select...</option>
-                  ${frOptions.replace(`value="${emp.fittingRoom}"`, `value="${emp.fittingRoom}" selected`)}
+                  ${(settings.fittingRooms || []).map(fr => {
+                    const taken = (employees.SA || []).some(e => e.id !== emp.id && e.fittingRoom === fr.name);
+                    const dot = taken ? '🟢' : '🟡';
+                    return `<option value="${fr.name}"${taken ? ' disabled' : ''}${emp.fittingRoom === fr.name ? ' selected' : ''}>${dot} ${fr.name}${taken ? ' (Taken)' : ''}</option>`;
+                  }).join('')}
                 </select>
               </div>
               <div class="edit-field">
@@ -790,9 +1006,14 @@
               </div>
               <div class="edit-field">
                 <label>Closing Duties</label>
-                <div class="closing-duties-field" data-field="closingSections">
-                  ${dutiesHtml}
-                </div>
+                <select data-field="closingSections">
+                  <option value="">Select...</option>
+                  ${(settings.closingSections || []).map(d => {
+                    // Disable if already assigned to another employee
+                    const taken = (employees.SA.concat(employees.MANAGEMENT || [])).some(e => e.id !== emp.id && Array.isArray(e.closingSections) && e.closingSections.includes(d.name));
+                    return `<option value="${d.name}"${taken ? ' disabled' : ''}${(emp.closingSections || []).includes(d.name) ? ' selected' : ''}>${d.name}${taken ? ' (Taken)' : ''}</option>`;
+                  }).join('')}
+                </select>
               </div>
             </div>
           </div>
@@ -954,36 +1175,32 @@
       
       document.addEventListener('change', function(e) {
         const select = e.target;
-        
         // Only process zone and fitting room selects
         if (!select.matches('select[data-field="zone"], select[data-field="fittingRoom"]')) {
           return;
         }
-
         const value = select.value;
         const field = select.dataset.field;
         const currentCard = select.closest('.edit-card');
-        
         if (!currentCard || !value) return; // Allow clearing the selection
-
         const currentEmpName = currentCard.querySelector('h4')?.textContent;
-
         // Check if this value is already assigned to another employee
         const allCards = document.querySelectorAll('.edit-card');
         for (const card of allCards) {
           if (card === currentCard) continue; // Skip current employee
-          
           const otherSelect = card.querySelector(`select[data-field="${field}"]`);
           if (otherSelect && otherSelect.value === value) {
             const otherEmpName = card.querySelector('h4')?.textContent;
             const fieldLabel = field === 'zone' ? 'Zone' : 'Fitting Room';
-            
             alert(`⚠️ ${fieldLabel} "${value}" is already assigned to ${otherEmpName}.\n\nPlease select a different ${fieldLabel.toLowerCase()}.`);
-            
             // Reset to previous value or empty
             select.value = '';
             return;
           }
+        }
+        // If fitting room was changed, re-render Sales Associates to update options
+        if (field === 'fittingRoom' && typeof renderSA === 'function') {
+          setTimeout(renderSA, 0);
         }
       });
       
@@ -1128,15 +1345,21 @@
       // Clear All button
       document.getElementById('clearAllBtn').addEventListener('click', () => {
         if (confirm('Are you sure you want to clear all assignments? This cannot be undone.')) {
-          // Clear all selects and textareas
-          document.querySelectorAll('.edit-card-fields select, .edit-card-fields textarea, .edit-card-fields input[type="number"]').forEach(el => {
-            el.value = '';
-          });
-          // Clear all duty chips
-          document.querySelectorAll('.duty-chip').forEach(chip => {
-            chip.classList.remove('selected');
+          // Reset all employees data
+          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
+            (employees[role] || []).forEach(emp => {
+              Object.keys(emp).forEach(key => {
+                if (['id', 'name', 'imageUrl', 'type'].includes(key)) return;
+                if (Array.isArray(emp[key])) emp[key] = [];
+                else emp[key] = '';
+              });
+            });
           });
           hasUnsavedChanges = true;
+          if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+          if (typeof renderBOH === 'function') setTimeout(renderBOH, 0);
+          if (typeof renderTailors === 'function') setTimeout(renderTailors, 0);
+          if (typeof renderManagement === 'function') setTimeout(renderManagement, 0);
         }
       });
 
@@ -1237,41 +1460,119 @@
       notesEditor.addEventListener('input', () => {
         hasUnsavedChanges = true;
       });
-      
-      // Copy from yesterday button
-      const copyYesterdayBtn = document.getElementById('copyYesterdayNotesBtn');
-      if (copyYesterdayBtn) {
-        copyYesterdayBtn.addEventListener('click', copyFromYesterday);
+
+      // Collapsible notes card
+      const notesCardHeader = document.getElementById('notesCardHeader');
+      const notesCard = document.getElementById('notesCard');
+      if (notesCardHeader) {
+        notesCardHeader.addEventListener('click', () => {
+          notesCard.classList.toggle('collapsed');
+        });
       }
-    }
-    
-    async function copyFromYesterday() {
-      try {
-        // Calculate yesterday's date
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-        
-        const response = await fetch(`/api/gameplan/date/${yesterdayStr}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.notes) {
-            const notesEditor = document.getElementById('notesEditor');
-            notesEditor.innerHTML = data.notes;
-            hasUnsavedChanges = true;
-            alert('Notes copied from yesterday!');
-          } else {
-            alert('No notes found from yesterday.');
-          }
-        } else {
-          alert('No game plan found for yesterday.');
+
+      // Copy from Yesterday modal setup
+      const copyModalOverlay = document.getElementById('copyModalOverlay');
+      const cancelCopyBtn = document.getElementById('cancelCopyBtn');
+      const confirmCopyBtn = document.getElementById('confirmCopyBtn');
+      const selectAllFields = document.getElementById('selectAllFields');
+      const copyFields = document.querySelectorAll('.copy-field');
+
+      const newCopyYesterdayBtn = document.getElementById('copyYesterdayBtn');
+      if (newCopyYesterdayBtn) {
+        newCopyYesterdayBtn.addEventListener('click', () => {
+          copyModalOverlay.classList.add('show');
+          loadSavedCopyPreferences();
+        });
+      }
+
+      if (cancelCopyBtn) {
+        cancelCopyBtn.addEventListener('click', () => {
+          copyModalOverlay.classList.remove('show');
+        });
+      }
+
+      if (confirmCopyBtn) {
+        confirmCopyBtn.addEventListener('click', copyFromYesterdayFields);
+      }
+
+      if (selectAllFields) {
+        selectAllFields.addEventListener('change', () => {
+          copyFields.forEach(cb => cb.checked = selectAllFields.checked);
+        });
+      }
+
+      copyFields.forEach(checkbox => {
+        checkbox.addEventListener('change', saveCopyPreferences);
+      });
+
+      function saveCopyPreferences() {
+        const selected = Array.from(copyFields).filter(cb => cb.checked).map(cb => cb.value);
+        localStorage.setItem('copyFieldPrefs', JSON.stringify(selected));
+        selectAllFields.checked = selected.length === copyFields.length;
+      }
+
+      function loadSavedCopyPreferences() {
+        const saved = localStorage.getItem('copyFieldPrefs');
+        if (saved) {
+          const selected = JSON.parse(saved);
+          copyFields.forEach(cb => cb.checked = selected.includes(cb.value));
+          selectAllFields.checked = selected.length === copyFields.length;
         }
-      } catch (error) {
-        console.error('Error copying from yesterday:', error);
-        alert('Error loading yesterday notes.');
+      }
+
+      async function copyFromYesterdayFields() {
+        try {
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+          const selectedFields = Array.from(copyFields).filter(cb => cb.checked).map(cb => cb.value);
+          if (selectedFields.length === 0) {
+            alert('Please select at least one field to copy.');
+            return;
+          }
+
+          const response = await fetch(`/api/gameplan/date/${yesterdayStr}`);
+          if (response.ok) {
+            const data = await response.json();
+            copyFieldsToEmployees(data, selectedFields);
+            saveCopyPreferences();
+            copyModalOverlay.classList.remove('show');
+            hasUnsavedChanges = true;
+            alert('Fields copied from yesterday!');
+          } else {
+            alert('No game plan found for yesterday.');
+          }
+        } catch (error) {
+          console.error('Error copying:', error);
+          alert('Error loading yesterday plan.');
+        }
+      }
+
+      function copyFieldsToEmployees(yesterdayData, fieldsToCopy) {
+        if (!yesterdayData.employees) return;
+        yesterdayData.employees.forEach(yEmp => {
+          // Find the matching employee in the current employees array
+          let found = null;
+          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
+            if (!found) found = (employees[role] || []).find(e => e.id === yEmp.id);
+          });
+          if (found) {
+            fieldsToCopy.forEach(field => {
+              if (yEmp.hasOwnProperty(field)) {
+                found[field] = Array.isArray(yEmp[field]) ? [...yEmp[field]] : yEmp[field];
+              }
+            });
+          }
+        });
+        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+        if (typeof renderBOH === 'function') setTimeout(renderBOH, 0);
+        if (typeof renderTailors === 'function') setTimeout(renderTailors, 0);
+        if (typeof renderManagement === 'function') setTimeout(renderManagement, 0);
       }
     }
   </script>
+
   <script src="/js/shared-header.js"></script>
 </body>
 </html>

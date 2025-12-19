@@ -105,30 +105,12 @@
       text-overflow: ellipsis;
       cursor: pointer;
       transition: opacity 0.2s;
+      color: white;
+      font-weight: 500;
     }
 
     .timeoff-event:hover {
       opacity: 0.8;
-    }
-
-    .timeoff-event.approved {
-      background: #d4edda;
-      color: #155724;
-      font-weight: 500;
-    }
-
-    .timeoff-event.pending {
-      background: #fff3cd;
-      color: #856404;
-      opacity: 0.6;
-      border: 1px dashed #ffc107;
-    }
-
-    .timeoff-event.denied {
-      background: #f8d7da;
-      color: #721c24;
-      text-decoration: line-through;
-      opacity: 0.5;
     }
 
     /* Event detail modal */
@@ -187,21 +169,6 @@
     .event-detail-value {
       font-weight: 500;
     }
-    .approval-info {
-      margin-top: 16px;
-      padding: 12px;
-      background: var(--surface);
-      border-radius: 6px;
-    }
-    .approval-info.approved {
-      background: #d4edda;
-    }
-    .approval-info.denied {
-      background: #f8d7da;
-    }
-    .approval-info.pending {
-      background: #fff3cd;
-    }
 
     .legend {
       display: flex;
@@ -222,7 +189,6 @@
       border-radius: 3px;
     }
     .legend-dot.approved { background: #d4edda; border: 1px solid #155724; }
-    .legend-dot.pending { background: #fff3cd; border: 1px dashed #ffc107; opacity: 0.6; }
     .legend-dot.denied { background: #f8d7da; border: 1px solid #721c24; }
 
     .sidebar-section {
@@ -347,20 +313,6 @@
         <div class="calendar-day-header">Fri</div>
         <div class="calendar-day-header">Sat</div>
       </div>
-      <div class="legend">
-        <div class="legend-item">
-          <span class="legend-dot approved"></span>
-          <span>Approved</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-dot pending"></span>
-          <span>Pending</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-dot denied"></span>
-          <span>Denied</span>
-        </div>
-      </div>
     </div>
 
     <div class="sidebar-section">
@@ -388,15 +340,11 @@
             <label>Notes (optional)</label>
             <textarea class="form-control" id="notes" rows="2"></textarea>
           </div>
-          <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Request</button>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Publish Time Off</button>
         </form>
-      </div>
-
-      <div class="request-card" id="pendingCard">
-        <h3>Pending Requests</h3>
-        <div class="pending-list" id="pendingList">
-          <p style="color: var(--text-muted); text-align: center;">No pending requests</p>
-        </div>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 12px; text-align: center;">
+          This is for public view only. You still need to submit your time off request on Workday.
+        </p>
       </div>
     </div>
   </div>
@@ -420,7 +368,16 @@
     let allEvents = []; // Store all events for modal lookup
     let currentUser = null;
     let currentDate = new Date();
-    let timeOffData = { requests: [], approved: [], denied: [] };
+    let timeOffData = { entries: [] };
+
+    function getEmployeeColor(employeeId) {
+      const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'];
+      let hash = 0;
+      for (let i = 0; i < employeeId.length; i++) {
+        hash = employeeId.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      return colors[Math.abs(hash) % colors.length];
+    }
 
     async function checkAuth() {
       const response = await fetch('/api/auth/check');
@@ -431,11 +388,6 @@
       }
       currentUser = data.user;
       document.getElementById('userName').textContent = data.user.name;
-
-      // Show pending card only for managers
-      if (!data.user.isManager && !data.user.isAdmin) {
-        document.getElementById('pendingCard').style.display = 'none';
-      }
     }
 
     async function loadTimeOffData() {
@@ -444,7 +396,6 @@
         if (response.ok) {
           timeOffData = await response.json();
           renderCalendar();
-          renderPendingRequests();
         }
       } catch (error) {
         console.error('Error loading time off data:', error);
@@ -478,11 +429,7 @@
       const today = new Date();
 
       // Combine all events
-      allEvents = [
-        ...(timeOffData.approved || []).map(e => ({...e, status: 'approved'})),
-        ...(timeOffData.requests || []).map(e => ({...e, status: 'pending'})),
-        ...(timeOffData.denied || []).map(e => ({...e, status: 'denied'}))
-      ];
+      allEvents = timeOffData.entries || [];
 
       // Previous month padding
       const prevLastDay = new Date(year, month, 0).getDate();
@@ -509,8 +456,8 @@
           const current = new Date(dateStr);
 
           if (current >= start && current <= end) {
-            const status = event.status || 'pending';
-            eventsHtml += `<div class="timeoff-event ${status}" onclick="showEventDetails('${event.id}')">${event.employeeName || 'Unknown'}</div>`;
+            const color = getEmployeeColor(event.employeeId);
+            eventsHtml += `<div class="timeoff-event" style="background-color: ${color};" onclick="showEventDetails('${event.id}')">${event.employeeName || 'Unknown'}</div>`;
           }
         });
 
@@ -540,35 +487,6 @@
       const startDate = new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
       const endDate = new Date(event.endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
-      let approvalHtml = '';
-      if (event.status === 'approved') {
-        const approvedDate = event.approvedAt ? new Date(event.approvedAt).toLocaleString() : '';
-        approvalHtml = `
-          <div class="approval-info approved">
-            <strong>Approved</strong><br>
-            <span style="font-size: 13px;">By ${event.approvedBy || 'Manager'}</span><br>
-            <span style="font-size: 12px; color: var(--text-secondary);">${approvedDate}</span>
-          </div>
-        `;
-      } else if (event.status === 'denied') {
-        const deniedDate = event.deniedAt ? new Date(event.deniedAt).toLocaleString() : '';
-        approvalHtml = `
-          <div class="approval-info denied">
-            <strong>Denied</strong><br>
-            <span style="font-size: 13px;">By ${event.deniedBy || 'Manager'}</span><br>
-            <span style="font-size: 12px; color: var(--text-secondary);">${deniedDate}</span>
-          </div>
-        `;
-      } else {
-        const submittedDate = event.submittedAt ? new Date(event.submittedAt).toLocaleString() : '';
-        approvalHtml = `
-          <div class="approval-info pending">
-            <strong>Pending Approval</strong><br>
-            <span style="font-size: 12px; color: var(--text-secondary);">Submitted: ${submittedDate}</span>
-          </div>
-        `;
-      }
-
       modalBody.innerHTML = `
         <div class="event-detail-row">
           <span class="event-detail-label">Employee</span>
@@ -592,7 +510,6 @@
             <span class="event-detail-value">${event.notes}</span>
           </div>
         ` : ''}
-        ${approvalHtml}
       `;
 
       document.getElementById('eventModal').classList.add('active');
@@ -606,40 +523,6 @@
     document.getElementById('eventModal')?.addEventListener('click', (e) => {
       if (e.target.id === 'eventModal') closeEventModal();
     });
-
-    function renderPendingRequests() {
-      const list = document.getElementById('pendingList');
-      const pending = timeOffData.requests || [];
-
-      if (pending.length === 0) {
-        list.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No pending requests</p>';
-        return;
-      }
-
-      list.innerHTML = pending.map(req => `
-        <div class="pending-item">
-          <div class="pending-info">
-            <div class="name">${req.employeeName}</div>
-            <div class="dates">${req.startDate} to ${req.endDate}</div>
-          </div>
-          ${currentUser?.isManager || currentUser?.isAdmin ? `
-            <div class="pending-actions">
-              <button class="btn btn-sm btn-success" onclick="handleRequest('${req.id}', 'approve')">Approve</button>
-              <button class="btn btn-sm btn-danger" onclick="handleRequest('${req.id}', 'deny')">Deny</button>
-            </div>
-          ` : ''}
-        </div>
-      `).join('');
-    }
-
-    async function handleRequest(id, action) {
-      try {
-        await fetch(`/api/timeoff/${id}/${action}`, { method: 'POST' });
-        await loadTimeOffData();
-      } catch (error) {
-        alert('Error processing request');
-      }
-    }
 
     document.getElementById('requestForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -658,11 +541,11 @@
         });
 
         if (response.ok) {
-          alert('Request submitted!');
+          alert('Time off published!');
           document.getElementById('requestForm').reset();
           await loadTimeOffData();
         } else {
-          alert('Error submitting request');
+          alert('Error publishing time off');
         }
       } catch (error) {
         alert('Error submitting request');

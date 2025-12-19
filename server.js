@@ -183,3 +183,12 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`║  Press Ctrl+C to stop                                     ║`);
   console.log(`╚═══════════════════════════════════════════════════════════╝\n`);
 });
+
+// Global error handlers to prevent silent crashes
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});

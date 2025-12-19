@@ -38,7 +38,7 @@ router.get('/', (req, res) => {
     return res.status(401).json({ error: 'Not authenticated' });
   }
 
-  const data = readJsonFile(TIMEOFF_FILE, { requests: [], approved: [], denied: [] });
+  const data = readJsonFile(TIMEOFF_FILE, { entries: [] });
   res.json(data);
 });
 
@@ -55,79 +55,25 @@ router.post('/request', (req, res) => {
     return res.status(400).json({ error: 'Start and end dates are required' });
   }
 
-  const data = readJsonFile(TIMEOFF_FILE, { requests: [], approved: [], denied: [] });
+  const data = readJsonFile(TIMEOFF_FILE, { entries: [] });
 
-  const newRequest = {
-    id: `req-${Date.now()}`,
+  const newEntry = {
+    id: `entry-${Date.now()}`,
     employeeId: user.employeeId,
     employeeName: user.name,
     startDate,
     endDate,
     reason: reason || 'vacation',
-    notes: notes || '',
-    status: 'pending',
-    submittedAt: new Date().toISOString()
+    notes: notes || ''
   };
 
-  data.requests.push(newRequest);
+  data.entries.push(newEntry);
   writeJsonFile(TIMEOFF_FILE, data);
 
-  res.json({ success: true, request: newRequest });
+  res.json({ success: true, entry: newEntry });
 });
 
-// POST /api/timeoff/:id/approve - Approve request (managers only)
-router.post('/:id/approve', (req, res) => {
-  const user = getUserFromCookie(req);
-  if (!user || (!user.isManager && !user.isAdmin)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-
-  const { id } = req.params;
-  const data = readJsonFile(TIMEOFF_FILE, { requests: [], approved: [], denied: [] });
-
-  const requestIndex = data.requests.findIndex(r => r.id === id);
-  if (requestIndex === -1) {
-    return res.status(404).json({ error: 'Request not found' });
-  }
-
-  const request = data.requests.splice(requestIndex, 1)[0];
-  request.status = 'approved';
-  request.approvedBy = user.name;
-  request.approvedAt = new Date().toISOString();
-
-  data.approved.push(request);
-  writeJsonFile(TIMEOFF_FILE, data);
-
-  res.json({ success: true });
-});
-
-// POST /api/timeoff/:id/deny - Deny request (managers only)
-router.post('/:id/deny', (req, res) => {
-  const user = getUserFromCookie(req);
-  if (!user || (!user.isManager && !user.isAdmin)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-
-  const { id } = req.params;
-  const data = readJsonFile(TIMEOFF_FILE, { requests: [], approved: [], denied: [] });
-
-  const requestIndex = data.requests.findIndex(r => r.id === id);
-  if (requestIndex === -1) {
-    return res.status(404).json({ error: 'Request not found' });
-  }
-
-  const request = data.requests.splice(requestIndex, 1)[0];
-  request.status = 'denied';
-  request.deniedBy = user.name;
-  request.deniedAt = new Date().toISOString();
-
-  data.denied.push(request);
-  writeJsonFile(TIMEOFF_FILE, data);
-
-  res.json({ success: true });
-});
-
-// DELETE /api/timeoff/:id - Cancel own request
+// DELETE /api/timeoff/:id - Cancel own entry
 router.delete('/:id', (req, res) => {
   const user = getUserFromCookie(req);
   if (!user) {
@@ -135,14 +81,14 @@ router.delete('/:id', (req, res) => {
   }
 
   const { id } = req.params;
-  const data = readJsonFile(TIMEOFF_FILE, { requests: [], approved: [], denied: [] });
+  const data = readJsonFile(TIMEOFF_FILE, { entries: [] });
 
-  const requestIndex = data.requests.findIndex(r => r.id === id && r.employeeId === user.employeeId);
-  if (requestIndex === -1) {
-    return res.status(404).json({ error: 'Request not found or not yours' });
+  const entryIndex = data.entries.findIndex(r => r.id === id && r.employeeId === user.employeeId);
+  if (entryIndex === -1) {
+    return res.status(404).json({ error: 'Entry not found or not yours' });
   }
 
-  data.requests.splice(requestIndex, 1);
+  data.entries.splice(entryIndex, 1);
   writeJsonFile(TIMEOFF_FILE, data);
 
   res.json({ success: true });

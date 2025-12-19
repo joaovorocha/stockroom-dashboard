@@ -7,7 +7,6 @@
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/shared-header.css">
   <link rel="stylesheet" href="/css/dashboard.css">
-  <link rel="stylesheet" href="/css/mobile.css">
   <style>
     .duties-tabs {
       display: flex;
@@ -234,30 +233,25 @@
         <div id="submitTab" class="tab-content">
           <!-- Assigned Duties Section -->
           <div id="assignedDutiesSection" style="margin-bottom: 24px;">
-            <h3 style="margin-bottom: 12px;">Your Assigned Duties</h3>
+            <h3 style="margin-bottom: 12px;" id="assignedDutiesTitle">Your Assigned Duties</h3>
             <div id="assignedDuties">
               <p style="color: var(--text-muted);">Loading...</p>
             </div>
           </div>
 
-          <div style="display:flex; justify-content:flex-end; margin-bottom: 12px;">
-            <button type="button" class="btn btn-secondary" id="toggleUnassigned">Submit unassigned duty</button>
+          <div id="unassigned-submission-cta" style="margin-bottom: 24px; display: none;">
+            <button class="btn btn-outline" id="showSubmitFormBtn">Submit Unassigned Duty</button>
           </div>
 
-          <div class="submit-form" id="unassignedForm" style="display:none; margin-top: 8px;">
+          <div class="submit-form" style="display: none;">
             <h3 style="margin-bottom: 20px;">Submit Closing Duty</h3>
             <form id="closingForm">
               <input type="hidden" id="submitName">
-              <input type="hidden" id="employee-id-input">
-              <input type="hidden" id="employee-name-input">
               <div class="form-group" style="margin-bottom: 16px;">
                 <label>Closing Duty</label>
-                <div style="display:flex; gap:8px; align-items:center;">
-                  <select class="form-control" id="submitSection" required style="flex:1;" disabled>
-                  <option value="">Pick an assigned duty above or enable unassigned</option>
-                  </select>
-                </div>
-                <div style="font-size: 12px; color: var(--text-secondary); margin-top: 6px;">Use the quick buttons in "Your Assigned Duties" or enable unassigned to pick any section.</div>
+                <select class="form-control" id="submitSection" required>
+                  <option value="">Select duty...</option>
+                </select>
               </div>
               <div class="form-group">
                 <label>Photos (required for duty completion)</label>
@@ -322,11 +316,6 @@
       </div>
       <div class="modal-body" style="text-align: center;">
         <img id="modalPhoto" src="" style="max-width: 100%; max-height: 70vh;">
-        <div id="photoCaption" style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);"></div>
-        <div style="margin-top: 12px; display:flex; justify-content: center; gap:12px;">
-          <button class="btn btn-sm btn-secondary" id="prevPhoto">Previous</button>
-          <button class="btn btn-sm btn-primary" id="nextPhoto">Next</button>
-        </div>
       </div>
     </div>
   </div>
@@ -340,10 +329,13 @@
     let settings = { closingSections: [] };
     let closingDuties = [];
     let employees = { SA: [] };
-    let selectedDate = new Date().toISOString().split('T')[0];
-    let allowUnassigned = false;
-    let historyPhotos = [];
-    let modalIndex = 0;
+    let selectedDate = (() => {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    })();
 
     document.addEventListener('DOMContentLoaded', async () => {
       await checkAuth();
@@ -364,136 +356,143 @@
 
     function renderAssignedDuties() {
       const container = document.getElementById('assignedDuties');
+      const title = document.getElementById('assignedDutiesTitle');
+      const unassignedCta = document.getElementById('unassigned-submission-cta');
 
       if (!currentUser) {
         container.innerHTML = '<p style="color: var(--text-muted);">Please log in to see your assigned duties.</p>';
         return;
       }
 
-      // Find current user in employees
-      let userEmployee = null;
+      const isManager = currentUser.isManager || currentUser.isAdmin;
+      title.textContent = isManager ? 'All Employees\' Assigned Duties' : 'Your Assigned Duties';
+
+      if (isManager) {
+        unassignedCta.style.display = 'none';
+        document.querySelector('.submit-form').style.display = 'block';
+      } else {
+        unassignedCta.style.display = 'block';
+      }
+
+      // Get all employees with closing sections
+      const employeesWithDuties = [];
       for (const type of Object.keys(employees)) {
-        userEmployee = employees[type].find(e =>
-          e.name?.toLowerCase() === currentUser.name?.toLowerCase() ||
-          e.id === currentUser.employeeId ||
-          e.id === currentUser.userId
-        );
-        if (userEmployee) break;
-      }
-
-      const assignedSections = userEmployee?.closingSections || [];
-      const submittedToday = closingDuties.filter(d => d.userName === currentUser.name);
-      const submittedSections = submittedToday.map(d => d.section);
-
-      // Lock the select to assigned by default
-      const select = document.getElementById('submitSection');
-      if (!allowUnassigned) {
-        select.disabled = true;
-        select.value = '';
-      }
-
-      if (assignedSections.length === 0) {
-        container.innerHTML = `
-          <div style="padding: 16px; background: var(--surface); border-radius: 8px; margin-bottom: 12px;">
-            <p style="margin: 0; color: var(--text-secondary);">No sections assigned to you for today.</p>
-            <p style="margin: 8px 0 0; font-size: 13px; color: var(--text-muted);">You can still submit duties for unassigned sections below.</p>
-          </div>
-        `;
-        return;
-      }
-
-      let html = '<div style="display: grid; gap: 12px;">';
-
-      assignedSections.forEach((section, idx) => {
-        const safeSection = section.replace(/"/g, '&quot;');
-        const isComplete = submittedSections.includes(section);
-        html += `
-          <div style="padding: 14px 16px; background: ${isComplete ? '#f0fff4' : '#fffbeb'}; border: 1px solid ${isComplete ? 'var(--success)' : '#ffc107'}; border-radius: 6px; margin-bottom: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-weight: 600;">${section}</span>
-              ${isComplete ? '<span style="color: var(--success); font-size: 13px;">Completed</span>' : ''}
-            </div>
-            ${isComplete ? '' : `
-              <div style="margin-top: 10px; display: grid; gap: 8px;">
-                <div style="font-size: 13px;">Upload photos for <strong>${section}</strong></div>
-                <input type="file" id="assignedPhotos-${idx}" accept="image/*" multiple />
-                <textarea id="assignedNotes-${idx}" rows="2" class="form-control" placeholder="Notes (optional)" style="margin: 0;"></textarea>
-                <div style="display:flex; gap:8px; align-items:center;">
-                  <button class="btn btn-sm btn-primary assigned-submit" data-index="${idx}" data-section="${safeSection}">Submit Now</button>
-                  <span id="assignedStatus-${idx}" style="font-size: 12px; color: var(--text-secondary);"></span>
-                </div>
-              </div>
-            `}
-          </div>
-        `;
-      });
-
-      // Add KPI summary
-      const completedCount = submittedSections.filter(s => assignedSections.includes(s)).length;
-      const total = assignedSections.length;
-      const completionPct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
-
-      html += `
-        </div>
-        <div style="margin-top: 16px; padding: 12px; background: var(--surface); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 13px; color: var(--text-secondary);">Your Completion Rate</span>
-          <span style="font-weight: 600; color: ${completionPct >= 100 ? 'var(--success)' : completionPct >= 50 ? '#ffc107' : 'var(--danger)'};">${completedCount}/${total} (${completionPct}%)</span>
-        </div>
-      `;
-
-      container.innerHTML = html;
-
-      // Bind submit handlers for assigned cards
-      container.querySelectorAll('.assigned-submit').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const idx = parseInt(btn.dataset.index, 10);
-          submitAssigned(idx, btn.dataset.section);
+        employees[type].forEach(emp => {
+          if (emp.closingSections && emp.closingSections.length > 0) {
+            employeesWithDuties.push(emp);
+          }
         });
-      });
+      }
+
+      if (!isManager) {
+        // Show only current user's duties
+        const userEmployee = employeesWithDuties.find(e =>
+          e.name?.toLowerCase() === currentUser.name?.toLowerCase() ||
+          e.employeeId === currentUser.employeeId
+        );
+
+        const assignedSections = userEmployee?.closingSections || [];
+        // Only allow upload if selectedDate is today
+        const todayStr = (() => {
+          const today = new Date();
+          const year = today.getFullYear();
+          const month = String(today.getMonth() + 1).padStart(2, '0');
+          const day = String(today.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        })();
+        const isToday = selectedDate === todayStr;
+        const submittedToday = closingDuties.filter(d => d.employeeName === currentUser.name);
+        const submittedSections = submittedToday.map(d => d.section);
+
+        if (assignedSections.length === 0) {
+          container.innerHTML = `
+            <div style="padding: 16px; background: var(--surface); border-radius: 8px; margin-bottom: 12px;">
+              <p style="margin: 0; color: var(--text-secondary);">No sections assigned to you for this day.</p>
+              <p style="margin: 8px 0 0; font-size: 13px; color: var(--text-muted);">You can still submit duties for unassigned sections below.</p>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '<div style="display: grid; gap: 12px;">';
+
+        assignedSections.forEach(section => {
+          const isComplete = submittedSections.includes(section);
+          html += `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: ${isComplete ? '#f0fff4' : '#fffbeb'}; border: 1px solid ${isComplete ? 'var(--success)' : '#ffc107'}; border-radius: 6px;">
+              <span style="font-weight: 500;">${section}</span>
+              ${isComplete
+                ? '<span style="color: var(--success); font-size: 13px;">Completed</span>'
+                : isToday ? `<button class=\"btn btn-sm btn-primary\" onclick=\"quickSubmit('${section}')\">Submit Now</button>` : '<span style=\"color: #aaa; font-size: 13px;\">Upload only allowed on assigned day</span>'
+              }
+            </div>
+          `;
+        });
+
+        // Add KPI summary
+        const completedCount = submittedSections.filter(s => assignedSections.includes(s)).length;
+        const total = assignedSections.length;
+        const completionPct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+
+        html += `
+          </div>
+          <div style=\"margin-top: 16px; padding: 12px; background: var(--surface); border-radius: 6px; display: flex; justify-content: space-between; align-items: center;\">
+            <span style=\"font-size: 13px; color: var(--text-secondary);\">Your Completion Rate</span>
+            <span style=\"font-weight: 600; color: ${completionPct >= 100 ? 'var(--success)' : completionPct >= 50 ? '#ffc107' : 'var(--danger)'};\">${completedCount}/${total} (${completionPct}%)</span>
+          </div>
+        `;
+
+        container.innerHTML = html;
+      } else {
+        // Show all employees' duties
+        if (employeesWithDuties.length === 0) {
+          container.innerHTML = '<p style="color: var(--text-muted);">No employees with assigned closing duties.</p>';
+          return;
+        }
+
+        let html = '<div style="display: grid; gap: 16px;">';
+
+        employeesWithDuties.forEach(employee => {
+          const assignedSections = employee.closingSections || [];
+          const submittedToday = closingDuties.filter(d => d.employeeName === employee.name);
+          const submittedSections = submittedToday.map(d => d.section);
+          const completedCount = submittedSections.filter(s => assignedSections.includes(s)).length;
+          const total = assignedSections.length;
+          const completionPct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+
+          html += `
+            <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px; background: var(--background);">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 16px;">${employee.name}</h4>
+                <span style="font-size: 13px; color: var(--text-secondary);">${completedCount}/${total} completed (${completionPct}%)</span>
+              </div>
+              <div style="display: grid; gap: 8px;">
+          `;
+
+          assignedSections.forEach(section => {
+            const isComplete = submittedSections.includes(section);
+            html += `
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: ${isComplete ? '#f0fff4' : '#fffbeb'}; border: 1px solid ${isComplete ? 'var(--success)' : '#ffc107'}; border-radius: 4px; font-size: 14px;">
+                <span>${section}</span>
+                <span style="color: ${isComplete ? 'var(--success)' : '#856404'}; font-size: 12px;">${isComplete ? 'Completed' : 'Pending'}</span>
+              </div>
+            `;
+          });
+
+          html += `
+              </div>
+            </div>
+          `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+      }
     }
 
-    async function submitAssigned(idx, section) {
-      const photosInput = document.getElementById(`assignedPhotos-${idx}`);
-      const notesInput = document.getElementById(`assignedNotes-${idx}`);
-      const statusEl = document.getElementById(`assignedStatus-${idx}`);
-      if (!photosInput || !notesInput) return;
-
-      if (!photosInput.files.length) {
-        statusEl.textContent = 'Add at least one photo.';
-        statusEl.style.color = 'var(--danger)';
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('userId', document.getElementById('employee-id-input').value || currentUser?.userId || currentUser?.employeeId || '');
-      formData.append('userName', document.getElementById('employee-name-input').value || currentUser?.name || '');
-      formData.append('section', section);
-      formData.append('notes', notesInput.value);
-      formData.append('date', selectedDate);
-
-      Array.from(photosInput.files).forEach(file => formData.append('photos', file));
-
-      try {
-        statusEl.textContent = 'Uploading...';
-        statusEl.style.color = 'var(--text-secondary)';
-        const response = await fetch('/api/closing-duties/submit', {
-          method: 'POST',
-          body: formData
-        });
-        if (response.ok) {
-          statusEl.textContent = 'Uploaded!';
-          statusEl.style.color = 'var(--success)';
-          photosInput.value = '';
-          notesInput.value = '';
-          await loadTodayDuties();
-        } else {
-          statusEl.textContent = 'Failed to upload. Try again.';
-          statusEl.style.color = 'var(--danger)';
-        }
-      } catch (err) {
-        statusEl.textContent = 'Error uploading. Check connection.';
-        statusEl.style.color = 'var(--danger)';
-      }
+    function quickSubmit(section) {
+      document.getElementById('submitSection').value = section;
+      document.getElementById('submitSection').scrollIntoView({ behavior: 'smooth' });
     }
 
     async function checkAuth() {
@@ -503,16 +502,19 @@
         if (data.authenticated) {
           currentUser = data.user;
           document.getElementById('userName').textContent = currentUser.name;
-          const userSwitch = document.querySelector('.user-switch');
-          if (userSwitch) {
-            userSwitch.innerHTML = '<a href="#" id="logoutLink">Not you? Switch</a>';
-            document.getElementById('logoutLink')?.addEventListener('click', logout);
+          const userDropdown = document.getElementById('userDropdown');
+          if(userDropdown) {
+            const logoutLink = document.createElement('a');
+            logoutLink.href = '#';
+            logoutLink.id = 'logoutLink';
+            logoutLink.textContent = 'Logout';
+            logoutLink.addEventListener('click', logout);
+            userDropdown.appendChild(logoutLink);
           }
-          document.getElementById('employee-id-input').value = currentUser.userId || currentUser.employeeId || '';
-          document.getElementById('employee-name-input').value = currentUser.name || '';
-          document.getElementById('submitName').value = currentUser.name || '';
-          if ((currentUser.isManager || currentUser.isAdmin) && document.getElementById('adminLink')) {
-            document.getElementById('adminLink').style.display = 'inline';
+          document.getElementById('submitName').value = currentUser.name;
+          if (currentUser.isManager || currentUser.isAdmin) {
+            const adminLink = document.getElementById('adminLink');
+            if (adminLink) adminLink.style.display = 'inline';
           }
         }
       } catch (e) { console.error(e); }
@@ -543,18 +545,18 @@
       try {
         const response = await fetch(`/api/closing-duties/${selectedDate}`);
         const data = await response.json();
-        closingDuties = Array.isArray(data?.submissions) ? data.submissions : [];
-        renderTodayStatus();
-        renderHistory();
-        renderAssignedDuties();
+        closingDuties = data.submissions || [];
+        await renderTodayStatus();
+        await renderHistory();
       } catch (e) {
         console.error(e);
         closingDuties = [];
-        renderTodayStatus();
+        await renderTodayStatus();
+        await renderHistory();
       }
     }
 
-    function renderTodayStatus() {
+    async function renderTodayStatus() {
       const sections = settings.closingSections || [];
       const container = document.getElementById('todayDuties');
       container.innerHTML = '';
@@ -562,30 +564,51 @@
       let completed = 0;
       let pending = 0;
 
-      const dutiesArray = Array.isArray(closingDuties) ? closingDuties : [];
+      // Fetch assignments for today from gameplan-daily
+      let assignments = null;
+      let sectionToEmployee = {};
+      let showAssignments = false;
+      try {
+        const res = await fetch(`/data/gameplan-daily/${selectedDate}.json`);
+        if (res.ok) {
+          const data = await res.json();
+          assignments = data.assignments;
+          // Only show if manager published (assignments exists)
+          showAssignments = !!assignments;
+          if (assignments) {
+            Object.entries(assignments).forEach(([empId, emp]) => {
+              if (emp.closingSections && Array.isArray(emp.closingSections)) {
+                emp.closingSections.forEach(section => {
+                  sectionToEmployee[section] = emp.name || empId;
+                });
+              }
+            });
+          }
+        }
+      } catch (e) { assignments = null; }
 
       sections.forEach(section => {
-        const duty = dutiesArray.find(d => d.section === section.name);
+        const duty = closingDuties.find(d => d.section === section.name);
         const isCompleted = !!duty;
         if (isCompleted) completed++; else pending++;
-
+        let assignedName = showAssignments ? (sectionToEmployee[section.name] || '<span style="color:#aaa">Not assigned yet</span>') : '<span style="color:#aaa">Not assigned yet</span>';
         container.innerHTML += `
           <div class="duty-card ${isCompleted ? 'completed' : 'pending'}">
             <div class="duty-header">
               <span class="duty-name">${section.name}</span>
               <span class="duty-status ${isCompleted ? 'completed' : 'pending'}">${isCompleted ? 'Completed' : 'Pending'}</span>
             </div>
+            <div class="duty-meta">
+              <span>Assigned: ${assignedName}</span>
+            </div>
             ${isCompleted ? `
               <div class="duty-meta">
-                <span>By: ${duty.userName || duty.employeeName || 'Unknown'}</span>
+                <span>By: ${duty.employeeName}</span>
                 <span>Time: ${new Date(duty.submittedAt).toLocaleTimeString()}</span>
               </div>
               ${duty.photos && duty.photos.length ? `
                 <div class="duty-photos">
-                  ${duty.photos.map(p => {
-                    const src = p.path || p;
-                    return `<img src="${src}" class="duty-photo" onclick="showPhoto('${src}')">`;
-                  }).join('')}
+                  ${duty.photos.map(p => `<img src="${p}" class="duty-photo" onclick="showPhoto('${p}')">`).join('')}
                 </div>
               ` : ''}
               ${duty.notes ? `<p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${duty.notes}</p>` : ''}
@@ -600,75 +623,89 @@
       document.getElementById('completionPct').textContent = sections.length ? Math.round((completed / sections.length) * 100) + '%' : '0%';
     }
 
-    function renderHistory() {
+    async function renderHistory() {
       const container = document.getElementById('historyList');
       document.getElementById('historyDateDisplay').textContent = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-      const dutiesArray = Array.isArray(closingDuties) ? closingDuties : [];
-
-      historyPhotos = dutiesArray.flatMap(duty => (duty.photos || []).map(p => ({
-        src: p.path || p,
-        section: duty.section,
-        user: duty.userName || duty.employeeName || 'Unknown',
-        time: duty.submittedAt
-      })));
-
-      if (!dutiesArray.length) {
-        container.innerHTML = '<p style="color: var(--text-muted);">No submissions for this date.</p>';
+      const sections = settings.closingSections || [];
+      if (!sections.length) {
+        container.innerHTML = '<p style="color: var(--text-muted);">No sections configured.</p>';
         return;
       }
 
-      let photoCursor = 0;
+      let completed = 0;
+      let pending = 0;
 
-      container.innerHTML = dutiesArray.map(duty => {
-        const photosHtml = (duty.photos || []).map(p => {
-          const src = p.path || p;
-          const idx = photoCursor++;
-          return `<div style="position: relative;">
-              <img src="${src}" alt="Closing duty photo" class="duty-photo" onclick="openHistoryPhoto(${idx})">
-            </div>`;
-        }).join('');
+      // Fetch assignments for selected date from gameplan-daily
+      let assignments = null;
+      let sectionToEmployee = {};
+      let showAssignments = false;
+      try {
+        const res = await fetch(`/data/gameplan-daily/${selectedDate}.json`);
+        if (res.ok) {
+          const data = await res.json();
+          assignments = data.assignments;
+          showAssignments = !!assignments;
+          if (assignments) {
+            Object.entries(assignments).forEach(([empId, emp]) => {
+              if (emp.closingSections && Array.isArray(emp.closingSections)) {
+                emp.closingSections.forEach(section => {
+                  sectionToEmployee[section] = emp.name || empId;
+                });
+              }
+            });
+          }
+        }
+      } catch (e) { assignments = null; }
 
-        return `
-        <div class="duty-card completed">
-          <div class="duty-header">
-            <span class="duty-name">${duty.section}</span>
-            <span class="duty-status completed">Completed</span>
-          </div>
-          <div class="duty-meta">
-            <span>By: ${duty.userName || duty.employeeName || 'Unknown'}</span>
-            <span>Time: ${new Date(duty.submittedAt).toLocaleTimeString()}</span>
-          </div>
-          ${photosHtml ? `
-            <div class="duty-photos">
-              ${photosHtml}
+      const html = sections.map(section => {
+        // Find all submissions for this section and date
+        const duties = closingDuties.filter(d => d.section === section.name);
+        let assignedName = showAssignments ? (sectionToEmployee[section.name] || '<span style="color:#aaa">Not assigned yet</span>') : '<span style="color:#aaa">Not assigned yet</span>';
+        if (duties.length === 0) {
+          pending++;
+          return `
+            <div class="duty-card pending">
+              <div class="duty-header">
+                <span class="duty-name">${section.name}</span>
+                <span class="duty-status pending">Pending</span>
+              </div>
+              <div class="duty-meta">
+                <span>Assigned: ${assignedName}</span>
+              </div>
+              <p style="color: var(--text-muted); font-size: 13px;">Not yet submitted</p>
             </div>
-          ` : ''}
-          ${duty.notes ? `<p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${duty.notes}</p>` : ''}
-        </div>
-      `;
+          `;
+        }
+        completed += duties.length;
+        return duties.map(duty => `
+          <div class="duty-card completed">
+            <div class="duty-header">
+              <span class="duty-name">${section.name}</span>
+              <span class="duty-status completed">Completed</span>
+            </div>
+            <div class="duty-meta">
+              <span>Assigned: ${assignedName}</span>
+              <span>By: ${duty.userName || duty.employeeName || ''}</span>
+              <span>Date: ${duty.date || ''}</span>
+              <span>Time: ${duty.submittedAt ? new Date(duty.submittedAt).toLocaleTimeString() : ''}</span>
+            </div>
+            ${duty.photos && duty.photos.length ? `
+              <div class="duty-photos">
+                ${duty.photos.map(p => `<img src="${p.path || p}" class="duty-photo" onclick="showPhoto('${p.path || p}')">`).join('')}
+              </div>
+            ` : ''}
+            ${duty.notes ? `<p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${duty.notes}</p>` : ''}
+          </div>
+        `).join('');
       }).join('');
+
+      container.innerHTML = html;
     }
 
     function showPhoto(src) {
-      historyPhotos = [{ src, section: '', user: '' }];
-      modalIndex = 0;
-      renderPhotoModal();
+      document.getElementById('modalPhoto').src = src;
       document.getElementById('photoModal').classList.add('active');
-    }
-
-    function openHistoryPhoto(idx) {
-      if (!historyPhotos.length) return;
-      modalIndex = idx;
-      renderPhotoModal();
-      document.getElementById('photoModal').classList.add('active');
-    }
-
-    function renderPhotoModal() {
-      const item = historyPhotos[modalIndex];
-      if (!item) return;
-      document.getElementById('modalPhoto').src = item.src;
-      document.getElementById('photoCaption').textContent = `${item.section || 'Unknown section'}${item.user ? ' • ' + item.user : ''}`;
     }
 
     function setupEventListeners() {
@@ -679,6 +716,11 @@
           tab.classList.add('active');
           document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
           document.getElementById(tab.dataset.tab + 'Tab').style.display = 'block';
+          
+          // Reload data when switching to history tab
+          if (tab.dataset.tab === 'history') {
+            loadTodayDuties();
+          }
         });
       });
 
@@ -695,46 +737,23 @@
         });
       });
 
-      // Allow submitting unassigned duty: enable select
-      document.getElementById('toggleUnassigned').addEventListener('click', () => {
-        const select = document.getElementById('submitSection');
-        allowUnassigned = true;
-        select.disabled = false;
-        select.value = '';
-        select.focus();
-        document.getElementById('unassignedForm').style.display = 'block';
-      });
-
       // Form submit
       document.getElementById('closingForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData();
-        const sectionValue = document.getElementById('submitSection').value;
-        const photosInput = document.getElementById('submitPhotos');
-
-        if (!sectionValue) {
-          alert('Please select a closing duty section.');
-          return;
-        }
-
-        if (photosInput.files.length === 0) {
-          alert('Please attach at least one photo.');
-          return;
-        }
-
-        formData.append('userId', document.getElementById('employee-id-input').value || currentUser?.userId || currentUser?.employeeId || '');
-        formData.append('userName', document.getElementById('employee-name-input').value || currentUser?.name || '');
-        formData.append('section', sectionValue);
+        formData.append('userId', currentUser.employeeId || currentUser.id);
+        formData.append('userName', document.getElementById('submitName').value);
+        formData.append('section', document.getElementById('submitSection').value);
         formData.append('notes', document.getElementById('submitNotes').value);
         formData.append('date', selectedDate);
 
-        const files = photosInput.files;
+        const files = document.getElementById('submitPhotos').files;
         for (let i = 0; i < files.length; i++) {
           formData.append('photos', files[i]);
         }
 
         try {
-          const response = await fetch('/api/closing-duties/submit', {
+          const response = await fetch('/api/closing-duties', {
             method: 'POST',
             body: formData
           });
@@ -745,8 +764,6 @@
             if (currentUser) {
               document.getElementById('submitName').value = currentUser.name;
             }
-            allowUnassigned = false;
-            document.getElementById('submitSection').disabled = true;
             await loadTodayDuties();
             renderAssignedDuties();
           }
@@ -762,21 +779,31 @@
         loadTodayDuties();
       });
       document.getElementById('prevDay').addEventListener('click', () => {
-        const d = new Date(selectedDate);
+        const d = new Date(selectedDate + 'T00:00:00');
         d.setDate(d.getDate() - 1);
-        selectedDate = d.toISOString().split('T')[0];
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        selectedDate = `${year}-${month}-${day}`;
         document.getElementById('historyDate').value = selectedDate;
         loadTodayDuties();
       });
       document.getElementById('nextDay').addEventListener('click', () => {
-        const d = new Date(selectedDate);
+        const d = new Date(selectedDate + 'T00:00:00');
         d.setDate(d.getDate() + 1);
-        selectedDate = d.toISOString().split('T')[0];
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        selectedDate = `${year}-${month}-${day}`;
         document.getElementById('historyDate').value = selectedDate;
         loadTodayDuties();
       });
       document.getElementById('todayBtn').addEventListener('click', () => {
-        selectedDate = new Date().toISOString().split('T')[0];
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        selectedDate = `${year}-${month}-${day}`;
         document.getElementById('historyDate').value = selectedDate;
         loadTodayDuties();
       });
@@ -788,17 +815,10 @@
       document.getElementById('photoModal').addEventListener('click', (e) => {
         if (e.target.id === 'photoModal') document.getElementById('photoModal').classList.remove('active');
       });
-      document.getElementById('prevPhoto').addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!historyPhotos.length) return;
-        modalIndex = (modalIndex - 1 + historyPhotos.length) % historyPhotos.length;
-        renderPhotoModal();
-      });
-      document.getElementById('nextPhoto').addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (!historyPhotos.length) return;
-        modalIndex = (modalIndex + 1) % historyPhotos.length;
-        renderPhotoModal();
+
+      document.getElementById('showSubmitFormBtn').addEventListener('click', () => {
+        document.querySelector('.submit-form').style.display = 'block';
+        document.getElementById('showSubmitFormBtn').style.display = 'none';
       });
     }
   </script>

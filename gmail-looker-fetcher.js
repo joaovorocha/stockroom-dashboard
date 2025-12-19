@@ -17,8 +17,8 @@ const GMAIL_CONFIG = {
   port: 993,
   tls: true,
   tlsOptions: { rejectUnauthorized: false },
-  authTimeout: 30000,  // 30 seconds for auth (default is too short)
-  connTimeout: 30000   // 30 seconds for connection
+  authTimeout: 60000,  // 30 seconds for auth (default is too short)
+  connTimeout: 60000   // 30 seconds for connection
 };
 
 // Looker email subject patterns and their target folders
@@ -50,8 +50,8 @@ class GmailLookerFetcher {
     this.config = config;
     this.imap = null;
     this.deleteAfterProcess = true; // Delete emails after extracting attachments
-    this.maxRetries = 3;
-    this.retryDelay = 5000; // 5 seconds between retries
+    this.maxRetries = 5;
+    this.retryDelay = 10000; // 5 seconds between retries
   }
 
   connect() {

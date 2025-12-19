@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2025-12-18",
+  "lastUpdated": "2025-12-19",
   "employees": {
     "SA": [
       {
@@ -7,13 +7,11 @@
         "name": "Jordan Dillard",
         "type": "SA",
         "imageUrl": "https://cdn.suitsupply.com/image/upload/w_600,h_600,c_lfill,g_face,b_rgb:ffffff00/l_employeeimages:6543/w_600,h_600,c_lfill,g_face,r_max,b_rgb:efefef/fl_layer_apply/w_400,h_400,c_crop,g_face,r_max,f_auto,q_auto,b_rgb:ffffff00/employeeimages/6543.jpg",
-        "zone": "Zone A - Entrance",
-        "fittingRoom": "Hosp 2",
+        "zone": "",
+        "fittingRoom": "",
         "individualTarget": 5000,
-        "scheduledLunch": "14:00",
-        "closingSections": [
-          "Men's Suits"
-        ],
+        "scheduledLunch": "",
+        "closingSections": [],
         "metrics": {
           "salesAmount": 7600,
           "apc": 759,
@@ -28,13 +26,11 @@
         "name": "Todd Ikemoto",
         "type": "SA",
         "imageUrl": "https://cdn.suitsupply.com/image/upload/w_600,h_600,c_lfill,g_face,b_rgb:ffffff00/l_employeeimages:31265/w_600,h_600,c_lfill,g_face,r_max,b_rgb:efefef/fl_layer_apply/w_400,h_400,c_crop,g_face,r_max,f_auto,q_auto,b_rgb:ffffff00/employeeimages/31265.jpg",
-        "zone": "Zone B - Suits",
-        "fittingRoom": "Hosp 1",
+        "zone": "",
+        "fittingRoom": "",
         "individualTarget": 4500,
-        "scheduledLunch": "14:30",
-        "closingSections": [
-          "Shirts & Ties"
-        ],
+        "scheduledLunch": "",
+        "closingSections": [],
         "metrics": {
           "salesAmount": 4500,
           "apc": 496,
@@ -49,13 +45,11 @@
         "name": "Drew Ummel",
         "type": "SA",
         "imageUrl": "https://cdn.suitsupply.com/image/upload/w_600,h_600,c_lfill,g_face,b_rgb:ffffff00/l_employeeimages:2612/w_600,h_600,c_lfill,g_face,r_max,b_rgb:efefef/fl_layer_apply/w_400,h_400,c_crop,g_face,r_max,f_auto,q_auto,b_rgb:ffffff00/employeeimages/2612.jpg",
-        "zone": "Zone C - Casual",
+        "zone": "",
         "fittingRoom": "",
         "individualTarget": 4500,
         "scheduledLunch": "",
-        "closingSections": [
-          "Fitting Rooms"
-        ],
+        "closingSections": [],
         "metrics": {
           "salesAmount": 9100,
           "apc": 761,
@@ -70,13 +64,11 @@
         "name": "Armani Gardner",
         "type": "SA",
         "imageUrl": "https://cdn.suitsupply.com/image/upload/w_600,h_600,c_lfill,g_face,b_rgb:ffffff00/l_employeeimages:13881/w_600,h_600,c_lfill,g_face,r_max,b_rgb:efefef/fl_layer_apply/w_400,h_400,c_crop,g_face,r_max,f_auto,q_auto,b_rgb:ffffff00/employeeimages/13881.jpg",
-        "zone": "Zone D - Accessories",
+        "zone": "",
         "fittingRoom": "",
         "individualTarget": 4000,
-        "scheduledLunch": "13:00",
-        "closingSections": [
-          "Stockroom"
-        ],
+        "scheduledLunch": "",
+        "closingSections": [],
         "metrics": {
           "salesAmount": 12100,
           "apc": 1100,
@@ -91,10 +83,10 @@
         "name": "Marc Lopez",
         "type": "SA",
         "imageUrl": "https://cdn.suitsupply.com/image/upload/w_600,h_600,c_lfill,g_face,b_rgb:ffffff00/l_employeeimages:10424/w_600,h_600,c_lfill,g_face,r_max,b_rgb:efefef/fl_layer_apply/w_400,h_400,c_crop,g_face,r_max,f_auto,q_auto,b_rgb:ffffff00/employeeimages/10424.jpg",
-        "zone": "Zone E - Fitting Rooms",
+        "zone": "",
         "fittingRoom": "",
         "individualTarget": 4000,
-        "scheduledLunch": "13:00",
+        "scheduledLunch": "",
         "closingSections": [],
         "metrics": {
           "salesAmount": 7400,
@@ -132,10 +124,8 @@
         "zone": "",
         "fittingRoom": "",
         "individualTarget": 3500,
-        "scheduledLunch": "12:30",
-        "closingSections": [
-          "Accessories"
-        ],
+        "scheduledLunch": "",
+        "closingSections": [],
         "metrics": {
           "salesAmount": 9700,
           "apc": 648,
@@ -153,7 +143,7 @@
         "zone": "",
         "fittingRoom": "",
         "individualTarget": 3000,
-        "scheduledLunch": "12:30",
+        "scheduledLunch": "",
         "closingSections": [],
         "metrics": {
           "salesAmount": 5100,
@@ -208,12 +198,10 @@
         "type": "SA",
         "imageUrl": "https://cdn.suitsupply.com/image/upload/w_600,h_600,c_lfill,g_face,b_rgb:ffffff00/l_employeeimages:30512/w_600,h_600,c_lfill,g_face,r_max,b_rgb:efefef/fl_layer_apply/w_400,h_400,c_crop,g_face,r_max,f_auto,q_auto,b_rgb:ffffff00/employeeimages/30512.jpg",
         "zone": "",
-        "fittingRoom": "Hallway 1",
+        "fittingRoom": "",
         "individualTarget": 2500,
         "scheduledLunch": "",
-        "closingSections": [
-          "Shoes"
-        ],
+        "closingSections": [],
         "metrics": {
           "salesAmount": 4700,
           "apc": 785,
@@ -232,9 +220,7 @@
         "fittingRoom": "",
         "individualTarget": 2000,
         "scheduledLunch": "",
-        "closingSections": [
-          "Outerwear"
-        ],
+        "closingSections": [],
         "metrics": {
           "salesAmount": 5000,
           "apc": 1200,
@@ -265,23 +251,6 @@
       }
     ],
     "BOH": [
-      {
-        "id": "boh-002",
-        "name": "Ivan Ramos",
-        "type": "BOH",
-        "imageUrl": "",
-        "shift": "",
-        "lunch": "",
-        "taskOfTheDay": "",
-        "metrics": {
-          "salesAmount": 0,
-          "apc": 0,
-          "ipc": 0,
-          "cpc": 0,
-          "sph": 0,
-          "salesShare": 0
-        }
-      },
       {
         "id": "boh-003",
         "name": "Daniel Iraheta",
@@ -314,6 +283,24 @@
           "sph": 5,
           "salesShare": 0
         }
+      },
+      {
+        "id": "boh-002",
+        "name": "Ivan Ramos",
+        "type": "BOH",
+        "imageUrl": "",
+        "employeeId": "ivanr",
+        "shift": "",
+        "lunch": "",
+        "taskOfTheDay": "",
+        "metrics": {
+          "salesAmount": 0,
+          "apc": 0,
+          "ipc": 0,
+          "cpc": 0,
+          "sph": 0,
+          "salesShare": 0
+        }
       }
     ],
     "MANAGEMENT": [
@@ -324,7 +311,7 @@
         "imageUrl": "",
         "zone": "",
         "shift": "",
-        "role": "MOD",
+        "role": "",
         "lunch": "",
         "metrics": {
           "salesAmount": 0,
@@ -342,7 +329,7 @@
         "imageUrl": "https://cdn.suitsupply.com/image/upload/w_600,h_600,c_lfill,g_face,b_rgb:ffffff00/l_employeeimages:14071/w_600,h_600,c_lfill,g_face,r_max,b_rgb:efefef/fl_layer_apply/w_400,h_400,c_crop,g_face,r_max,f_auto,q_auto,b_rgb:ffffff00/employeeimages/14071.jpg",
         "zone": "",
         "shift": "",
-        "role": "HOST",
+        "role": "",
         "lunch": "",
         "metrics": {
           "salesAmount": 0,
@@ -360,7 +347,7 @@
         "imageUrl": "https://cdn.suitsupply.com/image/upload/w_600,h_600,c_lfill,g_face,b_rgb:ffffff00/l_employeeimages:30688/w_600,h_600,c_lfill,g_face,r_max,b_rgb:efefef/fl_layer_apply/w_400,h_400,c_crop,g_face,r_max,f_auto,q_auto,b_rgb:ffffff00/employeeimages/30688.jpg",
         "zone": "",
         "shift": "",
-        "role": "Off",
+        "role": "",
         "lunch": "",
         "metrics": {
           "salesAmount": 182,
@@ -379,7 +366,7 @@
         "employeeId": "14083",
         "zone": "",
         "shift": "",
-        "role": "MOD",
+        "role": "",
         "lunch": "",
         "metrics": {
           "salesAmount": 204,
@@ -408,9 +395,9 @@
         "imageUrl": "",
         "employeeId": "30744",
         "zone": "",
-        "shift": "Open (9:30 AM - 6:00 PM)",
-        "role": "MOD",
-        "lunch": "11:00",
+        "shift": "",
+        "role": "",
+        "lunch": "",
         "metrics": {
           "salesAmount": 0,
           "apc": 0,
@@ -595,5 +582,5 @@
       }
     ]
   },
-  "metricsUpdatedAt": "2025-12-18T17:45:04.586Z"
+  "metricsUpdatedAt": "2025-12-19T01:45:05.364Z"
 }

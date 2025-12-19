@@ -1,8 +1,8 @@
 {
-  "lastSyncTime": "2025-12-18T17:45:04.614Z",
+  "lastSyncTime": "2025-12-19T01:45:05.569Z",
   "lastSyncBy": "scheduler",
   "lastEmailReceived": "2025-12-18T14:02:07.000Z",
-  "dataDate": "2025-12-18",
+  "dataDate": "2025-12-19",
   "hasNewData": true,
   "updatedSections": {
     "metrics": {
@@ -17,9 +17,9 @@
     "customerOrders": true
   },
   "metrics": {
-    "date": "2025-12-18",
+    "date": "2025-12-19",
     "source": "looker",
-    "importedAt": "2025-12-18T17:45:04.496Z",
+    "importedAt": "2025-12-19T01:45:05.061Z",
     "wtd": {
       "salesAmount": 90000,
       "salesVsPY": -3.2,

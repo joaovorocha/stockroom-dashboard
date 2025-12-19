@@ -113,6 +113,55 @@ router.get('/today', (req, res) => {
   res.json(gameplan);
 });
 
+// GET /api/gameplan/yesterday - Get yesterday's gameplan for copy feature
+router.get('/yesterday', (req, res) => {
+  // Get yesterday's date
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  
+  const gameplanFile = path.join(GAMEPLAN_DIR, `${yesterdayStr}.json`);
+  const gameplan = readJsonFile(gameplanFile, null);
+  
+  if (!gameplan) {
+    return res.status(404).json({ error: 'No gameplan found for yesterday' });
+  }
+  
+  // Transform assignments into employees array format for client-side use
+  const employees = [];
+  const employeesData = readJsonFile(EMPLOYEES_FILE, { employees: {} });
+  
+  if (gameplan.assignments) {
+    Object.keys(gameplan.assignments).forEach(empId => {
+      const assignment = gameplan.assignments[empId];
+      
+      // Find the employee to get their type
+      let empType = assignment.type;
+      if (!empType) {
+        for (const type of Object.keys(employeesData.employees || {})) {
+          const found = (employeesData.employees[type] || []).find(e => e.id === empId);
+          if (found) {
+            empType = type;
+            break;
+          }
+        }
+      }
+      
+      employees.push({
+        id: empId,
+        type: empType,
+        ...assignment
+      });
+    });
+  }
+  
+  res.json({
+    date: yesterdayStr,
+    employees: employees,
+    notes: gameplan.notes || ''
+  });
+});
+
 // POST /api/gameplan/save - Save gameplan
 router.post('/save', (req, res) => {
   const gameplan = req.body;
