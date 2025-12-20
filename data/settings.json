@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2025-12-18",
+  "lastUpdated": "2025-12-19",
   "store": {
     "name": "San Francisco",
     "code": "SR-US-SanFrancisco-Maiden"
@@ -7,105 +7,141 @@
   "zones": [
     {
       "id": "zone-1",
-      "name": "Zone A - Entrance"
+      "name": "Casual"
     },
     {
       "id": "zone-2",
-      "name": "Zone B - Suits"
+      "name": "Back Wave"
     },
     {
       "id": "zone-3",
-      "name": "Zone C - Casual"
+      "name": "Front Wave"
     },
     {
-      "id": "zone-4",
-      "name": "Zone D - Accessories"
+      "id": "zones-1766187126079",
+      "name": "Custom Made"
     },
     {
-      "id": "zone-5",
-      "name": "Zone E - Fitting Rooms"
-    },
-    {
-      "id": "zone-6",
-      "name": "Floor"
+      "id": "zones-1766187132409",
+      "name": "Tie-wall"
     }
   ],
   "fittingRooms": [
     {
       "id": "fr-1",
-      "name": "Big Guy"
+      "name": "BC - Guy"
     },
     {
       "id": "fr-2",
-      "name": "Hallway 1"
+      "name": "BC - Tree"
     },
     {
       "id": "fr-3",
-      "name": "Hallway 2"
-    },
-    {
-      "id": "fr-4",
       "name": "Hosp 1"
     },
     {
-      "id": "fr-5",
+      "id": "fr-4",
       "name": "Hosp 2"
     },
     {
-      "id": "fr-6",
+      "id": "fr-5",
       "name": "Hosp 3"
+    },
+    {
+      "id": "fr-6",
+      "name": "Hallway 1"
+    },
+    {
+      "id": "fittingRooms-1766186550464",
+      "name": "Hallway 2"
+    },
+    {
+      "id": "fittingRooms-1766186571784",
+      "name": "Hallway 3"
+    },
+    {
+      "id": "fittingRooms-1766186578185",
+      "name": "Hallway 4"
+    },
+    {
+      "id": "fittingRooms-1766186609370",
+      "name": "MTM 1"
+    },
+    {
+      "id": "fittingRooms-1766186690936",
+      "name": "MTM 2"
+    },
+    {
+      "id": "fittingRooms-1766187176783",
+      "name": "POPUP 1"
+    },
+    {
+      "id": "fittingRooms-1766187181001",
+      "name": "POPUP 2"
     }
   ],
   "shifts": [
     {
       "id": "shift-1",
-      "name": "Open (9:30 AM - 6:00 PM)"
+      "name": "8:00 AM - 5:00 PM"
     },
     {
       "id": "shift-2",
-      "name": "Mid (11:00 AM - 7:30 PM)"
+      "name": "9:30 AM - 6:30 PM"
     },
     {
       "id": "shift-3",
-      "name": "Close (12:30 PM - 9:00 PM)"
+      "name": "10:30 PM - 7:30 PM"
     },
     {
       "id": "shift-4",
-      "name": "Full (9:30 AM - 9:00 PM)"
+      "name": "11:00 AM - 7:30 PM"
     }
   ],
   "closingSections": [
     {
       "id": "cs-1",
-      "name": "Men's Suits"
+      "name": "Knit Table"
     },
     {
       "id": "cs-2",
-      "name": "Men's Casual"
+      "name": "Trouser Table"
     },
     {
       "id": "cs-3",
-      "name": "Accessories"
+      "name": "Bays"
     },
     {
       "id": "cs-4",
-      "name": "Shirts & Ties"
+      "name": "Shirt Wall"
     },
     {
       "id": "cs-5",
-      "name": "Shoes"
+      "name": "Ties"
     },
     {
       "id": "cs-6",
-      "name": "Outerwear"
+      "name": "Hospitality"
     },
     {
       "id": "cs-7",
-      "name": "Fitting Rooms"
+      "name": "Socks"
     },
     {
       "id": "cs-8",
-      "name": "Stockroom"
+      "name": "MTM"
+    },
+    {
+      "id": "closingSections-1766187026074",
+      "name": "Back Wave"
+    },
+    {
+      "id": "closingSections-1766187033873",
+      "name": "Middle Wave"
+    },
+    {
+      "id": "closingSections-1766187046474",
+      "name": "BC - Wave"
     }
   ],
   "managementRoles": [
@@ -121,27 +157,27 @@
   "tailorStations": [
     {
       "id": "ts-1",
-      "name": "Station 1"
+      "name": "Store 1"
     },
     {
       "id": "ts-2",
-      "name": "Station 2"
+      "name": "Store 2"
     },
     {
       "id": "ts-3",
-      "name": "Station 3"
+      "name": "BOH 1"
     },
     {
       "id": "ts-4",
-      "name": "Station 4"
+      "name": "BOH 2"
     },
     {
       "id": "ts-5",
-      "name": "Station 5"
+      "name": "BOH 3"
     },
     {
       "id": "ts-6",
-      "name": "Station 6"
+      "name": "BOH 4"
     }
   ],
   "lunchTimes": [

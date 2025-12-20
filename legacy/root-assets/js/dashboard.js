@@ -10,38 +10,6 @@ let showAllEmployees = { SA: false, BOH: false, MANAGEMENT: false, TAILOR: false
 let currentSettingsTab = 'zones';
 let sseConnection = null;
 let currentPageType = 'SA'; // Default to SA, will be determined by URL
-let sseReconnectTimer = null;
-let sseRetryDelayMs = 1000;
-
-function getEmployeeZones(emp) {
-  if (!emp) return [];
-  if (Array.isArray(emp.zones)) return emp.zones.map(z => (z || '').toString().trim()).filter(Boolean);
-  if (typeof emp.zones === 'string') {
-    const z = emp.zones.trim();
-    if (!z) return [];
-    return z.split(',').map(s => s.trim()).filter(Boolean);
-  }
-  if (emp.zone) return [(emp.zone || '').toString().trim()].filter(Boolean);
-  return [];
-}
-
-function normalizeEmployeeDailyFields(emp) {
-  const zones = getEmployeeZones(emp);
-  const fittingRoom = Array.isArray(emp.fittingRoom)
-    ? (emp.fittingRoom[0] || '').toString().trim()
-    : (emp.fittingRoom || '').toString().trim();
-  const closingSections = Array.isArray(emp.closingSections)
-    ? emp.closingSections.map(s => (s || '').toString().trim()).filter(Boolean)
-    : ((emp.closingSections || '').toString().trim()
-      ? (emp.closingSections || '').toString().split(',').map(s => s.trim()).filter(Boolean)
-      : []);
-  return { ...emp, zones, zone: zones[0] || '', fittingRoom, closingSections };
-}
-
-function formatZones(emp) {
-  const zones = getEmployeeZones(emp);
-  return zones.length ? zones.join(', ') : '-';
-}
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
@@ -75,23 +43,16 @@ function determinePageType() {
   } else if (path.includes('/gameplan-management')) {
     currentPageType = 'MANAGEMENT';
   } else if (path.includes('/gameplan-edit')) {
-    currentPageType = 'EDIT';
+    currentPageType = 'EDIT'; // Special type for the edit page
   }
-  document.body.dataset.pageType = currentPageType.toLowerCase();
   console.log(`Current page type: ${currentPageType}`);
 }
 
 // ===== Server-Sent Events for Real-Time Updates =====
 function setupSSEConnection() {
-  if (!currentUser) return;
-
   // Close existing connection if any
   if (sseConnection) {
     sseConnection.close();
-  }
-  if (sseReconnectTimer) {
-    clearTimeout(sseReconnectTimer);
-    sseReconnectTimer = null;
   }
 
   sseConnection = new EventSource('/api/sse/updates');
@@ -99,7 +60,6 @@ function setupSSEConnection() {
   sseConnection.onopen = () => {
     console.log('SSE connection established');
     updateConnectionStatus(true);
-    sseRetryDelayMs = 1000;
   };
 
   sseConnection.onmessage = (event) => {
@@ -114,27 +74,8 @@ function setupSSEConnection() {
   sseConnection.onerror = (error) => {
     console.error('SSE connection error:', error);
     updateConnectionStatus(false);
-    // Avoid tight reconnect loops; confirm auth before retrying
-    if (sseConnection) sseConnection.close();
-    if (sseReconnectTimer) return;
-
-    sseReconnectTimer = setTimeout(async () => {
-      sseReconnectTimer = null;
-      try {
-        const resp = await fetch('/api/auth/check', { credentials: 'include' });
-        const data = await resp.json();
-        if (!data.authenticated) {
-          window.location.href = '/login-v2';
-          return;
-        }
-        currentUser = data.user;
-      } catch (_) {
-        // ignore, try reconnect below
-      }
-
-      setupSSEConnection();
-      sseRetryDelayMs = Math.min(sseRetryDelayMs * 2, 30000);
-    }, sseRetryDelayMs);
+    // Try to reconnect after 5 seconds
+    setTimeout(setupSSEConnection, 5000);
   };
 }
 
@@ -203,12 +144,9 @@ async function checkAuth() {
       const managerActions = document.getElementById('managerActions');
       const adminLink = document.getElementById('adminLink') || document.getElementById('navAdmin');
       const editLink = document.getElementById('navGamePlanEdit');
-
       if (managerActions) managerActions.style.display = 'block';
-      if (adminLink && currentUser.isAdmin) adminLink.style.display = 'inline';
-
-      const canSeeEdit = !!(currentUser.isManager || (currentUser.role || '').toUpperCase() === 'MANAGEMENT');
-      if (editLink && canSeeEdit) editLink.style.display = 'inline';
+      if (adminLink) adminLink.style.display = 'inline';
+      if (editLink) editLink.style.display = 'inline';
     }
   } catch (error) {
     console.error('Auth check failed:', error);
@@ -228,23 +166,6 @@ async function loadEmployees() {
     const response = await fetch('/api/gameplan/employees');
     const data = await response.json();
     employees = data.employees || { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
-    
-    // Deduplicate employees by ID within each type
-    for (const type of Object.keys(employees)) {
-      const seen = new Set();
-      employees[type] = employees[type].filter(emp => {
-        if (seen.has(emp.id)) {
-          return false;
-        }
-        seen.add(emp.id);
-        return true;
-      });
-    }
-
-    // Normalize daily assignment fields
-    for (const type of Object.keys(employees)) {
-      employees[type] = (employees[type] || []).map(normalizeEmployeeDailyFields);
-    }
   } catch (error) {
     console.error('Error loading employees:', error);
   }
@@ -258,17 +179,12 @@ async function loadMetrics() {
     console.log('[DEBUG] Metrics loaded:', metrics);
     updateLastUpdated(metrics.importedAt);
     
-    // Update import status card (both welcome section and sidebar)
+    // Update import status card
     const lastLookerSyncEl = document.getElementById('lastLookerSync');
-    const sidebarLastSyncEl = document.getElementById('sidebarLastSync');
     const recordsImportedEl = document.getElementById('recordsImported');
-    // Prefer lastEmailReceived (actual email time) over importedAt (processing time)
-    const syncTimestamp = metrics.lastEmailReceived || metrics.importedAt;
-    if (syncTimestamp) {
-      const syncDate = new Date(syncTimestamp);
-      const formattedDate = syncDate.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      if (lastLookerSyncEl) lastLookerSyncEl.textContent = formattedDate;
-      if (sidebarLastSyncEl) sidebarLastSyncEl.textContent = formattedDate;
+    if (lastLookerSyncEl && metrics.importedAt) {
+      const syncDate = new Date(metrics.importedAt);
+      lastLookerSyncEl.textContent = syncDate.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
     if (recordsImportedEl) {
       // Count total records from various data sources
@@ -296,17 +212,7 @@ async function loadSettings() {
 
 async function loadGameplan() {
   try {
-    // Check for date parameter in URL, fallback to today
-    const params = new URLSearchParams(window.location.search);
-    let clientDate = params.get('date');
-    
-    if (!clientDate) {
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, '0');
-      clientDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    }
-    
-    const response = await fetch(`/api/gameplan/date/${clientDate}`);
+    const response = await fetch('/api/gameplan/today');
     if (response.ok) {
       gameplanData = await response.json();
       
@@ -442,7 +348,6 @@ function mergeAssignments(assignments) {
       const emp = employees[type].find(e => e.id === id);
       if (emp) {
         Object.assign(emp, assignment);
-        Object.assign(emp, normalizeEmployeeDailyFields(emp));
         break;
       }
     }
@@ -550,7 +455,7 @@ function setupWelcomeSection() {
   for (const type of Object.keys(employees)) {
     userEmployee = employees[type].find(e =>
       e.name?.toLowerCase() === currentUser.name?.toLowerCase() ||
-      e.employeeId?.toString?.() === currentUser.employeeId?.toString?.()
+      e.id === currentUser.employeeId
     );
     if (userEmployee) break;
   }
@@ -583,14 +488,12 @@ function setupWelcomeSection() {
 
     switch (userEmployee.type) {
       case 'SA':
-        // Show Data Import status for SA (and hide sidebar duplicate)
+        // Show Data Import status for SA
         if (dataImportBox) {
           dataImportBox.style.display = 'flex';
           const lastSync = document.getElementById('lastLookerSync');
-          const sidebarCard = document.getElementById('importStatusCard');
-          if (sidebarCard) sidebarCard.style.display = 'none';
           // Prefer lastEmailReceived (actual email time) over importedAt (processing time)
-          const syncTimestamp = metrics?.lastEmailReceived || metrics?.importedAt;
+          const syncTimestamp = metricsData?.lastEmailReceived || metricsData?.importedAt;
           if (lastSync && syncTimestamp) {
             const syncDate = new Date(syncTimestamp);
             lastSync.textContent = syncDate.toLocaleString('en-US', { 
@@ -602,20 +505,16 @@ function setupWelcomeSection() {
         // Show KPIs row for SA (on top)
         kpisRowEl.style.display = 'flex';
         if (userEmployee.metrics) {
-          if (document.getElementById('kpiSales')) document.getElementById('kpiSales').textContent = formatCurrency(userEmployee.metrics.salesAmount || 0);
-          if (document.getElementById('kpiIPC')) document.getElementById('kpiIPC').textContent = userEmployee.metrics.ipc?.toFixed(2) || '--';
-          if (document.getElementById('kpiUPT')) document.getElementById('kpiUPT').textContent = userEmployee.metrics.upt?.toFixed(2) || userEmployee.metrics.ipc?.toFixed(2) || '--';
-          if (document.getElementById('kpiATV')) document.getElementById('kpiATV').textContent = formatCurrency(userEmployee.metrics.apc || 0);
-          if (document.getElementById('kpiSPH')) document.getElementById('kpiSPH').textContent = userEmployee.metrics.sph ? Math.round(userEmployee.metrics.sph) : '--';
+          document.getElementById('kpiSales').textContent = formatCurrency(userEmployee.metrics.salesAmount || 0);
+          document.getElementById('kpiConversion').textContent = (userEmployee.metrics.conversion || 0) + '%';
+          document.getElementById('kpiUPT').textContent = userEmployee.metrics.ipc?.toFixed(2) || '--';
+          document.getElementById('kpiATV').textContent = formatCurrency(userEmployee.metrics.apc || 0);
         }
-        if (document.getElementById('kpiTarget')) {
-          document.getElementById('kpiTarget').textContent = userEmployee.individualTarget
-            ? '$' + Number(userEmployee.individualTarget).toLocaleString()
-            : '--';
-        }
+        document.getElementById('kpiTarget').textContent = userEmployee.individualTarget
+          ? '$' + Number(userEmployee.individualTarget).toLocaleString()
+          : '--';
 
-        // For SA, all metrics are shown in the KPI row, so no need to add to detailsHtml
-        // Store info/notes preview will be shown separately
+        // Show store info/notes preview for SA
         storeInfoEl.style.display = 'block';
         
         // Setup lunch timeline for SA
@@ -675,11 +574,9 @@ function setupLunchTimeline(currentEmployee) {
   
   if (!timelineSection || !timeline) return;
   
-  // Get all employees with lunch times (scheduledLunch preferred, fall back to lunch)
+  // Get all employees with lunch times
   const allSAs = employees.SA || [];
-  const employeesWithLunch = allSAs
-    .map(e => ({ ...e, lunchTime: e.scheduledLunch || e.lunch }))
-    .filter(e => e.lunchTime);
+  const employeesWithLunch = allSAs.filter(e => e.scheduledLunch);
   
   if (employeesWithLunch.length === 0) {
     timelineSection.style.display = 'none';
@@ -689,9 +586,8 @@ function setupLunchTimeline(currentEmployee) {
   timelineSection.style.display = 'block';
   
   // Show my lunch time
-  const myLunch = currentEmployee.scheduledLunch || currentEmployee.lunch;
-  if (myLunchTimeEl && myLunch) {
-    myLunchTimeEl.textContent = `Your lunch: ${myLunch}`;
+  if (myLunchTimeEl && currentEmployee.scheduledLunch) {
+    myLunchTimeEl.textContent = `Your lunch: ${currentEmployee.scheduledLunch}`;
   }
   
   // Timeline from 11:00 to 16:00 (typical lunch range)
@@ -699,15 +595,10 @@ function setupLunchTimeline(currentEmployee) {
   const endHour = 16;
   const totalMinutes = (endHour - startHour) * 60;
   
-  // Create scale with 30-minute intervals
+  // Create scale
   let scaleHtml = '<div class="timeline-scale">';
   for (let h = startHour; h <= endHour; h++) {
-    const hourLabel = h > 12 ? (h-12) + 'PM' : h + (h === 12 ? 'PM' : 'AM');
-    scaleHtml += `<span class="scale-mark">${hourLabel}</span>`;
-    if (h < endHour) {
-      // Add 30-minute mark
-      scaleHtml += `<span class="scale-mark-half">:30</span>`;
-    }
+    scaleHtml += `<span>${h > 12 ? (h-12) + 'PM' : h + (h === 12 ? 'PM' : 'AM')}</span>`;
   }
   scaleHtml += '</div>';
   
@@ -717,7 +608,7 @@ function setupLunchTimeline(currentEmployee) {
   let row = 0;
   
   employeesWithLunch.forEach((emp, idx) => {
-    const lunchTime = emp.lunchTime;
+    const lunchTime = emp.scheduledLunch;
     const [hours, minutes] = lunchTime.split(':').map(Number);
     const lunchMinutes = (hours - startHour) * 60 + minutes;
     const leftPercent = (lunchMinutes / totalMinutes) * 100;
@@ -748,8 +639,7 @@ function setupExpandableBoxes(userEmployee) {
 
   // My values
   document.getElementById('myFittingRoom').textContent = userEmployee.fittingRoom || 'Not assigned';
-  const myZones = getEmployeeZones(userEmployee);
-  document.getElementById('myZone').textContent = myZones.length ? myZones.join(', ') : 'Not assigned';
+  document.getElementById('myZone').textContent = userEmployee.zone || 'Not assigned';
   
   const myClosingDuties = userEmployee.closingSections && userEmployee.closingSections.length > 0
     ? userEmployee.closingSections.join(', ')
@@ -760,12 +650,6 @@ function setupExpandableBoxes(userEmployee) {
   buildFittingRoomList(userEmployee);
   buildZoneList(userEmployee);
   buildClosingDutiesList(userEmployee);
-
-  if (currentPageType === 'SA') {
-    setExpandableOpen('fittingRoom', true);
-    setExpandableOpen('zone', true);
-    setExpandableOpen('closingDuties', true);
-  }
 }
 
 function buildFittingRoomList(userEmployee) {
@@ -814,17 +698,16 @@ function buildZoneList(userEmployee) {
   // Map of zone -> assigned employees (multiple SAs can be in same zone)
   const zoneAssignments = {};
   allSAs.forEach(sa => {
-    const zones = getEmployeeZones(sa);
-    zones.forEach(zoneName => {
-      if (!zoneAssignments[zoneName]) zoneAssignments[zoneName] = [];
-      zoneAssignments[zoneName].push(sa.name);
-    });
+    if (sa.zone) {
+      if (!zoneAssignments[sa.zone]) zoneAssignments[sa.zone] = [];
+      zoneAssignments[sa.zone].push(sa.name);
+    }
   });
 
   let html = '';
   allZones.forEach(z => {
     const assignees = zoneAssignments[z.name] || [];
-    const isMine = getEmployeeZones(userEmployee).includes(z.name);
+    const isMine = userEmployee.zone === z.name;
     const isAvailable = assignees.length === 0;
 
     let itemClass = 'expandable-list-item';
@@ -850,51 +733,59 @@ function buildClosingDutiesList(userEmployee) {
   const listEl = document.getElementById('closingDutiesList');
   if (!listEl) return;
 
-  // Show all closing duties assigned to each employee
-  const people = []
-    .concat(employees.MANAGEMENT || [])
-    .concat(employees.SA || []);
+  const allClosingSections = settings.closingSections || [];
+  const allSAs = employees.SA || [];
 
-  if (people.length === 0) {
-    listEl.innerHTML = '<div class="expandable-list-item">No employees loaded</div>';
-    return;
-  }
+  // Map of closing section -> assigned employees
+  const closingAssignments = {};
+  allSAs.forEach(sa => {
+    if (sa.closingSections && sa.closingSections.length > 0) {
+      sa.closingSections.forEach(section => {
+        if (!closingAssignments[section]) closingAssignments[section] = [];
+        closingAssignments[section].push(sa.name);
+      });
+    }
+  });
+
+  const myClosingSections = userEmployee.closingSections || [];
 
   let html = '';
-  people.forEach(p => {
-    const duties = Array.isArray(p.closingSections) ? p.closingSections : [];
-    const isMine = p.id === userEmployee.id;
+  allClosingSections.forEach(cs => {
+    const assignees = closingAssignments[cs.name] || [];
+    const isMine = myClosingSections.includes(cs.name);
+    const isAvailable = assignees.length === 0;
+
     let itemClass = 'expandable-list-item';
     if (isMine) itemClass += ' mine';
-    const dutyText = duties.length ? duties.join(', ') : '—';
+    else if (isAvailable) itemClass += ' available';
+
+    const assigneeText = isMine 
+      ? `You${assignees.length > 1 ? ` + ${assignees.length - 1} others` : ''}`
+      : (assignees.length > 0 ? assignees.join(', ') : 'Available');
+
     html += `
       <div class="${itemClass}">
-        <span class="item-name">${isMine ? 'You' : p.name}</span>
-        <span class="item-assignee">${dutyText}</span>
+        <span class="item-name">${cs.name}</span>
+        <span class="item-assignee">${assigneeText}</span>
       </div>
     `;
   });
 
-  listEl.innerHTML = html;
+  listEl.innerHTML = html || '<div class="expandable-list-item">No closing sections configured</div>';
 }
 
 // Toggle expandable box
 function toggleExpandable(type) {
   const contentEl = document.getElementById(`${type}Content`);
   const arrowEl = document.getElementById(`${type}Arrow`);
-  if (!contentEl || !arrowEl) return;
   
-  const isHidden = window.getComputedStyle(contentEl).display === 'none';
-  setExpandableOpen(type, isHidden);
-}
-
-function setExpandableOpen(type, open) {
-  const contentEl = document.getElementById(`${type}Content`);
-  const arrowEl = document.getElementById(`${type}Arrow`);
-  if (!contentEl || !arrowEl) return;
-
-  contentEl.style.display = open ? 'block' : 'none';
-  arrowEl.classList.toggle('expanded', open);
+  if (contentEl.style.display === 'none') {
+    contentEl.style.display = 'block';
+    arrowEl.classList.add('expanded');
+  } else {
+    contentEl.style.display = 'none';
+    arrowEl.classList.remove('expanded');
+  }
 }
 
 function getRoleName(role) {
@@ -1018,6 +909,7 @@ function updateNotesPreview() {
 
 // Render functions
 function renderAll() {
+  // Always update these general elements
   updateNotesPreview();
   updateLastSyncTime(); // Update sidebar sync time
 
@@ -1062,7 +954,7 @@ function renderAll() {
       document.getElementById('lookerSection').style.display = 'none';
       break;
     case 'MANAGEMENT':
-    case 'EDIT':
+    case 'EDIT': // Edit page will show all sections for editing
       updateMetricsDisplay();
       updateWorkingToday();
       renderManagementQuickSection();
@@ -1079,6 +971,7 @@ function renderAll() {
       renderBestSellers();
       break;
     default:
+      // Fallback for unknown page types, render all
       updateMetricsDisplay();
       updateWorkingToday();
       renderManagementQuickSection();
@@ -1181,7 +1074,7 @@ function hasLoanOverdue(employeeName) {
 function findCurrentUserEmployee(type) {
   return employees[type]?.find(e =>
     e.name.toLowerCase() === currentUser?.name?.toLowerCase() ||
-    e.employeeId?.toString?.() === currentUser?.employeeId?.toString?.()
+    e.id === currentUser?.employeeId
   );
 }
 
@@ -1191,48 +1084,24 @@ function renderSASection() {
   const count = document.getElementById('saCount');
   const expandBtn = document.getElementById('expandSA');
   grid.innerHTML = '';
-  const saEmployees = employees.SA || [];
+  count.textContent = employees.SA.length;
 
   const currentUserEmp = findCurrentUserEmployee('SA');
-  let displayedEmployees = [...saEmployees];
-
-  if (currentPageType === 'SA') {
-    if (currentUserEmp) {
-      displayedEmployees = displayedEmployees.filter(e => e.id !== currentUserEmp.id);
-    }
-
-    count.textContent = displayedEmployees.length;
-
-    if (!showAllEmployees.SA && displayedEmployees.length > 4) {
-      displayedEmployees = displayedEmployees.slice(0, 4);
-      expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = `Show All (${Number(count.textContent)})`;
-    } else if (showAllEmployees.SA && displayedEmployees.length > 4) {
-      expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = 'Show Less';
-    } else {
-      expandBtn.style.display = 'none';
-    }
-
-    displayedEmployees.forEach(emp => {
-      grid.appendChild(createSACard(emp, false));
-    });
-    return;
-  }
+  let displayedEmployees = [...employees.SA];
 
   // If not manager and not showing all, show only current user's card first
   if (!showAllEmployees.SA && !currentUser?.isManager && !currentUser?.isAdmin) {
     if (currentUserEmp) {
       displayedEmployees = [currentUserEmp];
       expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = `Show All (${saEmployees.length})`;
+      expandBtn.textContent = `Show All (${employees.SA.length})`;
     }
   } else {
     // Sort to show current user first
     if (currentUserEmp) {
-      displayedEmployees = [currentUserEmp, ...saEmployees.filter(e => e.id !== currentUserEmp.id)];
+      displayedEmployees = [currentUserEmp, ...employees.SA.filter(e => e.id !== currentUserEmp.id)];
     }
-    if (saEmployees.length > 1) {
+    if (employees.SA.length > 1) {
       expandBtn.style.display = 'inline-block';
       expandBtn.textContent = 'Show Less';
     }
@@ -1255,19 +1124,19 @@ function createSACard(emp, isCurrentUser = false) {
     ? '<div class="loan-warning">Loan Overdue</div>'
     : '';
 
-	  card.innerHTML = `
-	    <div class="card-header">
+  card.innerHTML = `
+    <div class="card-header">
       ${photoHtml}
       <div class="employee-info">
         <h4>${emp.name}</h4>
         <span class="role">Sales Associate</span>
       </div>
     </div>
-	    <div class="card-body">
-	      <div class="card-field">
-	        <span class="field-label">Zones</span>
-	        <span class="field-value">${formatZones(emp)}</span>
-	      </div>
+    <div class="card-body">
+      <div class="card-field">
+        <span class="field-label">Zone</span>
+        <span class="field-value">${emp.zone || '-'}</span>
+      </div>
       <div class="card-field">
         <span class="field-label">Fitting Room</span>
         <span class="field-value">${emp.fittingRoom || '-'}</span>
@@ -1685,16 +1554,9 @@ function renderCustomerOrders() {
     const tr = document.createElement('tr');
     const daysClass = order.daysOld >= 90 ? 'critical' : order.daysOld >= 60 ? 'warning' : order.daysOld >= 30 ? 'alert' : '';
     const statusClass = order.status === 'missing' ? 'missing' : 'pending';
-
-    // Check for PSUS order number in fulfillmentId (PSUS + 8 digits)
-    const fulfillmentId = order.fulfillmentId || '';
-    const psusMatch = fulfillmentId.match(/PSUS(\d{8})/i);
-    const fulfillmentDisplay = psusMatch
-      ? `<a href="https://mao.suitsupply.com/order/PSUS${psusMatch[1]}" target="_blank" class="psus-link" title="Open in MAO">PSUS${psusMatch[1]}</a>`
-      : fulfillmentId;
-
+    
     tr.innerHTML = `
-      <td class="fulfillment-id">${fulfillmentDisplay}</td>
+      <td class="fulfillment-id">${order.fulfillmentId}</td>
       <td>${order.createdDate || order.lastReadDate || '-'}</td>
       <td class="days-old ${daysClass}">${order.daysOld > 0 ? order.daysOld + ' days' : '-'}</td>
       <td><span class="status-badge ${statusClass}">${order.status === 'missing' ? 'Missing' : 'Pending'}</span></td>
@@ -1997,9 +1859,8 @@ function openEditModal(emp) {
 }
 
 function getFormFields(emp) {
-  const empZones = getEmployeeZones(emp);
   const zoneOptions = (settings.zones || []).map(z =>
-    `<option value="${z.name}" ${empZones.includes(z.name) ? 'selected' : ''}>${z.name}</option>`
+    `<option value="${z.name}" ${emp.zone === z.name ? 'selected' : ''}>${z.name}</option>`
   ).join('');
 
   const frOptions = (settings.fittingRooms || []).map(fr =>
@@ -2026,18 +1887,18 @@ function getFormFields(emp) {
   `;
 
   switch (emp.type) {
-	    case 'SA':
-	      fields += `
-	        <div class="grid grid-2">
-	          <div class="form-group">
-	            <label>Zones</label>
-	            <select class="form-control" id="editZones" multiple><option value="">Select...</option>${zoneOptions}</select>
-	          </div>
-	          <div class="form-group">
-	            <label>Fitting Room</label>
-	            <select class="form-control" id="editFittingRoom"><option value="">Select...</option>${frOptions}</select>
-	          </div>
-	        </div>
+    case 'SA':
+      fields += `
+        <div class="grid grid-2">
+          <div class="form-group">
+            <label>Zone</label>
+            <select class="form-control" id="editZone"><option value="">Select...</option>${zoneOptions}</select>
+          </div>
+          <div class="form-group">
+            <label>Fitting Room</label>
+            <select class="form-control" id="editFittingRoom"><option value="">Select...</option>${frOptions}</select>
+          </div>
+        </div>
         <div class="grid grid-2">
           <div class="form-group">
             <label>Individual Target ($)</label>
@@ -2131,21 +1992,14 @@ async function saveModalChanges() {
   // Check if type changed
   const typeChanged = newType !== emp.type;
 
-	  switch (emp.type) {
-	    case 'SA':
-	      const zonesSelect = document.getElementById('editZones');
-	      if (zonesSelect) {
-	        const zones = Array.from(zonesSelect.selectedOptions)
-	          .map(o => (o.value || '').trim())
-	          .filter(v => v && v !== 'Select...');
-	        emp.zones = zones;
-	        emp.zone = zones[0] || '';
-	      }
-	      emp.fittingRoom = document.getElementById('editFittingRoom')?.value || emp.fittingRoom;
-	      emp.individualTarget = parseInt(document.getElementById('editTarget')?.value) || emp.individualTarget;
-	      emp.scheduledLunch = document.getElementById('editLunch')?.value || emp.scheduledLunch;
-	      emp.closingSections = (document.getElementById('editClosing')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
-	      break;
+  switch (emp.type) {
+    case 'SA':
+      emp.zone = document.getElementById('editZone')?.value || emp.zone;
+      emp.fittingRoom = document.getElementById('editFittingRoom')?.value || emp.fittingRoom;
+      emp.individualTarget = parseInt(document.getElementById('editTarget')?.value) || emp.individualTarget;
+      emp.scheduledLunch = document.getElementById('editLunch')?.value || emp.scheduledLunch;
+      emp.closingSections = (document.getElementById('editClosing')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+      break;
     case 'BOH':
       emp.shift = document.getElementById('editShift')?.value || emp.shift;
       emp.lunch = document.getElementById('editLunch')?.value || emp.lunch;
@@ -2403,24 +2257,11 @@ function setupEventListeners() {
   // Refresh data button
   document.getElementById('refreshDataBtn')?.addEventListener('click', refreshAllData);
 
-  // User dropdown
-  const userMenu = document.getElementById('userMenu');
-  const userDropdown = document.getElementById('userDropdown');
-  if (userMenu && userDropdown) {
-    userMenu.addEventListener('click', (e) => {
-      e.stopPropagation();
-      userDropdown.classList.toggle('active');
-    });
-
-    document.addEventListener('click', () => {
-      userDropdown.classList.remove('active');
-    });
-  }
-
   // Switch user link (id is switchUserBtn in HTML)
   document.getElementById('switchUserBtn')?.addEventListener('click', async (e) => {
     e.preventDefault();
-    window.location.href = '/home';
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login-v2';
   });
 
   // Toggle metrics

@@ -205,7 +205,23 @@ router.get('/check', (req, res) => {
   }
 
   try {
-    const userData = JSON.parse(userSession);
+    const session = JSON.parse(userSession);
+    const usersData = readJsonFile(USERS_FILE, { users: [] });
+    const currentUser = usersData.users.find(u => u.employeeId === session.employeeId || u.id === session.userId);
+    if (!currentUser) {
+      res.clearCookie('userSession');
+      return res.json({ authenticated: false });
+    }
+
+    const userData = {
+      userId: currentUser.id,
+      employeeId: currentUser.employeeId,
+      name: currentUser.name,
+      role: currentUser.role,
+      imageUrl: currentUser.imageUrl,
+      isAdmin: !!currentUser.isAdmin,
+      isManager: !!(currentUser.isManager || currentUser.isAdmin || currentUser.role === 'MANAGEMENT')
+    };
     return res.json({
       authenticated: true,
       user: userData

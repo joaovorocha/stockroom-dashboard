@@ -1984,6 +1984,42 @@
   margin-bottom: 24px;
 }
 
+/* SA: show On Duty as a small left-corner window with a vertical list */
+body[data-page-type="sa"] #managementQuickSection {
+  position: sticky;
+  top: 92px;
+  width: 280px;
+  padding: 12px;
+}
+
+body[data-page-type="sa"] #managementQuickSection .section-header {
+  margin-bottom: 10px;
+}
+
+body[data-page-type="sa"] #managementQuickSection h2 {
+  font-size: 14px;
+}
+
+body[data-page-type="sa"] #managementQuickGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+body[data-page-type="sa"] .management-quick-card {
+  padding: 10px 12px;
+}
+
+body[data-page-type="sa"] .management-quick-card .card-icon,
+body[data-page-type="sa"] .management-quick-card .card-icon img {
+  width: 36px;
+  height: 36px;
+}
+
+body[data-page-type="sa"] .management-quick-card .card-name {
+  font-size: 14px;
+}
+
 .management-quick-section .section-header {
   margin-bottom: 16px;
 }

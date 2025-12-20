@@ -20,30 +20,50 @@ const { getUPSScheduler } = require('./utils/ups-scheduler');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+function managerOnly(req, res, next) {
+  const user = req.user;
+  if (user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT') return next();
+  if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Manager access required' });
+  return res.status(403).send('Manager access required');
+}
+
+function adminOnly(req, res, next) {
+  const user = req.user;
+  if (user?.isAdmin) return next();
+  if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Admin access required' });
+  return res.status(403).send('Admin access required');
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Serve static files from public directory
+// Require auth for direct HTML file access (prevents bypassing app routes via express.static)
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html')) return authMiddleware(req, res, next);
+  return next();
+});
+
+// Serve static files from public directory (css/js/images)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve closing duties photos
-app.use('/closing-duties', express.static(path.join(__dirname, 'data/closing-duties')));
+// Serve closing duties photos (auth required)
+app.use('/closing-duties', authMiddleware, express.static(path.join(__dirname, 'data/closing-duties')));
 
 // Routes - Order matters! More specific routes before generic ones
 app.use('/api/auth', authRoutes);
-app.use('/api/shipments', shipmentsRoutes); // No auth required for shipments
-app.use('/api/closing-duties', closingDutiesRoutes); // No auth required
-app.use('/api/lost-punch', lostPunchRoutes); // No auth required for submission
-app.use('/api/gameplan', gameplanRoutes); // Gameplan API - No auth required
-app.use('/api/timeoff', timeoffRoutes); // Time off API
-app.use('/api/feedback', feedbackRoutes); // Feedback API
+app.use('/api/shipments', authMiddleware, shipmentsRoutes);
+app.use('/api/closing-duties', authMiddleware, closingDutiesRoutes);
+app.use('/api/lost-punch', authMiddleware, lostPunchRoutes);
+app.use('/api/gameplan', authMiddleware, gameplanRoutes);
+app.use('/api/timeoff', authMiddleware, timeoffRoutes);
+app.use('/api/feedback', authMiddleware, feedbackRoutes);
 app.use('/api', authMiddleware, apiRoutes); // Generic API routes with auth
 
-// Serve feedback uploads
-app.use('/feedback-uploads', express.static(path.join(__dirname, 'data/feedback-uploads')));
+// Serve feedback uploads (auth required)
+app.use('/feedback-uploads', authMiddleware, express.static(path.join(__dirname, 'data/feedback-uploads')));
 
 // Redirect old pages to new ones
 app.get('/login', (req, res) => {
@@ -58,16 +78,40 @@ app.get('/gameplan-v2', (req, res) => {
   res.redirect('/dashboard');
 });
 
+app.get('/dashboard.html', (req, res) => {
+  res.redirect('/dashboard');
+});
+
 app.get('/index.html', (req, res) => {
   res.redirect('/login-v2');
 });
 
 // Serve HTML pages
 app.get('/dashboard', authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+  const role = (req.user?.role || '').toUpperCase();
+  if (role === 'TAILOR') return res.redirect('/gameplan-tailors');
+  if (role === 'BOH') return res.redirect('/gameplan-boh');
+  if (role === 'MANAGEMENT' || role === 'ADMIN') return res.redirect('/gameplan-management');
+  return res.redirect('/gameplan-sa');
 });
 
-app.get('/gameplan-edit', authMiddleware, (req, res) => {
+app.get('/gameplan-sa', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'gameplan-sa.html'));
+});
+
+app.get('/gameplan-tailors', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'gameplan-tailors.html'));
+});
+
+app.get('/gameplan-boh', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'gameplan-boh.html'));
+});
+
+app.get('/gameplan-management', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'gameplan-management.html'));
+});
+
+app.get('/gameplan-edit', authMiddleware, managerOnly, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'gameplan-edit.html'));
 });
 
@@ -103,7 +147,7 @@ app.get('/lost-punch', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'lost-punch.html'));
 });
 
-app.get('/admin', authMiddleware, (req, res) => {
+app.get('/admin', authMiddleware, adminOnly, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
@@ -111,7 +155,15 @@ app.get('/feedback', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'feedback.html'));
 });
 
+app.get('/home', authMiddleware, (req, res) => {
+  const suffix = req.url && req.url !== '/home' ? req.url.slice('/home'.length) : '';
+  res.redirect(`/dashboard${suffix}`);
+});
+
 app.get('/', (req, res) => {
+  // If already authenticated, go home; otherwise go to login
+  const userSession = req.cookies.userSession;
+  if (userSession) return res.redirect('/home');
   res.redirect('/login-v2');
 });
 
@@ -119,12 +171,11 @@ app.get('/', (req, res) => {
 let sseClients = [];
 
 // SSE endpoint for real-time updates
-app.get('/api/sse/updates', (req, res) => {
+app.get('/api/sse/updates', authMiddleware, (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*'
   });
 
   // Send initial connection confirmation

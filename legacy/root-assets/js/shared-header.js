@@ -3,7 +3,6 @@
 
 const SharedHeader = {
   currentUser: null,
-  shipmentsBadgeTimer: null,
 
   // Pages that show refresh button
   refreshPages: ['/dashboard', '/shipments'],
@@ -25,7 +24,7 @@ const SharedHeader = {
     const showRefresh = options.showRefresh ?? this.shouldShowRefresh();
 
     const navItems = [
-      { href: '/home', label: 'Game Plan', id: 'navGamePlan' },
+      { href: '/dashboard', label: 'Game Plan', id: 'navGamePlan' },
       { href: '/shipments', label: 'Shipments', id: 'navShipments', badge: 'shipmentsBadge' },
       { href: '/scanner', label: 'Scanner', id: 'navScanner' },
       { href: '/lost-punch', label: 'Lost Punch', id: 'navLostPunch' },
@@ -62,13 +61,9 @@ const SharedHeader = {
     return `${refreshBar}
   <header class="header">
     <div class="header-brand">
-      <a href="/home" class="logo-link">
+      <a href="/dashboard" class="logo-link">
         <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
       </a>
-      <div class="header-title">
-        <h1>Daily Game Plan</h1>
-        <span class="location">San Francisco</span>
-      </div>
     </div>
 
     <nav class="header-nav">
@@ -83,9 +78,7 @@ const SharedHeader = {
         <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
         <span id="userName">Guest</span>
         <div class="user-dropdown" id="userDropdown">
-          <a href="/home" id="homeBtn">Home</a>
           <a href="#" id="switchUserBtn">Switch User</a>
-          <a href="#" id="logoutBtn">Logout</a>
         </div>
       </div>
     </div>
@@ -118,9 +111,6 @@ const SharedHeader = {
 
     // Setup user switching
     this.setupUserSwitching();
-
-    // Shipments badge
-    this.setupShipmentsBadge();
   },
 
   // Check authentication
@@ -152,82 +142,17 @@ const SharedHeader = {
       userAvatar.src = user.imageUrl;
       userAvatar.style.display = 'block';
     }
+    if (adminLink && (user.isManager || user.isAdmin)) {
+      adminLink.style.display = 'inline';
+    }
     if (feedbackLink && (user.isManager || user.isAdmin)) {
       feedbackLink.style.display = 'inline';
     }
-    if (adminLink && user.isAdmin) {
-      adminLink.style.display = 'inline';
-    }
-  },
-
-  ensureShipmentsBadge() {
-    const shipmentsLink = document.getElementById('navShipments');
-    if (!shipmentsLink) return null;
-    let badge = document.getElementById('shipmentsBadge');
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'nav-badge';
-      badge.id = 'shipmentsBadge';
-      badge.style.display = 'none';
-      badge.textContent = '0';
-      shipmentsLink.appendChild(badge);
-    }
-    return badge;
-  },
-
-  canSeeShipmentsBadge() {
-    const role = (this.currentUser?.role || '').toString().toUpperCase();
-    return !!(this.currentUser?.isAdmin || this.currentUser?.isManager || role === 'BOH' || role === 'MANAGEMENT');
-  },
-
-  async updateShipmentsBadge() {
-    const badge = this.ensureShipmentsBadge();
-    if (!badge) return;
-
-    if (!this.canSeeShipmentsBadge()) {
-      badge.style.display = 'none';
-      return;
-    }
-
-    try {
-      const resp = await fetch('/api/shipments', { credentials: 'include' });
-      if (!resp.ok) {
-        badge.style.display = 'none';
-        return;
-      }
-      const shipments = await resp.json();
-      const pendingCount = (shipments || []).filter(s => {
-        const status = (s?.status || '').toString().toLowerCase();
-        return status === 'pending' || status === 'requested';
-      }).length;
-
-      if (pendingCount > 0) {
-        badge.textContent = String(pendingCount);
-        badge.style.display = 'inline-flex';
-      } else {
-        badge.style.display = 'none';
-      }
-    } catch (_) {
-      // Keep UI quiet on transient errors
-      badge.style.display = 'none';
-    }
-  },
-
-  setupShipmentsBadge() {
-    // Always ensure element exists if the link is present (some pages have static headers)
-    this.ensureShipmentsBadge();
-    this.updateShipmentsBadge();
-
-    if (this.shipmentsBadgeTimer) clearInterval(this.shipmentsBadgeTimer);
-    this.shipmentsBadgeTimer = setInterval(() => {
-      this.updateShipmentsBadge();
-    }, 60000);
   },
 
   // Setup user switching (direct, no logout loop)
   setupUserSwitching() {
     const switchBtn = document.getElementById('switchUserBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
     const userMenu = document.getElementById('userMenu');
     const dropdown = document.getElementById('userDropdown');
 
@@ -246,45 +171,9 @@ const SharedHeader = {
       switchBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        // Must be authenticated to switch users
-        if (!this.currentUser) {
-          window.location.href = '/login-v2';
-          return;
-        }
-        dropdown?.classList.remove('active');
-        await this.showUserSwitcher();
-      });
-    }
-
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        try {
-          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-        } catch (_) {}
-        dropdown?.classList.remove('active');
+        // Redirect to login page
         window.location.href = '/login-v2';
       });
-    }
-
-    // Some pages ship a minimal dropdown with only a single <a>.
-    // Ensure "Logout" exists so user can always exit current session.
-    if (dropdown && !document.getElementById('logoutBtn')) {
-      const a = document.createElement('a');
-      a.href = '#';
-      a.id = 'logoutBtn';
-      a.textContent = 'Logout';
-      a.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        try {
-          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-        } catch (_) {}
-        dropdown.classList.remove('active');
-        window.location.href = '/login-v2';
-      });
-      dropdown.appendChild(a);
     }
   },
 

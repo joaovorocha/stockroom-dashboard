@@ -5,12 +5,19 @@ const path = require('path');
 const { LookerDataProcessor } = require('../utils/looker-data-processor');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'employees-v2.json');
 const GAMEPLAN_DIR = path.join(DATA_DIR, 'gameplan-daily');
 const METRICS_DIR = path.join(DATA_DIR, 'store-metrics');
 
 // Initialize Looker data processor
 const lookerProcessor = new LookerDataProcessor();
+
+function requireManager(req, res, next) {
+  const user = req.user;
+  if (user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT') return next();
+  return res.status(403).json({ error: 'Manager access required' });
+}
 
 // Helper to get today's date string
 function getTodayDate() {
@@ -39,22 +46,102 @@ function writeJsonFile(filePath, data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
+function normalizeName(value) {
+  return (value || '').toString().trim().toLowerCase();
+}
+
+function pruneEmployeesFile() {
+  const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
+  const usersData = readJsonFile(USERS_FILE, { users: [] });
+
+  const usersByEmployeeId = new Map();
+  const usersByName = new Map();
+  (usersData.users || []).forEach(u => {
+    if (u.employeeId) usersByEmployeeId.set(u.employeeId.toString().trim(), u);
+    if (u.name) usersByName.set(normalizeName(u.name), u);
+  });
+
+  const roleToType = {
+    SA: 'SA',
+    BOH: 'BOH',
+    MANAGEMENT: 'MANAGEMENT',
+    TAILOR: 'TAILOR',
+    ADMIN: 'MANAGEMENT'
+  };
+
+  const canonical = {
+    SA: [],
+    BOH: [],
+    MANAGEMENT: [],
+    TAILOR: []
+  };
+
+  const seenEmployeeIds = new Set();
+
+  // Start from existing employee records, but:
+  // - drop employees that no longer exist in users.json
+  // - re-group employees by the user's current role (prevents ADMIN showing under SA, etc.)
+  for (const bucket of Object.keys(employees.employees || {})) {
+    const list = employees.employees[bucket] || [];
+    for (const emp of list) {
+      const employeeIdRaw = (emp?.employeeId || '').toString().trim();
+      const employeeIdLower = employeeIdRaw.toLowerCase();
+      const nameKey = normalizeName(emp?.name);
+
+      // Clean up legacy placeholder users (ex: old "admin" login)
+      if (employeeIdLower === 'admin' || nameKey === 'admin') continue;
+
+      const user = (employeeIdRaw && usersByEmployeeId.get(employeeIdRaw)) || (nameKey && usersByName.get(nameKey)) || null;
+      if (!user) continue;
+
+      const targetType = roleToType[(user.role || '').toString().toUpperCase()] || 'SA';
+      const targetList = canonical[targetType] || canonical.SA;
+
+      const canonicalEmployeeId = user.employeeId?.toString?.().trim?.() || employeeIdRaw;
+      if (canonicalEmployeeId && seenEmployeeIds.has(canonicalEmployeeId)) continue;
+      if (canonicalEmployeeId) seenEmployeeIds.add(canonicalEmployeeId);
+
+      targetList.push({
+        ...emp,
+        employeeId: canonicalEmployeeId || emp.employeeId,
+        name: user.name || emp.name,
+        imageUrl: user.imageUrl || emp.imageUrl || '',
+        type: targetType,
+        zones: Array.isArray(emp.zones)
+          ? emp.zones.map(z => (z || '').toString().trim()).filter(Boolean)
+          : ((emp.zone || '').toString().trim() ? [(emp.zone || '').toString().trim()] : [])
+      });
+    }
+  }
+
+  const next = { ...employees, employees: canonical };
+  const beforeStr = JSON.stringify(employees.employees || {});
+  const afterStr = JSON.stringify(next.employees);
+  if (beforeStr !== afterStr) {
+    next.lastPrunedAt = new Date().toISOString();
+    writeJsonFile(EMPLOYEES_FILE, next);
+    return next;
+  }
+
+  return employees;
+}
+
 // GET /api/gameplan/employees - Get all employees
 router.get('/employees', (req, res) => {
-  const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
+  const employees = pruneEmployeesFile();
   res.json(employees);
 });
 
 // GET /api/gameplan/employees/:type - Get employees by type
 router.get('/employees/:type', (req, res) => {
   const { type } = req.params;
-  const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
+  const employees = pruneEmployeesFile();
   const typeEmployees = employees.employees[type.toUpperCase()] || [];
   res.json(typeEmployees);
 });
 
 // POST /api/gameplan/employees - Add or update employee
-router.post('/employees', (req, res) => {
+router.post('/employees', requireManager, (req, res) => {
   const employee = req.body;
   const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
 
@@ -163,10 +250,51 @@ router.get('/yesterday', (req, res) => {
 });
 
 // POST /api/gameplan/save - Save gameplan
-router.post('/save', (req, res) => {
+router.post('/save', requireManager, (req, res) => {
   const gameplan = req.body;
   const today = gameplan.date || getTodayDate();
   const gameplanFile = path.join(GAMEPLAN_DIR, `${today}.json`);
+
+  // Normalize assignments for backward compatibility:
+  // - zones: array (employees can have 1+ zones)
+  // - zone: keep first zone for legacy UIs
+  // - fittingRoom: always single value
+  if (gameplan.assignments && typeof gameplan.assignments === 'object') {
+    Object.keys(gameplan.assignments).forEach(empId => {
+      const assignment = gameplan.assignments[empId];
+      if (!assignment || typeof assignment !== 'object') return;
+
+      // zones
+      if (assignment.zones === undefined && assignment.zone !== undefined) {
+        assignment.zones = assignment.zone ? [assignment.zone] : [];
+      }
+      if (assignment.zones !== undefined) {
+        if (Array.isArray(assignment.zones)) {
+          assignment.zones = assignment.zones.map(z => (z || '').toString().trim()).filter(Boolean);
+        } else {
+          const z = (assignment.zones || '').toString().trim();
+          assignment.zones = z ? [z] : [];
+        }
+        assignment.zone = assignment.zones[0] || '';
+      }
+
+      // fittingRoom (single)
+      if (Array.isArray(assignment.fittingRoom)) {
+        assignment.fittingRoom = (assignment.fittingRoom[0] || '').toString().trim();
+      } else if (assignment.fittingRoom !== undefined) {
+        assignment.fittingRoom = (assignment.fittingRoom || '').toString().trim();
+      }
+
+      // closingSections (array)
+      if (assignment.closingSections !== undefined && !Array.isArray(assignment.closingSections)) {
+        const raw = (assignment.closingSections || '').toString();
+        assignment.closingSections = raw
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
+      }
+    });
+  }
 
   gameplan.savedAt = new Date().toISOString();
   gameplan.published = true; // Mark as published when saved from edit page
@@ -182,7 +310,7 @@ router.post('/save', (req, res) => {
         const index = employees.employees[type].findIndex(e => e.id === id);
         if (index >= 0) {
           // Update only daily assignment fields, not metrics
-          const dailyFields = ['zone', 'fittingRoom', 'scheduledLunch', 'closingSections',
+          const dailyFields = ['zones', 'zone', 'fittingRoom', 'scheduledLunch', 'closingSections',
                               'shift', 'lunch', 'taskOfTheDay', 'role', 'station'];
           dailyFields.forEach(field => {
             if (assignment[field] !== undefined) {
@@ -366,7 +494,7 @@ router.get('/appointments', (req, res) => {
 });
 
 // POST /api/gameplan/sync - Manually sync and save dashboard data
-router.post('/sync', async (req, res) => {
+router.post('/sync', requireManager, async (req, res) => {
   try {
     const syncBy = req.body.syncBy || req.user?.name || 'manual';
     
@@ -436,7 +564,7 @@ router.get('/sync-status', (req, res) => {
 });
 
 // POST /api/gameplan/import-looker - Import data from Looker CSV files
-router.post('/import-looker', (req, res) => {
+router.post('/import-looker', requireManager, (req, res) => {
   try {
     const lookerDir = path.join(__dirname, '..', 'files', 'dashboard-stores_performance');
     const tailorDir = path.join(__dirname, '..', 'files', 'dashboard-tailor_myr');
@@ -628,7 +756,7 @@ function parseAmount(str) {
 }
 
 // POST /api/gameplan/fetch-gmail - Fetch Looker data from Gmail (enhanced)
-router.post('/fetch-gmail', async (req, res) => {
+router.post('/fetch-gmail', requireManager, async (req, res) => {
   try {
     const { GmailLookerFetcher } = require('../utils/gmail-looker-fetcher');
     const fetcher = new GmailLookerFetcher();
@@ -642,7 +770,7 @@ router.post('/fetch-gmail', async (req, res) => {
 });
 
 // POST /api/gameplan/fetch-microsoft - Fetch Looker data from Microsoft 365
-router.post('/fetch-microsoft', async (req, res) => {
+router.post('/fetch-microsoft', requireManager, async (req, res) => {
   try {
     const { MicrosoftEmailFetcher } = require('../utils/microsoft-email-fetcher');
     const fetcher = new MicrosoftEmailFetcher();
@@ -668,7 +796,7 @@ router.get('/microsoft-status', async (req, res) => {
 });
 
 // POST /api/gameplan/process-looker - Process CSV files and update metrics
-router.post('/process-looker', async (req, res) => {
+router.post('/process-looker', requireManager, async (req, res) => {
   try {
     const { LookerDataProcessor } = require('../utils/looker-data-processor');
     const processor = new LookerDataProcessor();
@@ -681,7 +809,7 @@ router.post('/process-looker', async (req, res) => {
 });
 
 // POST /api/gameplan/sync-looker - Full sync: Fetch from Gmail + Process
-router.post('/sync-looker', async (req, res) => {
+router.post('/sync-looker', requireManager, async (req, res) => {
   const results = {
     success: false,
     fetch: null,
@@ -768,7 +896,7 @@ router.get('/settings', (req, res) => {
 });
 
 // POST /api/gameplan/settings - Save settings
-router.post('/settings', (req, res) => {
+router.post('/settings', requireManager, (req, res) => {
   const settingsFile = path.join(DATA_DIR, 'settings.json');
   const settings = req.body;
   settings.lastUpdated = getTodayDate();
@@ -777,7 +905,7 @@ router.post('/settings', (req, res) => {
 });
 
 // POST /api/gameplan/metrics - Save metrics manually
-router.post('/metrics', (req, res) => {
+router.post('/metrics', requireManager, (req, res) => {
   const metricsData = req.body;
   const metricsFile = path.join(METRICS_DIR, `${getTodayDate()}.json`);
   writeJsonFile(metricsFile, metricsData);
@@ -822,7 +950,7 @@ router.get('/loans', (req, res) => {
 });
 
 // POST /api/gameplan/employees/move - Move employee to different type
-router.post('/employees/move', (req, res) => {
+router.post('/employees/move', requireManager, (req, res) => {
   const { employeeId, fromType, toType } = req.body;
 
   if (!employeeId || !fromType || !toType) {

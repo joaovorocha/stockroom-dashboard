@@ -17,8 +17,39 @@ const authMiddleware = (req, res, next) => {
     // Parse the user session data
     const userData = JSON.parse(userSession);
 
-    // Attach user data to request for use in routes
-    req.user = userData;
+    // Validate the session user still exists
+    const fs = require('fs');
+    const path = require('path');
+    const usersFile = path.join(__dirname, '..', 'data', 'users.json');
+    let currentUser = null;
+    try {
+      if (fs.existsSync(usersFile)) {
+        const usersData = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
+        currentUser = (usersData.users || []).find(u => u.employeeId === userData.employeeId || u.id === userData.userId) || null;
+      }
+    } catch (e) {
+      // If users file can't be read, fall back to session data (avoid locking everyone out)
+      currentUser = { ...userData };
+    }
+
+    if (!currentUser) {
+      res.clearCookie('userSession');
+      if (req.path.startsWith('/api/')) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+      return res.redirect('/login');
+    }
+
+    // Attach normalized user data to request
+    req.user = {
+      userId: currentUser.id || userData.userId,
+      employeeId: currentUser.employeeId || userData.employeeId,
+      name: currentUser.name || userData.name,
+      role: currentUser.role || userData.role,
+      imageUrl: currentUser.imageUrl || userData.imageUrl,
+      isAdmin: !!currentUser.isAdmin,
+      isManager: !!(currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toUpperCase() === 'MANAGEMENT')
+    };
 
     next();
   } catch (error) {

@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edit Game Plan - San Francisco | Suitsupply</title>
-  <link rel="stylesheet" href="/css/theme.css?v=5">
-  <link rel="stylesheet" href="/css/shared-header.css?v=5">
-  <link rel="stylesheet" href="/css/dashboard.css?v=5">
+  <link rel="stylesheet" href="/css/theme.css?v=13">
+  <link rel="stylesheet" href="/css/shared-header.css?v=13">
+  <link rel="stylesheet" href="/css/dashboard.css?v=13">
+  <link rel="stylesheet" href="/css/mobile.css?v=1">
   <style>
     .edit-container {
       max-width: 1400px;
@@ -120,12 +121,71 @@
       margin-bottom: 32px;
     }
 
-    .notes-card-toggle {
-      transition: transform 0.2s ease;
+    /* Collapsible employee sections */
+    .section-card {
+      background: #f1f3f7;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+      margin-bottom: 32px;
+      padding: 18px 18px 0 18px;
     }
 
-    .notes-card.collapsed .notes-card-toggle {
-      transform: rotate(-90deg);
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .section-title h3 {
+      margin: 0;
+      font-size: 1.2em;
+      font-weight: 600;
+    }
+
+    .section-title-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-count {
+      background: #e0e3ea;
+      color: #374151;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      padding: 2px 10px;
+      min-width: 28px;
+      text-align: center;
+    }
+
+    .toggle-btn {
+      width: 34px;
+      height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 8px;
+      background: #e0e3ea;
+      color: #111827;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .toggle-btn:hover {
+      background: #d2d6df;
+    }
+
+    .collapsed-section .section-grid {
+      display: none;
+    }
+
+    .notes-card-toggle {
+      transition: color 0.15s ease;
     }
 
     .notes-card.collapsed .notes-card-body {
@@ -214,11 +274,6 @@
     .edit-card-info h4 {
       font-size: 15px;
       margin: 0 0 4px;
-      max-width: 140px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      display: block;
     }
 
     .edit-card-info span {
@@ -295,24 +350,64 @@
       font-size: 12px;
     }
 
-    .duty-chip.selected {
-      background: #22c55e;
-      color: #fff;
-      border-color: #22c55e;
-    }
-    .duty-chip.taken {
-      background: #22c55e;
-      color: #fff;
-      border-color: #22c55e;
-    }
-    .duty-chip.unassigned {
-      background: #fde047;
-      color: #7a5d00;
-      border-color: #fde047;
+	    .duty-chip.selected {
+	      background: #22c55e;
+	      color: #fff;
+	      border-color: #22c55e;
+	    }
+	    .duty-chip.taken {
+	      background: #fee2e2;
+	      color: #991b1b;
+	      border-color: #fecaca;
+	      opacity: 0.9;
+	    }
+	    .duty-chip.unassigned {
+	      background: #f1f5f9;
+	      color: #0f172a;
+	      border-color: #e2e8f0;
+	    }
+
+	    .duty-chip:hover {
+	      cursor: pointer;
+	    }
+	    .duty-chip.taken:hover {
+	      cursor: not-allowed;
+	    }
+
+    .zone-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      min-height: 44px;
     }
 
-    .duty-chip:hover {
+    .zone-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 12px;
       cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+
+    .zone-chip:hover {
+      background: #eef2ff;
+      border-color: #c7d2fe;
+    }
+
+    .zone-chip.selected {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: #fff;
     }
 
     /* Notes Editor Section */
@@ -447,8 +542,7 @@
     .notes-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 32px; overflow: hidden; }
     .notes-card-header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
     .notes-card-header:hover { background: #f5f5f5; }
-    .notes-card-toggle { transition: transform 0.2s; }
-    .notes-card.collapsed .notes-card-toggle { transform: rotate(-90deg); }
+    .notes-card-toggle { transition: color 0.15s ease; }
     .notes-card.collapsed .notes-card-body { display: none; }
     .notes-card-body { padding: 20px; }
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; }
@@ -467,25 +561,18 @@
     .btn-outline-danger { background: transparent; color: #dc2626; border-color: #dc2626; }
     .btn-outline-danger:hover { background: #dc2626; color: #fff; }
 
-    .zone-taken {
-      background: #22c55e !important;
-      color: #fff !important;
-    }
+    /* Used for fitting room select status */
     .zone-available {
-      background: #fde047 !important;
-      color: #7a5d00 !important;
+      color: #15803d !important;
+      border-color: #bbf7d0 !important;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.12) !important;
+      background: transparent !important;
     }
-    .changed {
-      background: #fde047 !important;
-    }
-    .saved {
-      background: #22c55e !important;
-      color: #fff !important;
-    }
-    .day-off {
-      background: #e5e7eb !important;
-      color: #6b7280 !important;
-      opacity: 0.7;
+    .zone-taken {
+      color: #a16207 !important;
+      border-color: #fde68a !important;
+      box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.14) !important;
+      background: transparent !important;
     }
   </style>
 </head>
@@ -493,7 +580,7 @@
   <!-- Header (No Refresh Bar on Edit page) -->
   <header class="header">
     <div class="header-brand">
-      <a href="/dashboard" class="logo-link">
+      <a href="/home" class="logo-link">
         <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\'logo-text\'>SUITSUPPLY</span>'">
       </a>
       <div class="header-title">
@@ -502,8 +589,8 @@
       </div>
     </div>
     <nav class="header-nav">
-      <a href="/dashboard" class="active" id="navGamePlan">Game Plan</a>
-      <a href="/shipments" id="navShipments">Shipments</a>
+      <a href="/home" class="active" id="navGamePlan">Game Plan</a>
+      <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
       <a href="/scanner" id="navScanner">Scanner</a>
       <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
       <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
@@ -520,7 +607,7 @@
         <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
         <span id="userName">Guest</span>
         <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="switchUserBtn">Switch User</a>
+          <a href="#" id="switchUserBtn">Home</a>
         </div>
       </div>
     </div>
@@ -535,16 +622,16 @@
       <div class="edit-actions">
         <button class="btn btn-sm" id="copyYesterdayBtn">📋 Copy from Yesterday</button>
         <button class="btn btn-secondary" id="clearAllBtn" style="background:#f87171;">Clear All</button>
-        <a href="/dashboard" class="btn btn-secondary">Cancel</a>
+        <a href="/home" class="btn btn-secondary">Cancel</a>
         <button class="btn btn-primary" id="saveAllBtn">Publish</button>
       </div>
     </div>
 
     <!-- Game Plan Notes Section -->
-    <section class="notes-card" id="notesCard">
+    <section class="notes-card collapsed" id="notesCard">
       <div class="notes-card-header" id="notesCardHeader">
         <h3 style="margin:0">📝 Notes</h3>
-        <span class="notes-card-toggle">▼</span>
+        <span class="notes-card-toggle">▸</span>
       </div>
       <div class="notes-card-body">
       <div class="notes-editor-container">
@@ -605,10 +692,11 @@
         <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Copy from Yesterday</div>
         <div style="margin-bottom: 16px; color: var(--text-secondary);">Select fields to copy:</div>
         <div class="copy-fields-list">
+          <label><input type="checkbox" value="notes" class="copy-field"> Notes</label>
           <label><input type="checkbox" value="role" class="copy-field"> Position</label>
           <label><input type="checkbox" value="shift" class="copy-field"> Shift</label>
           <label><input type="checkbox" value="lunch" class="copy-field"> Lunch</label>
-          <label><input type="checkbox" value="zone" class="copy-field"> Zone</label>
+          <label><input type="checkbox" value="zones" class="copy-field"> Zones</label>
           <label><input type="checkbox" value="fittingRoom" class="copy-field"> Fitting Room</label>
           <label><input type="checkbox" value="target" class="copy-field"> Target</label>
           <label><input type="checkbox" value="closingSections" class="copy-field"> Closing Duties</label>
@@ -619,18 +707,17 @@
           <button class="btn btn-secondary" id="cancelCopyBtn">Cancel</button>
           <button class="btn btn-primary" id="confirmCopyBtn">Copy Selected</button>
         </div>
-        <div id="copySourceInfo" style="margin: 8px 0; font-size: 13px; color: #555;"></div>
       </div>
     </div>
 
     <!-- Management Section (includes BOH management) -->
 
-    <section class="section-card management-section">
+    <section class="section-card management-section collapsed-section">
       <div class="section-title section-toggle" data-target="mgmtGrid">
         <h3>Management</h3>
         <div class="section-title-right">
           <span class="section-count" id="mgmtCount">0</span>
-          <button class="toggle-btn" type="button" aria-label="Toggle Management">▼</button>
+          <button class="toggle-btn" type="button" aria-label="Toggle Management">▸</button>
         </div>
       </div>
       <div class="section-grid" id="mgmtGrid"></div>
@@ -638,12 +725,12 @@
 
     <!-- Sales Associates Section -->
 
-    <section class="section-card">
+    <section class="section-card collapsed-section">
       <div class="section-title section-toggle" data-target="saGrid">
         <h3>Sales Associates</h3>
         <div class="section-title-right">
           <span class="section-count" id="saCount">0</span>
-          <button class="toggle-btn" type="button" aria-label="Toggle Sales Associates">▼</button>
+          <button class="toggle-btn" type="button" aria-label="Toggle Sales Associates">▸</button>
         </div>
       </div>
       <div class="section-grid" id="saGrid"></div>
@@ -651,12 +738,12 @@
 
     <!-- Back of House Section -->
 
-    <section class="section-card">
+    <section class="section-card collapsed-section">
       <div class="section-title section-toggle" data-target="bohGrid">
         <h3>Back of House</h3>
         <div class="section-title-right">
           <span class="section-count" id="bohCount">0</span>
-          <button class="toggle-btn" type="button" aria-label="Toggle Back of House">▼</button>
+          <button class="toggle-btn" type="button" aria-label="Toggle Back of House">▸</button>
         </div>
       </div>
       <div class="section-grid" id="bohGrid"></div>
@@ -664,67 +751,16 @@
 
     <!-- Tailors Section -->
 
-    <section class="section-card">
+    <section class="section-card collapsed-section">
       <div class="section-title section-toggle" data-target="tailorGrid">
         <h3>Tailors</h3>
         <div class="section-title-right">
           <span class="section-count" id="tailorCount">0</span>
-          <button class="toggle-btn" type="button" aria-label="Toggle Tailors">▼</button>
+          <button class="toggle-btn" type="button" aria-label="Toggle Tailors">▸</button>
         </div>
       </div>
       <div class="section-grid" id="tailorGrid"></div>
     </section>
-          <style>
-            .section-card {
-              background: #f1f3f7;
-              border-radius: 10px;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.09);
-              margin-bottom: 32px;
-              padding: 18px 18px 0 18px;
-            }
-            .section-title {
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              margin-bottom: 10px;
-            }
-            .section-title h3 {
-              margin: 0;
-              font-size: 1.2em;
-              font-weight: 600;
-            }
-            .section-title-right {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            }
-            .section-count {
-              background: #e0e3ea;
-              color: #374151;
-              border-radius: 6px;
-              font-size: 15px;
-              font-weight: 600;
-              padding: 2px 10px;
-              min-width: 28px;
-              text-align: center;
-            }
-          </style>
-      <style>
-        .toggle-btn {
-          background: none;
-          border: none;
-          font-size: 18px;
-          cursor: pointer;
-          margin-left: 8px;
-          transition: transform 0.2s;
-        }
-        .collapsed-section .toggle-btn {
-          transform: rotate(-90deg);
-        }
-        .collapsed-section .section-grid {
-          display: none;
-        }
-      </style>
   </div>
 
   <div class="save-indicator" id="saveIndicator">Changes saved!</div>
@@ -734,35 +770,49 @@
   </footer>
 
   <script>
-    let currentUser = null;
-    let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
-    let settings = {};
-    let gameplanData = { notes: '', assignments: {} };
-    let hasUnsavedChanges = false;
+	    let currentUser = null;
+	    let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
+	    let settings = {};
+	    let gameplanData = { notes: '', assignments: {} };
+	    let hasUnsavedChanges = false;
+	
+	    function findEmployeeById(empId) {
+	      for (const type of Object.keys(employees)) {
+	        const emp = (employees[type] || []).find(e => e.id === empId);
+	        if (emp) return emp;
+	      }
+	      return null;
+	    }
 
-    document.addEventListener('DOMContentLoaded', async () => {
-      // Section expand/collapse logic
-      document.querySelectorAll('.section-toggle').forEach(title => {
-        const btn = title.querySelector('.toggle-btn');
-        const section = title.closest('section');
-        btn.addEventListener('click', () => {
-          section.classList.toggle('collapsed-section');
-        });
-      });
-      try {
-        console.log('[EDIT] Starting initialization...');
-        await checkAuth();
-        console.log('[EDIT] Auth complete, loading data...');
-        await loadData();
-        console.log('[EDIT] Data loaded:', { employees, settings });
-        renderAll();
-        console.log('[EDIT] Render complete');
-        setupEventListeners();
-        console.log('[EDIT] Event listeners setup complete');
-      } catch (error) {
-        console.error('[EDIT] Initialization error:', error);
-      }
-    });
+	    document.addEventListener('DOMContentLoaded', async () => {
+	      // Section expand/collapse logic
+	      document.querySelectorAll('.section-toggle').forEach(title => {
+	        const btn = title.querySelector('.toggle-btn');
+	        const section = title.closest('section');
+	        if (!btn || !section) return;
+	        btn.textContent = section.classList.contains('collapsed-section') ? '▸' : '▾';
+	        btn.addEventListener('click', () => {
+	          section.classList.toggle('collapsed-section');
+	          btn.textContent = section.classList.contains('collapsed-section') ? '▸' : '▾';
+	        });
+	      });
+
+	      // Always wire core UI (even if data load fails)
+	      setupEventListeners();
+
+	      try {
+	        console.log('[EDIT] Starting initialization...');
+	        await checkAuth();
+	        console.log('[EDIT] Auth complete, loading data...');
+	        await loadData();
+	        console.log('[EDIT] Data loaded:', { employees, settings });
+	        renderAll();
+	        console.log('[EDIT] Render complete');
+	        console.log('[EDIT] UI ready');
+	      } catch (error) {
+	        console.error('[EDIT] Initialization error:', error);
+	      }
+	    });
 
     async function checkAuth() {
       try {
@@ -783,7 +833,7 @@
         // Only managers can access this page
         if (!currentUser.isManager && !currentUser.isAdmin) {
           alert('Access denied. Managers only.');
-          window.location.href = '/dashboard';
+          window.location.href = '/home';
           return;
         }
 
@@ -803,13 +853,14 @@
       }
     }
 
-    async function loadData() {
-      console.log('[EDIT] loadData starting...');
-      const [empRes, settingsRes, gpRes] = await Promise.all([
-        fetch('/api/gameplan/employees'),
-        fetch('/api/gameplan/settings'),
-        fetch('/api/gameplan/today')
-      ]);
+	    async function loadData() {
+	      console.log('[EDIT] loadData starting...');
+	      const clientDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD (local/store day)
+	      const [empRes, settingsRes, gpRes] = await Promise.all([
+	        fetch('/api/gameplan/employees'),
+	        fetch('/api/gameplan/settings'),
+	        fetch(`/api/gameplan/date/${clientDate}`)
+	      ]);
 
       const empData = await empRes.json();
       console.log('[EDIT] Raw employee response:', empData);
@@ -817,13 +868,13 @@
       console.log('[EDIT] Employees after parse:', employees);
       settings = await settingsRes.json();
       console.log('[EDIT] Settings:', settings);
-      gameplanData = gpRes.ok ? await gpRes.json() : { notes: '', assignments: {} };
+	      gameplanData = gpRes.ok ? await gpRes.json() : { date: clientDate, notes: '', assignments: {} };
 
-      // Load notes into editor
-      const notesEditor = document.getElementById('notesEditor');
-      if (notesEditor && gameplanData.notes) {
-        notesEditor.innerHTML = gameplanData.notes;
-      }
+	      // Load notes into editor
+	      const notesEditor = document.getElementById('notesEditor');
+	      if (notesEditor && gameplanData.notes) {
+	        notesEditor.innerHTML = gameplanData.notes;
+	      }
       
       // Update last edited by
       if (gameplanData.lastEditedBy) {
@@ -831,17 +882,66 @@
         document.getElementById('lastEditedBy').textContent = `Last edited by ${gameplanData.lastEditedBy}${editTime ? ' on ' + editTime : ''}`;
       }
 
-      // Merge saved assignments
-      if (gameplanData.assignments) {
-        Object.keys(gameplanData.assignments).forEach(id => {
-          const assignment = gameplanData.assignments[id];
-          for (const type of Object.keys(employees)) {
-            const emp = employees[type].find(e => e.id === id);
-            if (emp) {
-              Object.assign(emp, assignment);
-              break;
-            }
-          }
+	      // Merge saved assignments
+	      if (gameplanData.assignments) {
+	        Object.keys(gameplanData.assignments).forEach(id => {
+	          const assignment = gameplanData.assignments[id];
+	          for (const type of Object.keys(employees)) {
+	            const emp = employees[type].find(e => e.id === id);
+	            if (emp) {
+	              Object.assign(emp, assignment);
+	              break;
+	            }
+	          }
+	        });
+	      }
+
+	      // If today's plan is empty, start the edit UI as blank (for testing / fresh plan).
+	      if (!gameplanData.assignments || Object.keys(gameplanData.assignments).length === 0) {
+	        ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
+	          (employees[role] || []).forEach(emp => {
+	            emp.zones = [];
+	            emp.zone = '';
+	            emp.fittingRoom = '';
+	            emp.scheduledLunch = '';
+	            emp.individualTarget = '';
+	            emp.closingSections = [];
+	            emp.shift = '';
+	            emp.lunch = '';
+	            emp.taskOfTheDay = '';
+	            emp.role = '';
+	            emp.station = '';
+	          });
+	        });
+	        const notesEditor = document.getElementById('notesEditor');
+	        if (notesEditor) notesEditor.innerHTML = '';
+	        gameplanData.notes = '';
+	      }
+
+	      // Normalize per-employee fields
+	      for (const type of Object.keys(employees)) {
+	        employees[type] = (employees[type] || []).map(emp => {
+	          const zones = Array.isArray(emp.zones)
+            ? emp.zones.map(z => (z || '').toString().trim()).filter(Boolean)
+            : ((emp.zone || '').toString().trim() ? [(emp.zone || '').toString().trim()] : []);
+
+          const fittingRoom = Array.isArray(emp.fittingRoom)
+            ? (emp.fittingRoom[0] || '').toString().trim()
+            : (emp.fittingRoom || '').toString().trim();
+
+          const closingSections = Array.isArray(emp.closingSections)
+            ? emp.closingSections.map(s => (s || '').toString().trim()).filter(Boolean)
+            : ((emp.closingSections || '').toString().trim()
+              ? (emp.closingSections || '').toString().split(',').map(s => s.trim()).filter(Boolean)
+              : []);
+
+          return {
+            ...emp,
+            zones,
+            zone: zones[0] || '',
+            fittingRoom,
+            closingSections
+          };
         });
       }
     }
@@ -879,7 +979,7 @@
       const lunchOptions = (settings.lunchTimes || []).map(t =>
         `<option value="${t}">${t}</option>`).join('');
 
-      (employees.MANAGEMENT || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
+      (employees.MANAGEMENT || []).forEach(emp => {
         const photoHtml = emp.imageUrl
           ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -924,7 +1024,6 @@
     }
 
     function renderSA() {
-      console.log('[DEBUG] renderSA employees:', JSON.parse(JSON.stringify(employees.SA)));
       console.log('[EDIT] renderSA called');
       const grid = document.getElementById('saGrid');
       const count = document.getElementById('saCount');
@@ -935,8 +1034,6 @@
       grid.innerHTML = '';
       count.textContent = (employees.SA || []).length;
 
-      const zoneOptions = (settings.zones || []).map(z =>
-        `<option value="${z.name}">${z.name}</option>`).join('');
       const frOptions = (settings.fittingRooms || []).map(fr =>
         `<option value="${fr.name}">${fr.name}</option>`).join('');
 
@@ -953,14 +1050,17 @@
         `<option value="${t}">${t}</option>`).join('');
       const closingDuties = settings.closingSections || [];
 
-      (employees.SA || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
+      (employees.SA || []).forEach(emp => {
         const photoHtml = emp.imageUrl
           ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
 
         const selectedDuties = emp.closingSections || [];
-        // Find all assigned closing duties
-        const allAssignedDuties = new Set((employees.SA.concat(employees.MANAGEMENT || [])).flatMap(e => Array.isArray(e.closingSections) ? e.closingSections : []));
+        // Find all assigned closing duties (SA + Management + BOH)
+        const allAssignedDuties = new Set(
+          (employees.SA.concat(employees.MANAGEMENT || []).concat(employees.BOH || []))
+            .flatMap(e => Array.isArray(e.closingSections) ? e.closingSections : [])
+        );
         const dutiesHtml = closingDuties.map(d => {
           let chipClass = '';
           if (selectedDuties.includes(d.name)) {
@@ -973,40 +1073,30 @@
           return `<span class="duty-chip ${chipClass}" data-duty="${d.name}">${d.name}</span>`;
         }).join('');
 
-        // In renderSA, for each employee:
-        const assignedDuties = new Set((employees.SA.concat(employees.MANAGEMENT || [])).filter(e => e.id !== emp.id).map(e => Array.isArray(e.closingSections) ? e.closingSections[0] : '').filter(Boolean));
-        const zoneTaken = (employees.SA.concat(employees.MANAGEMENT || [])).some(e => e.id !== emp.id && e.zone === emp.zone && emp.zone);
-        const zoneSelectClass = emp.zone ? (zoneTaken ? 'zone-taken' : 'zone-available') : '';
-
         const frTaken = (employees.SA || []).some(e => e.id !== emp.id && e.fittingRoom === emp.fittingRoom && emp.fittingRoom);
         const frSelectClass = emp.fittingRoom ? (frTaken ? 'zone-taken' : 'zone-available') : '';
 
+        const selectedZones = Array.isArray(emp.zones) ? emp.zones : (emp.zone ? [emp.zone] : []);
+        const zonesHtml = (settings.zones || []).map(z => {
+          const selected = selectedZones.includes(z.name);
+          return `<span class="zone-chip${selected ? ' selected' : ''}" data-zone="${z.name}">${z.name}</span>`;
+        }).join('');
+
         grid.innerHTML += `
-          <div class="edit-card${emp.dayStatus === 'off' ? ' day-off' : ''}" data-id="${emp.id}" data-type="SA">
+          <div class="edit-card" data-id="${emp.id}" data-type="SA">
             <div class="edit-card-header">
               ${photoHtml}
               <div class="edit-card-info">
                 <h4>${emp.name}</h4>
-                <span>Sales Associate${emp.dayStatus === 'off' ? ' (Off)' : ''}</span>
+                <span>Sales Associate</span>
               </div>
             </div>
             <div class="edit-card-fields">
               <div class="edit-field">
-                <label>Day Off</label>
-                <select data-field="dayStatus">
-                  <option value="">None</option>
-                  <option value="off"${emp.dayStatus === 'off' ? ' selected' : ''}>Day Off</option>
-                </select>
-              </div>
-              <div class="edit-field">
-                <label>Zone</label>
-                <select data-field="zone" class="${zoneSelectClass}">
-                  <option value="">Select...</option>
-                  ${(settings.zones || []).map(z => {
-                    const taken = (employees.SA.concat(employees.MANAGEMENT || [])).some(e => e.id !== emp.id && e.zone === z.name);
-                    return `<option value="${z.name}"${taken ? ' disabled' : ''}${emp.zone === z.name ? ' selected' : ''}>${z.name}${taken ? ' (Taken)' : ''}</option>`;
-                  }).join('')}
-                </select>
+                <label>Zones</label>
+                <div class="zone-chips" data-field="zones">
+                  ${zonesHtml || '<span style="color: var(--text-secondary); font-size: 12px;">No zones configured</span>'}
+                </div>
               </div>
               <div class="edit-field">
                 <label>Fitting Room</label>
@@ -1014,7 +1104,8 @@
                   <option value="">Select...</option>
                   ${(settings.fittingRooms || []).map(fr => {
                     const taken = (employees.SA || []).some(e => e.id !== emp.id && e.fittingRoom === fr.name);
-                    return `<option value="${fr.name}"${taken ? ' disabled' : ''}${emp.fittingRoom === fr.name ? ' selected' : ''}>${fr.name}${taken ? ' (Taken)' : ''}</option>`;
+                    const dot = taken ? '🟢' : '🟡';
+                    return `<option value="${fr.name}"${taken ? ' disabled' : ''}${emp.fittingRoom === fr.name ? ' selected' : ''}>${dot} ${fr.name}${taken ? ' (Taken)' : ''}</option>`;
                   }).join('')}
                 </select>
               </div>
@@ -1031,19 +1122,16 @@
               </div>
               <div class="edit-field">
                 <label>Closing Duties</label>
-                <select data-field="closingSections" multiple size="4">
-                  ${(settings.closingSections || []).map(d => {
-                    const selected = (emp.closingSections || []).includes(d.name);
-                    return `<option value="${d.name}"${selected ? ' selected' : ''}>${d.name}</option>`;
-                  }).join('')}
-                </select>
+                <div class="closing-duties-field" data-field="closingSections">
+                  ${dutiesHtml || '<span style="color: var(--text-secondary); font-size: 12px;">No closing duties configured</span>'}
+                </div>
               </div>
             </div>
           </div>
         `;
       });
 
-      // Add real-time validation for zone and fitting room
+      // Add real-time validation for fitting rooms, duties, zones
       addAssignmentValidation(grid);
     }
 
@@ -1062,11 +1150,30 @@
         `<option value="${s.name}">${s.name}</option>`).join('');
       const lunchOptions = (settings.lunchTimes || []).map(t =>
         `<option value="${t}">${t}</option>`).join('');
+      const closingDuties = settings.closingSections || [];
 
-      (employees.BOH || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
+      (employees.BOH || []).forEach(emp => {
         const photoHtml = emp.imageUrl
           ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
+
+        const selectedDuties = emp.closingSections || [];
+        // Find all assigned closing duties (SA + Management + BOH)
+        const allAssignedDuties = new Set(
+          (employees.SA.concat(employees.MANAGEMENT || []).concat(employees.BOH || []))
+            .flatMap(e => Array.isArray(e.closingSections) ? e.closingSections : [])
+        );
+        const dutiesHtml = closingDuties.map(d => {
+          let chipClass = '';
+          if (selectedDuties.includes(d.name)) {
+            chipClass = 'selected';
+          } else if (allAssignedDuties.has(d.name)) {
+            chipClass = 'taken';
+          } else {
+            chipClass = 'unassigned';
+          }
+          return `<span class="duty-chip ${chipClass}" data-duty="${d.name}">${d.name}</span>`;
+        }).join('');
 
         grid.innerHTML += `
           <div class="edit-card" data-id="${emp.id}" data-type="BOH">
@@ -1096,6 +1203,12 @@
                 <label>Task of the Day</label>
                 <textarea data-field="taskOfTheDay" rows="2" placeholder="Enter task...">${emp.taskOfTheDay || ''}</textarea>
               </div>
+              <div class="edit-field">
+                <label>Closing Duties</label>
+                <div class="closing-duties-field" data-field="closingSections">
+                  ${dutiesHtml || '<span style="color: var(--text-secondary); font-size: 12px;">No closing duties configured</span>'}
+                </div>
+              </div>
             </div>
           </div>
         `;
@@ -1121,7 +1234,7 @@
       const lunchOptions = (settings.lunchTimes || []).map(t =>
         `<option value="${t}">${t}</option>`).join('');
 
-      (employees.TAILOR || []).sort((a, b) => a.name.localeCompare(b.name)).forEach(emp => {
+      (employees.TAILOR || []).forEach(emp => {
         const photoHtml = emp.imageUrl
           ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -1173,7 +1286,17 @@
 
           if (field === 'closingSections') {
             // Handle duty chips
-            fields[field] = Array.from(el.selectedOptions).map(opt => opt.value);
+            const selected = [];
+            el.querySelectorAll('.duty-chip.selected').forEach(chip => {
+              selected.push(chip.dataset.duty);
+            });
+            fields[field] = selected;
+          } else if (field === 'zones') {
+            const selected = [];
+            el.querySelectorAll('.zone-chip.selected').forEach(chip => {
+              selected.push(chip.dataset.zone);
+            });
+            fields[field] = selected;
           } else if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
             fields[field] = el.value;
           }
@@ -1187,118 +1310,159 @@
       return assignments;
     }
 
-    function addAssignmentValidation(container) {
-      // Use event delegation on the document to handle zone and fitting room changes
-      // This only attaches once and works for dynamically created selects
-      if (document.validationSetup) return; // Prevent duplicate setup
-      
-      document.addEventListener('change', function(e) {
-        const select = e.target;
-        if (!select.matches('select[data-field="zone"], select[data-field="fittingRoom"], select[data-field="closingSections"]')) {
-          return;
-        }
-        // Update employees data structure
-        const card = select.closest('.edit-card');
-        if (card) {
-          const empId = card.dataset.id;
-          let found = null;
-          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
-            if (!found) found = (employees[role] || []).find(e => e.id === empId);
-          });
-          if (found) {
-            const field = select.dataset.field;
-            if (field === 'closingSections') {
-              found[field] = Array.from(select.selectedOptions).map(opt => opt.value);
-            } else {
-              found[field] = select.value;
-            }
-            console.log(`[DEBUG] Updated employee ${found.name} (${found.id}) field ${field} to`, select.value);
-          }
-        }
-        // Re-render all sections to update dropdowns
-        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
-        if (typeof renderBOH === 'function') setTimeout(renderBOH, 0);
-        if (typeof renderTailors === 'function') setTimeout(renderTailors, 0);
-        if (typeof renderManagement === 'function') setTimeout(renderManagement, 0);
-      });
-      
-      // Handle closing duties validation
-      document.addEventListener('click', function(e) {
-        const dutyChip = e.target.closest('.duty-chip');
-        if (!dutyChip) return;
+	    function addAssignmentValidation(container) {
+	      // Use event delegation on the document to handle fitting room changes
+	      // This only attaches once and works for dynamically created selects
+	      if (document.validationSetup) return; // Prevent duplicate setup
+	      
+	      document.addEventListener('change', function(e) {
+	        const select = e.target;
+	        // Only process fitting room selects (zones can be shared)
+	        if (!select.matches('select[data-field="fittingRoom"]')) {
+	          return;
+	        }
+	        const value = select.value;
+	        const field = select.dataset.field;
+	        const currentCard = select.closest('.edit-card');
+	        if (!currentCard || !value) return; // Allow clearing the selection
+	        const empId = currentCard.dataset.id;
+	        const currentEmp = findEmployeeById(empId);
+	        const prevValue = currentEmp?.fittingRoom || '';
+	        if (currentEmp) currentEmp.fittingRoom = value;
+	        // Check if this value is already assigned to another employee
+	        const allCards = document.querySelectorAll('.edit-card');
+	        for (const card of allCards) {
+	          if (card === currentCard) continue; // Skip current employee
+	          const otherSelect = card.querySelector(`select[data-field="${field}"]`);
+	          if (otherSelect && otherSelect.value === value) {
+	            const otherEmpName = card.querySelector('h4')?.textContent;
+	            const fieldLabel = 'Fitting Room';
+	            alert(`⚠️ ${fieldLabel} "${value}" is already assigned to ${otherEmpName}.\n\nPlease select a different ${fieldLabel.toLowerCase()}.`);
+	            // Reset to previous value
+	            select.value = prevValue;
+	            if (currentEmp) currentEmp.fittingRoom = prevValue;
+	            return;
+	          }
+	        }
+	        hasUnsavedChanges = true;
+	        // Re-render Sales Associates to update taken/available states
+	        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+	      });
 
-        const dutyName = dutyChip.dataset.duty;
-        const currentCard = dutyChip.closest('.edit-card');
-        
-        if (!currentCard) return;
+	      // Keep employee model in sync for all basic inputs/selects
+	      document.addEventListener('change', function(e) {
+	        const el = e.target;
+	        const field = el?.dataset?.field;
+	        if (!field) return;
+	        if (field === 'closingSections' || field === 'zones') return; // handled by chip click handlers
+	        const card = el.closest('.edit-card');
+	        if (!card) return;
+	        const emp = findEmployeeById(card.dataset.id);
+	        if (!emp) return;
+	        if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+	          emp[field] = el.value;
+	          hasUnsavedChanges = true;
+	        }
+	      });
 
-        const currentEmpName = currentCard.querySelector('h4')?.textContent;
-        const isSelecting = !dutyChip.classList.contains('selected');
+	      // Zones toggle (multi-select)
+	      document.addEventListener('click', function(e) {
+	        const zoneChip = e.target.closest('.zone-chip');
+	        if (!zoneChip) return;
+	        const card = zoneChip.closest('.edit-card');
+	        if (!card) return;
+	        const emp = findEmployeeById(card.dataset.id);
+	        if (!emp) return;
 
-        if (isSelecting) {
-          // Check if this duty is already assigned to another employee
-          const allCards = document.querySelectorAll('.edit-card');
-          for (const card of allCards) {
-            if (card === currentCard) continue; // Skip current employee
-            
-            const otherDutyChip = card.querySelector(`.duty-chip[data-duty="${dutyName}"]`);
-            if (otherDutyChip && otherDutyChip.classList.contains('selected')) {
-              const otherEmpName = card.querySelector('h4')?.textContent;
-              
-              alert(`⚠️ Closing Duty "${dutyName}" is already assigned to ${otherEmpName}.\n\nPlease select a different duty.`);
-              
-              // Prevent selection
-              return;
-            }
-          }
-        }
+	        const zoneName = zoneChip.dataset.zone;
+	        const zones = Array.isArray(emp.zones) ? [...emp.zones] : [];
+	        const idx = zones.indexOf(zoneName);
+	        if (idx >= 0) zones.splice(idx, 1);
+	        else zones.push(zoneName);
+	        emp.zones = zones;
+	        emp.zone = zones[0] || '';
+	        hasUnsavedChanges = true;
 
-        // If validation passed or deselecting, toggle the chip
-        dutyChip.classList.toggle('selected');
-        hasUnsavedChanges = true;
-      });
-      
-      document.validationSetup = true;
-    }
+	        // Re-render so taken/available duties stays accurate if other changes happen
+	        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+	      });
+	      
+	      // Handle closing duties validation
+	      document.addEventListener('click', function(e) {
+	        const dutyChip = e.target.closest('.duty-chip');
+	        if (!dutyChip) return;
 
-    function validateAssignments(assignments) {
-      const errors = [];
-      const zoneMap = new Map();
-      const fittingRoomMap = new Map();
+	        const dutyName = dutyChip.dataset.duty;
+	        const currentCard = dutyChip.closest('.edit-card');
+	        
+	        if (!currentCard) return;
 
-      // Collect all zone and fitting room assignments
-      Object.keys(assignments).forEach(empId => {
-        const assignment = assignments[empId];
-        const empName = getEmployeeName(empId);
+	        const currentEmp = findEmployeeById(currentCard.dataset.id);
+	        if (!currentEmp) return;
 
-        if (assignment.zone && assignment.zone !== '') {
-          if (zoneMap.has(assignment.zone)) {
-            errors.push(`Zone "${assignment.zone}" is assigned to both ${zoneMap.get(assignment.zone)} and ${empName}`);
-          } else {
-            zoneMap.set(assignment.zone, empName);
-          }
-        }
+	        const currentSelected = Array.isArray(currentEmp.closingSections) ? currentEmp.closingSections : [];
+	        const isSelecting = !currentSelected.includes(dutyName);
 
-        if (assignment.fittingRoom && assignment.fittingRoom !== '') {
-          if (fittingRoomMap.has(assignment.fittingRoom)) {
-            errors.push(`Fitting Room "${assignment.fittingRoom}" is assigned to both ${fittingRoomMap.get(assignment.fittingRoom)} and ${empName}`);
-          } else {
-            fittingRoomMap.set(assignment.fittingRoom, empName);
-          }
-        }
-      });
+	        if (isSelecting) {
+	          // Check if this duty is already assigned to another employee
+	          const otherAssignee = []
+	            .concat(employees.SA || [])
+	            .concat(employees.MANAGEMENT || [])
+	            .concat(employees.BOH || [])
+	            .find(e => e.id !== currentEmp.id && Array.isArray(e.closingSections) && e.closingSections.includes(dutyName));
+	          if (otherAssignee) {
+	            alert(`⚠️ Closing Duty "${dutyName}" is already assigned to ${otherAssignee.name}.\n\nPlease select a different duty.`);
+	            return;
+	          }
+	        }
+
+	        // Update model
+	        if (isSelecting) {
+	          currentEmp.closingSections = [...currentSelected, dutyName];
+	        } else {
+	          currentEmp.closingSections = currentSelected.filter(d => d !== dutyName);
+	        }
+	        hasUnsavedChanges = true;
+	        // Re-render so other employees show Taken/Available immediately
+	        setTimeout(() => {
+	          if (typeof renderSA === 'function') renderSA();
+	          if (typeof renderBOH === 'function') renderBOH();
+	          if (typeof renderManagement === 'function') renderManagement();
+	        }, 0);
+	      });
+	      
+	      document.validationSetup = true;
+	    }
+
+	    function validateAssignments(assignments) {
+	      const errors = [];
+	      const fittingRoomMap = new Map();
+
+	      // Collect fitting room assignments
+	      Object.keys(assignments).forEach(empId => {
+	        const assignment = assignments[empId];
+	        const empName = getEmployeeName(empId);
+
+	        if (assignment.fittingRoom && assignment.fittingRoom !== '') {
+	          if (fittingRoomMap.has(assignment.fittingRoom)) {
+	            errors.push(`Fitting Room "${assignment.fittingRoom}" is assigned to both ${fittingRoomMap.get(assignment.fittingRoom)} and ${empName}`);
+	          } else {
+	            fittingRoomMap.set(assignment.fittingRoom, empName);
+	          }
+	        }
+	      });
 
       return errors;
     }
 
-    function getEmployeeName(empId) {
-      for (const type of ['SA', 'BOH', 'TAILOR']) {
-        const typeEmps = employees[type] || [];
-        const emp = typeEmps.find(e => e.id === empId);
-        if (emp) return emp.name;
-      }
-      return empId;
-    }
+	    function getEmployeeName(empId) {
+	      for (const type of ['SA', 'MANAGEMENT', 'BOH', 'TAILOR']) {
+	        const typeEmps = employees[type] || [];
+	        const emp = typeEmps.find(e => e.id === empId);
+	        if (emp) return emp.name;
+	      }
+	      return empId;
+	    }
 
     async function saveAllChanges() {
       const saveBtn = document.getElementById('saveAllBtn');
@@ -1342,7 +1506,7 @@
           // Redirect to dashboard with client date after 1 second
           setTimeout(() => {
             const clientDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
-            window.location.href = `/dashboard?date=${clientDate}`;
+            window.location.href = `/home?date=${clientDate}`;
           }, 1000);
         } else {
           throw new Error('Save failed');
@@ -1354,32 +1518,49 @@
       }
     }
 
-    function setupEventListeners() {
-      document.getElementById('saveAllBtn').addEventListener('click', saveAllChanges);
-      
-      // Setup real-time validation for zone and fitting room (once at startup)
-      addAssignmentValidation(document);
-      
-      // Clear All button
-      document.getElementById('clearAllBtn').addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear all assignments? This cannot be undone.')) {
-          // Reset all employees data
-          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
-            (employees[role] || []).forEach(emp => {
-              Object.keys(emp).forEach(key => {
-                if (['id', 'name', 'imageUrl', 'type'].includes(key)) return;
-                if (Array.isArray(emp[key])) emp[key] = [];
-                else emp[key] = '';
-              });
-            });
-          });
-          hasUnsavedChanges = true;
-          if (typeof renderSA === 'function') setTimeout(renderSA, 0);
-          if (typeof renderBOH === 'function') setTimeout(renderBOH, 0);
-          if (typeof renderTailors === 'function') setTimeout(renderTailors, 0);
-          if (typeof renderManagement === 'function') setTimeout(renderManagement, 0);
-        }
-      });
+	    function setupEventListeners() {
+	      if (document.editListenersSetup) return;
+	      document.editListenersSetup = true;
+
+	      document.getElementById('saveAllBtn')?.addEventListener('click', saveAllChanges);
+	      
+	      // Setup real-time validation for zone and fitting room (once at startup)
+	      addAssignmentValidation(document);
+	      
+		      // Clear All button
+		      document.getElementById('clearAllBtn')?.addEventListener('click', () => {
+		        if (confirm('Are you sure you want to clear all assignments? This cannot be undone.')) {
+	          // Reset all employees data
+	          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
+	            (employees[role] || []).forEach(emp => {
+	              // Only clear daily-editable fields (avoid nuking metrics/productivity objects)
+	              emp.zones = [];
+	              emp.zone = '';
+	              emp.fittingRoom = '';
+	              emp.scheduledLunch = '';
+	              emp.individualTarget = '';
+	              emp.closingSections = [];
+	              emp.shift = '';
+	              emp.lunch = '';
+	              emp.taskOfTheDay = '';
+	              emp.role = '';
+	              emp.station = '';
+	            });
+	          });
+	
+	          // Clear notes
+	          const notesEditor = document.getElementById('notesEditor');
+	          if (notesEditor) notesEditor.innerHTML = '';
+	          gameplanData.notes = '';
+	          gameplanData.assignments = {};
+
+	          hasUnsavedChanges = true;
+	          if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+	          if (typeof renderBOH === 'function') setTimeout(renderBOH, 0);
+	          if (typeof renderTailors === 'function') setTimeout(renderTailors, 0);
+	          if (typeof renderManagement === 'function') setTimeout(renderManagement, 0);
+	        }
+	      });
 
       // Track changes
       document.addEventListener('change', (e) => {
@@ -1396,16 +1577,196 @@
         }
       });
       
-      // Notes editor event listeners
-      setupNotesEditor();
-    }
+	      // Notes editor event listeners
+	      setupNotesEditor();
+	      setupCopyFromYesterdayModal();
+	    }
+
+	    function setupCopyFromYesterdayModal() {
+	      if (document.copyModalSetup) return;
+	      document.copyModalSetup = true;
+
+	      const copyModalOverlay = document.getElementById('copyModalOverlay');
+	      const cancelCopyBtn = document.getElementById('cancelCopyBtn');
+	      const confirmCopyBtn = document.getElementById('confirmCopyBtn');
+	      const selectAllFields = document.getElementById('selectAllFields');
+	      const copyFields = document.querySelectorAll('.copy-field');
+	      const copyBtn = document.getElementById('copyYesterdayBtn');
+
+	      if (!copyModalOverlay || !copyBtn) {
+	        console.warn('[EDIT] Copy modal elements missing', {
+	          copyModalOverlay: !!copyModalOverlay,
+	          copyYesterdayBtn: !!copyBtn
+	        });
+	        return;
+	      }
+
+	      function saveCopyPreferences() {
+	        const selected = Array.from(copyFields).filter(cb => cb.checked).map(cb => cb.value);
+	        localStorage.setItem('copyFieldPrefs', JSON.stringify(selected));
+	        if (selectAllFields) selectAllFields.checked = selected.length === copyFields.length;
+	      }
+
+	      function loadSavedCopyPreferences() {
+	        const saved = localStorage.getItem('copyFieldPrefs');
+	        if (saved) {
+	          const selected = JSON.parse(saved);
+	          copyFields.forEach(cb => cb.checked = selected.includes(cb.value));
+	          if (selectAllFields) selectAllFields.checked = selected.length === copyFields.length;
+	        }
+	      }
+
+	      async function copyFromYesterdayFields() {
+	        try {
+	          const selectedFields = Array.from(copyFields).filter(cb => cb.checked).map(cb => cb.value);
+	          if (selectedFields.length === 0) {
+	            alert('Please select at least one field to copy.');
+	            return;
+	          }
+
+	          const params = new URLSearchParams(window.location.search);
+	          const copyDate = params.get('copyDate');
+	          const localYesterday = (() => {
+	            const d = new Date();
+	            d.setDate(d.getDate() - 1);
+	            return d.toLocaleDateString('en-CA');
+	          })();
+	          const url = copyDate ? `/api/gameplan/date/${copyDate}` : `/api/gameplan/date/${localYesterday}`;
+
+	          console.log('[EDIT] Copy from date:', copyDate || localYesterday, '->', url);
+	          const response = await fetch(url);
+	          if (!response.ok) {
+	            console.warn('[EDIT] Copy fetch failed', response.status);
+	            alert('No game plan found for yesterday.');
+	            return;
+	          }
+
+	          const data = await response.json();
+	          console.log('[EDIT] Copy payload keys:', Object.keys(data || {}));
+	          copyFieldsToEmployees(data, selectedFields);
+	          saveCopyPreferences();
+	          copyModalOverlay.classList.remove('show');
+	          hasUnsavedChanges = true;
+	          alert('Fields copied!');
+	        } catch (error) {
+	          console.error('Error copying:', error);
+	          alert('Error loading yesterday plan.');
+	        }
+	      }
+
+	      function copyFieldsToEmployees(yesterdayData, fieldsToCopy) {
+	        // Support both payloads:
+	        // - /api/gameplan/yesterday -> { employees: [...], notes }
+	        // - /api/gameplan/date/:date -> { assignments: { [id]: {...} }, notes }
+	        const yEmployees = yesterdayData.employees
+	          ? yesterdayData.employees
+	          : Object.keys(yesterdayData.assignments || {}).map(id => ({ id, ...(yesterdayData.assignments[id] || {}) }));
+
+	        if (!Array.isArray(yEmployees) || yEmployees.length === 0) return;
+
+	        // Notes
+	        if (fieldsToCopy.includes('notes')) {
+	          const notesEditor = document.getElementById('notesEditor');
+	          if (notesEditor) notesEditor.innerHTML = yesterdayData.notes || '';
+	        }
+
+	        yEmployees.forEach(yEmp => {
+	          let found = null;
+	          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
+	            if (!found) found = (employees[role] || []).find(e => e.id === yEmp.id);
+	          });
+	          if (!found) return;
+
+	          fieldsToCopy.forEach(field => {
+	            if (field === 'notes') return;
+
+	            if (field === 'zones') {
+	              const z = Array.isArray(yEmp.zones)
+	                ? yEmp.zones
+	                : ((yEmp.zone || '').toString().trim() ? [yEmp.zone] : []);
+	              found.zones = z.map(v => (v || '').toString().trim()).filter(Boolean);
+	              found.zone = found.zones[0] || '';
+	              return;
+	            }
+
+	            if (field === 'closingSections') {
+	              const cs = Array.isArray(yEmp.closingSections)
+	                ? yEmp.closingSections
+	                : ((yEmp.closingSections || '').toString().trim()
+	                  ? (yEmp.closingSections || '').toString().split(',').map(s => s.trim()).filter(Boolean)
+	                  : []);
+	              found.closingSections = cs;
+	              return;
+	            }
+
+	            if (field === 'target') {
+	              const val = yEmp.individualTarget ?? yEmp.target ?? '';
+	              found.individualTarget = val;
+	              return;
+	            }
+
+	            if (field === 'lunch') {
+	              const val = yEmp.scheduledLunch ?? yEmp.lunch ?? '';
+	              if (found.type === 'SA') found.scheduledLunch = val;
+	              else found.lunch = val;
+	              return;
+	            }
+
+	            if (!yEmp.hasOwnProperty(field)) return;
+	            found[field] = Array.isArray(yEmp[field]) ? [...yEmp[field]] : yEmp[field];
+	          });
+	        });
+
+	        if (typeof renderSA === 'function') renderSA();
+	        if (typeof renderBOH === 'function') renderBOH();
+	        if (typeof renderTailors === 'function') renderTailors();
+	        if (typeof renderManagement === 'function') renderManagement();
+	      }
+
+	      copyFields.forEach(checkbox => checkbox.addEventListener('change', saveCopyPreferences));
+
+	      // Use event delegation so the button always works even if something re-renders
+	      document.addEventListener('click', (e) => {
+	        const openBtn = e.target.closest('#copyYesterdayBtn');
+	        if (openBtn) {
+	          e.preventDefault();
+	          e.stopPropagation();
+	          console.log('[EDIT] Opening Copy from Yesterday modal');
+	          copyModalOverlay.classList.add('show');
+	          loadSavedCopyPreferences();
+	          return;
+	        }
+
+	        const cancelBtn = e.target.closest('#cancelCopyBtn');
+	        if (cancelBtn) {
+	          e.preventDefault();
+	          copyModalOverlay.classList.remove('show');
+	          return;
+	        }
+
+	        const confirmBtn = e.target.closest('#confirmCopyBtn');
+	        if (confirmBtn) {
+	          e.preventDefault();
+	          copyFromYesterdayFields();
+	          return;
+	        }
+
+	        if (e.target === copyModalOverlay) {
+	          copyModalOverlay.classList.remove('show');
+	        }
+	      });
+
+	      selectAllFields?.addEventListener('change', () => {
+	        copyFields.forEach(cb => cb.checked = selectAllFields.checked);
+	      });
+	    }
     
     // ===== Rich Text Notes Editor =====
-    function setupNotesEditor() {
-      const notesEditor = document.getElementById('notesEditor');
-      const emojiBtn = document.getElementById('emojiBtn');
-      
-      if (!notesEditor) return;
+	    function setupNotesEditor() {
+	      const notesEditor = document.getElementById('notesEditor');
+	      const emojiBtn = document.getElementById('emojiBtn');
+	      
+	      if (!notesEditor) return;
       
       // Toolbar button commands
       document.querySelectorAll('.notes-toolbar button[data-cmd]').forEach(btn => {
@@ -1482,100 +1843,17 @@
       // Collapsible notes card
       const notesCardHeader = document.getElementById('notesCardHeader');
       const notesCard = document.getElementById('notesCard');
+      const notesToggle = document.querySelector('#notesCard .notes-card-toggle');
       if (notesCardHeader) {
         notesCardHeader.addEventListener('click', () => {
           notesCard.classList.toggle('collapsed');
+          if (notesToggle) notesToggle.textContent = notesCard.classList.contains('collapsed') ? '▸' : '▾';
         });
       }
 
-      // Copy from Yesterday modal setup
-      const copyModalOverlay = document.getElementById('copyModalOverlay');
-      const cancelCopyBtn = document.getElementById('cancelCopyBtn');
-      const confirmCopyBtn = document.getElementById('confirmCopyBtn');
-      const selectAllFields = document.getElementById('selectAllFields');
-      const copyFields = document.querySelectorAll('.copy-field');
-
-      const newCopyYesterdayBtn = document.getElementById('copyYesterdayBtn');
-      if (newCopyYesterdayBtn) {
-        newCopyYesterdayBtn.addEventListener('click', () => {
-          copyModalOverlay.classList.add('show');
-          loadSavedCopyPreferences();
-        });
-      }
-
-      if (cancelCopyBtn) {
-        cancelCopyBtn.addEventListener('click', () => {
-          copyModalOverlay.classList.remove('show');
-        });
-      }
-
-      if (confirmCopyBtn) {
-        confirmCopyBtn.addEventListener('click', copyFromYesterdayFields);
-      }
-
-      if (selectAllFields) {
-        selectAllFields.addEventListener('change', () => {
-          copyFields.forEach(cb => cb.checked = selectAllFields.checked);
-        });
-      }
-
-      copyFields.forEach(checkbox => {
-        checkbox.addEventListener('change', saveCopyPreferences);
-      });
-
-      function saveCopyPreferences() {
-        const selected = Array.from(copyFields).filter(cb => cb.checked).map(cb => cb.value);
-        localStorage.setItem('copyFieldPrefs', JSON.stringify(selected));
-        selectAllFields.checked = selected.length === copyFields.length;
-      }
-
-      function loadSavedCopyPreferences() {
-        const saved = localStorage.getItem('copyFieldPrefs');
-        if (saved) {
-          const selected = JSON.parse(saved);
-          copyFields.forEach(cb => cb.checked = selected.includes(cb.value));
-          selectAllFields.checked = selected.length === copyFields.length;
-        }
-      }
-
-      // 1. Copy from Yesterday fallback logic
-      async function copyFromYesterdayFields() {
-        try {
-          let sourceDate;
-          let data;
-          let daysBack = 1;
-          while (daysBack < 14) { // Look back up to 2 weeks
-            const date = new Date();
-            date.setDate(date.getDate() - daysBack);
-            const dateStr = date.toISOString().split('T')[0];
-            const response = await fetch(`/api/gameplan/date/${dateStr}`);
-            if (response.ok) {
-              data = await response.json();
-              if (data.employees && data.employees.length > 0) {
-                sourceDate = dateStr;
-                break;
-              }
-            }
-            daysBack++;
-          }
-          if (!data || !sourceDate) {
-            alert('No previous game plan found to copy.');
-            return;
-          }
-          copyFieldsToEmployees(data, Array.from(copyFields).filter(cb => cb.checked).map(cb => cb.value));
-          saveCopyPreferences();
-          copyModalOverlay.classList.remove('show');
-          hasUnsavedChanges = true;
-          alert(`Fields copied from ${sourceDate}!`);
-          document.getElementById('copySourceInfo').textContent = `Copied from: ${sourceDate}`;
-        } catch (error) {
-          console.error('Error copying:', error);
-          alert('Error loading previous game plan.');
-        }
-      }
-    }
+	    }
   </script>
 
-  <script src="/js/shared-header.js"></script>
+  <script src="/js/shared-header.js?v=13"></script>
 </body>
 </html>
