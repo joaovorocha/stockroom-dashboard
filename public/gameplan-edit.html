@@ -184,6 +184,15 @@
       display: none;
     }
 
+    /* When section is collapsed, keep left/right layout but center vertically in the card */
+    .collapsed-section.section-card {
+      padding-bottom: 18px; /* match top padding for vertical centering */
+    }
+
+    .collapsed-section .section-title {
+      margin-bottom: 0;
+    }
+
     .notes-card-toggle {
       transition: color 0.15s ease;
     }
@@ -286,6 +295,80 @@
       flex-direction: column;
       gap: 12px;
     }
+
+    .edit-card.off {
+      background: #eef0f3;
+      border-color: #d1d5db;
+      opacity: 0.7;
+    }
+
+    .edit-card.off .edit-card-fields {
+      pointer-events: none;
+      filter: grayscale(0.15);
+    }
+
+    .edit-card-header {
+      justify-content: space-between;
+      flex-wrap: wrap;
+      row-gap: 10px;
+    }
+
+    .edit-card-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .edit-card-actions {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .off-toggle-btn {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .off-toggle-btn.active {
+      background: #374151;
+      color: #fff;
+      border-color: #374151;
+    }
+
+	    .off-badge {
+	      font-size: 12px;
+	      font-weight: 600;
+	      color: #6b7280;
+	      background: #e5e7eb;
+	      border: 1px solid #d1d5db;
+	      border-radius: 999px;
+	      padding: 2px 8px;
+	    }
+	
+	    .sa-status-pill {
+	      font-size: 12px;
+	      font-weight: 600;
+	      color: #111827;
+	      background: #f3f4f6;
+	      border: 1px solid #e5e7eb;
+	      border-radius: 999px;
+	      padding: 2px 8px;
+	      white-space: nowrap;
+	    }
+	
+	    .sa-status-pill.off {
+	      color: #6b7280;
+	      background: #e5e7eb;
+	      border-color: #d1d5db;
+	    }
 
     .edit-field {
       display: flex;
@@ -614,15 +697,16 @@
   </header>
 
   <div class="edit-container">
-    <div class="edit-header">
-      <div>
-        <h2>Edit Game Plan</h2>
-        <span id="lastEditedBy" style="font-size: 12px; color: var(--text-secondary);"></span>
-      </div>
-      <div class="edit-actions">
-        <button class="btn btn-sm" id="copyYesterdayBtn">📋 Copy from Yesterday</button>
-        <button class="btn btn-secondary" id="clearAllBtn" style="background:#f87171;">Clear All</button>
-        <a href="/home" class="btn btn-secondary">Cancel</a>
+	    <div class="edit-header">
+	      <div>
+	        <h2>Edit Game Plan</h2>
+	        <span id="lastEditedBy" style="font-size: 12px; color: var(--text-secondary);"></span>
+	        <div id="targetPerSaInfo" style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;"></div>
+	      </div>
+	      <div class="edit-actions">
+	        <button class="btn btn-sm" id="copyYesterdayBtn">📋 Copy from Yesterday</button>
+	        <button class="btn btn-secondary" id="clearAllBtn" style="background:#f87171;">Clear All</button>
+	        <a href="/home" class="btn btn-secondary">Cancel</a>
         <button class="btn btn-primary" id="saveAllBtn">Publish</button>
       </div>
     </div>
@@ -691,17 +775,16 @@
       <div class="modal">
         <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Copy from Yesterday</div>
         <div style="margin-bottom: 16px; color: var(--text-secondary);">Select fields to copy:</div>
-        <div class="copy-fields-list">
-          <label><input type="checkbox" value="notes" class="copy-field"> Notes</label>
-          <label><input type="checkbox" value="role" class="copy-field"> Position</label>
-          <label><input type="checkbox" value="shift" class="copy-field"> Shift</label>
-          <label><input type="checkbox" value="lunch" class="copy-field"> Lunch</label>
-          <label><input type="checkbox" value="zones" class="copy-field"> Zones</label>
-          <label><input type="checkbox" value="fittingRoom" class="copy-field"> Fitting Room</label>
-          <label><input type="checkbox" value="target" class="copy-field"> Target</label>
-          <label><input type="checkbox" value="closingSections" class="copy-field"> Closing Duties</label>
-          <label><input type="checkbox" value="station" class="copy-field"> Tailor Station</label>
-        </div>
+	        <div class="copy-fields-list">
+	          <label><input type="checkbox" value="notes" class="copy-field"> Notes</label>
+	          <label><input type="checkbox" value="role" class="copy-field"> Position</label>
+	          <label><input type="checkbox" value="shift" class="copy-field"> Shift</label>
+	          <label><input type="checkbox" value="lunch" class="copy-field"> Lunch</label>
+	          <label><input type="checkbox" value="zones" class="copy-field"> Zones</label>
+	          <label><input type="checkbox" value="fittingRoom" class="copy-field"> Fitting Room</label>
+	          <label><input type="checkbox" value="closingSections" class="copy-field"> Closing Duties</label>
+	          <label><input type="checkbox" value="station" class="copy-field"> Tailor Station</label>
+	        </div>
         <label style="margin: 12px 0;"><input type="checkbox" id="selectAllFields"> <strong>Select All</strong></label>
         <div class="modal-actions">
           <button class="btn btn-secondary" id="cancelCopyBtn">Cancel</button>
@@ -770,19 +853,77 @@
   </footer>
 
   <script>
-	    let currentUser = null;
-	    let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
-	    let settings = {};
-	    let gameplanData = { notes: '', assignments: {} };
-	    let hasUnsavedChanges = false;
+		    let currentUser = null;
+		    let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
+		    let settings = {};
+		    let gameplanData = { notes: '', assignments: {} };
+		    let storeMetrics = {};
+		    let hasUnsavedChanges = false;
+
+		    function getLocalISODate() {
+		      const d = new Date();
+		      const pad = (n) => String(n).padStart(2, '0');
+		      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+		    }
 	
-	    function findEmployeeById(empId) {
-	      for (const type of Object.keys(employees)) {
-	        const emp = (employees[type] || []).find(e => e.id === empId);
-	        if (emp) return emp;
-	      }
-	      return null;
-	    }
+		    function findEmployeeById(empId) {
+		      for (const type of Object.keys(employees)) {
+		        const emp = (employees[type] || []).find(e => e.id === empId);
+		        if (emp) return emp;
+		      }
+		      return null;
+		    }
+
+		    function clearDailyAssignmentFields(emp) {
+		      if (!emp) return;
+		      emp.zones = [];
+		      emp.zone = '';
+		      emp.fittingRoom = '';
+		      emp.scheduledLunch = '';
+		      emp.closingSections = [];
+		      emp.shift = '';
+		      emp.lunch = '';
+		      emp.taskOfTheDay = '';
+		      emp.role = '';
+		      emp.station = '';
+		    }
+		
+		    function formatCurrency(amount) {
+		      const n = Number(amount);
+		      if (!Number.isFinite(n)) return '--';
+		      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+		    }
+
+		    function getDailyTargetValue() {
+		      const retailWeek = storeMetrics?.retailWeek || null;
+		      const direct = Number(retailWeek?.targetPerDay || 0);
+		      if (direct) return direct;
+		      const weekly = Number(retailWeek?.target || 0);
+		      if (weekly) return weekly / 7;
+		      return null;
+		    }
+
+		    function getTargetPerSaTodayValue() {
+		      const working = (employees.SA || []).filter(e => !e.isOff).length;
+		      const dailyTarget = getDailyTargetValue();
+		      if (!dailyTarget || !working) return null;
+		      return dailyTarget / working;
+		    }
+		
+		    function updateTargetPerSaInfo() {
+		      const el = document.getElementById('targetPerSaInfo');
+		      if (!el) return;
+		
+		      const working = (employees.SA || []).filter(e => !e.isOff).length;
+		      const perSa = getTargetPerSaTodayValue();
+		      if (!perSa) {
+		        el.textContent = `Target / SA Today: -- (${working} SA working)`;
+		        return;
+		      }
+		      const weekNum = storeMetrics?.retailWeek?.weekNumber;
+		      const weekLabel = weekNum ? `Retail Week ${weekNum} · ` : '';
+		      el.textContent = `${weekLabel}Target / SA Today: ${formatCurrency(perSa)} (${working} SA working)`;
+		    }
 
 	    document.addEventListener('DOMContentLoaded', async () => {
 	      // Section expand/collapse logic
@@ -853,22 +994,24 @@
       }
     }
 
-	    async function loadData() {
-	      console.log('[EDIT] loadData starting...');
-	      const clientDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD (local/store day)
-	      const [empRes, settingsRes, gpRes] = await Promise.all([
-	        fetch('/api/gameplan/employees'),
-	        fetch('/api/gameplan/settings'),
-	        fetch(`/api/gameplan/date/${clientDate}`)
-	      ]);
+		    async function loadData() {
+		      console.log('[EDIT] loadData starting...');
+		      const clientDate = getLocalISODate(); // YYYY-MM-DD (local/store day)
+		      const [empRes, settingsRes, gpRes, metricsRes] = await Promise.all([
+		        fetch('/api/gameplan/employees'),
+		        fetch('/api/gameplan/settings'),
+		        fetch(`/api/gameplan/date/${clientDate}`),
+		        fetch('/api/gameplan/metrics')
+		      ]);
 
       const empData = await empRes.json();
       console.log('[EDIT] Raw employee response:', empData);
-      employees = empData.employees || { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
-      console.log('[EDIT] Employees after parse:', employees);
-      settings = await settingsRes.json();
-      console.log('[EDIT] Settings:', settings);
-	      gameplanData = gpRes.ok ? await gpRes.json() : { date: clientDate, notes: '', assignments: {} };
+	      employees = empData.employees || { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
+	      console.log('[EDIT] Employees after parse:', employees);
+	      settings = await settingsRes.json();
+	      console.log('[EDIT] Settings:', settings);
+		      gameplanData = gpRes.ok ? await gpRes.json() : { date: clientDate, notes: '', assignments: {} };
+		      storeMetrics = metricsRes.ok ? await metricsRes.json() : {};
 
 	      // Load notes into editor
 	      const notesEditor = document.getElementById('notesEditor');
@@ -876,11 +1019,11 @@
 	        notesEditor.innerHTML = gameplanData.notes;
 	      }
       
-      // Update last edited by
-      if (gameplanData.lastEditedBy) {
-        const editTime = gameplanData.lastEditedAt ? new Date(gameplanData.lastEditedAt).toLocaleString() : '';
-        document.getElementById('lastEditedBy').textContent = `Last edited by ${gameplanData.lastEditedBy}${editTime ? ' on ' + editTime : ''}`;
-      }
+	      // Update last edited by
+	      if (gameplanData.lastEditedBy) {
+	        const editTime = gameplanData.lastEditedAt ? new Date(gameplanData.lastEditedAt).toLocaleString() : '';
+	        document.getElementById('lastEditedBy').textContent = `Last edited by ${gameplanData.lastEditedBy}${editTime ? ' on ' + editTime : ''}`;
+	      }
 
 	      // Merge saved assignments
 	      if (gameplanData.assignments) {
@@ -904,7 +1047,6 @@
 	            emp.zone = '';
 	            emp.fittingRoom = '';
 	            emp.scheduledLunch = '';
-	            emp.individualTarget = '';
 	            emp.closingSections = [];
 	            emp.shift = '';
 	            emp.lunch = '';
@@ -918,9 +1060,15 @@
 	        gameplanData.notes = '';
 	      }
 
-	      // Normalize per-employee fields
-	      for (const type of Object.keys(employees)) {
-	        employees[type] = (employees[type] || []).map(emp => {
+		      // Normalize per-employee fields
+		      for (const type of Object.keys(employees)) {
+		        employees[type] = (employees[type] || []).map(emp => {
+	          // Backward compat: old UI used "Off" as a management role value.
+	          // Rename to clearer "IN-STORE" label.
+	          if (type === 'MANAGEMENT' && emp?.role === 'Off') emp.role = 'IN-STORE';
+	          // Normalize isOff from saved assignments (can be boolean or "true"/"false").
+	          if (emp?.isOff === 'true') emp.isOff = true;
+	          if (emp?.isOff === 'false') emp.isOff = false;
 	          const zones = Array.isArray(emp.zones)
             ? emp.zones.map(z => (z || '').toString().trim()).filter(Boolean)
             : ((emp.zone || '').toString().trim() ? [(emp.zone || '').toString().trim()] : []);
@@ -935,16 +1083,18 @@
               ? (emp.closingSections || '').toString().split(',').map(s => s.trim()).filter(Boolean)
               : []);
 
-          return {
-            ...emp,
-            zones,
-            zone: zones[0] || '',
-            fittingRoom,
-            closingSections
-          };
-        });
-      }
-    }
+	          return {
+	            ...emp,
+	            zones,
+	            zone: zones[0] || '',
+	            fittingRoom,
+	            closingSections
+	          };
+	        });
+	      }
+
+		      updateTargetPerSaInfo();
+	    }
 
     function renderAll() {
       console.log('[EDIT] renderAll called with employees:', employees);
@@ -961,6 +1111,11 @@
     function getInitials(name) {
       if (!name) return '??';
       return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+    }
+
+    function getFirstName(name) {
+      if (!name) return '';
+      return name.toString().trim().split(/\s+/)[0] || name.toString().trim();
     }
 
     function renderManagement() {
@@ -987,10 +1142,12 @@
         grid.innerHTML += `
           <div class="edit-card" data-id="${emp.id}" data-type="MANAGEMENT">
             <div class="edit-card-header">
-              ${photoHtml}
-              <div class="edit-card-info">
-                <h4>${emp.name}</h4>
-                <span>Management</span>
+              <div class="edit-card-header-left">
+                ${photoHtml}
+                <div class="edit-card-info">
+                  <h4>${getFirstName(emp.name)}</h4>
+                  <span>Management</span>
+                </div>
               </div>
             </div>
             <div class="edit-card-fields">
@@ -1000,7 +1157,7 @@
                   <option value="">Select...</option>
                   <option value="MOD" ${emp.role === 'MOD' ? 'selected' : ''}>MOD (Manager on Duty)</option>
                   <option value="HOST" ${emp.role === 'HOST' ? 'selected' : ''}>Host</option>
-                  <option value="Off" ${emp.role === 'Off' ? 'selected' : ''}>Off</option>
+                  <option value="IN-STORE" ${(emp.role === 'IN-STORE' || emp.role === 'Off') ? 'selected' : ''}>In-Store</option>
                 </select>
               </div>
               <div class="edit-field">
@@ -1023,7 +1180,7 @@
       });
     }
 
-    function renderSA() {
+	    function renderSA() {
       console.log('[EDIT] renderSA called');
       const grid = document.getElementById('saGrid');
       const count = document.getElementById('saCount');
@@ -1050,7 +1207,17 @@
         `<option value="${t}">${t}</option>`).join('');
       const closingDuties = settings.closingSections || [];
 
-      (employees.SA || []).forEach(emp => {
+	      const saList = [...(employees.SA || [])].sort((a, b) => {
+	        const aOff = !!a.isOff;
+	        const bOff = !!b.isOff;
+	        if (aOff !== bOff) return aOff ? 1 : -1; // off at bottom
+	        return (a.name || '').localeCompare(b.name || '');
+	      });
+	
+	      const perSa = getTargetPerSaTodayValue();
+	      const perSaLabel = perSa ? formatCurrency(perSa) : '--';
+
+	      saList.forEach(emp => {
         const photoHtml = emp.imageUrl
           ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
           : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -1082,14 +1249,23 @@
           return `<span class="zone-chip${selected ? ' selected' : ''}" data-zone="${z.name}">${z.name}</span>`;
         }).join('');
 
+        const isOff = !!emp.isOff;
+
         grid.innerHTML += `
-          <div class="edit-card" data-id="${emp.id}" data-type="SA">
+          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.id}" data-type="SA">
             <div class="edit-card-header">
-              ${photoHtml}
-              <div class="edit-card-info">
-                <h4>${emp.name}</h4>
-                <span>Sales Associate</span>
+              <div class="edit-card-header-left">
+                ${photoHtml}
+                <div class="edit-card-info">
+                  <h4>${getFirstName(emp.name)}</h4>
+                  <span>Sales Associate</span>
+                </div>
               </div>
+	              <div class="edit-card-actions">
+	                <button type="button" class="off-toggle-btn${isOff ? ' active' : ''}" data-action="toggleOff">${isOff ? 'Day Off' : 'In-Store'}</button>
+	                <span class="sa-status-pill${isOff ? ' off' : ''}">Target/SA: ${perSaLabel}</span>
+	              </div>
+              <input type="hidden" data-field="isOff" value="${isOff ? 'true' : 'false'}">
             </div>
             <div class="edit-card-fields">
               <div class="edit-field">
@@ -1098,26 +1274,22 @@
                   ${zonesHtml || '<span style="color: var(--text-secondary); font-size: 12px;">No zones configured</span>'}
                 </div>
               </div>
-              <div class="edit-field">
-                <label>Fitting Room</label>
-                <select data-field="fittingRoom" class="${frSelectClass}">
-                  <option value="">Select...</option>
-                  ${(settings.fittingRooms || []).map(fr => {
-                    const taken = (employees.SA || []).some(e => e.id !== emp.id && e.fittingRoom === fr.name);
-                    const dot = taken ? '🟢' : '🟡';
-                    return `<option value="${fr.name}"${taken ? ' disabled' : ''}${emp.fittingRoom === fr.name ? ' selected' : ''}>${dot} ${fr.name}${taken ? ' (Taken)' : ''}</option>`;
-                  }).join('')}
-                </select>
-              </div>
-              <div class="edit-field">
-                <label>Target ($)</label>
-                <input type="number" data-field="individualTarget" value="${emp.individualTarget || ''}" placeholder="0">
-              </div>
-              <div class="edit-field">
-                <label>Lunch</label>
-                <select data-field="scheduledLunch">
-                  <option value="">Select...</option>
-                  ${lunchOptions.replace(`value="${emp.scheduledLunch}"`, `value="${emp.scheduledLunch}" selected`)}
+	              <div class="edit-field">
+	                <label>Fitting Room</label>
+	                <select data-field="fittingRoom" class="${frSelectClass}">
+	                  <option value="">Select...</option>
+	                  ${(settings.fittingRooms || []).map(fr => {
+	                    const taken = (employees.SA || []).some(e => e.id !== emp.id && e.fittingRoom === fr.name);
+	                    const dot = taken ? '🟢' : '🟡';
+	                    return `<option value="${fr.name}"${taken ? ' disabled' : ''}${emp.fittingRoom === fr.name ? ' selected' : ''}>${dot} ${fr.name}${taken ? ' (Taken)' : ''}</option>`;
+	                  }).join('')}
+	                </select>
+	              </div>
+	              <div class="edit-field">
+	                <label>Lunch</label>
+	                <select data-field="scheduledLunch">
+	                  <option value="">Select...</option>
+	                  ${lunchOptions.replace(`value="${emp.scheduledLunch}"`, `value="${emp.scheduledLunch}" selected`)}
                 </select>
               </div>
               <div class="edit-field">
@@ -1180,7 +1352,7 @@
             <div class="edit-card-header">
               ${photoHtml}
               <div class="edit-card-info">
-                <h4>${emp.name}</h4>
+                <h4>${getFirstName(emp.name)}</h4>
                 <span>Back of House</span>
               </div>
             </div>
@@ -1244,7 +1416,7 @@
             <div class="edit-card-header">
               ${photoHtml}
               <div class="edit-card-info">
-                <h4>${emp.name}</h4>
+                <h4>${getFirstName(emp.name)}</h4>
                 <span>Tailor ${emp.productivity ? `(${emp.productivity}% YTD)` : ''}</span>
               </div>
             </div>
@@ -1297,6 +1469,9 @@
               selected.push(chip.dataset.zone);
             });
             fields[field] = selected;
+          } else if (field === 'isOff') {
+            // Persist as boolean (strings like "false" break `!!emp.isOff` on reload).
+            fields[field] = String(el.value).toLowerCase() === 'true';
           } else if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
             fields[field] = el.value;
           }
@@ -1325,6 +1500,7 @@
 	        const field = select.dataset.field;
 	        const currentCard = select.closest('.edit-card');
 	        if (!currentCard || !value) return; // Allow clearing the selection
+	        if (currentCard.classList.contains('off')) return;
 	        const empId = currentCard.dataset.id;
 	        const currentEmp = findEmployeeById(empId);
 	        const prevValue = currentEmp?.fittingRoom || '';
@@ -1357,6 +1533,7 @@
 	        if (field === 'closingSections' || field === 'zones') return; // handled by chip click handlers
 	        const card = el.closest('.edit-card');
 	        if (!card) return;
+	        if (card.classList.contains('off')) return;
 	        const emp = findEmployeeById(card.dataset.id);
 	        if (!emp) return;
 	        if (el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
@@ -1371,6 +1548,7 @@
 	        if (!zoneChip) return;
 	        const card = zoneChip.closest('.edit-card');
 	        if (!card) return;
+	        if (card.classList.contains('off')) return;
 	        const emp = findEmployeeById(card.dataset.id);
 	        if (!emp) return;
 
@@ -1396,6 +1574,7 @@
 	        const currentCard = dutyChip.closest('.edit-card');
 	        
 	        if (!currentCard) return;
+	        if (currentCard.classList.contains('off')) return;
 
 	        const currentEmp = findEmployeeById(currentCard.dataset.id);
 	        if (!currentEmp) return;
@@ -1434,19 +1613,21 @@
 	      document.validationSetup = true;
 	    }
 
-	    function validateAssignments(assignments) {
-	      const errors = [];
-	      const fittingRoomMap = new Map();
+    function validateAssignments(assignments) {
+      const errors = [];
+      const fittingRoomMap = new Map();
 
-	      // Collect fitting room assignments
-	      Object.keys(assignments).forEach(empId => {
-	        const assignment = assignments[empId];
-	        const empName = getEmployeeName(empId);
+      // Collect fitting room assignments
+      Object.keys(assignments).forEach(empId => {
+        const assignment = assignments[empId];
+        const empName = getEmployeeName(empId);
 
-	        if (assignment.fittingRoom && assignment.fittingRoom !== '') {
-	          if (fittingRoomMap.has(assignment.fittingRoom)) {
-	            errors.push(`Fitting Room "${assignment.fittingRoom}" is assigned to both ${fittingRoomMap.get(assignment.fittingRoom)} and ${empName}`);
-	          } else {
+        if (assignment.isOff === true || assignment.isOff === 'true') return;
+
+        if (assignment.fittingRoom && assignment.fittingRoom !== '') {
+          if (fittingRoomMap.has(assignment.fittingRoom)) {
+            errors.push(`Fitting Room "${assignment.fittingRoom}" is assigned to both ${fittingRoomMap.get(assignment.fittingRoom)} and ${empName}`);
+          } else {
 	            fittingRoomMap.set(assignment.fittingRoom, empName);
 	          }
 	        }
@@ -1487,7 +1668,7 @@
       gameplanData.assignments = assignments;
       gameplanData.notes = notes;
       // Use local date (store day) to avoid UTC off-by-one issues
-      gameplanData.date = new Date().toLocaleDateString('en-CA');
+      gameplanData.date = getLocalISODate();
       gameplanData.lastEditedBy = currentUser.name;
       gameplanData.lastEditedAt = new Date().toISOString();
 
@@ -1505,14 +1686,19 @@
           
           // Redirect to dashboard with client date after 1 second
           setTimeout(() => {
-            const clientDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
+            const clientDate = getLocalISODate(); // YYYY-MM-DD format
             window.location.href = `/home?date=${clientDate}`;
           }, 1000);
         } else {
-          throw new Error('Save failed');
+          let msg = `Save failed (HTTP ${response.status})`;
+          try {
+            const data = await response.json();
+            if (data?.error) msg = data.error;
+          } catch (e) {}
+          throw new Error(msg);
         }
       } catch (error) {
-        alert('Error saving changes');
+        alert(error?.message || 'Error saving changes');
         saveBtn.disabled = false;
         saveBtn.textContent = 'Publish';
       }
@@ -1528,21 +1714,22 @@
 	      addAssignmentValidation(document);
 	      
 		      // Clear All button
-		      document.getElementById('clearAllBtn')?.addEventListener('click', () => {
-		        if (confirm('Are you sure you want to clear all assignments? This cannot be undone.')) {
-	          // Reset all employees data
-	          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
-	            (employees[role] || []).forEach(emp => {
-	              // Only clear daily-editable fields (avoid nuking metrics/productivity objects)
-	              emp.zones = [];
-	              emp.zone = '';
-	              emp.fittingRoom = '';
-	              emp.scheduledLunch = '';
-	              emp.individualTarget = '';
-	              emp.closingSections = [];
-	              emp.shift = '';
-	              emp.lunch = '';
-	              emp.taskOfTheDay = '';
+			      document.getElementById('clearAllBtn')?.addEventListener('click', () => {
+			        if (confirm('Are you sure you want to clear all assignments? This cannot be undone.')) {
+		          // Reset all employees data
+		          ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
+		            (employees[role] || []).forEach(emp => {
+		              // Only clear daily-editable fields (avoid nuking metrics/productivity objects)
+		              // Mark everyone as Day Off
+		              emp.isOff = true;
+		              emp.zones = [];
+		              emp.zone = '';
+		              emp.fittingRoom = '';
+		              emp.scheduledLunch = '';
+		              emp.closingSections = [];
+		              emp.shift = '';
+		              emp.lunch = '';
+		              emp.taskOfTheDay = '';
 	              emp.role = '';
 	              emp.station = '';
 	            });
@@ -1568,6 +1755,31 @@
           hasUnsavedChanges = true;
         }
       });
+
+      // SA "Off" toggle (real-time reorder + disable)
+	      document.addEventListener('click', (e) => {
+	        const btn = e.target.closest('button[data-action="toggleOff"]');
+	        if (!btn) return;
+	        const card = btn.closest('.edit-card');
+	        if (!card) return;
+	        if (card.dataset.type !== 'SA') return;
+
+	        const empId = card.dataset.id;
+	        const emp = findEmployeeById(empId);
+	        if (!emp) return;
+	
+	        const nextIsOff = !emp.isOff;
+	        emp.isOff = nextIsOff;
+	        if (nextIsOff) {
+	          // When someone is OFF, clear any daily assignments so they don't appear scheduled.
+	          clearDailyAssignmentFields(emp);
+	        }
+	        hasUnsavedChanges = true;
+	        updateTargetPerSaInfo();
+	
+	        // Re-render SA section to move OFF to bottom and gray out
+	        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+	      });
 
       // Warn before leaving with unsaved changes
       window.addEventListener('beforeunload', (e) => {
@@ -1689,26 +1901,20 @@
 	              return;
 	            }
 
-	            if (field === 'closingSections') {
-	              const cs = Array.isArray(yEmp.closingSections)
-	                ? yEmp.closingSections
-	                : ((yEmp.closingSections || '').toString().trim()
-	                  ? (yEmp.closingSections || '').toString().split(',').map(s => s.trim()).filter(Boolean)
-	                  : []);
-	              found.closingSections = cs;
-	              return;
-	            }
+		            if (field === 'closingSections') {
+		              const cs = Array.isArray(yEmp.closingSections)
+		                ? yEmp.closingSections
+		                : ((yEmp.closingSections || '').toString().trim()
+		                  ? (yEmp.closingSections || '').toString().split(',').map(s => s.trim()).filter(Boolean)
+		                  : []);
+		              found.closingSections = cs;
+		              return;
+		            }
 
-	            if (field === 'target') {
-	              const val = yEmp.individualTarget ?? yEmp.target ?? '';
-	              found.individualTarget = val;
-	              return;
-	            }
-
-	            if (field === 'lunch') {
-	              const val = yEmp.scheduledLunch ?? yEmp.lunch ?? '';
-	              if (found.type === 'SA') found.scheduledLunch = val;
-	              else found.lunch = val;
+		            if (field === 'lunch') {
+		              const val = yEmp.scheduledLunch ?? yEmp.lunch ?? '';
+		              if (found.type === 'SA') found.scheduledLunch = val;
+		              else found.lunch = val;
 	              return;
 	            }
 

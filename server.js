@@ -40,6 +40,21 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Normalize common copy/paste dash characters in URLs (e.g. Safari/Docs en-dash/em-dash)
+app.use((req, res, next) => {
+  const url = req.url || '';
+  const hasUnicodeDash = /[–—]/.test(url);
+  const hasEncodedDash = /%E2%80%93|%E2%80%94/i.test(url);
+  if (!hasUnicodeDash && !hasEncodedDash) return next();
+  return res.redirect(
+    302,
+    url
+      .replace(/[–—]/g, '-')
+      .replace(/%E2%80%93/gi, '-')
+      .replace(/%E2%80%94/gi, '-')
+  );
+});
+
 // Require auth for direct HTML file access (prevents bypassing app routes via express.static)
 app.use((req, res, next) => {
   if (req.path.endsWith('.html')) return authMiddleware(req, res, next);
@@ -64,6 +79,9 @@ app.use('/api', authMiddleware, apiRoutes); // Generic API routes with auth
 
 // Serve feedback uploads (auth required)
 app.use('/feedback-uploads', authMiddleware, express.static(path.join(__dirname, 'data/feedback-uploads')));
+
+// Serve user uploaded avatars (auth required)
+app.use('/user-uploads', authMiddleware, express.static(path.join(__dirname, 'data/user-uploads')));
 
 // Redirect old pages to new ones
 app.get('/login', (req, res) => {
@@ -133,6 +151,19 @@ app.get('/shipments', authMiddleware, (req, res) => {
 
 app.get('/shipments-processing', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'shipments-processing.html'));
+});
+
+app.get('/ups-extension', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'ups-extension.html'));
+});
+
+app.get('/ups-campusship-import', authMiddleware, managerOnly, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'ups-campusship-import.html'));
+});
+
+// Common typo fallback
+app.get('/ups-campuss-ship-import', authMiddleware, managerOnly, (req, res) => {
+  res.redirect('/ups-campusship-import');
 });
 
 app.get('/scanner', authMiddleware, (req, res) => {
@@ -212,8 +243,9 @@ function broadcastUpdate(updateType, data) {
 // Export broadcastUpdate for use in route handlers
 app.set('broadcastUpdate', broadcastUpdate);
 
-// Start UPS email import scheduler (every 10 minutes by default)
-const UPS_IMPORT_CRON = process.env.UPS_EMAIL_IMPORT_CRON || '*/10 * * * *';
+// Start UPS email import scheduler
+// Default: every 30 minutes between 8am-8pm (includes 8:00-19:30 + 20:00)
+const UPS_IMPORT_CRON = process.env.UPS_EMAIL_IMPORT_CRON || '0,30 8-19 * * *;0 20 * * *';
 const UPS_IMPORT_DAYS = parseInt(process.env.UPS_EMAIL_IMPORT_DAYS || '2', 10);
 const UPS_DELETE_AFTER_IMPORT = process.env.UPS_EMAIL_DELETE_AFTER_IMPORT !== 'false';
 try {

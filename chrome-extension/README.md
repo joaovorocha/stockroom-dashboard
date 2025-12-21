@@ -93,9 +93,8 @@ You need to create 3 PNG icon files in the `icons/` folder:
 - Check browser console for errors (F12 → Console tab)
 
 ### "Send to Dashboard" fails
-- Make sure the stockroom dashboard server is running at `https://192.168.12.103:3000`
-- Check that you've accepted the self-signed certificate
-- Open dashboard manually first to ensure HTTPS is working
+- Make sure the stockroom dashboard server is running at `https://ssussf.duckdns.org` (or the local network URL if you're on-site)
+- Open dashboard manually first to ensure the site loads and you're logged in
 
 ### Auto-fill doesn't work
 - Make sure you're allowing chrome.storage permission

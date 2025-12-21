@@ -264,6 +264,10 @@ router.post('/save', requireManager, (req, res) => {
       const assignment = gameplan.assignments[empId];
       if (!assignment || typeof assignment !== 'object') return;
 
+      // isOff (boolean)
+      if (assignment.isOff === 'true') assignment.isOff = true;
+      if (assignment.isOff === 'false') assignment.isOff = false;
+
       // zones
       if (assignment.zones === undefined && assignment.zone !== undefined) {
         assignment.zones = assignment.zone ? [assignment.zone] : [];
@@ -384,6 +388,19 @@ router.get('/metrics', (req, res) => {
         employeeCountPerformance: savedData.countPerformance,
         loans: savedData.loans
       };
+
+      // Backfill retail week target info if missing in older saved payloads.
+      // This is used for "Target / SA Today" calculations across the UI.
+      if (!metrics.retailWeek || !metrics.retailWeek.target) {
+        try {
+          const computed = lookerProcessor.processStoreMetrics();
+          if (computed?.retailWeek) metrics.retailWeek = computed.retailWeek;
+          if (!metrics.salesByRetailWeeks && computed?.salesByRetailWeeks) metrics.salesByRetailWeeks = computed.salesByRetailWeeks;
+          if (!metrics.storeWeekSummary && computed?.storeWeekSummary) metrics.storeWeekSummary = computed.storeWeekSummary;
+        } catch (e) {
+          // Ignore; caller can show "--" when unavailable.
+        }
+      }
       return res.json(metrics);
     }
     
@@ -427,6 +444,18 @@ router.get('/metrics', (req, res) => {
         metrics = readJsonFile(path.join(METRICS_DIR, files[0]), {});
       } else {
         metrics = {};
+      }
+    }
+
+    // Backfill retail week target info if missing in stored metrics files.
+    if (metrics && (!metrics.retailWeek || !metrics.retailWeek.targetPerDay)) {
+      try {
+        const computed = lookerProcessor.processStoreMetrics();
+        if (computed?.retailWeek) metrics.retailWeek = computed.retailWeek;
+        if (!metrics.salesByRetailWeeks && computed?.salesByRetailWeeks) metrics.salesByRetailWeeks = computed.salesByRetailWeeks;
+        if (!metrics.storeWeekSummary && computed?.storeWeekSummary) metrics.storeWeekSummary = computed.storeWeekSummary;
+      } catch (e) {
+        // Ignore; UI will show "--" when unavailable.
       }
     }
     

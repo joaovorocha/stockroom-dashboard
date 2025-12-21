@@ -34,20 +34,20 @@
 
 .logo-text {
   font-weight: 700;
-  font-size: 18px;
+  font-size: calc(18px * var(--font-scale));
   color: var(--text-primary);
   letter-spacing: 1px;
 }
 
 .header-title h1 {
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   font-weight: 600;
   margin: 0;
   line-height: 1.1;
 }
 
 .header-title .location {
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale));
   color: var(--text-secondary);
   line-height: 1.1;
 }
@@ -62,7 +62,7 @@
 .header-nav a {
   color: var(--text-secondary);
   text-decoration: none;
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
   font-weight: 500;
   padding: 6px 0;
   border-bottom: 2px solid transparent;
@@ -88,7 +88,7 @@
   margin-left: 4px;
   background: var(--danger);
   color: #fff;
-  font-size: 11px;
+  font-size: calc(11px * var(--font-scale));
   font-weight: 600;
   border-radius: 9px;
 }
@@ -101,7 +101,7 @@
 }
 
 .header-date {
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-secondary);
 }
 
@@ -129,7 +129,7 @@
 }
 
 #userName {
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
   font-weight: 500;
 }
 
@@ -156,7 +156,7 @@
   padding: 10px 16px;
   color: var(--text-primary);
   text-decoration: none;
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
   transition: background 0.2s;
 }
 
@@ -205,7 +205,7 @@
 }
 
 .user-switch-avatar span {
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -216,7 +216,7 @@
 
 .user-switch-name {
   font-weight: 500;
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
 }
 
 .user-switch-role {

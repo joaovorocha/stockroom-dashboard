@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2025-12-19",
+  "lastUpdated": "2025-12-20",
   "store": {
     "name": "San Francisco",
     "code": "SR-US-SanFrancisco-Maiden"
@@ -142,6 +142,22 @@
     {
       "id": "closingSections-1766187046474",
       "name": "BC - Wave"
+    },
+    {
+      "id": "closingSections-1766259268717",
+      "name": "BOH - Trash"
+    },
+    {
+      "id": "closingSections-1766259285334",
+      "name": "BOH - Pickups of Tomorrow"
+    },
+    {
+      "id": "closingSections-1766259307012",
+      "name": "BOH- TBA Rack"
+    },
+    {
+      "id": "closingSections-1766259328620",
+      "name": "BOH - 4º Floor"
     }
   ],
   "managementRoles": [

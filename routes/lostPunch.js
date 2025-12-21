@@ -29,10 +29,50 @@ router.get('/', (req, res) => {
 
 // POST /api/lost-punch - Submit new punch
 router.post('/', (req, res) => {
-  const { employeeName, employeeId, missedDate, missedTime, punchType, managerOnDuty, reason } = req.body;
+  const {
+    employeeName,
+    employeeId,
+    missedDate,
+    reason,
+    managerOnDuty,
+    clockInTime,
+    lunchOutTime,
+    lunchInTime,
+    clockOutTime,
+    missedTime, // legacy
+    punchType // legacy
+  } = req.body;
 
-  if (!employeeName || !employeeId || !missedDate || !missedTime || !punchType || !reason) {
+  if (!employeeName || !employeeId || !missedDate || !reason) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const normalized = {
+    clockInTime: clockInTime || '',
+    lunchOutTime: lunchOutTime || '',
+    lunchInTime: lunchInTime || '',
+    clockOutTime: clockOutTime || ''
+  };
+
+  // Backward compatibility: map legacy fields if new fields not provided
+  if (!normalized.clockInTime && !normalized.lunchOutTime && !normalized.lunchInTime && !normalized.clockOutTime) {
+    if (missedTime && punchType) {
+      if (punchType === 'clock-in') normalized.clockInTime = missedTime;
+      if (punchType === 'clock-out') normalized.clockOutTime = missedTime;
+      if (punchType === 'meal-start') normalized.lunchOutTime = missedTime;
+      if (punchType === 'meal-end') normalized.lunchInTime = missedTime;
+    }
+  }
+
+  const hasAtLeastOneTime = !!(
+    normalized.clockInTime ||
+    normalized.lunchOutTime ||
+    normalized.lunchInTime ||
+    normalized.clockOutTime ||
+    missedTime
+  );
+  if (!hasAtLeastOneTime) {
+    return res.status(400).json({ error: 'Please provide at least one time' });
   }
 
   const punches = readPunches();
@@ -41,8 +81,12 @@ router.post('/', (req, res) => {
     employeeName,
     employeeId,
     missedDate,
-    missedTime,
-    punchType,
+    clockInTime: normalized.clockInTime,
+    lunchOutTime: normalized.lunchOutTime,
+    lunchInTime: normalized.lunchInTime,
+    clockOutTime: normalized.clockOutTime,
+    missedTime: missedTime || '',
+    punchType: punchType || '',
     managerOnDuty,
     reason,
     status: 'pending',
@@ -118,10 +162,49 @@ router.get('/my-entries', (req, res) => {
 
 // POST /api/lost-punch/submit - Submit punch (legacy support)
 router.post('/submit', (req, res) => {
-  const { employeeId, employeeName, missedDate, missedTime, punchType, reason, manager } = req.body;
+  const {
+    employeeId,
+    employeeName,
+    missedDate,
+    reason,
+    manager,
+    clockInTime,
+    lunchOutTime,
+    lunchInTime,
+    clockOutTime,
+    missedTime,
+    punchType
+  } = req.body;
 
-  if (!employeeId || !employeeName || !missedDate || !missedTime || !punchType || !reason) {
+  if (!employeeId || !employeeName || !missedDate || !reason) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const normalized = {
+    clockInTime: clockInTime || '',
+    lunchOutTime: lunchOutTime || '',
+    lunchInTime: lunchInTime || '',
+    clockOutTime: clockOutTime || ''
+  };
+
+  if (!normalized.clockInTime && !normalized.lunchOutTime && !normalized.lunchInTime && !normalized.clockOutTime) {
+    if (missedTime && punchType) {
+      if (punchType === 'clock-in') normalized.clockInTime = missedTime;
+      if (punchType === 'clock-out') normalized.clockOutTime = missedTime;
+      if (punchType === 'meal-start') normalized.lunchOutTime = missedTime;
+      if (punchType === 'meal-end') normalized.lunchInTime = missedTime;
+    }
+  }
+
+  const hasAtLeastOneTime = !!(
+    normalized.clockInTime ||
+    normalized.lunchOutTime ||
+    normalized.lunchInTime ||
+    normalized.clockOutTime ||
+    missedTime
+  );
+  if (!hasAtLeastOneTime) {
+    return res.status(400).json({ error: 'Please provide at least one time' });
   }
 
   const punches = readPunches();
@@ -130,8 +213,12 @@ router.post('/submit', (req, res) => {
     employeeId,
     employeeName,
     missedDate,
-    missedTime,
-    punchType,
+    clockInTime: normalized.clockInTime,
+    lunchOutTime: normalized.lunchOutTime,
+    lunchInTime: normalized.lunchInTime,
+    clockOutTime: normalized.clockOutTime,
+    missedTime: missedTime || '',
+    punchType: punchType || '',
     reason,
     managerOnDuty: manager || '',
     status: 'pending',

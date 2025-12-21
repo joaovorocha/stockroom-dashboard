@@ -32,6 +32,22 @@ const UPS_TRACKING_PATTERNS = [
   /\d{18,22}/g                   // Numeric tracking (some UPS services)
 ];
 
+function mapStatusTextToInternal(statusText) {
+  const s = (statusText || '').toString().toLowerCase();
+  if (!s) return 'unknown';
+  if (s.includes('delivered')) return 'delivered';
+  if (s.includes('out for delivery')) return 'in-transit';
+  if (s.includes('in transit') || s.includes('on the way') || s.includes('departed') || s.includes('arrived')) return 'in-transit';
+  if (s.includes('label created') || s.includes('shipment ready') || s.includes('ready for ups')) return 'label-created';
+  if (s.includes('exception') || s.includes('delay') || s.includes('failed')) return 'unknown';
+  return 'unknown';
+}
+
+function statusRank(status) {
+  const order = { unknown: 0, requested: 1, pending: 1, 'label-created': 2, 'in-transit': 3, delivered: 4 };
+  return order[(status || '').toString().toLowerCase()] || 0;
+}
+
 // Common UPS sender patterns
 const UPS_SENDERS = [
   'ups@ups.com',
@@ -119,7 +135,6 @@ class UPSEmailParser {
     return new Promise((resolve, reject) => {
       const sinceDate = new Date();
       sinceDate.setDate(sinceDate.getDate() - daysBack);
-      const dateStr = sinceDate.toISOString().split('T')[0];
 
       // Search criteria: from UPS or subject contains UPS/tracking
       const searchCriteria = [
@@ -127,10 +142,17 @@ class UPSEmailParser {
           ['FROM', 'ups.com'],
           ['OR',
             ['SUBJECT', 'UPS'],
-            ['SUBJECT', 'shipment']
+            ['OR',
+              ['SUBJECT', 'shipment'],
+              ['OR',
+                ['SUBJECT', 'delivered'],
+                ['SUBJECT', 'out for delivery']
+              ]
+            ]
           ]
         ],
-        ['SINCE', dateStr]
+        // node-imap expects a Date (or a properly formatted IMAP date string).
+        ['SINCE', sinceDate]
       ];
 
       this.imap.search(searchCriteria, (err, results) => {
@@ -335,6 +357,28 @@ class UPSEmailParser {
     return details;
   }
 
+  // Extract a human-readable status from a UPS notification email (best-effort).
+  // Returns { statusText, internalStatus } or null if no meaningful status found.
+  parseStatusUpdate(email) {
+    const subject = (email.subject || '').toString();
+    const text = email.text || '';
+    const html = email.html || '';
+    const combinedText = `${subject}\n${text}\n${(html || '').replace(/<[^>]*>/g, ' ')}`.toLowerCase();
+
+    // Common UPS notification phrases
+    if (combinedText.includes('delivered')) return { statusText: 'Delivered', internalStatus: 'delivered' };
+    if (combinedText.includes('out for delivery')) return { statusText: 'Out For Delivery', internalStatus: 'in-transit' };
+    if (combinedText.includes('in transit') || combinedText.includes('on the way')) return { statusText: 'In Transit', internalStatus: 'in-transit' };
+    if (combinedText.includes('label created') || combinedText.includes('shipment ready') || combinedText.includes('ready for ups')) {
+      return { statusText: 'Label Created', internalStatus: 'label-created' };
+    }
+    if (combinedText.includes('exception') || combinedText.includes('delay') || combinedText.includes('failed attempt')) {
+      return { statusText: 'Exception', internalStatus: 'unknown' };
+    }
+
+    return null;
+  }
+
   // Load existing shipments
   loadShipments() {
     try {
@@ -407,6 +451,44 @@ class UPSEmailParser {
     return newShipments;
   }
 
+  // Update existing shipment statuses from notification emails.
+  // Only upgrades status (never downgrades).
+  updateExistingShipmentsStatus(existingShipments, trackingNumbers, statusUpdate, emailDate) {
+    if (!statusUpdate || !trackingNumbers?.length) return { updated: 0 };
+    const now = new Date().toISOString();
+    const emailIso = emailDate instanceof Date ? emailDate.toISOString() : now;
+
+    let updated = 0;
+    for (const tracking of trackingNumbers) {
+      const idx = existingShipments.findIndex(
+        s => (s.trackingNumber || s.tracking || '').toString().trim().toUpperCase() === tracking
+      );
+      if (idx === -1) continue;
+
+      const shipment = existingShipments[idx];
+      const existingInternal = mapStatusTextToInternal(shipment.statusFromUPS || '');
+      const incomingInternal = statusUpdate.internalStatus || mapStatusTextToInternal(statusUpdate.statusText);
+      if (statusRank(incomingInternal) < statusRank(existingInternal)) continue;
+
+      shipment.statusFromUPS = statusUpdate.statusText || shipment.statusFromUPS || '';
+      shipment.statusUpdatedAt = now;
+      shipment.statusUpdatedSource = 'email';
+      shipment.statusEmailDate = emailIso;
+
+      // Optionally store internal status for quick filtering (effective status is still computed server-side)
+      if (incomingInternal && incomingInternal !== 'unknown') {
+        shipment.status = incomingInternal;
+        if (incomingInternal === 'delivered' && !shipment.deliveredAt) shipment.deliveredAt = emailIso;
+      }
+
+      shipment.updatedAt = now;
+      existingShipments[idx] = shipment;
+      updated++;
+    }
+
+    return { updated };
+  }
+
   // Main function to fetch and process UPS emails
   async fetchAndImportShipments(daysBack = 7, deleteAfterImport = true) {
     const results = {
@@ -415,68 +497,85 @@ class UPSEmailParser {
       shipmentsCreated: 0,
       trackingNumbers: [],
       createdShipments: [],
+      shipmentsUpdated: 0,
       emailsDeleted: 0,
       errors: []
     };
 
     try {
       await this.connectWithRetry();
-      await this.openMailbox('INBOX');
-
-      const messageIds = await this.searchUPSEmails(daysBack);
-      console.log(`Found ${messageIds.length} potential UPS emails`);
-
       const existingShipments = this.loadShipments();
       const newShipments = [];
-      const processedMessageIds = [];
+      let updatedCount = 0;
 
-      for (const msgId of messageIds) {
+      const mailboxesToTry = ['INBOX', '[Gmail]/All Mail', '[Google Mail]/All Mail'];
+      for (const mailbox of mailboxesToTry) {
         try {
-          const email = await this.fetchEmail(msgId);
-          
-          // Skip if not from UPS
-          const fromAddr = email.from?.value?.[0]?.address || '';
-          const isFromUPS = UPS_SENDERS.some(s => 
-            fromAddr.toLowerCase().includes(s.replace('@ups.com', '').toLowerCase())
-          ) || fromAddr.toLowerCase().includes('ups.com');
+          await this.openMailbox(mailbox);
+        } catch (_) {
+          continue;
+        }
 
-          if (!isFromUPS && !email.subject?.toLowerCase().includes('ups')) {
-            continue;
+        const messageIds = await this.searchUPSEmails(daysBack);
+        console.log(`Mailbox "${mailbox}": Found ${messageIds.length} potential UPS emails`);
+
+        const processedMessageIds = [];
+
+        for (const msgId of messageIds) {
+          try {
+            const email = await this.fetchEmail(msgId);
+
+            // Skip if not from UPS
+            const fromAddr = email.from?.value?.[0]?.address || '';
+            const isFromUPS = UPS_SENDERS.some(s =>
+              fromAddr.toLowerCase().includes(s.replace('@ups.com', '').toLowerCase())
+            ) || fromAddr.toLowerCase().includes('ups.com');
+
+            if (!isFromUPS && !email.subject?.toLowerCase().includes('ups')) {
+              continue;
+            }
+
+            console.log(`Processing UPS email: ${email.subject}`);
+            results.emailsProcessed++;
+
+            const details = this.parseShipmentDetails(email);
+            const statusUpdate = this.parseStatusUpdate(email);
+
+            if (details.trackingNumbers.length > 0) {
+              results.trackingNumbers.push(...details.trackingNumbers);
+              const created = this.createShipmentRecord(details, [...existingShipments, ...newShipments]);
+              newShipments.push(...created);
+
+              // Update existing shipments from status notification emails
+              const updateResult = this.updateExistingShipmentsStatus(existingShipments, details.trackingNumbers, statusUpdate, details.date);
+              updatedCount += updateResult.updated || 0;
+
+              processedMessageIds.push(msgId);
+            }
+          } catch (err) {
+            console.error(`Error processing email ${msgId}:`, err.message);
+            results.errors.push(err.message);
           }
+        }
 
-          console.log(`Processing UPS email: ${email.subject}`);
-          results.emailsProcessed++;
-
-          const details = this.parseShipmentDetails(email);
-          
-          if (details.trackingNumbers.length > 0) {
-            results.trackingNumbers.push(...details.trackingNumbers);
-            const created = this.createShipmentRecord(details, [...existingShipments, ...newShipments]);
-            newShipments.push(...created);
-            processedMessageIds.push(msgId);
+        // Delete processed emails if enabled (per mailbox)
+        if (deleteAfterImport && processedMessageIds.length > 0) {
+          console.log(`Deleting ${processedMessageIds.length} processed UPS emails from "${mailbox}"...`);
+          const deleteResults = await this.deleteEmails(processedMessageIds);
+          results.emailsDeleted += deleteResults.deleted;
+          if (deleteResults.errors.length > 0) {
+            results.errors.push(...deleteResults.errors.map(e => `Delete error: ${e.error}`));
           }
-        } catch (err) {
-          console.error(`Error processing email ${msgId}:`, err.message);
-          results.errors.push(err.message);
         }
       }
 
       // Save new shipments
-      if (newShipments.length > 0) {
+      if (newShipments.length > 0 || updatedCount > 0) {
         const allShipments = [...existingShipments, ...newShipments];
         this.saveShipments(allShipments);
         results.shipmentsCreated = newShipments.length;
         results.createdShipments = newShipments;
-      }
-
-      // Delete processed emails if enabled
-      if (deleteAfterImport && processedMessageIds.length > 0) {
-        console.log(`Deleting ${processedMessageIds.length} processed UPS emails...`);
-        const deleteResults = await this.deleteEmails(processedMessageIds);
-        results.emailsDeleted = deleteResults.deleted;
-        if (deleteResults.errors.length > 0) {
-          results.errors.push(...deleteResults.errors.map(e => `Delete error: ${e.error}`));
-        }
+        results.shipmentsUpdated = updatedCount;
       }
 
       results.success = true;

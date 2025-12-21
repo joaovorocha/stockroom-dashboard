@@ -154,7 +154,7 @@
     <div id="status-message" class="status hidden"></div>
 
     <div id="loading" class="status info">
-      Extracting shipment data...
+      Loading...
     </div>
 
     <div id="data-section" class="hidden">
@@ -162,9 +162,18 @@
         <!-- Data will be inserted here -->
       </div>
 
-      <button id="send-btn" class="btn">Send to Stockroom Dashboard</button>
-      <button id="open-form-btn" class="btn btn-secondary">Open Form & Auto-Fill</button>
-      <button id="refresh-btn" class="btn btn-secondary">Refresh Data</button>
+      <div id="campusship-controls" class="hidden">
+        <label for="shipment-select" style="display:block; font-size:12px; margin: 8px 0 6px; color:#333;">Pending shipment:</label>
+        <select id="shipment-select" style="width:100%; padding:10px; border:1px solid #e0e0e0; border-radius:4px; margin-bottom:10px;"></select>
+        <button id="fill-btn" class="btn">Fill This UPS Form</button>
+        <button id="refresh-pending-btn" class="btn btn-secondary">Refresh Pending List</button>
+      </div>
+
+      <div id="tracking-controls">
+        <button id="send-btn" class="btn">Send to Stockroom Dashboard</button>
+        <button id="open-form-btn" class="btn btn-secondary">Open Form & Auto-Fill</button>
+        <button id="refresh-btn" class="btn btn-secondary">Refresh Data</button>
+      </div>
     </div>
 
     <div id="empty-state" class="empty-state hidden">

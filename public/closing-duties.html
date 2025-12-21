@@ -176,6 +176,15 @@
       width: 100px;
       text-align: center;
     }
+
+    @media (max-width: 900px) {
+      .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .closing-two-col {
+        grid-template-columns: 1fr !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -225,12 +234,32 @@
         <!-- Tabs -->
         <div class="duties-tabs">
           <button class="tab active" data-tab="submit">Submit Duties</button>
-          <button class="tab" data-tab="today">Today's Status</button>
           <button class="tab" data-tab="history">History</button>
         </div>
 
         <!-- Submit Tab (now first) -->
         <div id="submitTab" class="tab-content">
+          <div class="summary-cards" style="margin-bottom: 16px;">
+            <div class="summary-card">
+              <div class="value" id="totalSections">0</div>
+              <div class="label">Total Sections</div>
+            </div>
+            <div class="summary-card">
+              <div class="value" id="completedCount">0</div>
+              <div class="label">Completed</div>
+            </div>
+            <div class="summary-card">
+              <div class="value" id="pendingCount">0</div>
+              <div class="label">Pending</div>
+            </div>
+            <div class="summary-card">
+              <div class="value" id="completionPct">0%</div>
+              <div class="label">Completion</div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; align-items: start;" class="closing-two-col">
+            <div>
           <!-- Assigned Duties Section -->
           <div id="assignedDutiesSection" style="margin-bottom: 24px;">
             <h3 style="margin-bottom: 12px;" id="assignedDutiesTitle">Your Assigned Duties</h3>
@@ -265,31 +294,13 @@
               <button type="submit" class="btn btn-primary">Submit Closing Duty</button>
             </form>
           </div>
-        </div>
+            </div>
 
-        <!-- Today's Status Tab -->
-        <div id="todayTab" class="tab-content" style="display:none;">
-          <div class="summary-cards">
-            <div class="summary-card">
-              <div class="value" id="totalSections">0</div>
-              <div class="label">Total Sections</div>
-            </div>
-            <div class="summary-card">
-              <div class="value" id="completedCount">0</div>
-              <div class="label">Completed</div>
-            </div>
-            <div class="summary-card">
-              <div class="value" id="pendingCount">0</div>
-              <div class="label">Pending</div>
-            </div>
-            <div class="summary-card">
-              <div class="value" id="completionPct">0%</div>
-              <div class="label">Completion</div>
+            <div>
+              <h3 style="margin-bottom: 16px;">Today's Status</h3>
+              <div id="todayDuties"></div>
             </div>
           </div>
-
-          <h3 style="margin-bottom: 16px;">Section Status</h3>
-          <div id="todayDuties"></div>
         </div>
 
         <!-- History Tab -->
@@ -401,13 +412,13 @@
           return `${year}-${month}-${day}`;
         })();
         const isToday = selectedDate === todayStr;
-        const submittedToday = closingDuties.filter(d => d.employeeName === currentUser.name);
+        const submittedToday = closingDuties.filter(d => (d.userName || d.employeeName) === currentUser.name);
         const submittedSections = submittedToday.map(d => d.section);
 
         if (assignedSections.length === 0) {
           container.innerHTML = `
             <div style="padding: 16px; background: var(--surface); border-radius: 8px; margin-bottom: 12px;">
-              <p style="margin: 0; color: var(--text-secondary);">No sections assigned to you for this day.</p>
+              <p style="margin: 0; color: var(--text-secondary);">${isToday ? "You don't have any duties assigned today." : "No sections assigned to you for this day."}</p>
               <p style="margin: 8px 0 0; font-size: 13px; color: var(--text-muted);">You can still submit duties for unassigned sections below.</p>
             </div>
           `;
@@ -454,7 +465,7 @@
 
         employeesWithDuties.forEach(employee => {
           const assignedSections = employee.closingSections || [];
-          const submittedToday = closingDuties.filter(d => d.employeeName === employee.name);
+          const submittedToday = closingDuties.filter(d => (d.userName || d.employeeName) === employee.name);
           const submittedSections = submittedToday.map(d => d.section);
           const completedCount = submittedSections.filter(s => assignedSections.includes(s)).length;
           const total = assignedSections.length;
@@ -545,7 +556,12 @@
       try {
         const response = await fetch(`/api/closing-duties/${selectedDate}`);
         const data = await response.json();
-        closingDuties = data.submissions || [];
+        closingDuties = (data.submissions || []).map(sub => ({
+          ...sub,
+          employeeName: sub.employeeName || sub.userName || '',
+          userName: sub.userName || sub.employeeName || '',
+          photos: Array.isArray(sub.photos) ? sub.photos : []
+        }));
         await renderTodayStatus();
         await renderHistory();
       } catch (e) {
@@ -564,34 +580,56 @@
       let completed = 0;
       let pending = 0;
 
-      // Fetch assignments for today from gameplan-daily
+      const toEmployeeNameById = new Map();
+      for (const type of Object.keys(employees || {})) {
+        (employees[type] || []).forEach(emp => {
+          if (emp?.id && emp?.name) toEmployeeNameById.set(emp.id, emp.name);
+        });
+      }
+
+      // Fetch assignments for the selected day from the saved game plan (published).
       let assignments = null;
-      let sectionToEmployee = {};
-      let showAssignments = false;
+      const sectionToEmployee = {};
       try {
-        const res = await fetch(`/data/gameplan-daily/${selectedDate}.json`);
+        const res = await fetch(`/api/gameplan/date/${selectedDate}`);
         if (res.ok) {
           const data = await res.json();
-          assignments = data.assignments;
-          // Only show if manager published (assignments exists)
-          showAssignments = !!assignments;
-          if (assignments) {
-            Object.entries(assignments).forEach(([empId, emp]) => {
-              if (emp.closingSections && Array.isArray(emp.closingSections)) {
-                emp.closingSections.forEach(section => {
-                  sectionToEmployee[section] = emp.name || empId;
-                });
-              }
-            });
-          }
+          assignments = data.assignments || null;
         }
       } catch (e) { assignments = null; }
 
+      if (assignments) {
+        Object.entries(assignments).forEach(([empId, assignment]) => {
+          if (assignment?.isOff === true || assignment?.isOff === 'true') return;
+          const name = toEmployeeNameById.get(empId) || empId;
+          const list = Array.isArray(assignment?.closingSections) ? assignment.closingSections : [];
+          list.forEach(section => {
+            if (section) sectionToEmployee[section] = name;
+          });
+        });
+      }
+
+      const photoPath = (p) => {
+        if (!p) return '';
+        if (typeof p === 'string') return p;
+        return p.path || '';
+      };
+
+      const latestSubmissionForSection = (sectionName) => {
+        const list = closingDuties
+          .filter(d => d.section === sectionName)
+          .sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+        return list[0] || null;
+      };
+
       sections.forEach(section => {
-        const duty = closingDuties.find(d => d.section === section.name);
+        const duty = latestSubmissionForSection(section.name);
         const isCompleted = !!duty;
         if (isCompleted) completed++; else pending++;
-        let assignedName = showAssignments ? (sectionToEmployee[section.name] || '<span style="color:#aaa">Not assigned yet</span>') : '<span style="color:#aaa">Not assigned yet</span>';
+        const assignedName = assignments
+          ? (sectionToEmployee[section.name] || '<span style="color:#aaa">Open</span>')
+          : '<span style="color:#aaa">Open</span>';
+        const photos = duty?.photos?.map(photoPath).filter(Boolean) || [];
         container.innerHTML += `
           <div class="duty-card ${isCompleted ? 'completed' : 'pending'}">
             <div class="duty-header">
@@ -603,12 +641,12 @@
             </div>
             ${isCompleted ? `
               <div class="duty-meta">
-                <span>By: ${duty.employeeName}</span>
+                <span>By: ${duty.userName || duty.employeeName || 'Unknown'}</span>
                 <span>Time: ${new Date(duty.submittedAt).toLocaleTimeString()}</span>
               </div>
-              ${duty.photos && duty.photos.length ? `
+              ${photos.length ? `
                 <div class="duty-photos">
-                  ${duty.photos.map(p => `<img src="${p}" class="duty-photo" onclick="showPhoto('${p}')">`).join('')}
+                  ${photos.map(p => `<img src="${p}" class="duty-photo" onclick="showPhoto('${p}')">`).join('')}
                 </div>
               ` : ''}
               ${duty.notes ? `<p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${duty.notes}</p>` : ''}
@@ -636,32 +674,46 @@
       let completed = 0;
       let pending = 0;
 
-      // Fetch assignments for selected date from gameplan-daily
+      const toEmployeeNameById = new Map();
+      for (const type of Object.keys(employees || {})) {
+        (employees[type] || []).forEach(emp => {
+          if (emp?.id && emp?.name) toEmployeeNameById.set(emp.id, emp.name);
+        });
+      }
+
       let assignments = null;
-      let sectionToEmployee = {};
-      let showAssignments = false;
+      const sectionToEmployee = {};
       try {
-        const res = await fetch(`/data/gameplan-daily/${selectedDate}.json`);
+        const res = await fetch(`/api/gameplan/date/${selectedDate}`);
         if (res.ok) {
           const data = await res.json();
-          assignments = data.assignments;
-          showAssignments = !!assignments;
-          if (assignments) {
-            Object.entries(assignments).forEach(([empId, emp]) => {
-              if (emp.closingSections && Array.isArray(emp.closingSections)) {
-                emp.closingSections.forEach(section => {
-                  sectionToEmployee[section] = emp.name || empId;
-                });
-              }
-            });
-          }
+          assignments = data.assignments || null;
         }
       } catch (e) { assignments = null; }
+
+      if (assignments) {
+        Object.entries(assignments).forEach(([empId, assignment]) => {
+          if (assignment?.isOff === true || assignment?.isOff === 'true') return;
+          const name = toEmployeeNameById.get(empId) || empId;
+          const list = Array.isArray(assignment?.closingSections) ? assignment.closingSections : [];
+          list.forEach(section => {
+            if (section) sectionToEmployee[section] = name;
+          });
+        });
+      }
+
+      const photoPath = (p) => {
+        if (!p) return '';
+        if (typeof p === 'string') return p;
+        return p.path || '';
+      };
 
       const html = sections.map(section => {
         // Find all submissions for this section and date
         const duties = closingDuties.filter(d => d.section === section.name);
-        let assignedName = showAssignments ? (sectionToEmployee[section.name] || '<span style="color:#aaa">Not assigned yet</span>') : '<span style="color:#aaa">Not assigned yet</span>';
+        const assignedName = assignments
+          ? (sectionToEmployee[section.name] || '<span style="color:#aaa">Open</span>')
+          : '<span style="color:#aaa">Open</span>';
         if (duties.length === 0) {
           pending++;
           return `
@@ -692,7 +744,7 @@
             </div>
             ${duty.photos && duty.photos.length ? `
               <div class="duty-photos">
-                ${duty.photos.map(p => `<img src="${p.path || p}" class="duty-photo" onclick="showPhoto('${p.path || p}')">`).join('')}
+                ${duty.photos.map(p => photoPath(p)).filter(Boolean).map(p => `<img src="${p}" class="duty-photo" onclick="showPhoto('${p}')">`).join('')}
               </div>
             ` : ''}
             ${duty.notes ? `<p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${duty.notes}</p>` : ''}
@@ -753,7 +805,7 @@
         }
 
         try {
-          const response = await fetch('/api/closing-duties', {
+          const response = await fetch('/api/closing-duties/submit', {
             method: 'POST',
             body: formData
           });

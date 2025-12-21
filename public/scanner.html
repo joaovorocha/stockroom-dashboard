@@ -147,7 +147,7 @@
           <h4>Scanner Behavior</h4>
           <ul>
             <li><strong>Data Matrix:</strong> Copies data to clipboard and opens Inventory System</li>
-            <li><strong>PSUS Order QR Code:</strong> Opens MAO Order Status (PSUS + 8 digits)</li>
+            <li><strong>PSUS / Order QR Code:</strong> Opens Order Status (PSUS + 8 digits, or 8 digits starting with 04)</li>
             <li>Ignores any data before "PSUS" and after the 8 digits</li>
             <li>Press Enter or Tab after scanning to process</li>
           </ul>
@@ -160,6 +160,7 @@
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
 
+  <script src="/js/utils.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       await checkAuth();
@@ -171,18 +172,16 @@
         const response = await fetch('/api/auth/check');
         const data = await response.json();
         if (data.authenticated) {
-          document.getElementById('userName').textContent = data.user.name;
-          document.querySelector('.user-switch').innerHTML = '<a href="#" onclick="logout()">Not you? Switch</a>';
-          if (data.user.isManager || data.user.isAdmin) {
-            document.getElementById('adminLink').style.display = 'inline';
-          }
+          const userNameEl = document.getElementById('userName');
+          if (userNameEl) userNameEl.textContent = data.user.name;
+
+          const navAdmin = document.getElementById('navAdmin');
+          if (navAdmin) navAdmin.style.display = data.user.isAdmin ? 'inline' : 'none';
+
+          const navFeedback = document.getElementById('navFeedback');
+          if (navFeedback) navFeedback.style.display = (data.user.isManager || data.user.isAdmin) ? 'inline' : 'none';
         }
       } catch (e) {}
-    }
-
-    async function logout() {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/login-v2';
     }
 
     function setupScanner() {
@@ -216,38 +215,52 @@
         return;
       }
 
-      // Check for PSUS order number
-      const psusMatch = data.match(/PSUS(\d{8})/i);
-      if (psusMatch) {
-        const orderNumber = 'PSUS' + psusMatch[1];
+      const psusOrder = extractPSUSNumber(data);
+      if (psusOrder) {
         status.className = 'scanner-status success';
-        status.textContent = `Order found: ${orderNumber} - Opening MAO...`;
+        status.textContent = `Order found: ${psusOrder} - Opening Order Status...`;
 
-        // Open MAO order status
-        window.open(`https://mao.suitsupply.com/order/${orderNumber}`, '_blank');
+        const url = getMAOOrderURL(psusOrder);
+        if (url) openInNewTab(url);
         input.value = '';
         input.focus();
         return;
       }
 
       // Data Matrix - copy to clipboard and open inventory system
-      navigator.clipboard.writeText(data).then(() => {
-        status.className = 'scanner-status success';
-        status.textContent = `Data copied: ${data.substring(0, 30)}... - Opening Inventory System`;
+      copyToClipboard(data).then((ok) => {
+        if (!ok) {
+          status.className = 'scanner-status error';
+          status.textContent = 'Failed to copy to clipboard';
+          return;
+        }
 
-        // Open inventory system
-        window.open('https://inventory.suitsupply.com/', '_blank');
+        status.className = 'scanner-status success';
+        status.textContent = `Data copied - Opening Inventory System`;
+
+        openInNewTab(getInventoryURL());
         input.value = '';
         input.focus();
-      }).catch(() => {
-        status.className = 'scanner-status error';
-        status.textContent = 'Failed to copy to clipboard';
       });
     }
 
     let videoStream = null;
 
     async function openCamera() {
+      const status = document.getElementById('scannerStatus');
+      const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if (location.protocol !== 'https:' && !isLocalhost) {
+        status.className = 'scanner-status error';
+        status.innerHTML = `Camera requires HTTPS. Open the secure site to use the camera: <a href="https://ssussf.duckdns.org/scanner" target="_blank" rel="noopener noreferrer">ssussf.duckdns.org/scanner</a>`;
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        status.className = 'scanner-status error';
+        status.textContent = 'Camera is not supported in this browser/device.';
+        return;
+      }
+
       try {
         const video = document.getElementById('cameraVideo');
         videoStream = await navigator.mediaDevices.getUserMedia({
@@ -256,7 +269,8 @@
         video.srcObject = videoStream;
         document.getElementById('cameraContainer').classList.add('active');
       } catch (e) {
-        alert('Camera access denied or not available');
+        status.className = 'scanner-status error';
+        status.textContent = `Camera error: ${e?.message || 'access denied or not available'}`;
       }
     }
 

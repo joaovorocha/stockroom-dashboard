@@ -1,13 +1,16 @@
 // Popup script for SuitSupply Shipment Capture extension
 
-const DASHBOARD_URL = 'https://192.168.12.103:3000';
+const DASHBOARD_URL = 'https://ssussf.duckdns.org';
 const API_URL = `${DASHBOARD_URL}/api/shipments/add`;
 
 let extractedData = null;
+let currentMode = 'tracking'; // 'tracking' | 'campusship'
+let pendingShipments = [];
+let activeShipmentId = null;
 
 // Initialize popup
 document.addEventListener('DOMContentLoaded', () => {
-  loadShipmentData();
+  init();
   setupEventListeners();
 });
 
@@ -17,6 +20,28 @@ function setupEventListeners() {
   document.getElementById('open-form-btn').addEventListener('click', openFormWithAutoFill);
   document.getElementById('refresh-btn').addEventListener('click', loadShipmentData);
   document.getElementById('refresh-empty-btn').addEventListener('click', loadShipmentData);
+  document.getElementById('refresh-pending-btn')?.addEventListener('click', loadPendingShipments);
+  document.getElementById('fill-btn')?.addEventListener('click', fillCampusShipForm);
+  document.getElementById('shipment-select')?.addEventListener('change', () => {
+    const selected = getSelectedPendingShipment();
+    if (selected) displayPendingList(selected);
+  });
+}
+
+async function init() {
+  showLoading();
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const url = tab?.url || '';
+    if (url.includes('campusship.ups.com') && url.includes('/cship/create')) {
+      currentMode = 'campusship';
+      await loadPendingShipments();
+      return;
+    }
+  } catch (_) {}
+
+  currentMode = 'tracking';
+  await loadShipmentData();
 }
 
 // Load shipment data from current page
@@ -55,12 +80,161 @@ async function loadShipmentData() {
   }
 }
 
+async function loadPendingShipments() {
+  showLoading();
+  try {
+    const { pendingShipments: pending, activeShipment } = await chrome.storage.local.get(['pendingShipments', 'activeShipment']);
+    pendingShipments = Array.isArray(pending) ? pending : [];
+    activeShipmentId = activeShipment?.id || null;
+
+    // If there is an active shipment (selected in dashboard), move it to the top.
+    if (activeShipmentId) {
+      pendingShipments = [
+        activeShipment,
+        ...pendingShipments.filter(s => s?.id && s.id !== activeShipmentId)
+      ].filter(Boolean);
+    }
+
+    displayPendingList(getSelectedPendingShipment());
+  } catch (e) {
+    console.error(e);
+    showEmptyState('Unable to load pending shipments. Open the dashboard once, then try again.');
+  }
+}
+
+function getSelectedPendingShipment() {
+  if (!pendingShipments.length) return null;
+  const select = document.getElementById('shipment-select');
+  const selectedId = select?.value;
+  if (!selectedId) return pendingShipments[0];
+  return pendingShipments.find(s => String(s.id) === String(selectedId)) || pendingShipments[0];
+}
+
+function formatShipmentAddress(shipment) {
+  const addr = shipment?.address && typeof shipment.address === 'object' ? shipment.address : {};
+  const line1 = addr.line1 || shipment?.addressLine1 || '';
+  const line2 = addr.line2 || shipment?.addressLine2 || '';
+  const city = addr.city || shipment?.city || '';
+  const state = addr.state || shipment?.state || '';
+  const zip = addr.zip || shipment?.zip || '';
+  const country = addr.country || shipment?.country || '';
+  const cityStateZip = [city, state, zip].filter(Boolean).join(' ');
+  return [line1, line2, cityStateZip, country].filter(Boolean).join(', ');
+}
+
+function renderShipmentDetailsHtml(shipment) {
+  const addr = shipment?.address && typeof shipment.address === 'object' ? shipment.address : {};
+  const phone = addr.phone || shipment?.phone || '';
+  const processedBy = shipment?.processedByName || '';
+  const requestedBy = shipment?.employeeName || '';
+  const orderNumber = shipment?.orderNumber || '';
+  const serviceType = shipment?.serviceType || shipment?.service || '';
+
+  const fields = [
+    ['Shipment ID', shipment?.id || ''],
+    ['Status', shipment?.status || ''],
+    ['Customer', shipment?.customerName || ''],
+    ['Order #', orderNumber],
+    ['Service', serviceType],
+    ['Carrier', shipment?.carrier || ''],
+    ['Tracking #', shipment?.trackingNumber || ''],
+    ['Email', shipment?.email || ''],
+    ['Phone', phone],
+    ['Address', formatShipmentAddress(shipment)],
+    ['Requested By', requestedBy],
+    ['Processed By', processedBy],
+    ['Processed By ID', shipment?.processedById || ''],
+    ['Notes', shipment?.notes || '']
+  ];
+
+  return fields
+    .filter(([, v]) => (v || '').toString().trim().length > 0)
+    .map(([k, v]) => `<div class="data-item"><strong>${escapeHtml(k)}:</strong> <span>${escapeHtml(String(v))}</span></div>`)
+    .join('');
+}
+
+function displayPendingList(selectedShipment) {
+  const preview = document.getElementById('data-preview');
+  const dataSection = document.getElementById('data-section');
+  const loading = document.getElementById('loading');
+  const emptyState = document.getElementById('empty-state');
+  const campusControls = document.getElementById('campusship-controls');
+  const trackingControls = document.getElementById('tracking-controls');
+
+  loading.classList.add('hidden');
+  emptyState.classList.add('hidden');
+  dataSection.classList.remove('hidden');
+
+  campusControls.classList.remove('hidden');
+  trackingControls.classList.add('hidden');
+
+  if (!pendingShipments.length) {
+    preview.innerHTML = `<div class="data-item" style="color:#666;">No pending shipments found. Open Stockroom Dashboard → Shipments/Processing, then come back.</div>`;
+    const select = document.getElementById('shipment-select');
+    if (select) select.innerHTML = '';
+    return;
+  }
+
+  const selected = selectedShipment || pendingShipments[0];
+  preview.innerHTML =
+    `<div class="data-item"><strong>Mode:</strong> <span>UPS CampusShip Auto-Fill</span></div>` +
+    `<div class="data-item"><strong>Tip:</strong> <span>Wait for the UPS page to finish loading, then click “Fill This UPS Form”.</span></div>` +
+    `<div class="data-item"><strong>Will Fill:</strong> <span>Name, Phone, Email, Address, Weight=1, Service, Email Notify, Ref1=Order#, Ref2=Processor ID</span></div>` +
+    `<div class="data-item"><strong>Note:</strong> <span>If the UPS address form is collapsed, the extension will open it automatically.</span></div>` +
+    `<hr style="border:none;border-top:1px solid #e0e0e0;margin:10px 0;">` +
+    (renderShipmentDetailsHtml(selected) || `<div class="data-item" style="color:#666;">No details found for selected shipment.</div>`);
+
+  const select = document.getElementById('shipment-select');
+  if (!select) return;
+  select.innerHTML = pendingShipments.map((s, idx) => {
+    const label = `${s.customerName || 'Unknown'}${s.orderNumber ? ` • ${s.orderNumber}` : ''}${s.id === activeShipmentId ? ' • ACTIVE' : ''}`;
+    return `<option value="${escapeHtml(String(s.id || idx))}">${escapeHtml(label)}</option>`;
+  }).join('');
+  if (selected?.id) select.value = String(selected.id);
+}
+
+async function fillCampusShipForm() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const select = document.getElementById('shipment-select');
+    if (!select) return;
+    const selectedId = select.value;
+    const shipment = pendingShipments.find(s => String(s.id) === String(selectedId)) || pendingShipments[0];
+    if (!shipment) {
+      showStatus('No shipment selected', 'error');
+      return;
+    }
+
+    chrome.tabs.sendMessage(tab.id, { action: 'fillCampusShip', shipment }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('fillCampusShip sendMessage error:', chrome.runtime.lastError);
+        showStatus('Unable to fill. Reload the UPS page and try again.', 'error');
+        return;
+      }
+      const result = response?.result;
+      if (response?.success && result?.ok) {
+        const warnings = Array.isArray(result.warnings) && result.warnings.length ? ` Warnings: ${result.warnings.join(' | ')}` : '';
+        const count = typeof result.filledCount === 'number' ? ` (${result.filledCount} fields)` : '';
+        showStatus(`Filled${count}! Please verify the fields on UPS before clicking Next.${warnings}`, 'success');
+      } else {
+        const msg = result?.error || response?.error || 'Fill failed';
+        showStatus(msg, 'error');
+      }
+    });
+  } catch (e) {
+    console.error(e);
+    showStatus('Fill failed', 'error');
+  }
+}
+
 // Display extracted data
 function displayData(data) {
   const preview = document.getElementById('data-preview');
   const dataSection = document.getElementById('data-section');
   const loading = document.getElementById('loading');
   const emptyState = document.getElementById('empty-state');
+  const campusControls = document.getElementById('campusship-controls');
+  const trackingControls = document.getElementById('tracking-controls');
 
   // Hide loading and empty state
   loading.classList.add('hidden');
@@ -68,6 +242,8 @@ function displayData(data) {
 
   // Show data section
   dataSection.classList.remove('hidden');
+  campusControls.classList.add('hidden');
+  trackingControls.classList.remove('hidden');
 
   // Build preview HTML
   let html = '';
@@ -132,6 +308,15 @@ function displayData(data) {
     sendBtn.disabled = false;
     sendBtn.textContent = 'Send to Stockroom Dashboard';
   }
+}
+
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 // Send data to stockroom dashboard API

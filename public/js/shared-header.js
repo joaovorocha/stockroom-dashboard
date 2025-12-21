@@ -231,6 +231,20 @@ const SharedHeader = {
     const userMenu = document.getElementById('userMenu');
     const dropdown = document.getElementById('userDropdown');
 
+    if (dropdown && switchBtn) {
+      const label = (switchBtn.textContent || '').trim().toLowerCase();
+      const hasHomeBtn = !!document.getElementById('homeBtn');
+      if (!hasHomeBtn && (label === 'home' || label === 'dashboard')) {
+        // Preserve original "Home" behavior by adding a dedicated link.
+        const homeLink = document.createElement('a');
+        homeLink.href = '/home';
+        homeLink.id = 'homeBtn';
+        homeLink.textContent = 'Home';
+        dropdown.insertBefore(homeLink, switchBtn);
+        switchBtn.textContent = 'Switch User';
+      }
+    }
+
     if (userMenu && dropdown) {
       userMenu.addEventListener('click', (e) => {
         e.stopPropagation();

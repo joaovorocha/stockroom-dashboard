@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UPS Extension - Stockroom Dashboard</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/shared-header.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    .card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+    .steps li { margin: 6px 0; }
+    .note { color: var(--text-secondary); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div id="sharedHeaderMount"></div>
+
+  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
+    <main class="main-content">
+      <section class="section">
+        <div class="section-header">
+          <h2>UPS Chrome Extension</h2>
+          <button class="btn btn-secondary" onclick="window.location.href='/shipments-processing'">&larr; Back to Processing</button>
+        </div>
+
+        <div class="card">
+          <p>This extension enables <strong>Ship at UPS</strong>: one-click from Stockroom Dashboard to UPS CampusShip with auto-filled customer data.</p>
+          <p>
+            <a class="btn btn-primary" href="/downloads/ups-campusship-extension.zip" download>
+              Download Extension (.zip)
+            </a>
+          </p>
+          <p class="note">
+            If download is blocked, try right-click → “Save link as…”.
+            Alternate: <a href="/downloads/ups-campusship-extension.tar.gz" download style="color: var(--primary); text-decoration:none;">.tar.gz</a>
+          </p>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0;">Install (Chrome)</h3>
+          <ol class="steps">
+            <li>Download the zip above and unzip it into a folder (you should see a <code>manifest.json</code> file).</li>
+            <li>Open <code>chrome://extensions/</code></li>
+            <li>Enable <strong>Developer mode</strong> (top right).</li>
+            <li>Click <strong>Load unpacked</strong>.</li>
+            <li>Select the folder you unzipped (the one that contains <code>manifest.json</code>).</li>
+            <li>Pin it: puzzle icon → pin “SuitSupply Shipment Capture”.</li>
+          </ol>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-top:0;">How it works</h3>
+          <ul class="steps">
+            <li>On <code>/shipments-processing</code>, click <strong>Ship at UPS</strong>.</li>
+            <li>UPS CampusShip opens. A small SuitSupply widget appears on the page (bottom-right). Click <strong>Fill This UPS Form</strong>.</li>
+            <li>If the pending list is empty, open the dashboard in another tab (so the extension can sync shipments), then click <strong>Refresh</strong> in the widget.</li>
+            <li>The extension fills name, phone, email, address, service, weight, and references.</li>
+            <li>After label creation, the extension can send the tracking number back to the dashboard.</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/shared-header.js"></script>
+</body>
+</html>

@@ -13,6 +13,12 @@ let currentPageType = 'SA'; // Default to SA, will be determined by URL
 let sseReconnectTimer = null;
 let sseRetryDelayMs = 1000;
 
+function getLocalISODate() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function getEmployeeZones(emp) {
   if (!emp) return [];
   if (Array.isArray(emp.zones)) return emp.zones.map(z => (z || '').toString().trim()).filter(Boolean);
@@ -30,12 +36,105 @@ function normalizeEmployeeDailyFields(emp) {
   const fittingRoom = Array.isArray(emp.fittingRoom)
     ? (emp.fittingRoom[0] || '').toString().trim()
     : (emp.fittingRoom || '').toString().trim();
+  const isOff = emp?.isOff === true || emp?.isOff === 'true';
   const closingSections = Array.isArray(emp.closingSections)
     ? emp.closingSections.map(s => (s || '').toString().trim()).filter(Boolean)
     : ((emp.closingSections || '').toString().trim()
       ? (emp.closingSections || '').toString().split(',').map(s => s.trim()).filter(Boolean)
       : []);
-  return { ...emp, zones, zone: zones[0] || '', fittingRoom, closingSections };
+  return { ...emp, isOff, zones, zone: zones[0] || '', fittingRoom, closingSections };
+}
+
+function getWorkingSACount() {
+  const list = employees.SA || [];
+  return list.filter(e => !e.isOff).length;
+}
+
+function getRetailWeekTargetPerPerson() {
+  // Can't compute per-person target until the game plan is published (we don't know who's working yet).
+  if (!gameplanData?.published) return null;
+  const dailyTarget =
+    metrics?.retailWeek?.targetPerDay ||
+    (metrics?.retailWeek?.target ? (metrics.retailWeek.target / 7) : 0);
+  if (!dailyTarget) return null;
+  const working = getWorkingSACount();
+  if (!working) return null;
+  return dailyTarget / working;
+}
+
+function isPrivilegedUser() {
+  const role = (currentUser?.role || '').toString().toUpperCase();
+  return !!(currentUser?.isAdmin || currentUser?.isManager || role === 'MANAGEMENT' || role === 'ADMIN');
+}
+
+function applyUnpublishedVisibility() {
+  if (!currentUser) return;
+
+  const shouldHide = !gameplanData?.published && !isPrivilegedUser();
+
+  const idsToHide = [
+    'welcomeStoreInfo', // notes/briefing
+    'expandableAssignments',
+    'lunchTimelineSection',
+    'managementQuickSection',
+    'saSection',
+    'bohSection',
+    'managementSection',
+    'tailorsSection'
+  ];
+
+  idsToHide.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.dataset.origDisplay === undefined) el.dataset.origDisplay = el.style.display || '';
+    el.style.display = shouldHide ? 'none' : el.dataset.origDisplay;
+  });
+
+  // Target depends on published headcount; never show to employees before publish.
+  const targetValueEl = document.getElementById('kpiTarget');
+  const targetBox = targetValueEl?.closest('.kpi-box');
+  if (targetBox) {
+    if (targetBox.dataset.origDisplay === undefined) targetBox.dataset.origDisplay = targetBox.style.display || '';
+    targetBox.style.display = shouldHide ? 'none' : targetBox.dataset.origDisplay;
+  }
+}
+
+function renderRetailWeekStoreInfo() {
+  const content = document.getElementById('metricsContent');
+  if (!content) return;
+
+  const retailWeek = metrics?.retailWeek;
+  if (!retailWeek || !retailWeek.weekNumber) return;
+
+  let box = document.getElementById('retailWeekInfo');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'retailWeekInfo';
+    box.style.marginTop = '10px';
+    box.style.padding = '10px 12px';
+    box.style.background = 'var(--surface)';
+    box.style.border = '1px solid var(--border)';
+    box.style.borderRadius = '8px';
+    box.style.fontSize = '13px';
+    content.appendChild(box);
+  }
+
+  const perPerson = getRetailWeekTargetPerPerson();
+  const saLine = perPerson
+    ? `<span><strong>Target / SA Today:</strong> ${formatCurrency(perPerson)}</span>
+       <span style="color:var(--text-muted);">(${getWorkingSACount()} SA working)</span>`
+    : `<span><strong>Target / SA Today:</strong> --</span>
+       <span style="color:var(--text-muted);">(publish game plan to calculate)</span>`;
+  box.innerHTML = `
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+      <strong>Retail Week ${retailWeek.weekNumber}</strong>
+      <span style="color:var(--text-secondary);">${retailWeek.weekStart} → ${retailWeek.weekEnd}</span>
+      <span><strong>Week Sales:</strong> ${formatCurrency(retailWeek.salesAmount || 0)}</span>
+      <span><strong>Week Target:</strong> ${formatCurrency(retailWeek.target || 0)}</span>
+      <span><strong>Daily Target:</strong> ${formatCurrency(retailWeek.targetPerDay || (retailWeek.target ? retailWeek.target / 7 : 0))}</span>
+      ${saLine}
+    </div>
+  `;
 }
 
 function formatZones(emp) {
@@ -306,9 +405,9 @@ async function loadGameplan() {
       clientDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     }
     
-    const response = await fetch(`/api/gameplan/date/${clientDate}`);
-    if (response.ok) {
-      gameplanData = await response.json();
+	    const response = await fetch(`/api/gameplan/date/${clientDate}`);
+	    if (response.ok) {
+	      gameplanData = await response.json();
       
       // Update notes in both sidebar and inline editors (whichever exists)
       const notesEditor = document.getElementById('notesEditor') || document.getElementById('notesEditorInline');
@@ -321,25 +420,27 @@ async function loadGameplan() {
         lastEditedBy.textContent = `Last edited by ${gameplanData.lastEditedBy}${editTime ? ' at ' + editTime : ''}`;
       }
 
-      // Check if published - show banner at TOP if not published
-      const statusBanner = document.getElementById('statusBanner');
-      if (statusBanner) {
-        if (!gameplanData.published) {
-          statusBanner.style.display = 'flex';
-        } else {
-          statusBanner.style.display = 'none';
-        }
-      }
+	      // Merge assignments
+	      if (gameplanData.assignments) {
+	        mergeAssignments(gameplanData.assignments);
+	      }
+	    } else {
+	      // If there is no game plan file yet, treat as "not published".
+	      gameplanData = { notes: '', assignments: {}, published: false };
+	    }
 
-      // Merge assignments
-      if (gameplanData.assignments) {
-        mergeAssignments(gameplanData.assignments);
-      }
-    }
-  } catch (error) {
-    console.error('Error loading gameplan:', error);
-  }
-}
+	    // Banner at TOP if not published (whether file exists or not)
+	    const statusBanner = document.getElementById('statusBanner');
+	    if (statusBanner) {
+	      statusBanner.style.display = gameplanData?.published ? 'none' : 'flex';
+	    }
+
+	    // Apply publish gating (hides management-dependent sections for employees when not published)
+	    applyUnpublishedVisibility();
+	  } catch (error) {
+	    console.error('Error loading gameplan:', error);
+	  }
+	}
 
 async function loadLoansData() {
   try {
@@ -609,9 +710,8 @@ function setupWelcomeSection() {
           if (document.getElementById('kpiSPH')) document.getElementById('kpiSPH').textContent = userEmployee.metrics.sph ? Math.round(userEmployee.metrics.sph) : '--';
         }
         if (document.getElementById('kpiTarget')) {
-          document.getElementById('kpiTarget').textContent = userEmployee.individualTarget
-            ? '$' + Number(userEmployee.individualTarget).toLocaleString()
-            : '--';
+          const perPerson = (!userEmployee.isOff) ? getRetailWeekTargetPerPerson() : null;
+          document.getElementById('kpiTarget').textContent = perPerson ? formatCurrency(perPerson) : '--';
         }
 
         // For SA, all metrics are shown in the KPI row, so no need to add to detailsHtml
@@ -665,6 +765,9 @@ function setupWelcomeSection() {
   } else {
     detailsEl.innerHTML = '<p class="no-assignments">No assignments for today yet.</p>';
   }
+
+  // Ensure game plan is hidden for employees if not published
+  applyUnpublishedVisibility();
 }
 
 // Setup Lunch Timeline - shows all SAs and their lunch times
@@ -957,7 +1060,7 @@ function renderManagementQuickSection() {
   }
 
   // Show any other managers with shifts assigned (not already shown)
-  mgmtArray.filter(e => e.shift && !shownIds.has(e.id) && e.role !== 'Off').forEach(mgr => {
+  mgmtArray.filter(e => e.shift && !shownIds.has(e.id)).forEach(mgr => {
     const roleLabel = mgr.shift?.includes('Open') ? 'Opening' : 
                       mgr.shift?.includes('Close') ? 'Closing' : 'Manager';
     grid.appendChild(createManagementQuickCard(mgr, roleLabel, ''));
@@ -1160,6 +1263,8 @@ function updateMetricsDisplay() {
     document.getElementById('casualPct').textContent = `${metrics.lastWeekSales.casual}%`;
     document.getElementById('tuxedoPct').textContent = `${metrics.lastWeekSales.tuxedo}%`;
   }
+
+  renderRetailWeekStoreInfo();
 }
 
 function formatCurrency(amount) {
@@ -1272,10 +1377,10 @@ function createSACard(emp, isCurrentUser = false) {
         <span class="field-label">Fitting Room</span>
         <span class="field-value">${emp.fittingRoom || '-'}</span>
       </div>
-      <div class="card-field">
-        <span class="field-label">Target</span>
-        <span class="field-value">${emp.individualTarget ? '$' + emp.individualTarget.toLocaleString() : '-'}</span>
-      </div>
+	      <div class="card-field">
+	        <span class="field-label">Target</span>
+	        <span class="field-value">${(!emp.isOff && gameplanData?.published && getRetailWeekTargetPerPerson()) ? formatCurrency(getRetailWeekTargetPerPerson()) : '-'}</span>
+	      </div>
       <div class="card-field">
         <span class="field-label">Lunch</span>
         <span class="field-value">${emp.scheduledLunch || '-'}</span>
@@ -1690,7 +1795,7 @@ function renderCustomerOrders() {
     const fulfillmentId = order.fulfillmentId || '';
     const psusMatch = fulfillmentId.match(/PSUS(\d{8})/i);
     const fulfillmentDisplay = psusMatch
-      ? `<a href="https://mao.suitsupply.com/order/PSUS${psusMatch[1]}" target="_blank" class="psus-link" title="Open in MAO">PSUS${psusMatch[1]}</a>`
+      ? `<a href="https://ussbp.omni.manh.com/customerengagementfacade/app/orderstatus?orderId=PSUS${psusMatch[1]}&selectedOrg=SUIT-US" target="_blank" class="psus-link" title="Open Order Status">PSUS${psusMatch[1]}</a>`
       : fulfillmentId;
 
     tr.innerHTML = `
@@ -2040,10 +2145,6 @@ function getFormFields(emp) {
 	        </div>
         <div class="grid grid-2">
           <div class="form-group">
-            <label>Individual Target ($)</label>
-            <input type="number" class="form-control" id="editTarget" value="${emp.individualTarget || ''}">
-          </div>
-          <div class="form-group">
             <label>Lunch Time</label>
             <select class="form-control" id="editLunch"><option value="">Select...</option>${lunchOptions}</select>
           </div>
@@ -2142,7 +2243,6 @@ async function saveModalChanges() {
 	        emp.zone = zones[0] || '';
 	      }
 	      emp.fittingRoom = document.getElementById('editFittingRoom')?.value || emp.fittingRoom;
-	      emp.individualTarget = parseInt(document.getElementById('editTarget')?.value) || emp.individualTarget;
 	      emp.scheduledLunch = document.getElementById('editLunch')?.value || emp.scheduledLunch;
 	      emp.closingSections = (document.getElementById('editClosing')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
 	      break;
@@ -2183,7 +2283,8 @@ async function saveModalChanges() {
 async function saveGameplan() {
   const notesEditor = document.getElementById('notesEditor') || document.getElementById('notesEditorInline');
   gameplanData.notes = notesEditor?.innerHTML || '';
-  gameplanData.date = new Date().toISOString().split('T')[0];
+  // Use local date (store day) to avoid UTC off-by-one issues.
+  gameplanData.date = getLocalISODate(); // YYYY-MM-DD
   gameplanData.lastEditedBy = currentUser?.name || 'Unknown';
   gameplanData.lastEditedAt = new Date().toISOString();
 
@@ -2203,6 +2304,13 @@ async function saveGameplan() {
         const editTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
         lastEditedBy.textContent = `Last edited by ${currentUser?.name || 'Unknown'} at ${editTime}`;
       }
+    } else {
+      let msg = `Save failed (HTTP ${response.status})`;
+      try {
+        const data = await response.json();
+        if (data?.error) msg = data.error;
+      } catch (e) {}
+      if (notesStatus) notesStatus.textContent = msg;
     }
   } catch (error) {
     console.error('Error saving gameplan:', error);

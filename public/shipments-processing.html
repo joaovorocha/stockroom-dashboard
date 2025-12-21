@@ -38,7 +38,10 @@
       text-transform: capitalize;
     }
     .shipment-status.requested { background: #9c27b0; color: #fff; }
-    .shipment-status.shipped { background: #4caf50; color: #fff; }
+    .shipment-status.label-created { background: #607d8b; color: #fff; }
+    .shipment-status.in-transit { background: #2196f3; color: #fff; }
+    .shipment-status.delivered { background: #4caf50; color: #fff; }
+    .shipment-status.unknown { background: #9e9e9e; color: #fff; }
     .process-details {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -149,12 +152,12 @@
       <section class="section">
         <div class="section-header">
           <h2>Shipment Processing</h2>
+          <button class="btn btn-secondary" id="campusShipImportBtn" style="display:none;" onclick="window.location.href='/ups-campusship-import'">Import CampusShip CSV</button>
           <button class="btn btn-secondary" onclick="window.location.href='/shipments'">&larr; Back to Shipments</button>
         </div>
 
         <div class="tab-bar">
           <button class="active" id="tabRequested">Requested (<span id="requestedCount">0</span>)</button>
-          <button id="tabShipped">Recently Shipped (<span id="shippedCount">0</span>)</button>
         </div>
 
         <div id="processingList"></div>
@@ -166,15 +169,17 @@
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
 
+  <script src="/js/utils.js"></script>
   <script>
     let shipments = [];
     let currentUser = null;
-    let currentTab = 'requested';
+    const UPS_CREATE_URL = 'https://www.campusship.ups.com/cship/create?ActionOriginPair=CreateAShipment___StartSession&loc=en_US';
 
     document.addEventListener('DOMContentLoaded', async () => {
       await checkAuth();
       await loadShipments();
       setupEventListeners();
+      setupExtensionStatus();
     });
 
     async function checkAuth() {
@@ -191,6 +196,11 @@
             window.location.href = '/shipments';
             return;
           }
+
+          const canImport = ['MANAGEMENT', 'BOH', 'ADMIN'].includes(currentUser.role) || currentUser.isManager || currentUser.isAdmin;
+          const importBtn = document.getElementById('campusShipImportBtn');
+          if (importBtn && canImport) importBtn.style.display = '';
+
           if (currentUser.isManager || currentUser.isAdmin) {
             document.getElementById('navAdmin').style.display = 'inline';
           }
@@ -206,7 +216,19 @@
     async function loadShipments() {
       try {
         const response = await fetch('/api/shipments');
-        shipments = await response.json();
+        if (!response.ok) {
+          if (response.status === 401) {
+            window.location.href = '/login-v2';
+            return;
+          }
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          window.location.href = '/login-v2';
+          return;
+        }
+        shipments = data;
         updateCounts();
         renderShipments();
       } catch (e) {
@@ -217,30 +239,29 @@
 
     function updateCounts() {
       const requested = shipments.filter(s => s.status === 'requested').length;
-      const shipped = shipments.filter(s => s.status === 'shipped').length;
       document.getElementById('requestedCount').textContent = requested;
-      document.getElementById('shippedCount').textContent = shipped;
+    }
+
+    function formatAddressForDisplay(shipment) {
+      const addr = shipment?.address;
+      if (!addr) return shipment?.destination || shipment?.addressLine1 || shipment?.fullAddress || '-';
+      if (typeof addr === 'string') return addr || '-';
+      const parts = [
+        addr.line1,
+        addr.line2,
+        [addr.city, addr.state, addr.zip].filter(Boolean).join(' '),
+        addr.country
+      ].filter(Boolean);
+      return parts.length ? parts.join(', ') : '-';
     }
 
     function renderShipments() {
       const container = document.getElementById('processingList');
 
-      let filtered;
-      if (currentTab === 'requested') {
-        filtered = shipments.filter(s => s.status === 'requested');
-      } else {
-        filtered = shipments.filter(s => s.status === 'shipped')
-          .sort((a, b) => new Date(b.shippedAt || b.createdAt) - new Date(a.shippedAt || a.createdAt))
-          .slice(0, 20);
-      }
+      const filtered = shipments.filter(s => s.status === 'requested');
 
       if (!filtered.length) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <h3>${currentTab === 'requested' ? 'No Pending Requests' : 'No Recent Shipments'}</h3>
-            <p>${currentTab === 'requested' ? 'All shipment requests have been processed!' : 'No shipments have been processed recently.'}</p>
-          </div>
-        `;
+        window.location.href = '/dashboard';
         return;
       }
 
@@ -258,7 +279,7 @@
           <div class="process-details">
             <div class="detail-item">
               <label>Order #</label>
-              <span>${s.orderNumber ? `<a href="https://mao.suitsupply.com/order/${s.orderNumber}" target="_blank" style="color: var(--primary);">${s.orderNumber} &rarr;</a>` : '-'}</span>
+              <span>${s.orderNumber ? (() => { const url = getMAOOrderURL(s.orderNumber); return url ? `<a href="${url}" target="_blank" style="color: var(--primary);">${s.orderNumber} &rarr;</a>` : s.orderNumber; })() : '-'}</span>
             </div>
             <div class="detail-item">
               <label>Carrier</label>
@@ -266,21 +287,16 @@
             </div>
             <div class="detail-item">
               <label>Address</label>
-              <span>${s.address || '-'}</span>
+              <span>${formatAddressForDisplay(s)}</span>
             </div>
           </div>
           ${s.notes ? `<div class="notes-text"><strong>Notes:</strong> ${s.notes}</div>` : ''}
-          ${currentTab === 'requested' ? `
-            <div class="process-actions">
-              <input type="text" id="tracking-${s.id}" placeholder="Enter tracking number (e.g., 1Z...)" value="${s.trackingNumber || ''}">
-              <button class="btn btn-primary" onclick="markShipped('${s.id}')">Mark Shipped</button>
-            </div>
-          ` : `
-            <div class="process-actions" style="justify-content: space-between;">
-              <span style="font-family: monospace; font-weight: 600;">${s.trackingNumber || 'No tracking'}</span>
-              <a href="https://www.ups.com/track?tracknum=${s.trackingNumber}" target="_blank" class="btn btn-secondary">Track on UPS</a>
-            </div>
-          `}
+          <div class="process-actions">
+            <button class="btn btn-primary" onclick="shipAtUPS('${s.id}')">Ship at UPS</button>
+            <button class="btn btn-secondary" onclick="editShipment('${s.id}')">Edit</button>
+            <input type="text" id="tracking-${s.id}" placeholder="Optional: paste tracking number (1Z...)" value="${s.trackingNumber || ''}">
+            <button class="btn btn-secondary" onclick="markShipped('${s.id}')">Save Tracking</button>
+          </div>
         </div>
       `).join('');
     }
@@ -301,9 +317,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             trackingNumber,
-            status: 'shipped',
+            status: 'label-created',
             shippedAt: new Date().toISOString(),
-            shippedBy: currentUser.name
+            shippedBy: currentUser.name,
+            processedByName: currentUser.name,
+            processedById: currentUser.employeeId
           })
         });
 
@@ -318,20 +336,57 @@
       }
     }
 
-    function setupEventListeners() {
-      document.getElementById('tabRequested').addEventListener('click', () => {
-        currentTab = 'requested';
-        document.getElementById('tabRequested').classList.add('active');
-        document.getElementById('tabShipped').classList.remove('active');
-        renderShipments();
-      });
+    async function shipAtUPS(shipmentId) {
+      const shipment = shipments.find(s => s.id === shipmentId);
+      if (!shipment) return;
 
-      document.getElementById('tabShipped').addEventListener('click', () => {
-        currentTab = 'shipped';
-        document.getElementById('tabShipped').classList.add('active');
-        document.getElementById('tabRequested').classList.remove('active');
-        renderShipments();
-      });
+      const enrichedShipment = {
+        ...shipment,
+        processedByName: currentUser?.name || shipment.processedByName || '',
+        processedById: currentUser?.employeeId || shipment.processedById || ''
+      };
+
+      try {
+        await fetch(`/api/shipments/${shipmentId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            processedByName: enrichedShipment.processedByName,
+            processedById: enrichedShipment.processedById,
+            processingStartedAt: new Date().toISOString()
+          })
+        });
+      } catch (_) {}
+
+      window.postMessage({ type: 'UPS_EXT_SET_ACTIVE_SHIPMENT', shipment: enrichedShipment }, window.location.origin);
+      window.open(UPS_CREATE_URL, '_blank', 'noopener');
+    }
+
+    function editShipment(shipmentId) {
+      window.location.href = `/shipments?edit=${encodeURIComponent(shipmentId)}`;
+    }
+
+    function setupExtensionStatus() {
+      const header = document.querySelector('.section-header');
+      if (!header) return;
+
+      const badge = document.createElement('span');
+      badge.style.marginLeft = '12px';
+      badge.style.fontSize = '12px';
+      badge.style.color = 'var(--text-secondary)';
+
+      const isInstalled = document.documentElement.dataset.upsShipmentExtInstalled === '1';
+      if (isInstalled) {
+        badge.textContent = 'UPS Extension: Installed';
+      } else {
+        badge.innerHTML = `UPS Extension: Not installed · <a href="/ups-extension" style="color: var(--primary); text-decoration:none;">Get it</a>`;
+      }
+
+      header.appendChild(badge);
+    }
+
+    function setupEventListeners() {
+      // No extra tabs; keep this page focused on shipments that still need labels.
     }
   </script>
   <script src="/js/shared-header.js"></script>

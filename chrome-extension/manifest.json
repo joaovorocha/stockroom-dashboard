@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SuitSupply Shipment Capture",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Capture shipment details from UPS and send to Stockroom Dashboard",
   "permissions": [
     "activeTab",
@@ -11,7 +11,11 @@
     "https://www.ups.com/*",
     "https://wwwapps.ups.com/*",
     "https://*.ups.com/*",
-    "https://192.168.12.103:3000/*"
+    "https://www.campusship.ups.com/*",
+    "https://ssussf.duckdns.org/*",
+    "https://192.168.12.103:3000/*",
+    "http://192.168.12.103:3000/*",
+    "http://localhost:3000/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -26,9 +30,20 @@
       "matches": [
         "https://www.ups.com/*",
         "https://wwwapps.ups.com/*",
-        "https://*.ups.com/*"
+        "https://*.ups.com/*",
+        "https://www.campusship.ups.com/*"
       ],
       "js": ["content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://ssussf.duckdns.org/*",
+        "https://192.168.12.103:3000/*",
+        "http://192.168.12.103:3000/*",
+        "http://localhost:3000/*"
+      ],
+      "js": ["dashboard-bridge.js"],
       "run_at": "document_idle"
     }
   ],

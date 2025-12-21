@@ -298,6 +298,115 @@ class LookerDataProcessor {
       });
     }
 
+    // Production mix data (CM vs RTW)
+    const cmRtwData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'stores_performance_product_mix_cm_rtw.csv'));
+    if (cmRtwData.length > 0) {
+      const mix = {};
+      cmRtwData.forEach(row => {
+        const type = (row['Production Type'] || '').toString().trim();
+        const share = this.parsePercent(row['Shares']);
+        if (type) mix[type] = share;
+      });
+      metrics.productMixCmRtw = mix; // ex: { RTW: 85, CM: 15 }
+    }
+
+    // Selling bookable vs non-bookable next 14 days
+    const bookableData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'selling_bookable_vs_non-bookable_next_14_days.csv'));
+    if (bookableData.length > 0) {
+      const rows = bookableData
+        .map(r => ({
+          date: (r['Calendar Date'] || '').toString().trim(),
+          bookable: this.parsePercent(r['% Selling Bookable']),
+          bookableHoursBooked: this.parsePercent(r['% Selling Bookable Hours Booked']),
+          nonBookable: this.parsePercent(r['% Selling Non-Bookable'])
+        }))
+        .filter(r => r.date);
+
+      const today = new Date();
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const end = new Date(start.getTime() + 13 * 24 * 60 * 60 * 1000);
+      const inRange = rows.filter(r => {
+        const d = new Date(`${r.date}T00:00:00`);
+        return d >= start && d <= end;
+      });
+
+      const avg = (key) => {
+        const values = inRange.map(r => r[key]).filter(v => typeof v === 'number' && !Number.isNaN(v) && v !== 0);
+        if (!values.length) return null;
+        return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+      };
+
+      metrics.sellingBookableNext14Days = {
+        rangeStart: start.toISOString().split('T')[0],
+        rangeEnd: end.toISOString().split('T')[0],
+        avgBookable: avg('bookable'),
+        avgNonBookable: avg('nonBookable'),
+        avgBookableHoursBooked: avg('bookableHoursBooked'),
+        days: inRange
+      };
+    }
+
+    // Sales by retail weeks (weekly totals + target)
+    const weeklyData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'sales_by_retail_weeks.csv'));
+    if (weeklyData.length > 0) {
+      const rows = weeklyData
+        .map(r => ({
+          weekNumber: parseInt(r['Retail Week Number'], 10) || null,
+          salesAmount: this.parseAmount(r['Sales']),
+          salesAmountPY: this.parseAmount(r['Sales Amount PY']),
+          target: this.parseAmount(r['Target'])
+        }))
+        .filter(r => r.weekNumber);
+
+      const getWeekNumberSundayStart = (date) => {
+        const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const jan1 = new Date(d.getFullYear(), 0, 1);
+        const startOfWeek1 = new Date(jan1);
+        startOfWeek1.setDate(jan1.getDate() - jan1.getDay()); // back to Sunday
+        const diffDays = Math.floor((d - startOfWeek1) / 86400000);
+        return Math.floor(diffDays / 7) + 1;
+      };
+
+      const now = new Date();
+      const currentWeek = getWeekNumberSundayStart(now);
+      const currentRow = rows.find(r => r.weekNumber === currentWeek) || rows[rows.length - 1] || null;
+
+      metrics.salesByRetailWeeks = rows;
+      if (currentRow) {
+        const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6); // Saturday
+        metrics.retailWeek = {
+          weekNumber: currentRow.weekNumber,
+          weekStart: weekStart.toISOString().split('T')[0],
+          weekEnd: weekEnd.toISOString().split('T')[0],
+          salesAmount: currentRow.salesAmount,
+          salesAmountPY: currentRow.salesAmountPY,
+          target: currentRow.target,
+          targetPerDay: currentRow.target ? currentRow.target / 7 : null
+        };
+      }
+    }
+
+    // Store summary metrics (sales_by_retail_weeks_(copy))
+    const storeSummary = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'sales_by_retail_weeks_(copy).csv'));
+    if (storeSummary.length > 0) {
+      const row = storeSummary.find(r => (r['Stores'] || '').toString().trim()) || storeSummary[0];
+      metrics.storeWeekSummary = {
+        store: (row['Stores'] || '').toString().trim() || null,
+        salesAmount: this.parseAmount(row['Sales Amount']),
+        salesVsPY: this.parsePercent(row['% Sales vs PY']),
+        salesVsTarget: this.parsePercent(row['% Sales vs Target']),
+        apc: this.parseAmount(row['APC']),
+        apcVsPY: this.parsePercent(row['% APC vs PY']),
+        apcVsTarget: this.parsePercent(row['% APC vs Target']),
+        ipc: parseFloat((row['IPC'] || '').toString().replace(/[^0-9.-]/g, '')) || null,
+        ipcVsPY: this.parsePercent(row['% IPC vs PY']),
+        ipcVsTarget: this.parsePercent(row['% IPC vs Target'])
+      };
+    }
+
     return metrics;
   }
 

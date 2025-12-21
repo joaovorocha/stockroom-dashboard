@@ -142,20 +142,24 @@
                   <label>Date of Missed Punch *</label>
                   <input type="date" class="form-control" id="missedDate" required>
                 </div>
-                <div class="form-group">
-                  <label>Time of Missed Punch *</label>
-                  <input type="time" class="form-control" id="missedTime" required>
-                </div>
               </div>
-              <div class="form-group">
-                <label>Punch Type *</label>
-                <select class="form-control" id="punchType" required>
-                  <option value="">Select...</option>
-                  <option value="clock-in">Clock In</option>
-                  <option value="clock-out">Clock Out</option>
-                  <option value="meal-start">Meal Start</option>
-                  <option value="meal-end">Meal End</option>
-                </select>
+              <div class="grid grid-2">
+                <div class="form-group">
+                  <label>Clock In (optional)</label>
+                  <input type="time" class="form-control" id="clockInTime">
+                </div>
+                <div class="form-group">
+                  <label>Lunch Out (optional)</label>
+                  <input type="time" class="form-control" id="lunchOutTime">
+                </div>
+                <div class="form-group">
+                  <label>Lunch In (optional)</label>
+                  <input type="time" class="form-control" id="lunchInTime">
+                </div>
+                <div class="form-group">
+                  <label>Clock Out (optional)</label>
+                  <input type="time" class="form-control" id="clockOutTime">
+                </div>
               </div>
               <div class="form-group">
                 <label>Reason *</label>
@@ -230,6 +234,25 @@
       }
     }
 
+    function renderTimesHtml(p) {
+      const timeRows = [
+        { label: 'Clock In', value: p.clockInTime },
+        { label: 'Lunch Out', value: p.lunchOutTime },
+        { label: 'Lunch In', value: p.lunchInTime },
+        { label: 'Clock Out', value: p.clockOutTime },
+      ].filter(r => r.value);
+
+      if (timeRows.length === 0 && p.missedTime) {
+        timeRows.push({ label: 'Time', value: p.missedTime });
+      }
+
+      if (timeRows.length === 0) {
+        return '<div><label>Times</label><br>-</div>';
+      }
+
+      return timeRows.map(r => `<div><label>${r.label}</label><br>${r.value}</div>`).join('');
+    }
+
     function renderHistory() {
       const container = document.getElementById('historyList');
       const myPunches = currentUser ? punches.filter(p => p.employeeId === currentUser.employeeId) : [];
@@ -246,8 +269,7 @@
             <span class="punch-status ${p.status}">${p.status}</span>
           </div>
           <div class="punch-details">
-            <div><label>Time</label><br>${p.missedTime}</div>
-            <div><label>Type</label><br>${p.punchType?.replace('-', ' ')}</div>
+            ${renderTimesHtml(p)}
           </div>
           <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${p.reason}</p>
           ${p.reviewedBy ? `
@@ -293,8 +315,7 @@
             <span class="punch-status pending">Pending</span>
           </div>
           <div class="punch-details">
-            <div><label>Time</label><br>${p.missedTime}</div>
-            <div><label>Type</label><br>${p.punchType?.replace('-', ' ')}</div>
+            ${renderTimesHtml(p)}
             <div><label>Submitted</label><br>${p.submittedAt ? new Date(p.submittedAt).toLocaleDateString() : '-'}</div>
           </div>
           <p style="margin-top: 8px; font-size: 13px;">${p.reason}</p>
@@ -389,12 +410,25 @@
       // Form submit
       document.getElementById('punchForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const clockInTime = document.getElementById('clockInTime').value;
+        const lunchOutTime = document.getElementById('lunchOutTime').value;
+        const lunchInTime = document.getElementById('lunchInTime').value;
+        const clockOutTime = document.getElementById('clockOutTime').value;
+
+        const hasAtLeastOneTime = !!(clockInTime || lunchOutTime || lunchInTime || clockOutTime);
+        if (!hasAtLeastOneTime) {
+          alert('Please enter at least one time (Clock In, Lunch Out, Lunch In, or Clock Out).');
+          return;
+        }
+
         const punch = {
           employeeName: document.getElementById('employeeName').value,
           employeeId: document.getElementById('employeeId').value,
           missedDate: document.getElementById('missedDate').value,
-          missedTime: document.getElementById('missedTime').value,
-          punchType: document.getElementById('punchType').value,
+          clockInTime,
+          lunchOutTime,
+          lunchInTime,
+          clockOutTime,
           reason: document.getElementById('reason').value,
           status: 'pending',
           submittedAt: new Date().toISOString()

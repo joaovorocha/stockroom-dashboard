@@ -18,6 +18,13 @@ function extractPSUSNumber(input) {
     return 'PSUS' + match[1]; // Return PSUS + 8 digits
   }
 
+  // Also accept 8-digit order codes that start with 04........ (8 digits total)
+  // Example: "04XXXXXX" -> "PSUS04XXXXXX"
+  const match04 = cleaned.match(/^(04\d{6})/);
+  if (match04) {
+    return 'PSUS' + match04[1];
+  }
+
   return null;
 }
 

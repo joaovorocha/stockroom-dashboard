@@ -14,7 +14,7 @@ class UPSScheduler {
   constructor() {
     this.isRunning = false;
     this.lastRun = null;
-    this.cronJob = null;
+    this.cronJobs = [];
   }
 
   log(message, data = null) {
@@ -111,23 +111,44 @@ class UPSScheduler {
   }
 
   start(cronExpression = '*/10 * * * *', daysBack = 2, deleteAfterImport = true) {
-    this.log(`Starting UPS scheduler with cron: ${cronExpression} (daysBack=${daysBack}, deleteAfterImport=${deleteAfterImport})`);
+    const expressions = Array.isArray(cronExpression)
+      ? cronExpression
+      : (cronExpression || '')
+          .toString()
+          .split(';')
+          .map(s => s.trim())
+          .filter(Boolean);
 
-    this.cronJob = cron.schedule(cronExpression, async () => {
-      this.log('UPS cron triggered');
-      await this.runImport(daysBack, deleteAfterImport);
-    }, {
-      scheduled: true,
-      timezone: 'America/Los_Angeles'
-    });
+    this.stop();
+
+    this.log(`Starting UPS scheduler with cron: ${expressions.join(' ; ')} (daysBack=${daysBack}, deleteAfterImport=${deleteAfterImport})`);
+
+    this.cronJobs = expressions.map((expr) =>
+      cron.schedule(
+        expr,
+        async () => {
+          this.log('UPS cron triggered');
+          await this.runImport(daysBack, deleteAfterImport);
+        },
+        {
+          scheduled: true,
+          timezone: 'America/Los_Angeles',
+        }
+      )
+    );
 
     this.log('UPS scheduler started');
     return this;
   }
 
   stop() {
-    if (this.cronJob) {
-      this.cronJob.stop();
+    if (Array.isArray(this.cronJobs) && this.cronJobs.length) {
+      for (const job of this.cronJobs) {
+        try {
+          job.stop();
+        } catch (_) {}
+      }
+      this.cronJobs = [];
       this.log('UPS scheduler stopped');
     }
   }
@@ -136,7 +157,7 @@ class UPSScheduler {
     return {
       isRunning: this.isRunning,
       lastRun: this.lastRun ? this.lastRun.toISOString() : null,
-      scheduled: this.cronJob ? this.cronJob.running : false
+      scheduled: Array.isArray(this.cronJobs) ? this.cronJobs.some(j => j?.running) : false
     };
   }
 }

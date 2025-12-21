@@ -2,11 +2,39 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'employees-v2.json');
 const ACTIVITY_LOG_FILE = path.join(DATA_DIR, 'activity-log.json');
+const USER_UPLOADS_DIR = path.join(DATA_DIR, 'user-uploads');
+
+// Avatar upload (stored locally, served via /user-uploads/* with auth)
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (!fs.existsSync(USER_UPLOADS_DIR)) fs.mkdirSync(USER_UPLOADS_DIR, { recursive: true });
+    cb(null, USER_UPLOADS_DIR);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase() || '.jpg';
+    const safeExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(ext) ? ext : '.jpg';
+    const userId = (req.params.id || 'user').toString().replace(/[^a-zA-Z0-9-_]/g, '');
+    cb(null, `${userId}_${Date.now()}${safeExt}`);
+  }
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|gif|webp/;
+    const extname = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowed.test(file.mimetype);
+    if (extname && mimetype) return cb(null, true);
+    cb(new Error('Only image files are allowed'));
+  }
+});
 
 // Helper functions
 function readJsonFile(filePath, defaultValue = {}) {
@@ -401,6 +429,50 @@ router.put('/users/:id', (req, res) => {
 
     return res.json({ success: true });
   } catch (error) {
+    return res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/auth/users/:id/photo - Upload user avatar (managers only)
+router.post('/users/:id/photo', avatarUpload.single('photo'), (req, res) => {
+  const userSession = req.cookies.userSession;
+  if (!userSession) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const currentUser = JSON.parse(userSession);
+    if (!currentUser.isManager && !currentUser.isAdmin) {
+      return res.status(403).json({ error: 'Access denied. Managers only.' });
+    }
+
+    const { id } = req.params;
+    const usersData = readJsonFile(USERS_FILE, { users: [] });
+    const userIndex = usersData.users.findIndex(u => u.id === id);
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No photo uploaded' });
+    }
+
+    const imageUrl = `/user-uploads/${req.file.filename}`;
+    usersData.users[userIndex].imageUrl = imageUrl;
+    usersData.lastUpdated = new Date().toISOString().split('T')[0];
+    writeJsonFile(USERS_FILE, usersData);
+
+    // Sync to employees-v2.json
+    syncUserToEmployees(usersData.users[userIndex]);
+
+    logActivity('USER_PHOTO_UPDATED', currentUser.userId, currentUser.name, {
+      updatedUserId: id,
+      filename: req.file.filename
+    });
+
+    return res.json({ success: true, imageUrl });
+  } catch (error) {
+    console.error('Error uploading user photo:', error);
     return res.status(500).json({ error: 'Server error' });
   }
 });

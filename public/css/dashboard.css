@@ -20,7 +20,7 @@
 
 /* Last Updated / Sync Status */
 .last-updated {
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-secondary);
   padding: 4px 8px;
   border-radius: 4px;
@@ -58,7 +58,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 20px;
+  font-size: calc(20px * var(--font-scale));
 }
 
 .status-text strong {
@@ -68,7 +68,7 @@
 
 .status-text span {
   color: #666;
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
 }
 
 /* Alerts */
@@ -76,7 +76,7 @@
   padding: 12px 16px;
   border-radius: 6px;
   margin-bottom: 16px;
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
 }
 
 .alert-warning {
@@ -150,7 +150,7 @@
   gap: 4px;
   padding: 4px 12px;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
   font-weight: 500;
 }
 
