@@ -477,7 +477,7 @@
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
   padding: 8px;
-  z-index: 1000;
+  z-index: 1100;
 }
 
 .emoji-grid {
@@ -769,6 +769,15 @@
   margin: 0;
 }
 
+.welcome-action-row {
+  margin-top: 10px;
+}
+
+.welcome-action-row .btn {
+  padding: 10px 16px;
+  font-weight: 600;
+}
+
 .welcome-assignments {
   display: flex;
   flex-wrap: wrap;
@@ -802,6 +811,10 @@
 
 .assignment-item .value.negative {
   color: var(--danger);
+}
+
+.assignment-item .value.muted {
+  color: var(--text-muted);
 }
 
 .no-assignments {
@@ -1952,6 +1965,12 @@
   border-radius: 8px;
   padding: 16px;
   margin-top: 16px;
+}
+
+.import-status-card--welcome {
+  margin-top: 0;
+  background: var(--background);
+  min-width: 280px;
 }
 
 .import-status-card h4 {

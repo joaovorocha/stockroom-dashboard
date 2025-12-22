@@ -1,0 +1,2722 @@
+[
+  {
+    "id": "auto-1766018867225-l9t9k2zqe",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180332775836",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "900 Secaucus Rd",
+      "line2": "",
+      "city": "SECAUCUS",
+      "state": "",
+      "zip": "70942423",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from email: UPS Ship Notification, Tracking Number 1ZY8V7180332775836",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.063Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.105Z"
+      },
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609631-jy5l4oj8d",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180307676339",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "23115 NE 8th Street",
+      "line2": "",
+      "city": "SAMMAMISH",
+      "state": "",
+      "zip": "980747380",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.105Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.105Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609632-5aa9yuon6",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180127275023",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "453 Broome St",
+      "line2": "",
+      "city": "NEW YORK",
+      "state": "",
+      "zip": "100132650",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "nysoho@suitsupply.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.105Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.105Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609633-jsjxdz8k1",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180302251476",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "3231 ellis street",
+      "line2": "",
+      "city": "BERKELEY",
+      "state": "",
+      "zip": "947032454",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "dchatman@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.105Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.105Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609634-brtbp4cxn",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180320346410",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "30 Otis St.",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941031292",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "itsdanielhagemann@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.105Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.105Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609634-h7ld080tz",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180312458529",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "5165 Coronado Ave",
+      "line2": "",
+      "city": "OAKLAND",
+      "state": "",
+      "zip": "946181003",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "nadivr@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.105Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.105Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609635-tsdgpqh3y",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180323826002",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1006 Alberdan circle",
+      "line2": "",
+      "city": "PINOLE",
+      "state": "",
+      "zip": "945642702",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "rodriguez.neshel@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.105Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.105Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609636-kaczu1q71",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180300011514",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "5512 Brome Ct.",
+      "line2": "",
+      "city": "ORANGEVALE",
+      "state": "",
+      "zip": "956625302",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "nicwhitehead63@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.105Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.105Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609637-l02ycrco5",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180317391305",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "6350 california street",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941211904",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "mdelgado4444@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.105Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.105Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609637-ac4pewem2",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180317573896",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "3251 Washington St",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941151636",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "jesselefferts@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.106Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609638-tchlic6kn",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180313855286",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "2023 Julius Ct",
+      "line2": "",
+      "city": "WALNUT CREEK",
+      "state": "",
+      "zip": "945982248",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "ylorenzd@yahoo.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.106Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      },
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609639-pm8l3kb6b",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180139229793",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "922 Meadowsweet Drive",
+      "line2": "",
+      "city": "CORTE MADERA",
+      "state": "",
+      "zip": "949251721",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "ndewyer@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.106Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609640-2kd5pcxil",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180336153787",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "945 taraval st",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941162422",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.106Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      },
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      },
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609642-f49ig3s3v",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180323436737",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "4273 atlas ave",
+      "line2": "",
+      "city": "OAKLAND",
+      "state": "",
+      "zip": "946191631",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "smeryash@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.106Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609643-eonrjqg8n",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180335606950",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "900 Secaucus Rd",
+      "line2": "",
+      "city": "SECAUCUS",
+      "state": "",
+      "zip": "70942423",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.106Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766019609644-6c9w0jldq",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180332171747",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "901 Myrtle Avenue",
+      "line2": "",
+      "city": "EUREKA",
+      "state": "",
+      "zip": "955011219",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "joaquinjohndominick@gmail.com",
+    "employeeName": "UPS Auto Import",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "status": "shipped",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "updatedAt": "2025-12-20T05:14:57.106Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.106Z"
+      }
+    ]
+  },
+  {
+    "id": "mjatps2l6p92vcs2g",
+    "customerName": "dsadasdasdsa",
+    "orderNumber": "ddsadasdas",
+    "trackingNumber": "jghfgdsfdgfhgjkiouytrdfsfghjk",
+    "carrier": "UPS",
+    "serviceType": "",
+    "address": "dsadasdsadas",
+    "phone": "",
+    "email": "",
+    "employeeName": "Jordan Dillard",
+    "employeeId": "6543",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "dsadasdas",
+    "status": "shipped",
+    "createdAt": "2025-12-18T02:30:47.566Z",
+    "updatedAt": "2025-12-20T05:14:57.107Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.107Z"
+      }
+    ]
+  },
+  {
+    "id": "mjcasx72hb5b9o5j8",
+    "customerName": "Marc Antony",
+    "orderNumber": "PSYSdsdsdsds",
+    "trackingNumber": "",
+    "carrier": "UPS",
+    "serviceType": "UPS 3 Day Select",
+    "address": {
+      "line1": "1932 fdfsdfdsfs",
+      "line2": "fdfdf",
+      "city": "ffsdf",
+      "state": "fdfd",
+      "zip": "fdfdf",
+      "country": "USA",
+      "phone": "dfdfdf"
+    },
+    "phone": "",
+    "email": "",
+    "employeeName": "Jordan Dillard",
+    "employeeId": "6543",
+    "processedByName": "Aundra Nichols",
+    "processedById": "14071",
+    "notes": "tes te s",
+    "status": "requested",
+    "createdAt": "2025-12-19T03:16:53.853Z",
+    "updatedAt": "2025-12-20T05:14:57.107Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.107Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766190002604-un0l3tr0k",
+    "customerName": "SUIT SUPPLY SAN FRANCISCO, INC",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180317400358",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "900 Secaucus Rd",
+      "line2": "",
+      "city": "SECAUCUS",
+      "state": "",
+      "zip": "70942423",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "",
+    "employeeName": "AutoFill\\SF-Email",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "Auto-imported from UPS email: UPS Ship Notification, Tracking Number 1ZY8V7180317400358",
+    "status": "shipped",
+    "createdAt": "2025-12-20T00:16:06.000Z",
+    "updatedAt": "2025-12-20T05:14:57.107Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.107Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdocgw1fvwkr7hc8",
+    "customerName": "Joao Victor Rocha",
+    "orderNumber": "PSUS022325562",
+    "trackingNumber": "",
+    "carrier": "UPS",
+    "serviceType": "UPS 2nd Day Air",
+    "address": {
+      "line1": "945 Taraval St",
+      "line2": "402",
+      "city": "San Francisco",
+      "state": "CA",
+      "zip": "94108",
+      "country": "USA",
+      "phone": "8319983808"
+    },
+    "phone": "8319983808",
+    "email": "",
+    "employeeName": "Aundra Nichols",
+    "employeeId": "14071",
+    "processedByName": "Victor Rocha",
+    "processedById": "30744",
+    "notes": "",
+    "status": "requested",
+    "createdAt": "2025-12-20T02:23:47.190Z",
+    "updatedAt": "2025-12-20T05:14:57.107Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.107Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugk8hxn7ql48fh",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180120181075",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "18 Crest Road",
+      "line2": "",
+      "city": "PIEDMONT",
+      "state": "",
+      "zip": "946113304",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "pekeruo@yahoo.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:55.985Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugk8u6wnr42zm9",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180334150051",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "30 Otis St",
+      "line2": "Apt 520",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941031968",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "jason.jacobs6@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:55.998Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugk9icxyw50f6e",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180309794565",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1084 Maria Way",
+      "line2": "",
+      "city": "GALT",
+      "state": "",
+      "zip": "956322197",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "csimonson11@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.022Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugk9wpqdctcqpb",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180318128946",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1350 Denlyn Street",
+      "line2": "",
+      "city": "NOVATO",
+      "state": "",
+      "zip": "949474804",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "patty@pattycakesagency.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.036Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugka659iddhqqa",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7189028292845",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "175 Maiden Lane",
+      "line2": "",
+      "city": "San Francisco",
+      "state": "",
+      "zip": "94108",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "sanfrancisco@suitsupply.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.046Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkgkkcx3xk242",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180115488843",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "35122 Lido Blvd",
+      "line2": "Unit H",
+      "city": "NEWARK",
+      "state": "",
+      "zip": "945601181",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "hofman.mj@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.276Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkgw4di9d6j7k",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180328992903",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "77 Van Ness Ave",
+      "line2": "Ste 101 #1201",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941026042",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "frankaeder@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.288Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkh5ooqa3uwbp",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180318904231",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "2295 Francisco Street",
+      "line2": "Apt 302",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941231962",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "yegorkurganov@hotmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.297Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkhptsdq7hb6q",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180328851314",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1711 Bronson Ave",
+      "line2": "",
+      "city": "MODESTO",
+      "state": "",
+      "zip": "953504167",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "carlosanthony92@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.317Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkhzfsukpniee",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180126386870",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "453 Broome St",
+      "line2": "",
+      "city": "NEW YORK",
+      "state": "",
+      "zip": "100132650",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "nysoho@suitsupply.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.327Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkib7g16icasm",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180319314420",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1182 West South Street",
+      "line2": "",
+      "city": "ANAHEIM",
+      "state": "",
+      "zip": "928021829",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "kabirjhita@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.339Z",
+    "updatedAt": "2025-12-20T05:14:57.108Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.108Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkiwnpz7guuww",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180323161266",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "172 Sugarloaf Ct",
+      "line2": "",
+      "city": "ALAMO",
+      "state": "",
+      "zip": "945071201",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "aleedom@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.359Z",
+    "updatedAt": "2025-12-20T05:14:57.109Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.109Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkj55urd7se64",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180333483855",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "3412 West LK Sammamish Pkwy NE",
+      "line2": "",
+      "city": "REDMOND",
+      "state": "",
+      "zip": "980525907",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "samkaufman1@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.369Z",
+    "updatedAt": "2025-12-20T05:14:57.109Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.109Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkjfxl4s400z0",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180307455416",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "333 Santana Row, Suite 1020",
+      "line2": "",
+      "city": "SAN JOSE",
+      "state": "",
+      "zip": "951282027",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "sanjose@suitsupply.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.379Z",
+    "updatedAt": "2025-12-20T05:14:57.109Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.109Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkjp3r48vn7pl",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180304823185",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "13 Autumn Ridge Rd",
+      "line2": "",
+      "city": "SOUTH SALEM",
+      "state": "",
+      "zip": "105901103",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "sheershasengupta7@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.389Z",
+    "updatedAt": "2025-12-20T05:14:57.109Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.109Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkjyuuz6dt6db",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180313873793",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "208 Jewel Ter",
+      "line2": "",
+      "city": "DANVILLE",
+      "state": "",
+      "zip": "945264834",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "gong.brandon7@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.398Z",
+    "updatedAt": "2025-12-20T05:14:57.109Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.109Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkk9rev34n2qz",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180317583205",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1573 Bartlett Ln",
+      "line2": "6206",
+      "city": "SACRAMENTO",
+      "state": "",
+      "zip": "958153580",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "spencerjbrown28@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.409Z",
+    "updatedAt": "2025-12-20T05:14:57.109Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.109Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkkif4babsnv1",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180337717630",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "24 Geary Ave",
+      "line2": "",
+      "city": "FAIRFAX",
+      "state": "",
+      "zip": "949301225",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "jjgrover1@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.418Z",
+    "updatedAt": "2025-12-20T05:14:57.109Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.109Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkks8eacrz74w",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180332070641",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "333 Santana Row",
+      "line2": "Suite 1020",
+      "city": "SAN JOSE",
+      "state": "",
+      "zip": "951282027",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "sanjose@suitsupply.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.428Z",
+    "updatedAt": "2025-12-20T05:14:57.109Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.109Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkmf8s9ns8ub1",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180128579800",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "165 Summerfield St.",
+      "line2": "",
+      "city": "DANVILLE",
+      "state": "",
+      "zip": "945066142",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.487Z",
+    "updatedAt": "2025-12-20T05:14:57.110Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.110Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkmqysh3rndi4",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180120176214",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "3376 Fountain Ct",
+      "line2": "",
+      "city": "SPARKS",
+      "state": "",
+      "zip": "894311423",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.497Z",
+    "updatedAt": "2025-12-20T05:14:57.110Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.110Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkn918pgp8zda",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180339396162",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "299 Detroit St",
+      "line2": "",
+      "city": "DENVER",
+      "state": "",
+      "zip": "802064846",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "denver@suitsupply.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.517Z",
+    "updatedAt": "2025-12-20T05:14:57.110Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.110Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugknjvs7tk38xl",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180327319777",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "762 Idylberry",
+      "line2": "",
+      "city": "SAN RAFAEL",
+      "state": "",
+      "zip": "949031234",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "krueger.michael@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.527Z",
+    "updatedAt": "2025-12-20T05:14:57.110Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.110Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugko3ydxnqxywi",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180313612136",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "2616 Hale Drive",
+      "line2": "",
+      "city": "BURLINGAME",
+      "state": "",
+      "zip": "940105524",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "lbgeorge@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.547Z",
+    "updatedAt": "2025-12-20T05:14:57.110Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.110Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkof1nxtmz5ht",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180123780752",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "1136 Abbot Kinney Blvd",
+      "line2": "",
+      "city": "VENICE",
+      "state": "",
+      "zip": "902913314",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "laabbotkinney@suitsupply.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.559Z",
+    "updatedAt": "2025-12-20T05:14:57.110Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.110Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkop7jt49owb7",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180303250322",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1601 Mariposa Street",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941073924",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "brian@brianhickey.me",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.569Z",
+    "updatedAt": "2025-12-20T05:14:57.110Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.110Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkoz6j0jjgt6c",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180323989542",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "5819 Sandy Rings Lane",
+      "line2": "",
+      "city": "DUBLIN",
+      "state": "",
+      "zip": "430166795",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "ram@lotus-chem.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.579Z",
+    "updatedAt": "2025-12-20T05:14:57.111Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.111Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkpcy8z3nmc6w",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180307271089",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "226 Ritch St",
+      "line2": "Unit 302",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941071784",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "austinheafey@mac.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.592Z",
+    "updatedAt": "2025-12-20T05:14:57.111Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.111Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkpr0z4xxkahh",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180138586702",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "1909 chestsnut street",
+      "line2": "",
+      "city": "ALAMEDA",
+      "state": "",
+      "zip": "945011311",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "brianjeverett@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.607Z",
+    "updatedAt": "2025-12-20T05:14:57.111Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.111Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkqd5azciyo5h",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180336743729",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "2133 Lincoln Way",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941221613",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "sternsy@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.629Z",
+    "updatedAt": "2025-12-20T05:14:57.111Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.111Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkqnkfcufiltl",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180318055104",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "46 Irving St",
+      "line2": "",
+      "city": "BOSTON",
+      "state": "",
+      "zip": "21143961",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "addnewring@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.639Z",
+    "updatedAt": "2025-12-20T05:14:57.111Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.111Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkqyo7vxoj6oz",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180300053694",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1216 Marlboro Ln",
+      "line2": "",
+      "city": "NICHOLS HILLS",
+      "state": "",
+      "zip": "731166221",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "martamcc@aol.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.650Z",
+    "updatedAt": "2025-12-20T05:14:57.111Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.111Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkrjqd1mcmmpe",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180330321114",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "22 Van Ripper",
+      "line2": "",
+      "city": "SAN ANSELMO",
+      "state": "",
+      "zip": "949601030",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "jgrubb@bayareacouncil.org",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.671Z",
+    "updatedAt": "2025-12-20T05:14:57.111Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.111Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkrvk538sxwc2",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180314123270",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "298 portola dr apt 203",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941313724",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "dean.kernaghan@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.682Z",
+    "updatedAt": "2025-12-20T05:14:57.111Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.111Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugks46qbnfl08i",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180308396050",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "3908 meadowbrook circle",
+      "line2": "",
+      "city": "PITTSBURG",
+      "state": "",
+      "zip": "945655517",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "djmemoriize@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.692Z",
+    "updatedAt": "2025-12-20T05:14:57.112Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.112Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugksfw28ruct7h",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180321472675",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "3563 Pierce St.",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941231557",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "glenngertler@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.703Z",
+    "updatedAt": "2025-12-20T05:14:57.112Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.112Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugksqjz6wij30l",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180330926480",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "11701 Domain Blvd",
+      "line2": "Suite C9.138",
+      "city": "AUSTIN",
+      "state": "",
+      "zip": "787583439",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "austin@suitsupply.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.714Z",
+    "updatedAt": "2025-12-20T05:14:57.118Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.118Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkt0hyt5oac7y",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180322497656",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1699 market st #82",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941031265",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "jeremymwest@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.724Z",
+    "updatedAt": "2025-12-20T05:14:57.118Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.118Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugktbaroxukuuf",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180300266222",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "300 Stratford Lane",
+      "line2": "",
+      "city": "XENIA",
+      "state": "",
+      "zip": "453858963",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "mlbranch06@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.735Z",
+    "updatedAt": "2025-12-20T05:14:57.118Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.118Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugktwl6637p5nj",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180329456491",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "126 Clark Dr",
+      "line2": "",
+      "city": "SAN MATEO",
+      "state": "",
+      "zip": "944021003",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "stacy@thepaks.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.756Z",
+    "updatedAt": "2025-12-20T05:14:57.118Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.118Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugku6oopj55sje",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180332451060",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "14 Glen Dr",
+      "line2": "",
+      "city": "MILL VALLEY",
+      "state": "",
+      "zip": "949411264",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "phillip.febbo@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.766Z",
+    "updatedAt": "2025-12-20T05:14:57.118Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.118Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkule98taoj8l",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180316146260",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "3655 Country club terrace",
+      "line2": "",
+      "city": "DANVILLE",
+      "state": "",
+      "zip": "945066064",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "ali6051@aol.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.781Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkuwl6dx2og7g",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180311848645",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "90 alhambra street Unit 306",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941232166",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "colbymargosian@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.792Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkvjiy7z43z8o",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180323928447",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "1548 Irene St",
+      "line2": "",
+      "city": "BAYSIDE",
+      "state": "",
+      "zip": "955249338",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "garyhumboldtsimpson@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.815Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkvtiijdm34f6",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180112113592",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "18 Crest Road Piedmont",
+      "line2": "",
+      "city": "PIEDMONT",
+      "state": "",
+      "zip": "946113304",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "pekeruo@yahoo.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.825Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkwok12cb5lh7",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180335013608",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "447 17th St",
+      "line2": "1901",
+      "city": "OAKLAND",
+      "state": "",
+      "zip": "946122863",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "vernon.p.anderson@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.856Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkx06fi3mazik",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180303679174",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "63 Bonnie Ln",
+      "line2": "",
+      "city": "BERKELEY",
+      "state": "",
+      "zip": "947081311",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "colemccannphillips@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.868Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkxlpqh22hwba",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180135286014",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "241 South 6th Street",
+      "line2": "Unit 405",
+      "city": "PHILADELPHIA",
+      "state": "",
+      "zip": "191063728",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "rldjr2@msn.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.889Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugky696tzykfwv",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180317467939",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "167 Concord St",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941124335",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "yuzeng94@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.910Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkys960nxv3fj",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180310290169",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "804 Robertson St",
+      "line2": "",
+      "city": "MILWAUKEE",
+      "state": "",
+      "zip": "532133340",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "benhmiller22@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.932Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkz227n40zf1x",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180306362125",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "3140 21st St",
+      "line2": "Apt 101",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941102529",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "markus.liu4@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.942Z",
+    "updatedAt": "2025-12-20T05:14:57.119Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.119Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkzhdvfdglqou",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180319287951",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "403 Saunders Drive",
+      "line2": "",
+      "city": "SONOMA",
+      "state": "",
+      "zip": "954767679",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "nataliesinzig@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.957Z",
+    "updatedAt": "2025-12-20T05:14:57.120Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.120Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugkzuu1ditku4l",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180336905394",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "7732 Tortoise Shell St",
+      "line2": "",
+      "city": "LAS VEGAS",
+      "state": "",
+      "zip": "891491928",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "ricardo_quiroz@icloud.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.970Z",
+    "updatedAt": "2025-12-20T05:14:57.120Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.120Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugl040ozxoinmd",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180321757386",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "645 Cresswell Moor Way",
+      "line2": "",
+      "city": "FAYETTEVILLE",
+      "state": "",
+      "zip": "283111083",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "rlcoleman1@crimson.ua.edu",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.980Z",
+    "updatedAt": "2025-12-20T05:14:57.120Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.120Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugl0ga8lt4dllb",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180302848546",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "922 Meadowsweet Drive",
+      "line2": "",
+      "city": "CORTE MADERA",
+      "state": "",
+      "zip": "949251721",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "ndewyer@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:56.992Z",
+    "updatedAt": "2025-12-20T05:14:57.120Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.120Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugl0qk6rfa4h5c",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180110606885",
+    "carrier": "UPS",
+    "serviceType": "UPS Next Day Air",
+    "address": {
+      "line1": "1909 Chestnut St",
+      "line2": "",
+      "city": "ALAMEDA",
+      "state": "",
+      "zip": "945011311",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "brianjeverett@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:57.002Z",
+    "updatedAt": "2025-12-20T05:14:57.120Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.120Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugl12j8w834cl7",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180306053496",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "370 Brannan St",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941071817",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "leon@spherecast.ai",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:57.014Z",
+    "updatedAt": "2025-12-20T05:14:57.120Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.120Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugl1c80deddjl1",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180332489520",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "14 Whaleship Plz",
+      "line2": "",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941112404",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "brian.fukuba@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:57.024Z",
+    "updatedAt": "2025-12-20T05:14:57.120Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.120Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugl2vbaeqlzu7a",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180303838902",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "2 Mann St",
+      "line2": "",
+      "city": "HINGHAM",
+      "state": "",
+      "zip": "20431316",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "matt@useorigin.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:57.079Z",
+    "updatedAt": "2025-12-20T05:14:57.120Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.120Z"
+      }
+    ]
+  },
+  {
+    "id": "mjdugl3h0dmfvajp8",
+    "customerName": "SUITSUPPLY",
+    "orderNumber": "",
+    "trackingNumber": "1ZY8V7180309867110",
+    "carrier": "UPS",
+    "serviceType": "UPS Ground Service",
+    "address": {
+      "line1": "301 Mission St",
+      "line2": "Unit 903",
+      "city": "SAN FRANCISCO",
+      "state": "",
+      "zip": "941056659",
+      "country": "US",
+      "phone": ""
+    },
+    "phone": "",
+    "email": "hcschrank@gmail.com",
+    "employeeName": "",
+    "employeeId": "",
+    "processedByName": "",
+    "processedById": "",
+    "notes": "",
+    "status": "shipped",
+    "createdAt": "2025-12-20T05:14:57.101Z",
+    "updatedAt": "2025-12-20T05:14:57.120Z",
+    "sources": [
+      {
+        "source": "campusship-csv",
+        "at": "2025-12-20T05:14:57.120Z"
+      }
+    ]
+  },
+  {
+    "id": "auto-1766312387931-fyekyrvox",
+    "tracking": "1ZY8V7180322673974",
+    "trackingNumber": "1ZY8V7180322673974",
+    "trackingLink": "https://www.ups.com/track?tracknum=1ZY8V7180322673974",
+    "carrier": "UPS",
+    "status": "in-transit",
+    "source": "email-import",
+    "importedAt": "2025-12-21T10:19:47.931Z",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "shippedAt": "2025-12-17T21:29:55.000Z",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "address": "",
+    "employeeName": "AutoFill\\SF-Email",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "emailSubject": "FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "emailDate": "2025-12-17T21:29:55.000Z",
+    "estimatedDelivery": null,
+    "shipper": "immediately by returning the e-mail. Suit Supply B",
+    "service": "",
+    "weight": null,
+    "origin": "",
+    "destination": ""
+  },
+  {
+    "id": "auto-1766312387931-pehza5xzj",
+    "tracking": "1ZY8V7180327746369",
+    "trackingNumber": "1ZY8V7180327746369",
+    "trackingLink": "https://www.ups.com/track?tracknum=1ZY8V7180327746369",
+    "carrier": "UPS",
+    "status": "in-transit",
+    "source": "email-import",
+    "importedAt": "2025-12-21T10:19:47.931Z",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "shippedAt": "2025-12-17T21:29:55.000Z",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "address": "",
+    "employeeName": "AutoFill\\SF-Email",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "emailSubject": "FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "emailDate": "2025-12-17T21:29:55.000Z",
+    "estimatedDelivery": null,
+    "shipper": "immediately by returning the e-mail. Suit Supply B",
+    "service": "",
+    "weight": null,
+    "origin": "",
+    "destination": ""
+  },
+  {
+    "id": "auto-1766312387932-ebpgjre7w",
+    "tracking": "1ZY8V7180311898467",
+    "trackingNumber": "1ZY8V7180311898467",
+    "trackingLink": "https://www.ups.com/track?tracknum=1ZY8V7180311898467",
+    "carrier": "UPS",
+    "status": "in-transit",
+    "source": "email-import",
+    "importedAt": "2025-12-21T10:19:47.932Z",
+    "createdAt": "2025-12-17T21:29:55.000Z",
+    "shippedAt": "2025-12-17T21:29:55.000Z",
+    "customerName": "immediately by returning the e-mail. Suit Supply B",
+    "address": "",
+    "employeeName": "AutoFill\\SF-Email",
+    "notes": "Auto-imported from UPS email: FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "emailSubject": "FW: Undeliverable- UPS Ship Notification, Tracking Number 1ZY8V7180307676339 [6]",
+    "emailDate": "2025-12-17T21:29:55.000Z",
+    "estimatedDelivery": null,
+    "shipper": "immediately by returning the e-mail. Suit Supply B",
+    "service": "",
+    "weight": null,
+    "origin": "",
+    "destination": ""
+  }
+]

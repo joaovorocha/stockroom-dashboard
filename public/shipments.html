@@ -3,175 +3,92 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shipments - Daily Game Plan | San Francisco</title>
+  <title>Shipment Capture - Daily Game Plan | San Francisco</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/shared-header.css">
   <link rel="stylesheet" href="/css/dashboard.css">
   <link rel="stylesheet" href="/css/mobile.css">
   <style>
     :root { --shipments-font-scale: 1; }
+    .page-wrap { padding: 16px; max-width: 1200px; margin: 0 auto; }
+    .section-header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .filter-bar { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+    .filter-bar input, .filter-bar select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text-primary);
+    }
+    .filter-bar input { flex: 1; min-width: 220px; }
+    .summary-row { display: flex; gap: 10px; margin: 10px 0 14px; flex-wrap: wrap; }
+    .summary-item {
+      flex: 1;
+      min-width: 140px;
+      background: var(--surface);
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .summary-item .count { font-size: 18px; font-weight: 700; }
+    .summary-item .label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .shipment-list { display: grid; gap: 10px; }
     .shipment-card {
       background: var(--background);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 8px;
-      margin-bottom: 4px;
-      position: relative;
-    }
-    .shipment-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
-    }
-    .tracking-number {
-      font-weight: 600;
-      font-size: calc(13px * var(--shipments-font-scale));
-      font-family: monospace;
-    }
-    .shipment-meta,
-    .shipment-details,
-    .address-block {
-      font-weight: 400;
-    }
-    .shipment-status {
-      padding: 2px 8px;
       border-radius: 10px;
-      font-size: calc(10px * var(--shipments-font-scale));
-      font-weight: 500;
-      text-transform: capitalize;
+      padding: 10px 12px;
     }
-    .shipment-status.delivered { background: var(--success); color: #fff; }
-    .shipment-status.label-created { background: #607d8b; color: #fff; }
-    .shipment-status.in-transit { background: #2196f3; color: #fff; }
-    .shipment-status.unknown { background: #9e9e9e; color: #fff; }
-    .shipment-status.requested { background: #9c27b0; color: #fff; }
-    .shipment-details {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 8px;
-      font-size: calc(11px * var(--shipments-font-scale));
-    }
-    .detail-item label {
-      display: block;
-      color: var(--text-muted);
-      font-size: calc(9px * var(--shipments-font-scale));
-      margin-bottom: 1px;
-      text-transform: uppercase;
-    }
-    .detail-item span {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      display: block;
-    }
-    .ups-link {
-      margin-top: 4px;
-      padding-top: 4px;
-      border-top: 1px solid var(--border);
-    }
-    .ups-link a {
-      color: var(--primary);
-      text-decoration: none;
-      font-size: calc(11px * var(--shipments-font-scale));
-    }
-    .shipment-edit-btn {
-      position: absolute;
-      right: 8px;
-      bottom: 8px;
+    .shipment-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .tracking-number { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-weight: 700; font-size: calc(14px * var(--shipments-font-scale)); }
+    .meta { font-size: calc(12px * var(--shipments-font-scale)); color: var(--text-secondary); }
+    .status-pill {
       padding: 4px 10px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--text-primary);
-      font-size: calc(11px * var(--shipments-font-scale));
-      cursor: pointer;
-    }
-    .shipment-edit-btn:hover {
-      background: var(--surface-hover);
-    }
-    .filter-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-    }
-    .filter-bar input, .filter-bar select {
-      padding: 6px 10px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      font-size: calc(12px * var(--shipments-font-scale));
-    }
-    .filter-bar input { flex: 1; min-width: 150px; }
-    .address-block {
-      font-size: calc(11px * var(--shipments-font-scale));
-      color: var(--text-secondary);
-      margin-top: 4px;
-      line-height: 1.3;
-    }
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      background: var(--surface);
-      border: 1px solid var(--border);
       border-radius: 999px;
-      font-size: calc(10px * var(--shipments-font-scale));
-      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: capitalize;
+      white-space: nowrap;
+      border: 1px solid rgba(0,0,0,0.06);
     }
-    .tag strong { font-weight: 600; }
-    .modal .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .modal .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .form-helper { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
-    .summary-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .summary-item {
-      flex: 1;
+    .status-pill.delivered { background: var(--success); color: #fff; }
+    .status-pill.label-created { background: #607d8b; color: #fff; }
+    .status-pill.in-transit { background: #2196f3; color: #fff; }
+    .status-pill.unknown { background: #9e9e9e; color: #fff; }
+    .status-pill.requested { background: #9c27b0; color: #fff; }
+
+    .shipment-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-top: 10px; }
+    .field label { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+    .field div { font-size: 13px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .field .wrap { white-space: normal; }
+	    .link-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+	    .link-row a { color: var(--primary); text-decoration: none; font-size: 13px; }
+	    .mao-link {
+	      display: inline-flex;
+	      align-items: center;
+	      gap: 6px;
+	      color: var(--primary);
+	      text-decoration: none;
+	      font-size: 13px;
+	      white-space: nowrap;
+	    }
+	    .mao-link .icon {
+	      display: inline-block;
+	      font-size: 13px;
+	      line-height: 1;
+	    }
+    .empty {
+      padding: 16px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
       background: var(--surface);
-      padding: 8px;
-      border-radius: 6px;
-      text-align: center;
-    }
-    .summary-item .count {
-      font-size: 18px;
-      font-weight: 700;
-    }
-    .summary-item .label {
-      font-size: 10px;
       color: var(--text-secondary);
     }
-    .shipment-meta {
-      font-size: 10px;
-      color: var(--text-secondary);
-      margin-bottom: 6px;
-    }
-    #shipmentsList {
-      max-height: calc(100vh - 280px);
-      overflow-y: auto;
-    }
-    .shipment-card.editable {
-      cursor: pointer;
-      transition: box-shadow 0.2s, border-color 0.2s;
-    }
-    .shipment-card.editable:hover {
-      border-color: var(--primary);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .btn-danger {
-      background: #dc3545;
-      color: #fff;
-      border: none;
-      padding: 8px 16px;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .btn-danger:hover {
-      background: #c82333;
-    }
+    .small-note { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
   </style>
 </head>
 <body>
@@ -204,714 +121,255 @@
         <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
         <span id="userName">Guest</span>
         <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="switchUserBtn">Switch User</a>
+          <a href="#" id="switchUserBtn">Change User</a>
+          <a href="#" id="logoutBtn">Logout</a>
         </div>
       </div>
     </div>
   </header>
 
-  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
-    <main class="main-content">
-      <section class="section">
-        <div class="section-header">
-          <h2>Shipments</h2>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-secondary" id="processingBtn" style="display:none;">Processing</button>
-            <button class="btn btn-primary" id="requestBtn">+ Request Shipment</button>
-          </div>
-        </div>
-
-        <div class="summary-row">
-          <div class="summary-item">
-            <div class="count" id="totalCount">0</div>
-            <div class="label">Total</div>
-          </div>
-          <div class="summary-item">
-            <div class="count" id="pendingCount">0</div>
-            <div class="label">Requested</div>
-          </div>
-          <div class="summary-item">
-            <div class="count" id="shippedCount">0</div>
-            <div class="label">Shipped</div>
-          </div>
-          <div class="summary-item">
-            <div class="count" id="transitCount">0</div>
-            <div class="label">In Transit</div>
-          </div>
-          <div class="summary-item">
-            <div class="count" id="deliveredCount">0</div>
-            <div class="label">Delivered</div>
-          </div>
-        </div>
-
-        <div class="filter-bar">
-          <input type="text" id="searchInput" placeholder="Search tracking, customer, order...">
-          <input type="date" id="dateFilter" aria-label="Filter by date">
-          <select id="requestedByFilter">
-            <option value="">Requested by (all)</option>
-          </select>
-          <select id="processedByFilter">
-            <option value="">Processed by (all)</option>
-          </select>
-          <select id="statusFilter">
-            <option value="">All Status</option>
-            <option value="requested">Requested</option>
-            <option value="label-created">Label Created</option>
-            <option value="in-transit">In Transit</option>
-            <option value="delivered">Delivered</option>
-            <option value="unknown">Unknown</option>
-          </select>
-          <button class="btn btn-secondary" id="clearFiltersBtn" type="button">Clear Filters</button>
-        </div>
-
-        <div id="shipmentsList"></div>
-      </section>
-    </main>
-  </div>
-
-  <!-- Request Shipment Modal -->
-  <div class="modal-overlay" id="requestModal">
-    <div class="modal" style="max-width: 760px;">
-      <div class="modal-header">
-        <h3>Request Shipment</h3>
-        <button class="modal-close" id="closeModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="requestForm">
-          <input type="hidden" id="employeeName">
-          <input type="hidden" id="employeeId">
-          <div class="form-group">
-            <label>Customer Name *</label>
-            <input type="text" class="form-control" id="customerName" required>
-          </div>
-          <div class="grid grid-2">
-            <div class="form-group">
-              <label>Order Number</label>
-              <input type="text" class="form-control" id="orderNumber" placeholder="PSUS...">
-              <div class="form-helper">Will open Mao order page when clicked in history</div>
-            </div>
-            <div class="form-group">
-              <label>UPS Service Type *</label>
-              <select class="form-control" id="serviceType" required>
-                <option value="UPS Next Day Air">UPS Next Day Air</option>
-                <option value="UPS 2nd Day Air">UPS 2nd Day Air</option>
-                <option value="UPS 3 Day Select">UPS 3 Day Select</option>
-                <option value="UPS Ground Service" selected>UPS Ground Service</option>
-              </select>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Shipping Address *</label>
-            <div class="grid-2">
-              <div class="form-group" style="margin-bottom:0;">
-                <input type="text" class="form-control" id="addressLine1" placeholder="Street address" required>
-              </div>
-              <div class="form-group" style="margin-bottom:0;">
-                <input type="text" class="form-control" id="addressLine2" placeholder="Apt / Suite (optional)">
-              </div>
-            </div>
-            <div class="grid-3" style="margin-top:12px;">
-              <input type="text" class="form-control" id="city" placeholder="City" required>
-              <input type="text" class="form-control" id="state" placeholder="State" required>
-              <input type="text" class="form-control" id="zip" placeholder="ZIP" required>
-            </div>
-            <div class="grid-2" style="margin-top:12px;">
-              <input type="text" class="form-control" id="country" placeholder="Country" value="USA" required>
-              <input type="text" class="form-control" id="phone" placeholder="Phone (optional)">
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Notes / Special Instructions</label>
-            <textarea class="form-control" id="notes" rows="2"></textarea>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
-        <button class="btn btn-primary" id="submitBtn">Submit Request</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Edit Shipment Modal (BOH / Managers / Admin) -->
-  <div class="modal-overlay" id="editModal">
-    <div class="modal" style="max-width: 860px;">
-      <div class="modal-header">
-        <h3>Edit Shipment</h3>
-        <button class="modal-close" id="closeEditModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="editForm">
-          <input type="hidden" id="editShipmentId">
-          <div class="grid grid-2">
-            <div class="form-group">
-              <label>Tracking Number</label>
-              <input type="text" class="form-control" id="editTracking" placeholder="1Z...">
-            </div>
-            <div class="form-group">
-              <label>Status</label>
-              <select class="form-control" id="editStatus">
-                <option value="requested">Requested</option>
-                <option value="label-created">Label Created</option>
-                <option value="in-transit">In Transit</option>
-                <option value="delivered">Delivered</option>
-                <option value="unknown">Unknown</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="grid grid-2">
-            <div class="form-group">
-              <label>Customer Name</label>
-              <input type="text" class="form-control" id="editCustomerName">
-            </div>
-            <div class="form-group">
-              <label>Order Number</label>
-              <input type="text" class="form-control" id="editOrderNumber" placeholder="PSUS...">
-            </div>
-          </div>
-
-          <div class="grid grid-2">
-            <div class="form-group">
-              <label>UPS Service Type</label>
-              <select class="form-control" id="editServiceType">
-                <option value="UPS Next Day Air">UPS Next Day Air</option>
-                <option value="UPS 2nd Day Air">UPS 2nd Day Air</option>
-                <option value="UPS 3 Day Select">UPS 3 Day Select</option>
-                <option value="UPS Ground Service">UPS Ground Service</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Carrier</label>
-              <input type="text" class="form-control" id="editCarrier" placeholder="UPS">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>Shipping Address</label>
-            <div class="grid-2">
-              <div class="form-group" style="margin-bottom:0;">
-                <input type="text" class="form-control" id="editAddressLine1" placeholder="Address line 1">
-              </div>
-              <div class="form-group" style="margin-bottom:0;">
-                <input type="text" class="form-control" id="editAddressLine2" placeholder="Address line 2">
-              </div>
-            </div>
-            <div class="grid-3" style="margin-top:12px;">
-              <input type="text" class="form-control" id="editCity" placeholder="City">
-              <input type="text" class="form-control" id="editState" placeholder="State">
-              <input type="text" class="form-control" id="editZip" placeholder="ZIP">
-            </div>
-            <div class="grid-2" style="margin-top:12px;">
-              <input type="text" class="form-control" id="editCountry" placeholder="Country">
-              <input type="text" class="form-control" id="editPhone" placeholder="Phone">
-            </div>
-          </div>
-
-          <div class="grid grid-2">
-            <div class="form-group">
-              <label>Email</label>
-              <input type="email" class="form-control" id="editEmail" placeholder="email@example.com">
-            </div>
-            <div class="form-group">
-              <label>Requested By (Name)</label>
-              <input type="text" class="form-control" id="editEmployeeName" placeholder="Employee name">
-              <div class="form-helper">Original requestor</div>
-            </div>
-          </div>
-
-          <div class="grid grid-2">
-            <div class="form-group">
-              <label>Requested By (Employee ID)</label>
-              <input type="text" class="form-control" id="editEmployeeId" placeholder="Employee ID">
-            </div>
-            <div class="form-group">
-              <label>Processed By (Employee ID)</label>
-              <input type="text" class="form-control" id="editProcessedById" placeholder="Processor employee ID">
-            </div>
-          </div>
-
-          <div class="grid grid-2">
-            <div class="form-group">
-              <label>Processed By (Name)</label>
-              <input type="text" class="form-control" id="editProcessedByName" placeholder="Processor name">
-            </div>
-            <div class="form-group">
-              <label>Notes</label>
-              <textarea class="form-control" id="editNotes" rows="2"></textarea>
-            </div>
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer" style="display:flex; justify-content:space-between;">
-        <button class="btn btn-danger" id="deleteShipmentBtn">Delete</button>
+  <div class="page-wrap">
+    <section class="section">
+      <div class="section-header section-header-row">
         <div>
-          <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
-          <button class="btn btn-primary" id="saveEditBtn">Save Changes</button>
+          <h2 style="margin:0;">Shipment Capture</h2>
+          <div class="small-note">Shows shipments captured from UPS emails (default) with optional visibility into other sources.</div>
+        </div>
+        <div class="controls">
+          <button class="btn btn-outline" id="refreshBtn">Refresh</button>
         </div>
       </div>
-    </div>
-  </div>
 
-  <footer class="footer">
-    <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
-  </footer>
+      <div class="summary-row">
+        <div class="summary-item">
+          <div class="count" id="countTotal">0</div>
+          <div class="label">Shown</div>
+        </div>
+        <div class="summary-item">
+          <div class="count" id="countInTransit">0</div>
+          <div class="label">In Transit</div>
+        </div>
+        <div class="summary-item">
+          <div class="count" id="countDelivered">0</div>
+          <div class="label">Delivered</div>
+        </div>
+        <div class="summary-item">
+          <div class="count" id="countUnknown">0</div>
+          <div class="label">Unknown</div>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <input type="text" id="searchInput" placeholder="Search tracking, customer, address, employee, PSUS...">
+        <select id="sourceFilter" aria-label="Source filter">
+          <option value="email" selected>Email only</option>
+          <option value="all">All sources</option>
+        </select>
+        <select id="statusFilter" aria-label="Status filter">
+          <option value="">All statuses</option>
+          <option value="label-created">Label created</option>
+          <option value="in-transit">In transit</option>
+          <option value="delivered">Delivered</option>
+          <option value="unknown">Unknown</option>
+          <option value="requested">Requested</option>
+        </select>
+      </div>
+
+      <div class="shipment-list" id="shipmentsList"></div>
+      <div class="empty" id="emptyState" style="display:none;">No shipments match your filters.</div>
+    </section>
+  </div>
 
   <script src="/js/utils.js"></script>
   <script>
-    let shipments = [];
+    let allShipments = [];
     let currentUser = null;
-    let pendingEditShipmentId = new URLSearchParams(window.location.search).get('edit') || '';
 
-    function canEditShipments() {
-      const role = (currentUser?.role || '').toString().toUpperCase();
-      return !!(currentUser && (currentUser.isAdmin || currentUser.isManager || role === 'BOH' || role === 'MANAGEMENT'));
+    function safeText(value) {
+      return (value === undefined || value === null) ? '' : String(value);
     }
 
-    document.addEventListener('DOMContentLoaded', async () => {
-      await checkAuth();
-      await loadShipments();
-      setupEventListeners();
-      // Avoid Safari/Chrome restoring stale filters (can make the list look "empty").
-      clearFilters(false);
-    });
-
-    function clearFilters(shouldRender = true) {
-      document.getElementById('searchInput').value = '';
-      document.getElementById('dateFilter').value = '';
-      document.getElementById('requestedByFilter').value = '';
-      document.getElementById('processedByFilter').value = '';
-      document.getElementById('statusFilter').value = '';
-      if (shouldRender) renderShipments();
+    function formatDate(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return safeText(value);
+      return d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
 
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/auth/check', { credentials: 'include' });
-        const data = await response.json();
-        if (data.authenticated) {
-          currentUser = data.user;
-          document.getElementById('userName').textContent = currentUser.name;
-          // Auto-fill name/ID from session
-          document.getElementById('employeeName').value = currentUser.name;
-          document.getElementById('employeeId').value = currentUser.employeeId;
-          // Make fields readonly
-          document.getElementById('employeeName').readOnly = true;
-          document.getElementById('employeeId').readOnly = true;
-          document.getElementById('employeeName').style.background = '#f5f5f5';
-          document.getElementById('employeeId').style.background = '#f5f5f5';
-          // Show Processing button for BOH/managers only
-          const canProcess = ['MANAGEMENT', 'BOH', 'ADMIN'].includes(currentUser.role) || currentUser.isManager || currentUser.isAdmin;
-          if (canProcess) {
-            document.getElementById('processingBtn').style.display = 'inline-flex';
-          }
-          if (currentUser.isManager || currentUser.isAdmin) {
-            document.getElementById('navAdmin').style.display = 'inline';
-          }
-        } else {
-          alert('Please log in to access shipments.');
-          window.location.href = '/login-v2';
+    function trackingLink(trackingNumber) {
+      const t = safeText(trackingNumber).trim();
+      if (!t) return '';
+      return `https://www.ups.com/track?tracknum=${encodeURIComponent(t)}`;
+    }
+
+    function isEmailCaptured(shipment) {
+      const src = safeText(shipment.source).toLowerCase();
+      if (src === 'email-import') return true;
+      const statusSrc = safeText(shipment.statusUpdatedSource).toLowerCase();
+      return statusSrc === 'email';
+    }
+
+    function canManage(user) {
+      const role = safeText(user && user.role).toUpperCase();
+      return !!(user && (user.isAdmin || user.isManager || role === 'MANAGEMENT' || role === 'BOH'));
+    }
+
+    function applyFilters() {
+      const q = safeText(document.getElementById('searchInput').value).trim().toLowerCase();
+      const sourceMode = document.getElementById('sourceFilter').value;
+      const status = document.getElementById('statusFilter').value;
+
+      return (allShipments || []).filter(s => {
+        if (sourceMode === 'email' && !isEmailCaptured(s)) return false;
+        if (status) {
+          const st = safeText(s.status).toLowerCase();
+          if (st !== status) return false;
         }
-      } catch (e) {
-        window.location.href = '/login-v2';
+        if (!q) return true;
+        const haystack = [
+          safeText(s.trackingNumber || s.tracking),
+          safeText(s.customerName),
+          safeText(s.destination),
+          safeText(s.shipper),
+          safeText(s.notes),
+          safeText(s.orderNumber),
+          safeText(s.processedByName),
+          safeText(s.processedById),
+          safeText(s.referenceNumber1),
+          safeText(s.referenceNumber2),
+          safeText(s.address && typeof s.address === 'object' ? `${s.address.line1 || ''} ${s.address.line2 || ''} ${s.address.city || ''} ${s.address.state || ''} ${s.address.zip || ''} ${s.address.country || ''}` : s.address)
+        ].join(' ').toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+
+    function updateSummary(items) {
+      const total = items.length;
+      const counts = { 'in-transit': 0, delivered: 0, unknown: 0 };
+      for (const s of items) {
+        const st = safeText(s.status).toLowerCase();
+        if (st === 'in-transit') counts['in-transit']++;
+        else if (st === 'delivered') counts.delivered++;
+        else if (st === 'unknown') counts.unknown++;
       }
-    }
-
-    async function logout() {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/login-v2';
-    }
-
-    async function loadShipments() {
-      try {
-        const response = await fetch('/api/shipments');
-        if (!response.ok) {
-          if (response.status === 401) {
-            window.location.href = '/login-v2';
-            return;
-          }
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
-        if (!Array.isArray(data)) {
-          window.location.href = '/login-v2';
-          return;
-        }
-        shipments = data;
-        updateSummary();
-        populateFilters();
-        renderShipments();
-
-        if (pendingEditShipmentId && canEditShipments()) {
-          const target = pendingEditShipmentId;
-          pendingEditShipmentId = '';
-          openEditModal(target);
-        }
-      } catch (e) {
-        console.error(e);
-        shipments = [];
-      }
-    }
-
-    function populateFilters() {
-      const requestedSelect = document.getElementById('requestedByFilter');
-      const processedSelect = document.getElementById('processedByFilter');
-
-      const requesters = Array.from(new Set(shipments.map(s => s.employeeName).filter(Boolean))).sort();
-      const processors = Array.from(new Set(shipments.map(s => s.processedByName).filter(Boolean))).sort();
-
-      requestedSelect.innerHTML = '<option value="">Requested by (all)</option>' + requesters.map(name => `<option value="${name}">${name}</option>`).join('');
-      processedSelect.innerHTML = '<option value="">Processed by (all)</option>' + processors.map(name => `<option value="${name}">${name}</option>`).join('');
-    }
-
-    function updateSummary() {
-      const deliveredCount = shipments.filter(s => s.status === 'delivered').length;
-      const transitCount = shipments.filter(s => s.status === 'in-transit').length;
-      const labelCount = shipments.filter(s => s.status === 'label-created').length;
-
-      document.getElementById('totalCount').textContent = shipments.length;
-      document.getElementById('pendingCount').textContent = shipments.filter(s => s.status === 'requested').length;
-      document.getElementById('shippedCount').textContent = labelCount;
-      document.getElementById('transitCount').textContent = transitCount;
-      document.getElementById('deliveredCount').textContent = deliveredCount;
+      document.getElementById('countTotal').textContent = String(total);
+      document.getElementById('countInTransit').textContent = String(counts['in-transit']);
+      document.getElementById('countDelivered').textContent = String(counts.delivered);
+      document.getElementById('countUnknown').textContent = String(counts.unknown);
     }
 
     function renderShipments() {
-      const container = document.getElementById('shipmentsList');
-      const search = document.getElementById('searchInput').value.toLowerCase();
-      const statusSelect = document.getElementById('statusFilter');
-      let status = statusSelect.value;
-      // Browser can restore a previously-selected value that no longer exists (e.g. legacy "shipped").
-      const allowedStatuses = ['', 'requested', 'label-created', 'in-transit', 'delivered', 'unknown'];
-      if (!allowedStatuses.includes(status)) {
-        status = '';
-        statusSelect.value = '';
-      }
-      const dateFilter = document.getElementById('dateFilter').value;
-      const requestedByFilter = document.getElementById('requestedByFilter').value;
-      const processedByFilter = document.getElementById('processedByFilter').value;
-
-      let filtered = shipments.filter(s => {
-        const matchSearch = !search ||
-          s.trackingNumber?.toLowerCase().includes(search) ||
-          s.customerName?.toLowerCase().includes(search) ||
-          s.orderNumber?.toLowerCase().includes(search) ||
-          s.address?.line1?.toLowerCase().includes(search) ||
-          (typeof s.address === 'string' && s.address.toLowerCase().includes(search));
-        const matchStatus = !status || s.status === status;
-        const matchDate = !dateFilter || (s.createdAt && s.createdAt.startsWith(dateFilter));
-        const matchRequested = !requestedByFilter || (s.employeeName || '').toLowerCase() === requestedByFilter.toLowerCase();
-        const matchProcessed = !processedByFilter || (s.processedByName || '').toLowerCase() === processedByFilter.toLowerCase();
-        return matchSearch && matchStatus && matchDate && matchRequested && matchProcessed;
+      const list = document.getElementById('shipmentsList');
+      const empty = document.getElementById('emptyState');
+      const items = applyFilters().sort((a, b) => {
+        const ad = new Date(a.updatedAt || a.createdAt || a.importedAt || 0).getTime() || 0;
+        const bd = new Date(b.updatedAt || b.createdAt || b.importedAt || 0).getTime() || 0;
+        return bd - ad;
       });
 
-      // Sort order: requested first, then label-created, then in-transit, then delivered, unknown last
-      const statusOrder = { requested: 0, 'label-created': 1, 'in-transit': 2, delivered: 3, unknown: 4 };
+      updateSummary(items);
 
-      filtered.sort((a, b) => {
-        const statusA = a.status || 'requested';
-        const statusB = b.status || 'requested';
-        const statusDiff = (statusOrder[statusA] ?? 99) - (statusOrder[statusB] ?? 99);
-        if (statusDiff !== 0) return statusDiff;
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA; // newest first within same status
-      });
-
-      if (!filtered.length) {
-        container.innerHTML = '<p style="color: var(--text-muted);">No shipments found.</p>';
+      if (!items.length) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
         return;
       }
+      empty.style.display = 'none';
 
-      container.innerHTML = filtered.map(s => {
-        // Check if this is an auto-import
-        const isAutoImport = s.source === 'email-import' || (s.notes || '').toLowerCase().includes('auto-imported');
-
-        // Address handling
-        const addressLines = typeof s.address === 'string'
-          ? s.address
-          : [s.address?.line1, s.address?.line2, `${s.address?.city || ''}, ${s.address?.state || ''} ${s.address?.zip || ''}`, s.address?.country]
-              .filter(Boolean)
-              .join('<br>');
-
-        // Phone number
-        const phone = s.address?.phone || s.phone || '';
-
-        // Email
-        const email = s.email || '';
-
-        // UPS tracking status string (if available)
-        const upsStatus = s.statusFromUPS || '';
-
-        const effectiveStatus = s.status || 'requested';
-        const statusLabel = effectiveStatus.replace('-', ' ');
-
-        // Order link
-        const orderUrl = s.orderNumber ? getMAOOrderURL(s.orderNumber) : null;
-        const orderLink = s.orderNumber
-          ? (orderUrl
-              ? `<a href="${orderUrl}" target="_blank" style="color: var(--primary); text-decoration: none;">${s.orderNumber} &rarr;</a>`
-              : `${s.orderNumber}`)
-          : '-';
-
-        const requestedDate = s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '-';
-
-        // Customer name: blank if auto-import or if it looks like garbage text
-        const isGarbageCustomerName = (name) => {
-          if (!name) return true;
-          // Check for common garbage patterns from email parsing
-          const garbagePatterns = ['immediately by', 'returning the', 'e-mail', 'Suit Supply B'];
-          return garbagePatterns.some(p => name.toLowerCase().includes(p.toLowerCase()));
-        };
-        const customerName = (isAutoImport && isGarbageCustomerName(s.customerName)) ? '' : (s.customerName || '');
-
-        // Processed by: show "UPS Auto Import" for auto-imports
-        const processedBy = isAutoImport
-          ? 'UPS Auto Import'
-          : (s.processedByName || s.shippedBy || 'Pending');
-
-        // Notes: only show if NOT auto-import (manual request notes only)
-        const showNotes = !isAutoImport && s.notes;
-
-        // Requested by
-        const requestedBy = isAutoImport ? 'UPS Auto Import' : (s.employeeName || '-');
-
-        // Check if user can edit (manager/admin)
-        const canEdit = canEditShipments();
+      list.innerHTML = items.map(s => {
+        const tracking = safeText(s.trackingNumber || s.tracking).trim();
+        const status = safeText(s.status || 'unknown').toLowerCase() || 'unknown';
+        const customer = safeText(s.customerName) || safeText(s.destination) || '—';
+        const when = formatDate(s.emailDate || s.importedAt || s.createdAt || s.updatedAt);
+        const src = safeText(s.source || s.statusUpdatedSource || '').trim() || '—';
+        const link = trackingLink(tracking);
+        const statusFromUps = safeText(s.statusFromUPS).trim();
+	        const processedBy = safeText(s.processedByName || s.employeeName);
+	        const processedById = safeText(s.processedById || s.employeeId || s.referenceNumber1);
+	        const orderNumber = safeText(s.orderNumber || s.referenceNumber2);
+	        const psus = (typeof extractPSUSNumber === 'function') ? extractPSUSNumber(orderNumber) : null;
+	        const maoUrl = (psus && typeof getMAOOrderURL === 'function') ? getMAOOrderURL(psus) : null;
+        const addr = (s.address && typeof s.address === 'object')
+          ? [safeText(s.address.line1), safeText(s.address.line2), [safeText(s.address.city), safeText(s.address.state), safeText(s.address.zip)].filter(Boolean).join(' '), safeText(s.address.country)].filter(Boolean).join(', ')
+          : safeText(s.address);
 
         return `
-          <div class="shipment-card${canEdit ? ' editable' : ''}" data-id="${s.id}">
-            <div class="shipment-header">
-              <span class="tracking-number">${s.trackingNumber || 'Pending'}</span>
-        <span class="shipment-status ${effectiveStatus}">${statusLabel}</span>
+          <div class="shipment-card">
+            <div class="shipment-top">
+              <div>
+                <div class="tracking-number">${tracking ? tracking : 'No Tracking'}</div>
+                <div class="meta">${when ? when : ''}${src ? ` • ${src}` : ''}</div>
+              </div>
+              <div class="status-pill ${status}">${status}</div>
             </div>
-            <div class="shipment-meta">${requestedDate} · ${requestedBy}</div>
-            <div class="shipment-details">
-              <div class="detail-item">
-                <label>Customer</label>
-                <span title="${customerName || '-'}">${customerName || '-'}</span>
+	            <div class="shipment-body">
+              <div class="field">
+                <label>Customer / Destination</label>
+                <div class="wrap">${customer}</div>
               </div>
-              <div class="detail-item">
-                <label>Order #</label>
-                <span>${orderLink}</span>
+              <div class="field">
+                <label>Address</label>
+                <div class="wrap">${addr || '—'}</div>
               </div>
-              <div class="detail-item">
+              <div class="field">
                 <label>UPS Status</label>
-                <span title="${upsStatus || 'Awaiting label'}">${upsStatus || 'Awaiting'}</span>
+                <div class="wrap">${statusFromUps || '—'}</div>
               </div>
-              <div class="detail-item">
-                <label>Phone</label>
-                <span title="${phone || '-'}">${phone || '-'}</span>
+              <div class="field">
+                <label>Processed By</label>
+                <div class="wrap">${processedById ? `${processedBy || '—'} (${processedById})` : (processedBy || '—')}</div>
               </div>
-              <div class="detail-item">
-                <label>Email</label>
-                <span title="${email || '-'}">${email || '-'}</span>
-              </div>
-              <div class="detail-item">
-                <label>Processed</label>
-                <span title="${processedBy}">${processedBy}</span>
-              </div>
-            </div>
-            ${addressLines ? `<div class="address-block">${addressLines}</div>` : ''}
-            ${showNotes ? `<div class="tag"><strong>Notes:</strong> ${s.notes}</div>` : ''}
-            ${s.trackingNumber ? `<div class="ups-link"><a href="https://www.ups.com/track?tracknum=${s.trackingNumber}" target="_blank">Track on UPS &rarr;</a></div>` : ''}
-            ${canEdit ? `<button type="button" class="shipment-edit-btn" onclick="openEditModal('${s.id}')">Edit</button>` : ''}
-          </div>
-        `;
-      }).join('');
+	              <div class="field">
+	                <label>UPS Service</label>
+	                <div class="wrap">${safeText(s.serviceType || s.service || '') || '—'}</div>
+	              </div>
+	              <div class="field">
+	                <label>Order</label>
+	                <div class="wrap">
+	                  ${psus && maoUrl
+	                    ? `${psus} <a class="mao-link" href="${maoUrl}" target="_blank" rel="noopener noreferrer" title="View on MAO"><span class="icon">↗</span><span>(View on MAO)</span></a>`
+	                    : (orderNumber || '—')
+	                  }
+	                </div>
+	              </div>
+	              <div class="field">
+	                <label>Packages / Weight</label>
+	                <div class="wrap">${(s.packageCount !== undefined && s.packageCount !== null) ? safeText(s.packageCount) : '—'} / ${(s.packageWeightLbs !== undefined && s.packageWeightLbs !== null) ? `${safeText(s.packageWeightLbs)} lbs` : '—'}</div>
+	              </div>
+	            </div>
+	            <div class="link-row">
+	              ${link ? `<a href="${link}" target="_blank" rel="noopener noreferrer">Open UPS Tracking</a>` : `<span class="meta">No tracking link</span>`}
+	              <span class="meta"></span>
+	            </div>
+	          </div>
+	        `;
+	      }).join('');
+	    }
+
+    async function loadShipments() {
+      const list = document.getElementById('shipmentsList');
+      list.innerHTML = '<div class="meta">Loading…</div>';
+      try {
+        const resp = await fetch('/api/shipments', { credentials: 'include' });
+        if (!resp.ok) throw new Error('Failed to load shipments');
+        allShipments = await resp.json();
+      } catch (e) {
+        console.error(e);
+        allShipments = [];
+      }
+      renderShipments();
     }
 
-    function setupEventListeners() {
+    async function initPage() {
+      document.getElementById('refreshBtn').addEventListener('click', loadShipments);
       document.getElementById('searchInput').addEventListener('input', renderShipments);
+      document.getElementById('sourceFilter').addEventListener('change', renderShipments);
       document.getElementById('statusFilter').addEventListener('change', renderShipments);
-      document.getElementById('dateFilter').addEventListener('change', renderShipments);
-      document.getElementById('requestedByFilter').addEventListener('change', renderShipments);
-      document.getElementById('processedByFilter').addEventListener('change', renderShipments);
-      document.getElementById('clearFiltersBtn').addEventListener('click', () => clearFilters(true));
 
-      // Auto-refresh every 30 seconds
-      setInterval(loadShipments, 30000);
-
-      // Processing page (BOH/managers only)
-      document.getElementById('processingBtn').addEventListener('click', () => {
-        window.location.href = '/shipments-processing';
-      });
-
-      // Edit modal event listeners
-      document.getElementById('closeEditModal').addEventListener('click', closeEditModal);
-      document.getElementById('cancelEditBtn').addEventListener('click', closeEditModal);
-      document.getElementById('saveEditBtn').addEventListener('click', saveShipment);
-      document.getElementById('deleteShipmentBtn').addEventListener('click', deleteShipment);
-
-      document.getElementById('requestBtn').addEventListener('click', () => {
-        document.getElementById('requestModal').classList.add('active');
-      });
-      document.getElementById('closeModal').addEventListener('click', () => {
-        document.getElementById('requestModal').classList.remove('active');
-      });
-      document.getElementById('cancelBtn').addEventListener('click', () => {
-        document.getElementById('requestModal').classList.remove('active');
-      });
-
-      document.getElementById('submitBtn').addEventListener('click', async () => {
-        const shipment = {
-          employeeName: document.getElementById('employeeName').value,
-          employeeId: document.getElementById('employeeId').value,
-          customerName: document.getElementById('customerName').value,
-          orderNumber: document.getElementById('orderNumber').value,
-          serviceType: document.getElementById('serviceType').value,
-          addressLine1: document.getElementById('addressLine1').value,
-          addressLine2: document.getElementById('addressLine2').value,
-          city: document.getElementById('city').value,
-          state: document.getElementById('state').value,
-          zip: document.getElementById('zip').value,
-          country: document.getElementById('country').value,
-          phone: document.getElementById('phone').value,
-          notes: document.getElementById('notes').value,
-          status: 'requested',
-          createdAt: new Date().toISOString()
-        };
-
-        if (!shipment.employeeName || !shipment.customerName || !shipment.addressLine1 || !shipment.city || !shipment.state || !shipment.zip || !shipment.country) {
-          alert('Please fill in required fields');
-          return;
-        }
-
-        try {
-          await fetch('/api/shipments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(shipment)
-          });
-          document.getElementById('requestModal').classList.remove('active');
-          document.getElementById('requestForm').reset();
-          document.getElementById('country').value = 'USA';
-          document.getElementById('serviceType').value = 'UPS Ground Service';
-          if (currentUser) {
-            document.getElementById('employeeName').value = currentUser.name;
-            document.getElementById('employeeId').value = currentUser.employeeId;
-          }
-          await loadShipments();
-          alert('Shipment request submitted!');
-        } catch (e) {
-          alert('Error submitting request');
-        }
-      });
+      await loadShipments();
     }
 
-    function openEditModal(shipmentId) {
-      const shipment = shipments.find(s => s.id === shipmentId);
-      if (!shipment) return;
-
-      const addr = (shipment.address && typeof shipment.address === 'object') ? shipment.address : {};
-
-      document.getElementById('editShipmentId').value = shipmentId;
-      document.getElementById('editTracking').value = shipment.trackingNumber || '';
-      document.getElementById('editStatus').value = (shipment.status || 'requested');
-      document.getElementById('editCustomerName').value = shipment.customerName || '';
-      document.getElementById('editOrderNumber').value = shipment.orderNumber || '';
-      document.getElementById('editServiceType').value = shipment.serviceType || 'UPS Ground Service';
-      document.getElementById('editCarrier').value = shipment.carrier || 'UPS';
-
-      document.getElementById('editAddressLine1').value = addr.line1 || shipment.addressLine1 || '';
-      document.getElementById('editAddressLine2').value = addr.line2 || shipment.addressLine2 || '';
-      document.getElementById('editCity').value = addr.city || shipment.city || '';
-      document.getElementById('editState').value = addr.state || shipment.state || '';
-      document.getElementById('editZip').value = addr.zip || shipment.zip || '';
-      document.getElementById('editCountry').value = addr.country || shipment.country || 'USA';
-
-      document.getElementById('editPhone').value = addr.phone || shipment.phone || '';
-      document.getElementById('editEmail').value = shipment.email || '';
-      document.getElementById('editNotes').value = shipment.notes || '';
-      document.getElementById('editEmployeeName').value = shipment.employeeName || '';
-      document.getElementById('editEmployeeId').value = shipment.employeeId || '';
-      document.getElementById('editProcessedByName').value = shipment.processedByName || shipment.shippedBy || '';
-      document.getElementById('editProcessedById').value = shipment.processedById || '';
-
-      document.getElementById('editModal').classList.add('active');
-    }
-
-    function closeEditModal() {
-      document.getElementById('editModal').classList.remove('active');
-      document.getElementById('editForm').reset();
-    }
-
-    async function saveShipment() {
-      const shipmentId = document.getElementById('editShipmentId').value;
-      if (!shipmentId) return;
-
-      const status = document.getElementById('editStatus').value;
-      const trackingNumber = document.getElementById('editTracking').value.trim();
-      const phone = document.getElementById('editPhone').value.trim();
-
-      const updates = {
-        trackingNumber,
-        status,
-        carrier: document.getElementById('editCarrier').value.trim(),
-        serviceType: document.getElementById('editServiceType').value,
-        customerName: document.getElementById('editCustomerName').value,
-        orderNumber: document.getElementById('editOrderNumber').value,
-        phone,
-        email: document.getElementById('editEmail').value,
-        notes: document.getElementById('editNotes').value,
-        employeeName: document.getElementById('editEmployeeName').value,
-        employeeId: document.getElementById('editEmployeeId').value,
-        processedByName: document.getElementById('editProcessedByName').value,
-        processedById: document.getElementById('editProcessedById').value,
-        address: {
-          line1: document.getElementById('editAddressLine1').value,
-          line2: document.getElementById('editAddressLine2').value,
-          city: document.getElementById('editCity').value,
-          state: document.getElementById('editState').value,
-          zip: document.getElementById('editZip').value,
-          country: document.getElementById('editCountry').value,
-          phone
-        }
-      };
-
-      try {
-        const response = await fetch(`/api/shipments/${shipmentId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates)
-        });
-
-        if (response.ok) {
-          closeEditModal();
-          await loadShipments();
-        } else {
-          alert('Error saving changes');
-        }
-      } catch (e) {
-        console.error(e);
-        alert('Error saving changes');
-      }
-    }
-
-    async function deleteShipment() {
-      const shipmentId = document.getElementById('editShipmentId').value;
-      if (!shipmentId) return;
-
-      if (!confirm('Are you sure you want to delete this shipment? This action cannot be undone.')) {
-        return;
-      }
-
-      try {
-        const response = await fetch(`/api/shipments/${shipmentId}`, {
-          method: 'DELETE'
-        });
-
-        if (response.ok) {
-          closeEditModal();
-          await loadShipments();
-        } else {
-          alert('Error deleting shipment');
-        }
-      } catch (e) {
-        console.error(e);
-        alert('Error deleting shipment');
-      }
-    }
+    document.addEventListener('DOMContentLoaded', initPage);
   </script>
   <script src="/js/shared-header.js"></script>
 </body>

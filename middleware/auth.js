@@ -28,8 +28,9 @@ const authMiddleware = (req, res, next) => {
         currentUser = (usersData.users || []).find(u => u.employeeId === userData.employeeId || u.id === userData.userId) || null;
       }
     } catch (e) {
-      // If users file can't be read, fall back to session data (avoid locking everyone out)
-      currentUser = { ...userData };
+      // Fail closed: if we can't validate against users.json, don't trust the cookie.
+      console.error('Auth validation failed reading users.json:', e);
+      currentUser = null;
     }
 
     if (!currentUser) {
@@ -48,7 +49,13 @@ const authMiddleware = (req, res, next) => {
       role: currentUser.role || userData.role,
       imageUrl: currentUser.imageUrl || userData.imageUrl,
       isAdmin: !!currentUser.isAdmin,
-      isManager: !!(currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toUpperCase() === 'MANAGEMENT')
+      isManager: !!(currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toUpperCase() === 'MANAGEMENT'),
+      canEditGameplan: !!(
+        currentUser.canEditGameplan ||
+        currentUser.isManager ||
+        currentUser.isAdmin ||
+        (currentUser.role || '').toUpperCase() === 'MANAGEMENT'
+      )
     };
 
     next();

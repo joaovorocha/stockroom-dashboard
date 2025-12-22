@@ -3,6 +3,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+const crypto = require('crypto');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -50,6 +51,35 @@ function readJsonFile(filePath, defaultValue = {}) {
 
 function writeJsonFile(filePath, data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+function hashPassword(plain) {
+  const password = (plain || '').toString();
+  const salt = crypto.randomBytes(16);
+  const derived = crypto.scryptSync(password, salt, 64);
+  return `scrypt$${salt.toString('base64')}$${derived.toString('base64')}`;
+}
+
+function verifyPassword(plain, stored) {
+  const password = (plain || '').toString();
+  const storedStr = (stored || '').toString();
+  if (!storedStr) return false;
+
+  if (storedStr.startsWith('scrypt$')) {
+    const parts = storedStr.split('$');
+    if (parts.length !== 3) return false;
+    const salt = Buffer.from(parts[1], 'base64');
+    const expected = Buffer.from(parts[2], 'base64');
+    const derived = crypto.scryptSync(password, salt, expected.length);
+    return crypto.timingSafeEqual(expected, derived);
+  }
+
+  // Legacy plaintext passwords
+  return storedStr === password;
+}
+
+function isHashedPassword(value) {
+  return (value || '').toString().startsWith('scrypt$');
 }
 
 // Sync user to employees-v2.json
@@ -158,6 +188,36 @@ function findUserByLogin(users, loginValue) {
   }) || null;
 }
 
+function getVerifiedSessionUser(req) {
+  const userSession = req.cookies.userSession;
+  if (!userSession) return null;
+
+  try {
+    const session = JSON.parse(userSession);
+    const usersData = readJsonFile(USERS_FILE, { users: [] });
+    const currentUser = usersData.users.find(u => u.employeeId === session.employeeId || u.id === session.userId);
+    if (!currentUser) return null;
+
+    return {
+      userId: currentUser.id,
+      employeeId: currentUser.employeeId,
+      name: currentUser.name,
+      role: currentUser.role,
+      imageUrl: currentUser.imageUrl,
+      isAdmin: !!currentUser.isAdmin,
+      isManager: !!(currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toUpperCase() === 'MANAGEMENT'),
+      canEditGameplan: !!(
+        currentUser.canEditGameplan ||
+        currentUser.isManager ||
+        currentUser.isAdmin ||
+        (currentUser.role || '').toUpperCase() === 'MANAGEMENT'
+      )
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
 // POST /api/auth/login
 router.post('/login', (req, res) => {
   const { employeeId, password, remember } = req.body;
@@ -170,8 +230,13 @@ router.post('/login', (req, res) => {
     const usersData = readJsonFile(USERS_FILE, { users: [] });
     const user = findUserByLogin(usersData.users, employeeId);
 
-    if (!user || user.password !== password) {
+    if (!user || !verifyPassword(password, user.password)) {
       return res.status(401).json({ success: false, error: 'Invalid Employee ID or password' });
+    }
+
+    // Opportunistic upgrade: if the password is still stored as plaintext, hash it after a successful login.
+    if (user && user.password && !isHashedPassword(user.password)) {
+      user.password = hashPassword(password);
     }
 
     // Update last login
@@ -187,7 +252,8 @@ router.post('/login', (req, res) => {
       imageUrl: user.imageUrl,
       isAdmin: !!user.isAdmin,
       // Treat management and admins as managers even if the flag is missing
-      isManager: !!(user.isManager || user.isAdmin || user.role === 'MANAGEMENT')
+      isManager: !!(user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
+      canEditGameplan: !!(user.canEditGameplan || user.isManager || user.isAdmin || user.role === 'MANAGEMENT')
     };
 
     // Set cookie
@@ -248,7 +314,8 @@ router.get('/check', (req, res) => {
       role: currentUser.role,
       imageUrl: currentUser.imageUrl,
       isAdmin: !!currentUser.isAdmin,
-      isManager: !!(currentUser.isManager || currentUser.isAdmin || currentUser.role === 'MANAGEMENT')
+      isManager: !!(currentUser.isManager || currentUser.isAdmin || currentUser.role === 'MANAGEMENT'),
+      canEditGameplan: !!(currentUser.canEditGameplan || currentUser.isManager || currentUser.isAdmin || currentUser.role === 'MANAGEMENT')
     };
     return res.json({
       authenticated: true,
@@ -260,89 +327,44 @@ router.get('/check', (req, res) => {
   }
 });
 
-// POST /api/auth/switch - Switch to a different user (direct context switch)
+// POST /api/auth/switch - DEPRECATED/disabled (was an insecure user-impersonation endpoint)
 router.post('/switch', (req, res) => {
-  const { employeeId } = req.body;
-
-  if (!employeeId) {
-    return res.status(400).json({ error: 'Employee ID required' });
+  const currentUser = getVerifiedSessionUser(req);
+  if (currentUser) {
+    logActivity('SWITCH_USER_DISABLED_LOGOUT', currentUser.userId, currentUser.name, {});
   }
-
-  try {
-    const usersData = readJsonFile(USERS_FILE, { users: [] });
-    const user = usersData.users.find(u => u.employeeId === employeeId.toString());
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Update last login
-    user.lastLogin = new Date().toISOString();
-    writeJsonFile(USERS_FILE, usersData);
-
-    // Create session data
-    const sessionData = {
-      userId: user.id,
-      employeeId: user.employeeId,
-      name: user.name,
-      role: user.role,
-      imageUrl: user.imageUrl,
-      isManager: user.isManager || false,
-      isAdmin: user.isAdmin || false
-    };
-
-    // Set cookie
-    res.cookie('userSession', JSON.stringify(sessionData), {
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-      sameSite: 'lax',
-      secure: false
-    });
-
-    logActivity('USER_SWITCH', user.id, user.name, { role: user.role });
-
-    return res.json({ success: true, user: sessionData });
-  } catch (error) {
-    console.error('Switch user error:', error);
-    return res.status(500).json({ error: 'Server error' });
-  }
+  res.clearCookie('userSession');
+  return res.status(200).json({
+    success: true,
+    action: 'login',
+    message: 'User switching is disabled. Please log in again.'
+  });
 });
 
-// GET /api/auth/users - Get all users (anyone authenticated can get list for switching)
+// GET /api/auth/users - Get all users (managers/admins only)
 router.get('/users', (req, res) => {
-  const userSession = req.cookies.userSession;
-  if (!userSession) {
-    return res.status(401).json({ error: 'Not authenticated' });
+  const currentUser = getVerifiedSessionUser(req);
+  if (!currentUser) return res.status(401).json({ error: 'Not authenticated' });
+  if (!currentUser.isManager && !currentUser.isAdmin) {
+    return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
 
-  try {
-    const usersData = readJsonFile(USERS_FILE, { users: [] });
-    // Remove passwords from response
-    const users = usersData.users.map(u => ({
-      ...u,
-      password: undefined
-    }));
-
-    return res.json({ users });
-  } catch (error) {
-    return res.status(500).json({ error: 'Server error' });
-  }
+  const usersData = readJsonFile(USERS_FILE, { users: [] });
+  // Remove passwords from response
+  const users = usersData.users.map(u => ({ ...u, password: undefined }));
+  return res.json({ users });
 });
 
 // POST /api/auth/users - Create new user (managers only)
 router.post('/users', (req, res) => {
-  const userSession = req.cookies.userSession;
-  if (!userSession) {
-    return res.status(401).json({ error: 'Not authenticated' });
+  const currentUser = getVerifiedSessionUser(req);
+  if (!currentUser) return res.status(401).json({ error: 'Not authenticated' });
+  if (!currentUser.isManager && !currentUser.isAdmin) {
+    return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
 
   try {
-    const currentUser = JSON.parse(userSession);
-    if (!currentUser.isManager && !currentUser.isAdmin) {
-      return res.status(403).json({ error: 'Access denied. Managers only.' });
-    }
-
-    const { employeeId, name, password, role, imageUrl, isManager } = req.body;
+    const { employeeId, name, password, role, imageUrl, isManager, isAdmin, canEditGameplan } = req.body;
 
     if (!employeeId || !name || !password || !role) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -359,10 +381,12 @@ router.post('/users', (req, res) => {
       id: `user-${Date.now()}`,
       employeeId,
       name,
-      password,
+      password: hashPassword(password),
       role,
       imageUrl: imageUrl || '',
       isManager: isManager || false,
+      isAdmin: isAdmin || false,
+      canEditGameplan: canEditGameplan !== undefined ? !!canEditGameplan : !!(isManager || isAdmin || role === 'MANAGEMENT'),
       createdAt: new Date().toISOString(),
       lastLogin: null
     };
@@ -387,17 +411,13 @@ router.post('/users', (req, res) => {
 
 // PUT /api/auth/users/:id - Update user (managers only)
 router.put('/users/:id', (req, res) => {
-  const userSession = req.cookies.userSession;
-  if (!userSession) {
-    return res.status(401).json({ error: 'Not authenticated' });
+  const currentUser = getVerifiedSessionUser(req);
+  if (!currentUser) return res.status(401).json({ error: 'Not authenticated' });
+  if (!currentUser.isManager && !currentUser.isAdmin) {
+    return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
 
   try {
-    const currentUser = JSON.parse(userSession);
-    if (!currentUser.isManager && !currentUser.isAdmin) {
-      return res.status(403).json({ error: 'Access denied. Managers only.' });
-    }
-
     const { id } = req.params;
     const updates = req.body;
 
@@ -409,10 +429,14 @@ router.put('/users/:id', (req, res) => {
     }
 
     // Update allowed fields
-    const allowedFields = ['name', 'password', 'role', 'imageUrl', 'isManager', 'email', 'phone', 'isAdmin'];
+    const allowedFields = ['name', 'password', 'role', 'imageUrl', 'isManager', 'email', 'phone', 'isAdmin', 'canEditGameplan'];
     allowedFields.forEach(field => {
       if (updates[field] !== undefined) {
-        usersData.users[userIndex][field] = updates[field];
+        if (field === 'password') {
+          usersData.users[userIndex][field] = hashPassword(updates[field]);
+        } else {
+          usersData.users[userIndex][field] = updates[field];
+        }
       }
     });
 
@@ -435,17 +459,13 @@ router.put('/users/:id', (req, res) => {
 
 // POST /api/auth/users/:id/photo - Upload user avatar (managers only)
 router.post('/users/:id/photo', avatarUpload.single('photo'), (req, res) => {
-  const userSession = req.cookies.userSession;
-  if (!userSession) {
-    return res.status(401).json({ error: 'Not authenticated' });
+  const currentUser = getVerifiedSessionUser(req);
+  if (!currentUser) return res.status(401).json({ error: 'Not authenticated' });
+  if (!currentUser.isManager && !currentUser.isAdmin) {
+    return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
 
   try {
-    const currentUser = JSON.parse(userSession);
-    if (!currentUser.isManager && !currentUser.isAdmin) {
-      return res.status(403).json({ error: 'Access denied. Managers only.' });
-    }
-
     const { id } = req.params;
     const usersData = readJsonFile(USERS_FILE, { users: [] });
     const userIndex = usersData.users.findIndex(u => u.id === id);
@@ -479,17 +499,11 @@ router.post('/users/:id/photo', avatarUpload.single('photo'), (req, res) => {
 
 // DELETE /api/auth/users/:id - Delete user (admin only)
 router.delete('/users/:id', (req, res) => {
-  const userSession = req.cookies.userSession;
-  if (!userSession) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
+  const currentUser = getVerifiedSessionUser(req);
+  if (!currentUser) return res.status(401).json({ error: 'Not authenticated' });
+  if (!currentUser.isAdmin) return res.status(403).json({ error: 'Access denied. Admin only.' });
 
   try {
-    const currentUser = JSON.parse(userSession);
-    if (!currentUser.isAdmin) {
-      return res.status(403).json({ error: 'Access denied. Admin only.' });
-    }
-
     const { id } = req.params;
     const usersData = readJsonFile(USERS_FILE, { users: [] });
     const userIndex = usersData.users.findIndex(u => u.id === id);
@@ -528,17 +542,13 @@ router.delete('/users/:id', (req, res) => {
 
 // GET /api/auth/activity - Get activity log (managers only)
 router.get('/activity', (req, res) => {
-  const userSession = req.cookies.userSession;
-  if (!userSession) {
-    return res.status(401).json({ error: 'Not authenticated' });
+  const currentUser = getVerifiedSessionUser(req);
+  if (!currentUser) return res.status(401).json({ error: 'Not authenticated' });
+  if (!currentUser.isManager && !currentUser.isAdmin) {
+    return res.status(403).json({ error: 'Access denied. Managers only.' });
   }
 
   try {
-    const currentUser = JSON.parse(userSession);
-    if (!currentUser.isManager && !currentUser.isAdmin) {
-      return res.status(403).json({ error: 'Access denied. Managers only.' });
-    }
-
     const limit = parseInt(req.query.limit) || 100;
     const logs = readJsonFile(ACTIVITY_LOG_FILE, { logs: [] });
 

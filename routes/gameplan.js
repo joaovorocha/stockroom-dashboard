@@ -126,6 +126,48 @@ function pruneEmployeesFile() {
   return employees;
 }
 
+function getLatestMetricsSnapshotBefore(dateStr) {
+  try {
+    if (!fs.existsSync(METRICS_DIR)) return null;
+    const files = fs
+      .readdirSync(METRICS_DIR)
+      .filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
+      .sort();
+    const target = `${dateStr}.json`;
+    const eligible = files.filter(f => f < target);
+    if (eligible.length === 0) return null;
+    const latest = eligible[eligible.length - 1];
+    return readJsonFile(path.join(METRICS_DIR, latest), null);
+  } catch (e) {
+    return null;
+  }
+}
+
+function maybeBackfillLastWeekOverview(metrics) {
+  const today = getTodayDate();
+  const weekStart = metrics?.retailWeek?.weekStart;
+  if (!weekStart || weekStart !== today) return metrics;
+
+  const previous = getLatestMetricsSnapshotBefore(today);
+  if (!previous) return metrics;
+
+  const shouldBackfillWtd = metrics?.wtd?.salesAmount === 0 && (previous?.wtd?.salesAmount || 0) > 0;
+  const shouldBackfillKpis =
+    (!metrics?.metrics || Object.values(metrics.metrics).every(v => !v)) &&
+    !!previous?.metrics;
+  const shouldBackfillMix = !metrics?.lastWeekSales && !!previous?.lastWeekSales;
+
+  if (!shouldBackfillWtd && !shouldBackfillKpis && !shouldBackfillMix) return metrics;
+
+  return {
+    ...metrics,
+    wtd: shouldBackfillWtd ? previous.wtd : metrics.wtd,
+    metrics: shouldBackfillKpis ? previous.metrics : metrics.metrics,
+    lastWeekSales: shouldBackfillMix ? previous.lastWeekSales : metrics.lastWeekSales,
+    lastWeekOverviewFromDate: previous?.date || null
+  };
+}
+
 // GET /api/gameplan/employees - Get all employees
 router.get('/employees', (req, res) => {
   const employees = pruneEmployeesFile();
@@ -401,7 +443,7 @@ router.get('/metrics', (req, res) => {
           // Ignore; caller can show "--" when unavailable.
         }
       }
-      return res.json(metrics);
+      return res.json(maybeBackfillLastWeekOverview(metrics));
     }
     
     // Fall back to processing live if no saved data
@@ -425,7 +467,7 @@ router.get('/metrics', (req, res) => {
       employeeCountPerformance: countPerformance
     };
     
-    res.json(metrics);
+    res.json(maybeBackfillLastWeekOverview(metrics));
   } catch (error) {
     console.error('Error loading metrics:', error);
     
@@ -459,7 +501,7 @@ router.get('/metrics', (req, res) => {
       }
     }
     
-    res.json(metrics);
+    res.json(maybeBackfillLastWeekOverview(metrics));
   }
 });
 

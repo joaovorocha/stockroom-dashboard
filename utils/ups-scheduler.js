@@ -31,7 +31,7 @@ class UPSScheduler {
     fs.appendFileSync(logFile, logEntry);
   }
 
-  async runImport(daysBack = 2, deleteAfterImport = true) {
+  async runImport(daysBack = 2, deleteAfterImport = false) {
     if (this.isRunning) {
       this.log('UPS import already running, skipping...');
       return { skipped: true, reason: 'Already running' };
@@ -110,7 +110,7 @@ class UPSScheduler {
     fs.writeFileSync(resultsFile, JSON.stringify(allResults, null, 2));
   }
 
-  start(cronExpression = '*/10 * * * *', daysBack = 2, deleteAfterImport = true) {
+  start(cronExpression = '*/10 * * * *', daysBack = 2, deleteAfterImport = false) {
     const expressions = Array.isArray(cronExpression)
       ? cronExpression
       : (cronExpression || '')
@@ -175,7 +175,7 @@ if (require.main === module) {
   const command = args[0];
   const cronExpr = args[1] || process.env.UPS_EMAIL_IMPORT_CRON || '*/10 * * * *';
   const daysBack = parseInt(process.env.UPS_EMAIL_IMPORT_DAYS || args[2] || '2', 10);
-  const deleteAfterImport = process.env.UPS_EMAIL_DELETE_AFTER_IMPORT !== 'false';
+  const deleteAfterImport = process.env.UPS_EMAIL_DELETE_AFTER_IMPORT === 'true';
   const scheduler = getUPSScheduler();
 
   switch (command) {

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
+const XLSX = require('xlsx');
 const { getTrackingStatus } = require('../utils/upsApi');
 
 function generateId() {
@@ -217,13 +219,6 @@ function mergeShipment(existing, incoming, source) {
 
   merged.processedByName = merged.processedByName || incoming.processedByName || '';
   merged.processedById = merged.processedById || incoming.processedById || '';
-  merged.processedByImageUrl = merged.processedByImageUrl || incoming.processedByImageUrl || '';
-
-  // UPS email-derived fields (optional)
-  if (merged.packageCount === undefined && incoming.packageCount !== undefined) merged.packageCount = incoming.packageCount;
-  if (merged.packageWeightLbs === undefined && incoming.packageWeightLbs !== undefined) merged.packageWeightLbs = incoming.packageWeightLbs;
-  merged.referenceNumber1 = merged.referenceNumber1 || incoming.referenceNumber1 || '';
-  merged.referenceNumber2 = merged.referenceNumber2 || incoming.referenceNumber2 || '';
 
   merged.notes = merged.notes || incoming.notes || '';
 
@@ -307,9 +302,88 @@ function pickValue(row, candidates) {
   return '';
 }
 
-function canManageShipments(user) {
-  const role = (user?.role || '').toString().toUpperCase();
-  return !!(user?.isAdmin || user?.isManager || role === 'MANAGEMENT' || role === 'BOH');
+function extractTrackingFromAnyCell(row) {
+  if (!row || typeof row !== 'object') return '';
+  const text = Object.values(row)
+    .map(v => (v === undefined || v === null ? '' : String(v)))
+    .join(' ');
+  const patterns = [
+    /1Z[A-Z0-9]{16}/i,
+    /\b\d{18,22}\b/,
+    /\b[A-Z]{2}\d{9}US\b/i
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m && m[0]) return m[0].toUpperCase();
+  }
+  return '';
+}
+
+function extractTrackingNumberFromText(text) {
+  const t = (text || '').toString();
+  const patterns = [
+    /1Z[A-Z0-9]{16}/i,
+    /\b\d{18,22}\b/,
+    /\b[A-Z]{2}\d{9}US\b/i
+  ];
+  for (const p of patterns) {
+    const m = t.match(p);
+    if (m && m[0]) return m[0].toUpperCase();
+  }
+  return '';
+}
+
+function parseCampusShipCsvBuffer(buffer) {
+  const wb = XLSX.read(buffer, { type: 'buffer' });
+  const sheetName = wb.SheetNames?.[0];
+  if (!sheetName) return { rows: [], headerRow: [] };
+  const ws = wb.Sheets[sheetName];
+  const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  if (!Array.isArray(matrix) || matrix.length === 0) return { rows: [], headerRow: [] };
+  const [headerRow, ...rows] = matrix;
+  return { rows, headerRow: Array.isArray(headerRow) ? headerRow : [] };
+}
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+function colIndexFromLetters(letters) {
+  const s = (letters || '').toString().trim().toUpperCase();
+  if (!s) return -1;
+  // Excel-style: A=0, B=1, ..., Z=25, AA=26...
+  let idx = 0;
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    if (code < 65 || code > 90) return -1;
+    idx = idx * 26 + (code - 64);
+  }
+  return idx - 1;
+}
+
+function getCell(row, colLetters) {
+  if (!Array.isArray(row)) return '';
+  const idx = colIndexFromLetters(colLetters);
+  if (idx < 0 || idx >= row.length) return '';
+  const v = row[idx];
+  if (v === undefined || v === null) return '';
+  return v.toString().trim();
+}
+
+function loadUsersForLookup() {
+  try {
+    const usersPath = path.join(__dirname, '../data/users.json');
+    if (!fs.existsSync(usersPath)) return [];
+    const parsed = JSON.parse(fs.readFileSync(usersPath, 'utf8'));
+    return Array.isArray(parsed?.users) ? parsed.users : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function findUserNameByEmployeeId(users, employeeId) {
+  const target = (employeeId || '').toString().trim();
+  if (!target) return '';
+  const match = (users || []).find(u => (u?.employeeId || '').toString().trim() === target);
+  return match?.name || '';
 }
 
 // GET /api/shipments - Get all shipment requests (enriched with UPS status when tracking is available)
@@ -329,6 +403,105 @@ router.get('/', async (req, res) => {
   } catch (error) {
     console.error('Error fetching shipments:', error);
     return res.status(500).json({ error: 'Failed to fetch shipments' });
+  }
+});
+
+// POST /api/shipments/import-campusship-csv - Import shipments from a CampusShip export CSV
+router.post('/import-campusship-csv', upload.single('file'), async (req, res) => {
+  try {
+    const user = req.user || {};
+    const role = (user.role || '').toString().toUpperCase();
+    const canImport = user.isAdmin || user.isManager || role === 'MANAGEMENT' || role === 'BOH';
+    if (!canImport) return res.status(403).json({ error: 'Manager access required' });
+
+    const file = req.file;
+    if (!file?.buffer) return res.status(400).json({ error: 'CSV file is required (field name: file)' });
+
+    const { rows, headerRow } = parseCampusShipCsvBuffer(file.buffer);
+    if (!rows.length) return res.status(400).json({ error: 'No rows found in CSV' });
+
+    let created = 0;
+    let updated = 0;
+    const warnings = [];
+    const users = loadUsersForLookup();
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+
+      // CampusShip export mapping (by Excel column letters):
+      // B  = service type
+      // AL = customer/recipient name
+      // AM = address line 1
+      // AN = address line 2
+      // AP = city
+      // AQ = state
+      // AR = zip
+      // CB = processed by employee id
+      // CD = order number
+      // CZ = phone
+      // DA = email
+      // DC = return indicator
+      const serviceType = getCell(row, 'B');
+      const customerName = getCell(row, 'AL');
+      const line1 = getCell(row, 'AM');
+      const line2 = getCell(row, 'AN');
+      const city = getCell(row, 'AP');
+      const state = getCell(row, 'AQ');
+      const zip = getCell(row, 'AR');
+      const processedById = getCell(row, 'CB');
+      const orderNumber = getCell(row, 'CD');
+      const phone = getCell(row, 'CZ');
+      const email = getCell(row, 'DA');
+      const returnIndicator = getCell(row, 'DC');
+
+      const trackingNumber = extractTrackingNumberFromText([customerName, orderNumber, line1, line2, city, state, zip, phone, email, returnIndicator].join(' '));
+      const processedByName = findUserNameByEmployeeId(users, processedById);
+
+      const country = 'US';
+      const isReturn = !!returnIndicator && returnIndicator !== '0' && returnIndicator.toLowerCase() !== 'false';
+
+      const incoming = {
+        customerName: customerName || '',
+        orderNumber: orderNumber || '',
+        trackingNumber: trackingNumber || '',
+        carrier: 'UPS',
+        serviceType: serviceType || '',
+        email: email || '',
+        phone: phone || '',
+        processedById: processedById || '',
+        processedByName: processedByName || '',
+        address: {
+          line1: line1 || '',
+          line2: line2 || '',
+          city: city || '',
+          state: state || '',
+          zip: zip || '',
+          country: country || '',
+          phone: phone || ''
+        },
+        status: trackingNumber ? 'label-created' : 'requested',
+        source: 'campusship-csv',
+        isReturn: isReturn ? true : false,
+        notes: isReturn ? 'RETURN TO STORE (CampusShip)' : ''
+      };
+
+      if (!incoming.customerName && !incoming.trackingNumber && !incoming.orderNumber) {
+        warnings.push({ row: i + 2, warning: 'Skipped row (missing name/tracking/order)' });
+        continue;
+      }
+
+      const result = upsertShipment(incoming, 'campusship-csv');
+      if (result.created) created += 1;
+      else updated += 1;
+    }
+
+    // Ensure the file doesn't introduce duplicates
+    dedupeShipmentsInPlace('campusship-csv');
+
+    return res.json({ success: true, rows: rows.length, created, updated, warnings: warnings.slice(0, 100), headerSample: headerRow.slice(0, 30) });
+  } catch (error) {
+    console.error('Error importing CampusShip CSV:', error);
+    return res.status(500).json({ error: 'Failed to import CampusShip CSV', details: error.message });
   }
 });
 
@@ -381,10 +554,6 @@ router.post('/add', async (req, res) => {
 // POST /api/shipments - Create a new shipment request
 router.post('/', async (req, res) => {
   try {
-    if (!canManageShipments(req.user)) {
-      return res.status(403).json({ error: 'Manager access required' });
-    }
-
     const {
       employeeName,
       employeeId,
@@ -448,10 +617,6 @@ router.post('/', async (req, res) => {
 // PUT /api/shipments/:id - Update a shipment
 router.put('/:id', async (req, res) => {
   try {
-    if (!canManageShipments(req.user)) {
-      return res.status(403).json({ error: 'Manager access required' });
-    }
-
     const { id } = req.params;
     const updates = req.body;
 
@@ -484,10 +649,6 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/shipments/:id - Delete a shipment
 router.delete('/:id', async (req, res) => {
   try {
-    if (!canManageShipments(req.user)) {
-      return res.status(403).json({ error: 'Manager access required' });
-    }
-
     const { id } = req.params;
     const shipments = loadShipments();
     const index = shipments.findIndex(s => s.id === id);
@@ -509,10 +670,6 @@ router.delete('/:id', async (req, res) => {
 // POST /api/shipments/import-email - Import shipments from UPS emails
 router.post('/import-email', async (req, res) => {
   try {
-    if (!canManageShipments(req.user)) {
-      return res.status(403).json({ error: 'Manager access required' });
-    }
-
     const { UPSEmailParser } = require('../utils/ups-email-parser');
     const parser = new UPSEmailParser();
 
@@ -525,8 +682,7 @@ router.post('/import-email', async (req, res) => {
     }
 
     const daysBack = parseInt(req.body.daysBack) || 7;
-    // Safer default: never delete emails unless explicitly requested.
-    const deleteAfterImport = req.body.deleteAfterImport === true;
+    const deleteAfterImport = req.body.deleteAfterImport !== false;
     const result = await parser.fetchAndImportShipments(daysBack, deleteAfterImport);
     // Email importer writes directly to shipments.json; run a merge pass so it combines with existing requests.
     dedupeShipmentsInPlace('email-import');
@@ -545,10 +701,6 @@ router.post('/import-email', async (req, res) => {
 // POST /api/shipments/import-tracking - Manually import a tracking number
 router.post('/import-tracking', async (req, res) => {
   try {
-    if (!canManageShipments(req.user)) {
-      return res.status(403).json({ error: 'Manager access required' });
-    }
-
     const { tracking, carrier, notes, shipper, destination } = req.body;
 
     if (!tracking) {

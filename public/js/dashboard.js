@@ -12,6 +12,96 @@ let sseConnection = null;
 let currentPageType = 'SA'; // Default to SA, will be determined by URL
 let sseReconnectTimer = null;
 let sseRetryDelayMs = 1000;
+let lastFocusedElement = null;
+
+function hideEmojiPicker() {
+  const picker = document.getElementById('emojiPicker');
+  if (picker) picker.style.display = 'none';
+}
+
+function closeOverlay(id) {
+  const overlay = document.getElementById(id);
+  if (!overlay) return;
+  overlay.classList.remove('active');
+  overlay.setAttribute('aria-hidden', 'true');
+  if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+    try { lastFocusedElement.focus(); } catch (e) {}
+  }
+  lastFocusedElement = null;
+}
+
+function openOverlay(id) {
+  hideEmojiPicker();
+
+  const ids = ['settingsModal', 'metricsModal', 'loansModal'];
+  ids.forEach(otherId => {
+    const el = document.getElementById(otherId);
+    if (!el) return;
+    if (otherId !== id) {
+      el.classList.remove('active');
+      el.setAttribute('aria-hidden', 'true');
+    }
+  });
+
+  const overlay = document.getElementById(id);
+  if (!overlay) return;
+  lastFocusedElement = document.activeElement;
+  overlay.classList.add('active');
+  overlay.setAttribute('aria-hidden', 'false');
+
+  const focusTarget = overlay.querySelector('input, select, textarea, button, [tabindex]:not([tabindex=\"-1\"])');
+  if (focusTarget && typeof focusTarget.focus === 'function') {
+    setTimeout(() => {
+      try { focusTarget.focus(); } catch (e) {}
+    }, 0);
+  }
+}
+
+function closeTopLayer() {
+  hideEmojiPicker();
+  const ids = ['loansModal', 'metricsModal', 'settingsModal'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el?.classList?.contains('active')) {
+      closeOverlay(id);
+      return true;
+    }
+  }
+  return false;
+}
+
+function normalizeEmployeeKey(value) {
+  return (value || '').toString().trim().toLowerCase();
+}
+
+function getDailyScanStatsForEmployee(emp) {
+  const list = metrics?.employeeCountPerformance?.employees || [];
+  if (!Array.isArray(list) || list.length === 0) return null;
+
+  const employeeId = normalizeEmployeeKey(emp?.employeeId || emp?.id);
+  const nameKey = normalizeEmployeeKey(emp?.name);
+
+  // Prefer direct employeeId match
+  let match = null;
+  if (employeeId) {
+    match = list.find(e => normalizeEmployeeKey(e?.employeeId || e?.id) === employeeId) || null;
+  }
+  // Fallback to name match
+  if (!match && nameKey) {
+    match = list.find(e => normalizeEmployeeKey(e?.name) === nameKey) || null;
+  }
+  if (!match) return null;
+
+  const accuracy = Number(match.accuracy);
+  const countsDone = Number(match.countsDone);
+  const missedReserved = Number(match.missedReserved);
+
+  return {
+    accuracy: Number.isFinite(accuracy) ? accuracy : null,
+    countsDone: Number.isFinite(countsDone) ? countsDone : null,
+    missedReserved: Number.isFinite(missedReserved) ? missedReserved : null
+  };
+}
 
 function getLocalISODate() {
   const d = new Date();
@@ -53,18 +143,36 @@ function getWorkingSACount() {
 function getRetailWeekTargetPerPerson() {
   // Can't compute per-person target until the game plan is published (we don't know who's working yet).
   if (!gameplanData?.published) return null;
-  const dailyTarget =
-    metrics?.retailWeek?.targetPerDay ||
-    (metrics?.retailWeek?.target ? (metrics.retailWeek.target / 7) : 0);
-  if (!dailyTarget) return null;
+  const hasTargetPerDay = metrics?.retailWeek && Object.prototype.hasOwnProperty.call(metrics.retailWeek, 'targetPerDay');
+  const hasTarget = metrics?.retailWeek && Object.prototype.hasOwnProperty.call(metrics.retailWeek, 'target');
+  const dailyTarget = hasTargetPerDay
+    ? Number(metrics.retailWeek.targetPerDay)
+    : (hasTarget ? (Number(metrics.retailWeek.target) / 7) : null);
+  if (!Number.isFinite(dailyTarget) || !dailyTarget) return null;
   const working = getWorkingSACount();
   if (!working) return null;
   return dailyTarget / working;
 }
 
+function formatCurrencyOrDash(amount) {
+  const num = Number(amount);
+  if (!Number.isFinite(num)) return '--';
+  return formatCurrency(num);
+}
+
+function formatCurrencyFieldOrDash(obj, key) {
+  if (!obj || !Object.prototype.hasOwnProperty.call(obj, key)) return '--';
+  return formatCurrencyOrDash(obj[key]);
+}
+
 function isPrivilegedUser() {
   const role = (currentUser?.role || '').toString().toUpperCase();
   return !!(currentUser?.isAdmin || currentUser?.isManager || role === 'MANAGEMENT' || role === 'ADMIN');
+}
+
+function canEditGamePlan() {
+  const role = (currentUser?.role || '').toString().toUpperCase();
+  return !!(currentUser?.canEditGameplan || currentUser?.isManager || currentUser?.isAdmin || role === 'MANAGEMENT' || role === 'ADMIN');
 }
 
 function applyUnpublishedVisibility() {
@@ -121,17 +229,28 @@ function renderRetailWeekStoreInfo() {
 
   const perPerson = getRetailWeekTargetPerPerson();
   const saLine = perPerson
-    ? `<span><strong>Target / SA Today:</strong> ${formatCurrency(perPerson)}</span>
+    ? `<span><strong>Target / SA Today:</strong> ${formatCurrencyOrDash(perPerson)}</span>
        <span style="color:var(--text-muted);">(${getWorkingSACount()} SA working)</span>`
     : `<span><strong>Target / SA Today:</strong> --</span>
        <span style="color:var(--text-muted);">(publish game plan to calculate)</span>`;
+
+  const weekSalesText = formatCurrencyFieldOrDash(retailWeek, 'salesAmount');
+  const weekTargetText = formatCurrencyFieldOrDash(retailWeek, 'target');
+  let dailyTargetText = '--';
+  if (Object.prototype.hasOwnProperty.call(retailWeek, 'targetPerDay')) {
+    dailyTargetText = formatCurrencyOrDash(retailWeek.targetPerDay);
+  } else if (Object.prototype.hasOwnProperty.call(retailWeek, 'target')) {
+    const computed = Number(retailWeek.target) / 7;
+    dailyTargetText = Number.isFinite(computed) ? formatCurrencyOrDash(computed) : '--';
+  }
+
   box.innerHTML = `
     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
       <strong>Retail Week ${retailWeek.weekNumber}</strong>
       <span style="color:var(--text-secondary);">${retailWeek.weekStart} → ${retailWeek.weekEnd}</span>
-      <span><strong>Week Sales:</strong> ${formatCurrency(retailWeek.salesAmount || 0)}</span>
-      <span><strong>Week Target:</strong> ${formatCurrency(retailWeek.target || 0)}</span>
-      <span><strong>Daily Target:</strong> ${formatCurrency(retailWeek.targetPerDay || (retailWeek.target ? retailWeek.target / 7 : 0))}</span>
+      <span><strong>Week Sales:</strong> ${weekSalesText}</span>
+      <span><strong>Week Target:</strong> ${weekTargetText}</span>
+      <span><strong>Daily Target:</strong> ${dailyTargetText}</span>
       ${saLine}
     </div>
   `;
@@ -297,17 +416,16 @@ async function checkAuth() {
       if (avatarEl) avatarEl.src = currentUser.imageUrl;
     }
 
-    // Show manager/admin features
-    if (currentUser.isManager || currentUser.isAdmin) {
-      const managerActions = document.getElementById('managerActions');
-      const adminLink = document.getElementById('adminLink') || document.getElementById('navAdmin');
-      const editLink = document.getElementById('navGamePlanEdit');
+    // Admin nav
+    const adminLink = document.getElementById('adminLink') || document.getElementById('navAdmin');
+    if (adminLink && currentUser.isAdmin) adminLink.style.display = 'inline';
 
-      if (managerActions) managerActions.style.display = 'block';
-      if (adminLink && currentUser.isAdmin) adminLink.style.display = 'inline';
-
-      const canSeeEdit = !!(currentUser.isManager || (currentUser.role || '').toUpperCase() === 'MANAGEMENT');
-      if (editLink && canSeeEdit) editLink.style.display = 'inline';
+    // Move "Edit Game Plan" into the welcome box (hide sidebar card)
+    const managerActions = document.getElementById('managerActions');
+    if (managerActions) managerActions.style.display = 'none';
+    const welcomeActionRow = document.getElementById('welcomeActionRow');
+    if (welcomeActionRow) {
+      welcomeActionRow.style.display = canEditGamePlan() ? 'block' : 'none';
     }
   } catch (error) {
     console.error('Auth check failed:', error);
@@ -359,25 +477,33 @@ async function loadMetrics() {
     
     // Update import status card (both welcome section and sidebar)
     const lastLookerSyncEl = document.getElementById('lastLookerSync');
+    const welcomeLastSyncEl = document.getElementById('welcomeLastSync');
     const sidebarLastSyncEl = document.getElementById('sidebarLastSync');
     const recordsImportedEl = document.getElementById('recordsImported');
+    const welcomeRecordsImportedEl = document.getElementById('welcomeRecordsImported');
     // Prefer lastEmailReceived (actual email time) over importedAt (processing time)
     const syncTimestamp = metrics.lastEmailReceived || metrics.importedAt;
     if (syncTimestamp) {
       const syncDate = new Date(syncTimestamp);
       const formattedDate = syncDate.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
       if (lastLookerSyncEl) lastLookerSyncEl.textContent = formattedDate;
+      if (welcomeLastSyncEl) welcomeLastSyncEl.textContent = formattedDate;
       if (sidebarLastSyncEl) sidebarLastSyncEl.textContent = formattedDate;
     }
-    if (recordsImportedEl) {
+    if (recordsImportedEl || welcomeRecordsImportedEl) {
       // Count total records from various data sources
       let totalRecords = 0;
       if (metrics.wtd) totalRecords++;
       if (metrics.operationsHealth) totalRecords += Object.keys(metrics.operationsHealth).length;
       if (metrics.inventoryIssues) totalRecords += Object.keys(metrics.inventoryIssues).length;
       if (metrics.employeeCountPerformance?.employees?.length) totalRecords += metrics.employeeCountPerformance.employees.length;
-      recordsImportedEl.textContent = totalRecords > 0 ? `${totalRecords} metrics` : '--';
+      const txt = totalRecords > 0 ? `${totalRecords} metrics` : '--';
+      if (recordsImportedEl) recordsImportedEl.textContent = txt;
+      if (welcomeRecordsImportedEl) welcomeRecordsImportedEl.textContent = txt;
     }
+
+    const welcomeImportCard = document.getElementById('importStatusCardWelcome');
+    if (welcomeImportCard) welcomeImportCard.style.display = 'block';
   } catch (error) {
     console.error('Error loading metrics:', error);
   }
@@ -675,8 +801,9 @@ function setupWelcomeSection() {
 
   const detailsEl = document.getElementById('welcomeDetails');
   const kpisRowEl = document.getElementById('welcomeKpisRow');
-  const dataImportBox = document.getElementById('dataImportBox');
   const storeInfoEl = document.getElementById('welcomeStoreInfo');
+  const sidebarCard = document.getElementById('importStatusCard');
+  if (sidebarCard) sidebarCard.style.display = 'none';
 
   if (userEmployee) {
     // Don't show duplicate assignment info - it's in expandable boxes
@@ -684,22 +811,6 @@ function setupWelcomeSection() {
 
     switch (userEmployee.type) {
       case 'SA':
-        // Show Data Import status for SA (and hide sidebar duplicate)
-        if (dataImportBox) {
-          dataImportBox.style.display = 'flex';
-          const lastSync = document.getElementById('lastLookerSync');
-          const sidebarCard = document.getElementById('importStatusCard');
-          if (sidebarCard) sidebarCard.style.display = 'none';
-          // Prefer lastEmailReceived (actual email time) over importedAt (processing time)
-          const syncTimestamp = metrics?.lastEmailReceived || metrics?.importedAt;
-          if (lastSync && syncTimestamp) {
-            const syncDate = new Date(syncTimestamp);
-            lastSync.textContent = syncDate.toLocaleString('en-US', { 
-              month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' 
-            });
-          }
-        }
-
         // Show KPIs row for SA (on top)
         kpisRowEl.style.display = 'flex';
         if (userEmployee.metrics) {
@@ -750,6 +861,16 @@ function setupWelcomeSection() {
         }
         storeInfoEl.style.display = 'block';
         break;
+    }
+
+    // Managers/admins: show daily scan % in the top details box (grey "--" if missing).
+    if (isPrivilegedUser() && userEmployee.type !== 'SA') {
+      const scan = getDailyScanStatsForEmployee(userEmployee);
+      const pct = scan?.accuracy;
+      const hasPct = Number.isFinite(pct);
+      const pctText = hasPct ? `${pct}%` : '--';
+      const cls = hasPct ? (pct >= 99.5 ? 'positive' : pct >= 99 ? 'warning' : 'negative') : 'muted';
+      detailsHtml += `<div class="assignment-item"><span class="label">Daily Scan %:</span> <span class="value ${cls}">${pctText}</span></div>`;
     }
 
     if (detailsHtml) {
@@ -1124,6 +1245,11 @@ function renderAll() {
   updateNotesPreview();
   updateLastSyncTime(); // Update sidebar sync time
 
+  const setDisplay = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = value;
+  };
+
   // Conditional rendering based on page type
   switch (currentPageType) {
     case 'SA':
@@ -1131,23 +1257,23 @@ function renderAll() {
       renderManagementQuickSection();
       renderSASection();
       // Hide other sections not relevant to SA
-      document.getElementById('bohSection').style.display = 'none';
-      document.getElementById('managementSection').style.display = 'none';
-      document.getElementById('tailorsSection').style.display = 'none';
-      document.getElementById('operationsSection').style.display = 'none';
-      document.getElementById('lookerSection').style.display = 'none';
+      setDisplay('bohSection', 'none');
+      setDisplay('managementSection', 'none');
+      setDisplay('tailorsSection', 'none');
+      setDisplay('operationsSection', 'none');
+      setDisplay('lookerSection', 'none');
       break;
     case 'TAILOR':
       renderTailorsSection();
       // Hide other sections
-      document.getElementById('welcomeSection').style.display = 'none';
-      document.getElementById('managementQuickSection').style.display = 'none';
-      document.getElementById('metricsSection').style.display = 'none';
-      document.getElementById('operationsSection').style.display = 'none';
-      document.getElementById('saSection').style.display = 'none';
-      document.getElementById('bohSection').style.display = 'none';
-      document.getElementById('managementSection').style.display = 'none';
-      document.getElementById('lookerSection').style.display = 'none';
+      setDisplay('welcomeSection', 'none');
+      setDisplay('managementQuickSection', 'none');
+      setDisplay('metricsSection', 'none');
+      setDisplay('operationsSection', 'none');
+      setDisplay('saSection', 'none');
+      setDisplay('bohSection', 'none');
+      setDisplay('managementSection', 'none');
+      setDisplay('lookerSection', 'none');
       break;
     case 'BOH':
       renderBOHSection();
@@ -1156,13 +1282,13 @@ function renderAll() {
       renderCustomerOrders();
       renderCountLeaderboard();
       // Hide other sections
-      document.getElementById('welcomeSection').style.display = 'none';
-      document.getElementById('managementQuickSection').style.display = 'none';
-      document.getElementById('metricsSection').style.display = 'none';
-      document.getElementById('saSection').style.display = 'none';
-      document.getElementById('managementSection').style.display = 'none';
-      document.getElementById('tailorsSection').style.display = 'none';
-      document.getElementById('lookerSection').style.display = 'none';
+      setDisplay('welcomeSection', 'none');
+      setDisplay('managementQuickSection', 'none');
+      setDisplay('metricsSection', 'none');
+      setDisplay('saSection', 'none');
+      setDisplay('managementSection', 'none');
+      setDisplay('tailorsSection', 'none');
+      setDisplay('lookerSection', 'none');
       break;
     case 'MANAGEMENT':
     case 'EDIT':
@@ -1360,6 +1486,16 @@ function createSACard(emp, isCurrentUser = false) {
     ? '<div class="loan-warning">Loan Overdue</div>'
     : '';
 
+  const scan = getDailyScanStatsForEmployee(emp);
+  const scanAccuracyHtml = Number.isFinite(scan?.accuracy)
+    ? `
+      <div class="card-field">
+        <span class="field-label">Scan Accuracy</span>
+        <span class="field-value ${scan.accuracy >= 99.5 ? 'positive' : scan.accuracy >= 99 ? 'warning' : 'negative'}">${scan.accuracy}%</span>
+      </div>
+    `
+    : '';
+
 	  card.innerHTML = `
 	    <div class="card-header">
       ${photoHtml}
@@ -1389,6 +1525,7 @@ function createSACard(emp, isCurrentUser = false) {
         <span class="field-label">Closing Sections</span>
         <span class="field-value">${Array.isArray(emp.closingSections) ? emp.closingSections.join(', ') : emp.closingSections || '-'}</span>
       </div>
+      ${scanAccuracyHtml}
     </div>
     ${emp.metrics ? `
     <div class="sa-metrics">
@@ -1449,6 +1586,17 @@ function createBOHCard(emp, isCurrentUser = false) {
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
 
+  const scan = getDailyScanStatsForEmployee(emp);
+  const accuracy = emp.metrics?.inventoryAccuracy !== undefined ? Number(emp.metrics.inventoryAccuracy) : scan?.accuracy;
+  const countsDone = emp.metrics?.storeCountsCompleted !== undefined ? Number(emp.metrics.storeCountsCompleted) : scan?.countsDone;
+  const missedReserved = emp.metrics?.missedReserved !== undefined ? Number(emp.metrics.missedReserved) : scan?.missedReserved;
+  const hasAnyScanStats = accuracy !== undefined || countsDone !== undefined || missedReserved !== undefined;
+
+  const accuracyClass =
+    Number.isFinite(accuracy) ? (accuracy >= 99.5 ? 'positive' : accuracy >= 98 ? 'warning' : 'negative') : 'muted';
+  const missedClass =
+    Number.isFinite(missedReserved) ? ((missedReserved || 0) === 0 ? 'positive' : 'negative') : 'muted';
+
   card.innerHTML = `
     <div class="card-header">
       ${photoHtml}
@@ -1471,18 +1619,18 @@ function createBOHCard(emp, isCurrentUser = false) {
         <span class="field-value">${emp.taskOfTheDay || '-'}</span>
       </div>
     </div>
-    ${emp.metrics && emp.metrics.inventoryAccuracy !== undefined ? `
+    ${hasAnyScanStats ? `
     <div class="boh-metrics">
       <div class="boh-metric">
-        <span class="value ${emp.metrics.inventoryAccuracy >= 99.5 ? 'positive' : emp.metrics.inventoryAccuracy >= 98 ? 'warning' : 'negative'}">${emp.metrics.inventoryAccuracy}%</span>
-        <span class="label">Accuracy</span>
+        <span class="value ${accuracyClass}">${Number.isFinite(accuracy) ? `${accuracy}%` : '--'}</span>
+        <span class="label">Scan %</span>
       </div>
       <div class="boh-metric">
-        <span class="value">${emp.metrics.storeCountsCompleted || 0}</span>
-        <span class="label">Counts</span>
+        <span class="value ${Number.isFinite(countsDone) ? '' : 'muted'}">${Number.isFinite(countsDone) ? countsDone : '--'}</span>
+        <span class="label">Scans</span>
       </div>
       <div class="boh-metric">
-        <span class="value ${(emp.metrics.missedReserved || 0) === 0 ? 'positive' : 'negative'}">${emp.metrics.missedReserved || 0}</span>
+        <span class="value ${missedClass}">${Number.isFinite(missedReserved) ? missedReserved : '--'}</span>
         <span class="label">Missed</span>
       </div>
     </div>
@@ -1552,6 +1700,15 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
       </div>
     `;
   } else {
+    const scan = getDailyScanStatsForEmployee(emp);
+    const scanRow = Number.isFinite(scan?.accuracy)
+      ? `
+        <div class="card-field">
+          <span class="field-label">Scan Accuracy</span>
+          <span class="field-value ${scan.accuracy >= 99.5 ? 'positive' : scan.accuracy >= 99 ? 'warning' : 'negative'}">${scan.accuracy}%</span>
+        </div>
+      `
+      : '';
     card.innerHTML = `
       <div class="card-header">
         ${photoHtml}
@@ -1569,6 +1726,7 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
           <span class="field-label">Lunch</span>
           <span class="field-value">${emp.lunch || '-'}</span>
         </div>
+        ${scanRow}
       </div>
       ${loanWarning}
     `;
@@ -1633,6 +1791,15 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
       </div>
     `;
   } else {
+    const scan = getDailyScanStatsForEmployee(emp);
+    const scanRow = Number.isFinite(scan?.accuracy)
+      ? `
+        <div class="card-field">
+          <span class="field-label">Scan Accuracy</span>
+          <span class="field-value ${scan.accuracy >= 99.5 ? 'positive' : scan.accuracy >= 99 ? 'warning' : 'negative'}">${scan.accuracy}%</span>
+        </div>
+      `
+      : '';
     const productivity = emp.productivity || 0;
     const productivityClass = productivity >= 100 ? 'positive' : productivity >= 80 ? 'warning' : 'negative';
     card.innerHTML = `
@@ -1652,6 +1819,7 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
           <span class="field-label">Lunch</span>
           <span class="field-value">${emp.lunch || '-'}</span>
         </div>
+        ${scanRow}
       </div>
       <div class="tailor-productivity">
         <div class="productivity-bar">
@@ -2339,7 +2507,7 @@ function openMetricsEditor() {
   document.getElementById('editCasual').value = metrics.lastWeekSales?.casual || 0;
   document.getElementById('editTuxedo').value = metrics.lastWeekSales?.tuxedo || 0;
 
-  document.getElementById('metricsModal').classList.add('active');
+  openOverlay('metricsModal');
 }
 
 async function saveMetricsChanges() {
@@ -2390,7 +2558,7 @@ async function saveMetricsChanges() {
 
 // Settings Modal
 function openSettingsModal() {
-  document.getElementById('settingsModal').classList.add('active');
+  openOverlay('settingsModal');
   renderSettingsTab(currentSettingsTab);
 }
 
@@ -2619,6 +2787,9 @@ function setupEventListeners() {
 
   emojiBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
+    if (document.getElementById('settingsModal')?.classList?.contains('active')) return;
+    if (document.getElementById('metricsModal')?.classList?.contains('active')) return;
+    if (document.getElementById('loansModal')?.classList?.contains('active')) return;
     const rect = emojiBtn.getBoundingClientRect();
     if (emojiPicker) {
       emojiPicker.style.top = `${rect.bottom + 5}px`;
@@ -2639,6 +2810,10 @@ function setupEventListeners() {
     if (emojiPicker) emojiPicker.style.display = 'none';
   });
 
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeTopLayer();
+  });
+
   // Manager actions
   document.getElementById('publishBtn')?.addEventListener('click', publishGameplan);
   document.getElementById('editMetricsBtn')?.addEventListener('click', openMetricsEditor);
@@ -2646,21 +2821,28 @@ function setupEventListeners() {
 
   // Metrics modal
   document.getElementById('closeMetrics')?.addEventListener('click', () => {
-    document.getElementById('metricsModal').classList.remove('active');
+    closeOverlay('metricsModal');
   });
   document.getElementById('cancelMetrics')?.addEventListener('click', () => {
-    document.getElementById('metricsModal').classList.remove('active');
+    closeOverlay('metricsModal');
   });
   document.getElementById('saveMetrics')?.addEventListener('click', saveMetricsChanges);
 
   // Settings modal
   document.getElementById('closeSettings')?.addEventListener('click', () => {
-    document.getElementById('settingsModal').classList.remove('active');
+    closeOverlay('settingsModal');
   });
   document.getElementById('closeSettingsBtn')?.addEventListener('click', () => {
-    document.getElementById('settingsModal').classList.remove('active');
+    closeOverlay('settingsModal');
   });
   document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettingsChanges);
+
+  // Close modals on backdrop click (only if the overlay itself is clicked)
+  ['settingsModal', 'metricsModal', 'loansModal'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('click', (e) => {
+      if (e.target?.id === id) closeOverlay(id);
+    });
+  });
 
   // Settings tabs
   document.querySelectorAll('.settings-tabs .tab').forEach(tab => {

@@ -6,10 +6,16 @@ const fs = require('fs');
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const PUNCH_LOG_FILE = path.join(DATA_DIR, 'lost-punch-log.json');
 
+function canManage(user) {
+  const role = (user?.role || '').toString().toUpperCase();
+  return !!(user?.isAdmin || user?.isManager || role === 'MANAGEMENT');
+}
+
 function readPunches() {
   try {
     if (fs.existsSync(PUNCH_LOG_FILE)) {
-      return JSON.parse(fs.readFileSync(PUNCH_LOG_FILE, 'utf8'));
+      const parsed = JSON.parse(fs.readFileSync(PUNCH_LOG_FILE, 'utf8'));
+      return Array.isArray(parsed) ? parsed : [];
     }
   } catch (error) {
     console.error('Error reading punches:', error);
@@ -18,20 +24,26 @@ function readPunches() {
 }
 
 function writePunches(punches) {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.writeFileSync(PUNCH_LOG_FILE, JSON.stringify(punches, null, 2));
 }
 
 // GET /api/lost-punch - Get all punches
 router.get('/', (req, res) => {
   const punches = readPunches();
-  res.json(punches);
+  const user = req.user || null;
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (canManage(user)) return res.json(punches);
+  const mine = punches.filter(p => (p.employeeId || '').toString().trim() === (user.employeeId || '').toString().trim());
+  return res.json(mine);
 });
 
 // POST /api/lost-punch - Submit new punch
 router.post('/', (req, res) => {
+  const user = req.user || null;
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
   const {
-    employeeName,
-    employeeId,
     missedDate,
     reason,
     managerOnDuty,
@@ -42,6 +54,9 @@ router.post('/', (req, res) => {
     missedTime, // legacy
     punchType // legacy
   } = req.body;
+
+  const employeeName = user.name || '';
+  const employeeId = user.employeeId || '';
 
   if (!employeeName || !employeeId || !missedDate || !reason) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -76,22 +91,23 @@ router.post('/', (req, res) => {
   }
 
   const punches = readPunches();
-  const newPunch = {
-    id: `punch-${Date.now()}`,
-    employeeName,
-    employeeId,
-    missedDate,
-    clockInTime: normalized.clockInTime,
-    lunchOutTime: normalized.lunchOutTime,
-    lunchInTime: normalized.lunchInTime,
-    clockOutTime: normalized.clockOutTime,
-    missedTime: missedTime || '',
-    punchType: punchType || '',
-    managerOnDuty,
-    reason,
-    status: 'pending',
-    submittedAt: new Date().toISOString()
-  };
+	  const newPunch = {
+	    id: `punch-${Date.now()}`,
+	    employeeName,
+	    employeeId,
+	    employeeUserId: user.userId || '',
+	    missedDate,
+	    clockInTime: normalized.clockInTime,
+	    lunchOutTime: normalized.lunchOutTime,
+	    lunchInTime: normalized.lunchInTime,
+	    clockOutTime: normalized.clockOutTime,
+	    missedTime: missedTime || '',
+	    punchType: punchType || '',
+	    managerOnDuty,
+	    reason,
+	    status: 'pending',
+	    submittedAt: new Date().toISOString()
+	  };
 
   punches.push(newPunch);
   writePunches(punches);
@@ -101,8 +117,12 @@ router.post('/', (req, res) => {
 
 // PATCH /api/lost-punch/:id - Update punch status
 router.patch('/:id', (req, res) => {
+  const user = req.user || null;
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (!canManage(user)) return res.status(403).json({ error: 'Manager access required' });
+
   const { id } = req.params;
-  const { status, reviewedBy } = req.body;
+  const { status, reviewedBy } = req.body || {};
 
   const punches = readPunches();
   const punchIndex = punches.findIndex(p => p.id === id);
@@ -111,9 +131,15 @@ router.patch('/:id', (req, res) => {
     return res.status(404).json({ error: 'Punch not found' });
   }
 
-  punches[punchIndex].status = status;
-  punches[punchIndex].reviewedBy = reviewedBy;
-  punches[punchIndex].reviewedAt = new Date().toISOString();
+	  if (status) {
+	    const nextStatus = status.toString().toLowerCase();
+	    if (!['pending', 'approved', 'denied'].includes(nextStatus)) {
+	      return res.status(400).json({ error: 'Invalid status' });
+	    }
+	    punches[punchIndex].status = nextStatus;
+	    punches[punchIndex].reviewedBy = reviewedBy || user.name || '';
+	    punches[punchIndex].reviewedAt = new Date().toISOString();
+	  }
 
   writePunches(punches);
 
@@ -122,25 +148,35 @@ router.patch('/:id', (req, res) => {
 
 // POST /api/lost-punch/batch - Batch update punch statuses
 router.post('/batch', (req, res) => {
-  const { ids, status, reviewedBy } = req.body;
+  const user = req.user || null;
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+  if (!canManage(user)) return res.status(403).json({ error: 'Manager access required' });
+
+  const { ids, status, reviewedBy } = req.body || {};
 
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'No punch IDs provided' });
   }
 
-  const punches = readPunches();
-  const reviewedAt = new Date().toISOString();
-  let updated = 0;
+	  const punches = readPunches();
+	  const reviewedAt = new Date().toISOString();
+	  let updated = 0;
+	  const nextStatus = status ? status.toString().toLowerCase() : null;
+	  if (nextStatus && !['pending', 'approved', 'denied'].includes(nextStatus)) {
+	    return res.status(400).json({ error: 'Invalid status' });
+	  }
 
-  ids.forEach(id => {
-    const punchIndex = punches.findIndex(p => p.id === id);
-    if (punchIndex !== -1) {
-      punches[punchIndex].status = status;
-      punches[punchIndex].reviewedBy = reviewedBy;
-      punches[punchIndex].reviewedAt = reviewedAt;
-      updated++;
-    }
-  });
+	  ids.forEach(id => {
+	    const punchIndex = punches.findIndex(p => p.id === id);
+	    if (punchIndex !== -1) {
+	      if (nextStatus) {
+	        punches[punchIndex].status = nextStatus;
+	        punches[punchIndex].reviewedBy = reviewedBy || user.name || '';
+	        punches[punchIndex].reviewedAt = reviewedAt;
+	      }
+	      updated++;
+	    }
+	  });
 
   writePunches(punches);
 
@@ -149,13 +185,12 @@ router.post('/batch', (req, res) => {
 
 // GET /api/lost-punch/my-entries - Get logged-in user's entries (legacy support)
 router.get('/my-entries', (req, res) => {
-  const userId = req.cookies?.user_id;
-  if (!userId) {
-    return res.json({ success: true, entries: [] });
-  }
+  const user = req.user || null;
+  if (!user) return res.status(401).json({ success: false, error: 'Not authenticated', entries: [] });
 
   const punches = readPunches();
-  const userEntries = punches.filter(entry => entry.employeeId === userId);
+  const empId = (user.employeeId || '').toString().trim();
+  const userEntries = punches.filter(entry => (entry.employeeId || '').toString().trim() === empId);
 
   res.json({ success: true, entries: userEntries });
 });

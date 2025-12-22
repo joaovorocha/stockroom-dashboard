@@ -109,13 +109,14 @@
       </div>
       <div class="header-user" id="userMenu">
         <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
-        <span id="userName">Guest</span>
-        <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="switchUserBtn">Switch User</a>
-        </div>
-      </div>
-    </div>
-  </header>
+	        <span id="userName">Guest</span>
+	        <div class="user-dropdown" id="userDropdown">
+	          <a href="#" id="switchUserBtn">Change User</a>
+	          <a href="#" id="logoutBtn">Logout</a>
+	        </div>
+	      </div>
+	    </div>
+	  </header>
 
   <div class="dashboard-layout" style="grid-template-columns: 1fr;">
     <main class="main-content">
@@ -189,9 +190,13 @@
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
 
-  <script>
+ <script>
     let currentUser = null;
     let punches = [];
+    function canManageClient(user) {
+      const role = (user?.role || '').toString().toUpperCase();
+      return !!(user?.isAdmin || user?.isManager || role === 'MANAGEMENT');
+    }
 
     document.addEventListener('DOMContentLoaded', async () => {
       await checkAuth();
@@ -199,40 +204,56 @@
       setupEventListeners();
     });
 
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/auth/check');
-        const data = await response.json();
-        if (data.authenticated) {
-          currentUser = data.user;
-          document.getElementById('userName').textContent = currentUser.name;
-          document.querySelector('.user-switch').innerHTML = '<a href="#" id="logoutLink">Not you? Switch</a>';
-          document.getElementById('logoutLink')?.addEventListener('click', logout);
-          document.getElementById('employeeName').value = currentUser.name;
-          document.getElementById('employeeId').value = currentUser.employeeId;
-          if (currentUser.isManager || currentUser.isAdmin) {
-            document.getElementById('adminLink').style.display = 'inline';
-            document.getElementById('reviewTab').style.display = 'inline-block';
-          }
-        }
-      } catch (e) {}
-    }
+	    async function checkAuth() {
+	      try {
+	        const response = await fetch('/api/auth/check', { credentials: 'include' });
+	        const data = await response.json();
+	        if (data.authenticated) {
+	          currentUser = data.user;
+	          document.getElementById('userName').textContent = currentUser.name || 'User';
+	          if (currentUser.imageUrl) {
+	            const img = document.getElementById('userAvatar');
+	            if (img) {
+	              img.src = currentUser.imageUrl;
+	              img.style.display = 'block';
+	            }
+	          }
+	          document.getElementById('employeeName').value = currentUser.name || '';
+	          document.getElementById('employeeId').value = currentUser.employeeId || '';
+
+	          // Toggle review tab for managers/admins
+	          if (currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toString().toUpperCase() === 'MANAGEMENT') {
+	            const reviewTabBtn = document.getElementById('reviewTab');
+	            if (reviewTabBtn) reviewTabBtn.style.display = 'inline-block';
+	          }
+
+	          // Toggle admin nav
+	          if (currentUser.isAdmin) {
+	            const adminNav = document.getElementById('navAdmin');
+	            if (adminNav) adminNav.style.display = 'inline';
+	          }
+	        } else {
+	          window.location.href = '/login-v2';
+	        }
+	      } catch (e) {}
+	    }
 
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/login-v2';
     }
 
-    async function loadPunches() {
-      try {
-        const response = await fetch('/api/lost-punch');
-        punches = await response.json();
-        renderHistory();
-        renderReview();
-      } catch (e) {
-        punches = [];
-      }
-    }
+	    async function loadPunches() {
+	      try {
+	        const response = await fetch('/api/lost-punch', { credentials: 'include' });
+	        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+	        punches = await response.json();
+	        renderHistory();
+	        renderReview();
+	      } catch (e) {
+	        punches = [];
+	      }
+	    }
 
     function renderTimesHtml(p) {
       const timeRows = [
@@ -253,9 +274,18 @@
       return timeRows.map(r => `<div><label>${r.label}</label><br>${r.value}</div>`).join('');
     }
 
-    function renderHistory() {
-      const container = document.getElementById('historyList');
-      const myPunches = currentUser ? punches.filter(p => p.employeeId === currentUser.employeeId) : [];
+	    function renderHistory() {
+	      const container = document.getElementById('historyList');
+	      const myEmpId = (currentUser?.employeeId || '').toString().trim();
+	      const myUserId = (currentUser?.userId || currentUser?.id || '').toString().trim();
+	      const canManage = canManageClient(currentUser);
+	      const myPunches = !currentUser
+	        ? []
+	        : (canManage ? punches.filter(p => {
+	            const pid = (p.employeeId || '').toString().trim();
+	            const puid = (p.employeeUserId || '').toString().trim();
+	            return (myEmpId && pid === myEmpId) || (myUserId && puid === myUserId);
+	          }) : punches);
 
       if (!myPunches.length) {
         container.innerHTML = '<p style="color: var(--text-muted);">No lost punch requests found.</p>';
@@ -272,48 +302,53 @@
             ${renderTimesHtml(p)}
           </div>
           <p style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">${p.reason}</p>
-          ${p.reviewedBy ? `
-            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted);">
-              <strong>${p.status === 'approved' ? 'Approved' : 'Reviewed'}</strong> by ${p.reviewedBy}
-              ${p.reviewedAt ? ' on ' + new Date(p.reviewedAt).toLocaleDateString() + ' at ' + new Date(p.reviewedAt).toLocaleTimeString() : ''}
-            </div>
-          ` : ''}
-        </div>
-      `).join('');
-    }
+	          ${p.reviewedBy ? `
+	            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted);">
+	              <strong>${p.status === 'approved' ? 'Approved' : 'Reviewed'}</strong> by ${p.reviewedBy}
+	              ${p.reviewedAt ? ' on ' + new Date(p.reviewedAt).toLocaleDateString() + ' at ' + new Date(p.reviewedAt).toLocaleTimeString() : ''}
+	            </div>
+	          ` : ''}
+	        </div>
+	      `).join('');
+	    }
 
-    function renderReview() {
-      const container = document.getElementById('reviewList');
-      const pendingPunches = punches.filter(p => p.status === 'pending');
+	    function renderReview() {
+	      const container = document.getElementById('reviewList');
+	      const pendingPunches = punches.filter(p => (p.status || '').toString().toLowerCase() === 'pending');
 
-      if (!pendingPunches.length) {
-        container.innerHTML = '<p style="color: var(--text-muted);">No pending requests to review.</p>';
-        return;
-      }
+	      if (!pendingPunches.length) {
+	        container.innerHTML = '<p style="color: var(--text-muted);">Nothing to review.</p>';
+	        return;
+	      }
 
-      // Batch actions header
-      let html = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px; background: var(--surface); border-radius: 6px;">
-          <label style="display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-            <span>Select All (${pendingPunches.length})</span>
-          </label>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn btn-sm btn-primary" onclick="batchApprove()">Approve Selected</button>
-            <button class="btn btn-sm btn-danger" onclick="batchDeny()">Deny Selected</button>
-          </div>
-        </div>
-      `;
+	      let html = '';
 
-      html += pendingPunches.map(p => `
-        <div class="punch-card pending">
-          <div class="punch-header">
-            <label style="display: flex; align-items: center; gap: 8px;">
-              <input type="checkbox" class="punch-checkbox" value="${p.id}">
-              <span class="punch-date">${p.employeeName} - ${new Date(p.missedDate).toLocaleDateString()}</span>
-            </label>
-            <span class="punch-status pending">Pending</span>
-          </div>
+	      if (pendingPunches.length) {
+	        html += `
+	          <h4 style="margin: 8px 0 12px;">Pending</h4>
+	          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px; background: var(--surface); border-radius: 6px;">
+	            <label style="display: flex; align-items: center; gap: 8px;">
+	              <input type="checkbox" id="selectAllPending" onchange="toggleSelectAll('pending')">
+	              <span>Select All (${pendingPunches.length})</span>
+	            </label>
+	            <div style="display: flex; gap: 8px;">
+	              <button class="btn btn-sm btn-secondary" onclick="approveAllPending()">Approve All</button>
+	              <button class="btn btn-sm btn-primary" onclick="batchApprove()">Approve Selected</button>
+	              <button class="btn btn-sm btn-danger" onclick="batchDeny()">Deny Selected</button>
+	            </div>
+	          </div>
+	        `;
+	      }
+
+	      html += pendingPunches.map(p => `
+	        <div class="punch-card pending">
+	          <div class="punch-header">
+	            <label style="display: flex; align-items: center; gap: 8px;">
+	              <input type="checkbox" class="punch-checkbox punch-checkbox-pending" value="${p.id}">
+	              <span class="punch-date">${p.employeeName} - ${new Date(p.missedDate).toLocaleDateString()}</span>
+	            </label>
+	            <span class="punch-status pending">Pending</span>
+	          </div>
           <div class="punch-details">
             ${renderTimesHtml(p)}
             <div><label>Submitted</label><br>${p.submittedAt ? new Date(p.submittedAt).toLocaleDateString() : '-'}</div>
@@ -323,56 +358,71 @@
             <button class="btn btn-sm btn-primary" onclick="approvePunch('${p.id}')">Approve</button>
             <button class="btn btn-sm btn-danger" onclick="denyPunch('${p.id}')">Deny</button>
           </div>
-        </div>
-      `).join('');
+	        </div>
+	      `).join('');
 
-      container.innerHTML = html;
-    }
+	      container.innerHTML = html;
+	    }
 
-    function toggleSelectAll() {
-      const selectAll = document.getElementById('selectAll');
-      document.querySelectorAll('.punch-checkbox').forEach(cb => {
-        cb.checked = selectAll.checked;
-      });
-    }
+	    function toggleSelectAll(type) {
+	      const selectAll = document.getElementById('selectAllPending');
+	      const selector = '.punch-checkbox-pending';
+	      document.querySelectorAll(selector).forEach(cb => {
+	        cb.checked = !!selectAll?.checked;
+	      });
+	    }
 
-    function getSelectedPunchIds() {
-      return Array.from(document.querySelectorAll('.punch-checkbox:checked')).map(cb => cb.value);
-    }
+	    function getSelectedPunchIds(type) {
+	      const selector = '.punch-checkbox-pending:checked';
+	      return Array.from(document.querySelectorAll(selector)).map(cb => cb.value);
+	    }
 
-    async function batchApprove() {
-      const ids = getSelectedPunchIds();
-      if (ids.length === 0) {
-        alert('Please select at least one punch to approve');
-        return;
-      }
-      if (!confirm(`Approve ${ids.length} punch(es)?`)) return;
-      await batchUpdate(ids, 'approved');
-    }
+	    async function approveAllPending() {
+	      const ids = punches
+	        .filter(p => (p.status || '').toString().toLowerCase() === 'pending')
+	        .map(p => p.id);
+	      if (ids.length === 0) {
+	        alert('No pending punches to approve');
+	        return;
+	      }
+	      if (!confirm(`Approve all ${ids.length} pending punch(es)?`)) return;
+	      await batchUpdate(ids, 'approved');
+	    }
 
-    async function batchDeny() {
-      const ids = getSelectedPunchIds();
-      if (ids.length === 0) {
-        alert('Please select at least one punch to deny');
-        return;
-      }
-      if (!confirm(`Deny ${ids.length} punch(es)?`)) return;
-      await batchUpdate(ids, 'denied');
-    }
+	    async function batchApprove() {
+	      const ids = getSelectedPunchIds('pending');
+	      if (ids.length === 0) {
+	        alert('Please select at least one punch to approve');
+	        return;
+	      }
+	      if (!confirm(`Approve ${ids.length} punch(es)?`)) return;
+	      await batchUpdate(ids, 'approved');
+	    }
 
-    async function batchUpdate(ids, status) {
-      try {
-        await fetch('/api/lost-punch/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids, status, reviewedBy: currentUser?.name })
-        });
-        await loadPunches();
-        alert(`${ids.length} punch(es) ${status} successfully!`);
-      } catch (e) {
-        alert('Error updating punches');
-      }
-    }
+	    async function batchDeny() {
+	      const ids = getSelectedPunchIds('pending');
+	      if (ids.length === 0) {
+	        alert('Please select at least one punch to deny');
+	        return;
+	      }
+	      if (!confirm(`Deny ${ids.length} punch(es)?`)) return;
+	      await batchUpdate(ids, 'denied');
+	    }
+
+	    async function batchUpdate(ids, status) {
+	      try {
+	        await fetch('/api/lost-punch/batch', {
+	          method: 'POST',
+	          headers: { 'Content-Type': 'application/json' },
+	          credentials: 'include',
+	          body: JSON.stringify({ ids, status, reviewedBy: currentUser?.name })
+	        });
+	        await loadPunches();
+	        alert(`${ids.length} punch(es) ${status} successfully!`);
+	      } catch (e) {
+	        alert('Error updating punches');
+	      }
+	    }
 
     async function approvePunch(id) {
       await updatePunchStatus(id, 'approved');
@@ -382,18 +432,19 @@
       await updatePunchStatus(id, 'denied');
     }
 
-    async function updatePunchStatus(id, status) {
-      try {
-        await fetch(`/api/lost-punch/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, reviewedBy: currentUser?.name })
-        });
-        await loadPunches();
-      } catch (e) {
-        alert('Error updating status');
-      }
-    }
+	    async function updatePunchStatus(id, status) {
+	      try {
+	        await fetch(`/api/lost-punch/${id}`, {
+	          method: 'PATCH',
+	          headers: { 'Content-Type': 'application/json' },
+	          credentials: 'include',
+	          body: JSON.stringify({ status, reviewedBy: currentUser?.name })
+	        });
+	        await loadPunches();
+	      } catch (e) {
+	        alert('Error updating status');
+	      }
+	    }
 
     function setupEventListeners() {
       // Tabs
@@ -434,13 +485,14 @@
           submittedAt: new Date().toISOString()
         };
 
-        try {
-          await fetch('/api/lost-punch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(punch)
-          });
-          alert('Lost punch submitted successfully!');
+	        try {
+	          await fetch('/api/lost-punch', {
+	            method: 'POST',
+	            headers: { 'Content-Type': 'application/json' },
+	            credentials: 'include',
+	            body: JSON.stringify(punch)
+	          });
+	          alert('Lost punch submitted successfully!');
           document.getElementById('punchForm').reset();
           if (currentUser) {
             document.getElementById('employeeName').value = currentUser.name;

@@ -32,7 +32,6 @@ const SharedHeader = {
       { href: '/closing-duties', label: 'Closing Duties', id: 'navClosingDuties' },
       { href: '/time-off', label: 'Time Off', id: 'navTimeOff' },
       { href: '/ops-dashboard', label: 'Looker Dashboards', id: 'navOpsDashboard' },
-      { href: '/feedback', label: 'Feedback', id: 'navFeedback', managerOnly: true },
       { href: '/admin', label: 'Admin', id: 'navAdmin', adminOnly: true }
     ];
 
@@ -84,7 +83,7 @@ const SharedHeader = {
         <span id="userName">Guest</span>
         <div class="user-dropdown" id="userDropdown">
           <a href="/home" id="homeBtn">Home</a>
-          <a href="#" id="switchUserBtn">Switch User</a>
+          <a href="#" id="switchUserBtn">Change User</a>
           <a href="#" id="logoutBtn">Logout</a>
         </div>
       </div>
@@ -146,17 +145,38 @@ const SharedHeader = {
     const userAvatar = document.getElementById('userAvatar');
     const adminLink = document.getElementById('navAdmin');
     const feedbackLink = document.getElementById('navFeedback');
+    const isOnFeedbackPage = window.location.pathname === '/feedback';
 
     if (userName) userName.textContent = user.name;
     if (userAvatar && user.imageUrl) {
       userAvatar.src = user.imageUrl;
       userAvatar.style.display = 'block';
     }
-    if (feedbackLink && (user.isManager || user.isAdmin)) {
-      feedbackLink.style.display = 'inline';
-    }
+    // Feedback is now shown at the bottom of the page (not in the header nav).
+    if (feedbackLink) feedbackLink.style.display = isOnFeedbackPage ? 'inline' : 'none';
+    this.mountBottomFeedbackLink(user);
     if (adminLink && user.isAdmin) {
       adminLink.style.display = 'inline';
+    }
+  },
+
+  mountBottomFeedbackLink(user) {
+    const canSee = !!(user?.isManager || user?.isAdmin);
+    const isOnFeedbackPage = window.location.pathname === '/feedback';
+
+    let link = document.getElementById('bottomFeedbackLink');
+    if (!canSee || isOnFeedbackPage) {
+      if (link) link.remove();
+      return;
+    }
+
+    if (!link) {
+      link = document.createElement('a');
+      link.id = 'bottomFeedbackLink';
+      link.className = 'feedback-floating-link';
+      link.href = '/feedback';
+      link.textContent = 'Feedback';
+      document.body.appendChild(link);
     }
   },
 
@@ -232,18 +252,18 @@ const SharedHeader = {
     const dropdown = document.getElementById('userDropdown');
 
     if (dropdown && switchBtn) {
-      const label = (switchBtn.textContent || '').trim().toLowerCase();
+      const originalLabel = (switchBtn.textContent || '').trim().toLowerCase();
       const hasHomeBtn = !!document.getElementById('homeBtn');
-      if (!hasHomeBtn && (label === 'home' || label === 'dashboard')) {
+      if (!hasHomeBtn && (originalLabel === 'home' || originalLabel === 'dashboard')) {
         // Preserve original "Home" behavior by adding a dedicated link.
         const homeLink = document.createElement('a');
         homeLink.href = '/home';
         homeLink.id = 'homeBtn';
         homeLink.textContent = 'Home';
         dropdown.insertBefore(homeLink, switchBtn);
-        switchBtn.textContent = 'Switch User';
       }
     }
+    if (switchBtn) switchBtn.textContent = 'Change User';
 
     if (userMenu && dropdown) {
       userMenu.addEventListener('click', (e) => {
@@ -260,13 +280,12 @@ const SharedHeader = {
       switchBtn.addEventListener('click', async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        // Must be authenticated to switch users
-        if (!this.currentUser) {
-          window.location.href = '/login-v2';
-          return;
-        }
         dropdown?.classList.remove('active');
-        await this.showUserSwitcher();
+        // "Change User" = log out and return to login (no user switching without password)
+        try {
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        } catch (_) {}
+        window.location.href = '/login-v2';
       });
     }
 
@@ -299,97 +318,6 @@ const SharedHeader = {
         window.location.href = '/login-v2';
       });
       dropdown.appendChild(a);
-    }
-  },
-
-  // Show user switcher modal
-  async showUserSwitcher() {
-    // Fetch all users
-    let users = [];
-    try {
-      const response = await fetch('/api/auth/users', { credentials: 'include' });
-      const data = await response.json();
-      users = data.users || [];
-    } catch (e) {
-      console.error('Failed to fetch users:', e);
-      return;
-    }
-
-    // Create modal if it doesn't exist
-    let modal = document.getElementById('userSwitchModal');
-    if (!modal) {
-      modal = document.createElement('div');
-      modal.id = 'userSwitchModal';
-      modal.className = 'modal-overlay';
-      document.body.appendChild(modal);
-    }
-
-    const userListHtml = users.map(u => `
-      <div class="user-switch-item" data-user-id="${u.id}" data-employee-id="${u.employeeId}">
-        <div class="user-switch-avatar">
-          ${u.imageUrl ? `<img src="${u.imageUrl}" alt="${u.name}">` : `<span>${u.name.split(' ').map(n => n[0]).join('').substring(0,2)}</span>`}
-        </div>
-        <div class="user-switch-info">
-          <div class="user-switch-name">${u.name}</div>
-          <div class="user-switch-role">${u.role}</div>
-        </div>
-      </div>
-    `).join('');
-
-    modal.innerHTML = `
-      <div class="modal" style="max-width: 400px;">
-        <div class="modal-header">
-          <h3>Switch User</h3>
-          <button class="modal-close" id="closeUserSwitch">&times;</button>
-        </div>
-        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
-          <div class="user-switch-list">
-            ${userListHtml}
-          </div>
-        </div>
-      </div>
-    `;
-
-    modal.classList.add('active');
-
-    // Setup close button
-    document.getElementById('closeUserSwitch').addEventListener('click', () => {
-      modal.classList.remove('active');
-    });
-
-    // Setup user selection
-    modal.querySelectorAll('.user-switch-item').forEach(item => {
-      item.addEventListener('click', async () => {
-        const employeeId = item.dataset.employeeId;
-        await this.switchToUser(employeeId);
-        modal.classList.remove('active');
-      });
-    });
-
-    // Close on overlay click
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.classList.remove('active');
-    });
-  },
-
-  // Switch to a different user
-  async switchToUser(employeeId) {
-    try {
-      const response = await fetch('/api/auth/switch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employeeId }),
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        window.location.reload();
-      } else {
-        alert('Failed to switch user');
-      }
-    } catch (e) {
-      console.error('Switch user failed:', e);
-      alert('Failed to switch user');
     }
   },
 

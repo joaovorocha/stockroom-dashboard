@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Time Off Calendar - San Francisco | Suitsupply</title>
   <link rel="stylesheet" href="/css/theme.css">
   <link rel="stylesheet" href="/css/shared-header.css">
@@ -250,6 +253,126 @@
       font-size: 11px;
     }
 
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .history-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 10px 12px;
+    }
+
+    .history-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .pill.pending { background: #fff3cd; color: #856404; }
+    .pill.approved { background: #d4edda; color: #155724; }
+    .pill.denied { background: #f8d7da; color: #721c24; }
+    .pill.done { background: #e0f2fe; color: #075985; }
+
+    .processed-by {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .processed-by img {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .manager-table-card {
+      grid-column: 1 / -1;
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .manager-table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .table-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .table-controls input, .table-controls select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--background);
+    }
+
+    .manager-table-wrap {
+      overflow: auto;
+      max-height: 520px;
+    }
+
+    table.manager-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 980px;
+    }
+
+    table.manager-table th, table.manager-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    table.manager-table th {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 5;
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .cell-wrap { white-space: normal; max-width: 340px; }
+    .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
     @media (max-width: 1024px) {
       .timeoff-container {
         grid-template-columns: 1fr;
@@ -346,6 +469,8 @@
           This is for public view only. You still need to submit your time off request on Workday.
         </p>
       </div>
+
+      <!-- History removed: edit/delete happens from calendar event details -->
     </div>
   </div>
 
@@ -360,6 +485,44 @@
     </div>
   </div>
 
+  <!-- Edit Entry Modal (employee) -->
+  <div class="event-modal" id="editEntryModal">
+    <div class="event-modal-content">
+      <div class="event-modal-header">
+        <h3>Edit Time Off</h3>
+        <button class="event-modal-close" onclick="closeEditModal()">&times;</button>
+      </div>
+      <div id="editEntryBody">
+        <input type="hidden" id="editEntryId">
+        <div class="form-group">
+          <label>Start Date</label>
+          <input type="date" class="form-control" id="editStartDate" required>
+        </div>
+        <div class="form-group">
+          <label>End Date</label>
+          <input type="date" class="form-control" id="editEndDate" required>
+        </div>
+        <div class="form-group">
+          <label>Reason</label>
+          <select class="form-control" id="editReason">
+            <option value="vacation">Vacation</option>
+            <option value="sick">Sick Leave</option>
+            <option value="personal">Personal</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Notes (optional)</label>
+          <textarea class="form-control" id="editNotes" rows="2"></textarea>
+        </div>
+        <div style="display:flex; gap: 10px; justify-content: flex-end; margin-top: 12px;">
+          <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+          <button class="btn btn-primary" id="saveEditBtn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <footer class="footer">
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
@@ -368,7 +531,16 @@
     let allEvents = []; // Store all events for modal lookup
     let currentUser = null;
     let currentDate = new Date();
-    let timeOffData = { entries: [] };
+    let timeOffData = { entries: [], myEntries: [] };
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
 
     function getEmployeeColor(employeeId) {
       const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'];
@@ -380,21 +552,51 @@
     }
 
     async function checkAuth() {
-      const response = await fetch('/api/auth/check');
+      const response = await fetch('/api/auth/check', { credentials: 'include' });
       const data = await response.json();
       if (!data.authenticated) {
         window.location.href = '/login-v2';
         return;
       }
-      currentUser = data.user;
+      currentUser = {
+        ...data.user,
+        userId: data.user?.userId || data.user?.id || ''
+      };
       document.getElementById('userName').textContent = data.user.name;
+      if (data.user.imageUrl) {
+        const img = document.getElementById('userAvatar');
+        if (img) {
+          img.src = data.user.imageUrl;
+          img.style.display = 'block';
+        }
+      }
     }
 
     async function loadTimeOffData() {
       try {
-        const response = await fetch('/api/timeoff');
+        const response = await fetch('/api/timeoff', { credentials: 'include' });
         if (response.ok) {
           timeOffData = await response.json();
+
+          // Safety: always derive myEntries client-side (prevents mismatches if API/session changed).
+          const entries = Array.isArray(timeOffData.entries) ? timeOffData.entries : [];
+          const myEmpId = (currentUser?.employeeId || '').toString().trim();
+          const myUserId = (currentUser?.userId || '').toString().trim().toLowerCase();
+          let computedMyEntries = entries.filter(e => {
+            const entryUserId = (e?.employeeUserId || e?.employeeUserID || '').toString().trim().toLowerCase();
+            if (myUserId && entryUserId && entryUserId === myUserId) return true;
+            const entryEmpId = (e?.employeeId || '').toString().trim();
+            return myEmpId && entryEmpId && entryEmpId === myEmpId;
+          });
+          // Fallback: if ids don't match (legacy sessions), match by name as a last resort.
+          if (!computedMyEntries.length) {
+            const myName = (currentUser?.name || '').toString().trim().toLowerCase();
+            if (myName) {
+              computedMyEntries = entries.filter(e => (e?.employeeName || '').toString().trim().toLowerCase() === myName);
+            }
+          }
+          timeOffData.myEntries = computedMyEntries;
+
           renderCalendar();
         }
       } catch (error) {
@@ -450,15 +652,23 @@
 
         let eventsHtml = '';
 
-        allEvents.forEach(event => {
+        const dayEvents = allEvents.filter(event => {
           const start = new Date(event.startDate);
           const end = new Date(event.endDate);
           const current = new Date(dateStr);
 
-          if (current >= start && current <= end) {
-            const color = getEmployeeColor(event.employeeId);
-            eventsHtml += `<div class="timeoff-event" style="background-color: ${color};" onclick="showEventDetails('${event.id}')">${event.employeeName || 'Unknown'}</div>`;
-          }
+          return current >= start && current <= end;
+        }).sort((a, b) => {
+          const an = (a.employeeName || '').toString().toLowerCase();
+          const bn = (b.employeeName || '').toString().toLowerCase();
+          if (an < bn) return -1;
+          if (an > bn) return 1;
+          return (a.employeeId || '').toString().localeCompare((b.employeeId || '').toString());
+        });
+
+        dayEvents.forEach(event => {
+          const color = getEmployeeColor(event.employeeId);
+          eventsHtml += `<div class="timeoff-event" style="background-color: ${color};" data-event-id="${escapeHtml(event.id)}">${escapeHtml(event.employeeName || 'Unknown')}</div>`;
         });
 
         dayEl.innerHTML = `
@@ -487,29 +697,41 @@
       const startDate = new Date(event.startDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
       const endDate = new Date(event.endDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 
+      const myEmpId = (currentUser?.employeeId || '').toString().trim();
+      const myUserId = (currentUser?.userId || '').toString().trim().toLowerCase();
+      const entryUserId = (event?.employeeUserId || '').toString().trim().toLowerCase();
+      const isOwner = (!!myUserId && !!entryUserId && myUserId === entryUserId) || (!!myEmpId && (event.employeeId || '').toString().trim() === myEmpId);
+      const canEdit = !!(currentUser?.isAdmin || isOwner);
+
       modalBody.innerHTML = `
         <div class="event-detail-row">
           <span class="event-detail-label">Employee</span>
-          <span class="event-detail-value">${event.employeeName || 'Unknown'}</span>
+          <span class="event-detail-value">${escapeHtml(event.employeeName || 'Unknown')}</span>
         </div>
         <div class="event-detail-row">
           <span class="event-detail-label">Start Date</span>
-          <span class="event-detail-value">${startDate}</span>
+          <span class="event-detail-value">${escapeHtml(startDate)}</span>
         </div>
         <div class="event-detail-row">
           <span class="event-detail-label">End Date</span>
-          <span class="event-detail-value">${endDate}</span>
+          <span class="event-detail-value">${escapeHtml(endDate)}</span>
         </div>
         <div class="event-detail-row">
           <span class="event-detail-label">Reason</span>
-          <span class="event-detail-value">${event.reason || 'Not specified'}</span>
+          <span class="event-detail-value">${escapeHtml(event.reason || 'Not specified')}</span>
         </div>
-        ${event.notes ? `
-          <div class="event-detail-row">
-            <span class="event-detail-label">Notes</span>
-            <span class="event-detail-value">${event.notes}</span>
-          </div>
-        ` : ''}
+	        ${event.notes ? `
+	          <div class="event-detail-row">
+	            <span class="event-detail-label">Notes</span>
+	            <span class="event-detail-value">${escapeHtml(event.notes)}</span>
+	          </div>
+	        ` : ''}
+	        ${canEdit ? `
+	          <div style="display:flex; gap: 10px; justify-content:flex-end; margin-top: 14px;">
+	            <button class="btn btn-sm btn-secondary" data-action="edit" data-id="${escapeHtml(event.id)}">Edit</button>
+	            <button class="btn btn-sm btn-secondary" data-action="delete" data-id="${escapeHtml(event.id)}">Remove</button>
+	          </div>
+	        ` : ''}
       `;
 
       document.getElementById('eventModal').classList.add('active');
@@ -552,6 +774,95 @@
       }
     });
 
+    function openEditModal(id) {
+      const entry = allEvents.find(e => e.id === id);
+      if (!entry) return;
+      document.getElementById('editEntryId').value = entry.id;
+      document.getElementById('editStartDate').value = entry.startDate || '';
+      document.getElementById('editEndDate').value = entry.endDate || '';
+      document.getElementById('editReason').value = entry.reason || 'vacation';
+      document.getElementById('editNotes').value = entry.notes || '';
+      closeEventModal();
+      document.getElementById('editEntryModal').classList.add('active');
+    }
+
+    function closeEditModal() {
+      document.getElementById('editEntryModal').classList.remove('active');
+    }
+
+    async function saveEdit() {
+      const id = document.getElementById('editEntryId').value;
+      const payload = {
+        startDate: document.getElementById('editStartDate').value,
+        endDate: document.getElementById('editEndDate').value,
+        reason: document.getElementById('editReason').value,
+        notes: document.getElementById('editNotes').value
+      };
+
+      const btn = document.getElementById('saveEditBtn');
+      if (btn) btn.disabled = true;
+      try {
+        const resp = await fetch(`/api/timeoff/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || 'Update failed');
+        closeEditModal();
+        await loadTimeOffData();
+      } catch (e) {
+        alert(e?.message || 'Update failed');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    // Manager spreadsheet removed (shared calendar only).
+
+    function setupEventDelegation() {
+      if (document._timeOffDelegationSetup) return;
+      document._timeOffDelegationSetup = true;
+
+      document.getElementById('calendarGrid')?.addEventListener('click', (e) => {
+        const item = e.target.closest('.timeoff-event');
+        if (!item) return;
+        const id = item.getAttribute('data-event-id');
+        if (!id) return;
+        showEventDetails(id);
+      });
+
+      document.getElementById('eventModalBody')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.getAttribute('data-action');
+        const id = btn.getAttribute('data-id');
+        if (!action || !id) return;
+        if (action === 'edit') return openEditModal(id);
+        if (action === 'delete') return deleteEntry(id);
+      });
+
+      document.getElementById('editEntryModal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'editEntryModal') closeEditModal();
+      });
+
+      document.getElementById('saveEditBtn')?.addEventListener('click', saveEdit);
+    }
+
+    async function deleteEntry(id) {
+      if (!confirm('Remove this time off entry?')) return;
+      try {
+        const resp = await fetch(`/api/timeoff/${id}`, { method: 'DELETE', credentials: 'include' });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || 'Delete failed');
+        closeEventModal();
+        await loadTimeOffData();
+      } catch (e) {
+        alert(e?.message || 'Delete failed');
+      }
+    }
+
     document.getElementById('prevMonth').addEventListener('click', () => {
       currentDate.setMonth(currentDate.getMonth() - 1);
       renderCalendar();
@@ -567,9 +878,18 @@
       renderCalendar();
     });
 
-    // Init
-    checkAuth();
-    loadTimeOffData();
+    async function initTimeOffPage() {
+      await checkAuth();
+      setupEventDelegation();
+      await loadTimeOffData();
+    }
+
+    // Init (robust for cached/fast loads)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initTimeOffPage);
+    } else {
+      initTimeOffPage();
+    }
   </script>
   <script src="/js/shared-header.js"></script>
 </body>

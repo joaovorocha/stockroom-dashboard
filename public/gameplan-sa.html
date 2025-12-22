@@ -69,17 +69,24 @@
             <div class="welcome-profile">
               <img src="" alt="" id="welcomeAvatar" class="welcome-avatar-large" onerror="this.style.display='none'; document.getElementById('avatarPlaceholder').style.display='flex'">
               <div class="welcome-avatar-placeholder" id="avatarPlaceholder" style="display:none;"></div>
-              <div class="welcome-info">
-                <h2>Welcome, <span id="welcomeName">--</span>!</h2>
-                <p class="welcome-role" id="welcomeRole">--</p>
-              </div>
-            </div>
-            <!-- Data Import Status (moved here for SA view) -->
-            <div class="data-import-box" id="dataImportBox" style="display:none;">
-              <div class="import-icon">📊</div>
+	              <div class="welcome-info">
+	                <h2>Welcome, <span id="welcomeName">--</span>!</h2>
+	                <p class="welcome-role" id="welcomeRole">--</p>
+	                <div class="welcome-action-row" id="welcomeActionRow" style="display:none;">
+	                  <a href="/gameplan-edit" class="btn btn-primary">Edit Game Plan</a>
+	                </div>
+	              </div>
+	            </div>
+            <!-- Data Import Status (nested inside welcome box) -->
+            <div class="import-status-card import-status-card--welcome" id="importStatusCardWelcome" style="display:none;">
+              <h4>📊 Data Import</h4>
               <div class="import-info">
-                <strong>Data Import</strong>
-                <span id="lastLookerSync">--</span>
+                <span class="import-label">Last Looker sync:</span>
+                <span class="import-value" id="welcomeLastSync">--</span>
+              </div>
+              <div class="import-info">
+                <span class="import-label">Records imported:</span>
+                <span class="import-value" id="welcomeRecordsImported">--</span>
               </div>
             </div>
           </div>
@@ -241,6 +248,55 @@
             <span class="mix-total">= 100%</span>
           </div>
         </div>
+      </section>
+
+      <!-- Sales Associates -->
+      <section class="section" id="saSection">
+        <div class="section-header">
+          <h2>Sales Associates</h2>
+          <div class="section-actions">
+            <span class="section-count" id="saCount">0</span>
+            <button class="btn btn-sm btn-outline expand-btn" id="expandSA" style="display:none;">Show All</button>
+          </div>
+        </div>
+        <div class="employee-grid" id="saGrid"></div>
+      </section>
+
+      <!-- BOH -->
+      <section class="section" id="bohSection">
+        <div class="section-header">
+          <h2>Back of House</h2>
+          <div class="section-actions">
+            <span class="section-count" id="bohCount">0</span>
+            <button class="btn btn-sm btn-outline expand-btn" id="expandBOH" style="display:none;">Show All</button>
+          </div>
+        </div>
+        <div class="employee-grid" id="bohGrid"></div>
+      </section>
+
+      <!-- Management (Detailed - hidden by default, shown when clicking quick section) -->
+      <section class="section collapsible collapsed" id="managementSection" style="display:none;">
+        <div class="section-header">
+          <h2>Management Details</h2>
+          <div class="section-actions">
+            <span class="section-count" id="mgmtCount">0</span>
+            <button class="btn btn-sm btn-outline expand-btn" id="expandMgmt" style="display:none;">Show All</button>
+            <button class="btn btn-sm btn-outline collapse-btn" id="collapseMgmt">▼</button>
+          </div>
+        </div>
+        <div class="employee-grid collapsible-content" id="mgmtGrid"></div>
+      </section>
+
+      <!-- Tailors -->
+      <section class="section" id="tailorsSection">
+        <div class="section-header">
+          <h2>Tailors</h2>
+          <div class="section-actions">
+            <span class="section-count" id="tailorCount">0</span>
+            <button class="btn btn-sm btn-outline expand-btn" id="expandTailors" style="display:none;">Show All</button>
+          </div>
+        </div>
+        <div class="employee-grid" id="tailorGrid"></div>
       </section>
 
       <!-- Operations Dashboard - Consolidated -->
@@ -431,72 +487,6 @@
           </div>
         </div>
       </section>
-
-      <!-- Sales Associates -->
-      <section class="section" id="saSection">
-        <div class="section-header">
-          <h2>Sales Associates</h2>
-          <div class="section-actions">
-            <span class="section-count" id="saCount">0</span>
-            <button class="btn btn-sm btn-outline expand-btn" id="expandSA" style="display:none;">Show All</button>
-          </div>
-        </div>
-        <div class="employee-grid" id="saGrid"></div>
-      </section>
-
-      <!-- BOH -->
-      <section class="section" id="bohSection">
-        <div class="section-header">
-          <h2>Back of House</h2>
-          <div class="section-actions">
-            <span class="section-count" id="bohCount">0</span>
-            <button class="btn btn-sm btn-outline expand-btn" id="expandBOH" style="display:none;">Show All</button>
-          </div>
-        </div>
-        <div class="employee-grid" id="bohGrid"></div>
-      </section>
-
-      <!-- Management (Detailed - hidden by default, shown when clicking quick section) -->
-      <section class="section collapsible collapsed" id="managementSection" style="display:none;">
-        <div class="section-header">
-          <h2>Management Details</h2>
-          <div class="section-actions">
-            <span class="section-count" id="mgmtCount">0</span>
-            <button class="btn btn-sm btn-outline expand-btn" id="expandMgmt" style="display:none;">Show All</button>
-            <button class="btn btn-sm btn-outline collapse-btn" id="collapseMgmt">▼</button>
-          </div>
-        </div>
-        <div class="employee-grid collapsible-content" id="mgmtGrid"></div>
-      </section>
-
-      <!-- Tailors -->
-      <section class="section" id="tailorsSection">
-        <div class="section-header">
-          <h2>Tailors</h2>
-          <div class="section-actions">
-            <span class="section-count" id="tailorCount">0</span>
-            <button class="btn btn-sm btn-outline expand-btn" id="expandTailors" style="display:none;">Show All</button>
-          </div>
-        </div>
-        <div class="employee-grid" id="tailorGrid"></div>
-      </section>
-
-      <!-- Looker Dashboard - Always visible -->
-      <section class="section" id="lookerSection">
-        <div class="section-header">
-          <h2>Live Dashboard</h2>
-          <button class="btn btn-sm btn-outline" id="toggleLooker">Hide</button>
-        </div>
-        <div class="looker-container" id="lookerContainer">
-          <iframe
-            id="lookerFrame"
-            src="https://lookersuitsupply.cloud.looker.com/embed/dashboards/603?Regional+Manager=&Region=&Location=San+Francisco&Predefined+Period=Last+Week&Select+Currency=USD&Location+Type=Store%2COutlet&Employee+Name="
-            width="100%"
-            height="800"
-            frameborder="0">
-          </iframe>
-        </div>
-      </section>
     </main>
 
     <!-- Right Sidebar - Manager Actions Only (Notes moved inline) -->
@@ -570,43 +560,43 @@
         <button class="modal-close" id="closeMetrics">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label>WTD Sales ($)</label>
-          <input type="number" class="form-control" id="editWtdSales">
-        </div>
-        <div class="form-group">
-          <label>Target ($)</label>
-          <input type="number" class="form-control" id="editTargetAmount">
-        </div>
-        <div class="form-group">
-          <label>Sales Per Hour ($)</label>
-          <input type="number" class="form-control" id="editSph">
-        </div>
-        <div class="form-group">
-          <label>Items Per Customer</label>
-          <input type="number" step="0.01" class="form-control" id="editIpc">
-        </div>
-        <div class="form-group">
-          <label>Drop-offs (%)</label>
-          <input type="number" step="0.1" class="form-control" id="editDropoffs">
-        </div>
+	        <div class="form-group">
+	          <label for="editWtdSales">WTD Sales ($)</label>
+	          <input type="number" class="form-control" id="editWtdSales">
+	        </div>
+	        <div class="form-group">
+	          <label for="editTargetAmount">Target ($)</label>
+	          <input type="number" class="form-control" id="editTargetAmount">
+	        </div>
+	        <div class="form-group">
+	          <label for="editSph">Sales Per Hour ($)</label>
+	          <input type="number" class="form-control" id="editSph">
+	        </div>
+	        <div class="form-group">
+	          <label for="editIpc">Items Per Customer</label>
+	          <input type="number" step="0.01" class="form-control" id="editIpc">
+	        </div>
+	        <div class="form-group">
+	          <label for="editDropoffs">Drop-offs (%)</label>
+	          <input type="number" step="0.1" class="form-control" id="editDropoffs">
+	        </div>
         <hr>
         <h4>Product Mix</h4>
         <div class="grid grid-3">
-          <div class="form-group">
-            <label>Formal (%)</label>
-            <input type="number" class="form-control" id="editFormal">
-          </div>
-          <div class="form-group">
-            <label>Casual (%)</label>
-            <input type="number" class="form-control" id="editCasual">
-          </div>
-          <div class="form-group">
-            <label>Tuxedo (%)</label>
-            <input type="number" class="form-control" id="editTuxedo">
-          </div>
-        </div>
-      </div>
+	          <div class="form-group">
+	            <label for="editFormal">Formal (%)</label>
+	            <input type="number" class="form-control" id="editFormal">
+	          </div>
+	          <div class="form-group">
+	            <label for="editCasual">Casual (%)</label>
+	            <input type="number" class="form-control" id="editCasual">
+	          </div>
+	          <div class="form-group">
+	            <label for="editTuxedo">Tuxedo (%)</label>
+	            <input type="number" class="form-control" id="editTuxedo">
+	          </div>
+	        </div>
+	      </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="cancelMetrics">Cancel</button>
         <button class="btn btn-primary" id="saveMetrics">Save Metrics</button>

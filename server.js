@@ -7,13 +7,13 @@ const path = require('path');
 const cors = require('cors');
 
 const authRoutes = require('./routes/auth');
-const apiRoutes = require('./routes/api');
 const shipmentsRoutes = require('./routes/shipments');
 const closingDutiesRoutes = require('./routes/closingDuties');
 const lostPunchRoutes = require('./routes/lostPunch');
 const gameplanRoutes = require('./routes/gameplan');
 const timeoffRoutes = require('./routes/timeoff');
 const feedbackRoutes = require('./routes/feedback');
+const adminRoutes = require('./routes/admin');
 const authMiddleware = require('./middleware/auth');
 const { getUPSScheduler } = require('./utils/ups-scheduler');
 
@@ -25,6 +25,13 @@ function managerOnly(req, res, next) {
   if (user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT') return next();
   if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Manager access required' });
   return res.status(403).send('Manager access required');
+}
+
+function gameplanEditorOnly(req, res, next) {
+  const user = req.user;
+  if (user?.canEditGameplan || user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT') return next();
+  if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Gameplan editor access required' });
+  return res.status(403).send('Gameplan editor access required');
 }
 
 function adminOnly(req, res, next) {
@@ -39,6 +46,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// Basic security headers (keeps inline scripts working; CSP intentionally not set here)
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'same-origin');
+  next();
+});
 
 // Normalize common copy/paste dash characters in URLs (e.g. Safari/Docs en-dash/em-dash)
 app.use((req, res, next) => {
@@ -62,7 +77,14 @@ app.use((req, res, next) => {
 });
 
 // Serve static files from public directory (css/js/images)
-app.use(express.static(path.join(__dirname, 'public')));
+// Avoid stale assets when we deploy quick fixes.
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-store');
+    }
+  }
+}));
 
 // Serve closing duties photos (auth required)
 app.use('/closing-duties', authMiddleware, express.static(path.join(__dirname, 'data/closing-duties')));
@@ -75,7 +97,7 @@ app.use('/api/lost-punch', authMiddleware, lostPunchRoutes);
 app.use('/api/gameplan', authMiddleware, gameplanRoutes);
 app.use('/api/timeoff', authMiddleware, timeoffRoutes);
 app.use('/api/feedback', authMiddleware, feedbackRoutes);
-app.use('/api', authMiddleware, apiRoutes); // Generic API routes with auth
+app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
 
 // Serve feedback uploads (auth required)
 app.use('/feedback-uploads', authMiddleware, express.static(path.join(__dirname, 'data/feedback-uploads')));
@@ -129,7 +151,7 @@ app.get('/gameplan-management', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'gameplan-management.html'));
 });
 
-app.get('/gameplan-edit', authMiddleware, managerOnly, (req, res) => {
+app.get('/gameplan-edit', authMiddleware, gameplanEditorOnly, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'gameplan-edit.html'));
 });
 
@@ -150,21 +172,14 @@ app.get('/shipments', authMiddleware, (req, res) => {
 });
 
 app.get('/shipments-processing', authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'shipments-processing.html'));
+  res.redirect('/shipments');
 });
 
 app.get('/ups-extension', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'ups-extension.html'));
 });
 
-app.get('/ups-campusship-import', authMiddleware, managerOnly, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'ups-campusship-import.html'));
-});
-
-// Common typo fallback
-app.get('/ups-campuss-ship-import', authMiddleware, managerOnly, (req, res) => {
-  res.redirect('/ups-campusship-import');
-});
+// CampusShip import page removed (shipments are captured from UPS emails now).
 
 app.get('/scanner', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'scanner.html'));
@@ -247,7 +262,8 @@ app.set('broadcastUpdate', broadcastUpdate);
 // Default: every 30 minutes between 8am-8pm (includes 8:00-19:30 + 20:00)
 const UPS_IMPORT_CRON = process.env.UPS_EMAIL_IMPORT_CRON || '0,30 8-19 * * *;0 20 * * *';
 const UPS_IMPORT_DAYS = parseInt(process.env.UPS_EMAIL_IMPORT_DAYS || '2', 10);
-const UPS_DELETE_AFTER_IMPORT = process.env.UPS_EMAIL_DELETE_AFTER_IMPORT !== 'false';
+// Safer default: never delete emails unless explicitly enabled.
+const UPS_DELETE_AFTER_IMPORT = process.env.UPS_EMAIL_DELETE_AFTER_IMPORT === 'true';
 try {
   const upsScheduler = getUPSScheduler();
   upsScheduler.start(UPS_IMPORT_CRON, UPS_IMPORT_DAYS, UPS_DELETE_AFTER_IMPORT);

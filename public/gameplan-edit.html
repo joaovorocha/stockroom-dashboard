@@ -981,16 +981,20 @@
         if (currentUser.isAdmin) {
           document.getElementById('navAdmin').style.display = 'inline';
         }
-        document.getElementById('navFeedback').style.display = 'inline';
+        // Feedback link is shown at the bottom of the page (shared-header.js).
+        document.getElementById('navFeedback').style.display = 'none';
 
-        // Set current date
-        const now = new Date();
-        document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
-          weekday: 'long', month: 'short', day: 'numeric'
-        });
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        window.location.href = '/login-v2';
+	        // Set current date
+	        const now = new Date();
+	        document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
+	          weekday: 'long',
+	          year: 'numeric',
+	          month: 'long',
+	          day: 'numeric'
+	        });
+	      } catch (error) {
+	        console.error('Auth check failed:', error);
+	        window.location.href = '/login-v2';
       }
     }
 
@@ -1742,6 +1746,7 @@
 	          gameplanData.assignments = {};
 
 	          hasUnsavedChanges = true;
+	          updateTargetPerSaInfo();
 	          if (typeof renderSA === 'function') setTimeout(renderSA, 0);
 	          if (typeof renderBOH === 'function') setTimeout(renderBOH, 0);
 	          if (typeof renderTailors === 'function') setTimeout(renderTailors, 0);

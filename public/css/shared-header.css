@@ -219,6 +219,34 @@
   font-size: calc(14px * var(--font-scale));
 }
 
+/* Bottom-of-page Feedback link (managers/admins only) */
+.feedback-floating-link {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 150;
+  background: var(--primary);
+  color: #fff;
+  text-decoration: none;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.feedback-floating-link:hover {
+  filter: brightness(0.95);
+}
+
+@media (max-width: 768px) {
+  .feedback-floating-link {
+    right: 12px;
+    bottom: 12px;
+    padding: 10px 12px;
+  }
+}
+
 .user-switch-role {
   font-size: 12px;
   color: var(--text-secondary);
