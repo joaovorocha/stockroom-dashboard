@@ -5,6 +5,7 @@
   /* Base */
   body {
     font-size: 14px;
+    overflow-x: hidden;
   }
 
   /* Touch-friendly tap targets */
@@ -154,8 +155,43 @@
     gap: 8px;
   }
 
+  /* Operations Metrics: avoid horizontal overflow, show 2 cards per row */
+  .operations-section .metrics-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
   .metric-card {
     padding: 10px 8px;
+  }
+
+  .operations-section {
+    padding: 16px;
+  }
+
+  .operations-section .ops-subsection {
+    padding: 12px;
+  }
+
+  .operations-section .trend-chart-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Operations Metrics: avoid horizontal scrolling in the COG orders table */
+  .operations-section .orders-table,
+  .operations-section .leaderboard-table,
+  .operations-section .loans-table {
+    min-width: unset !important;
+    table-layout: fixed;
+  }
+
+  .operations-section .orders-table th,
+  .operations-section .orders-table td {
+    word-break: break-word;
+  }
+
+  .operations-section .orders-table-container {
+    overflow-x: hidden;
   }
 
   .metric-value {

@@ -200,7 +200,7 @@
       const input = document.getElementById('scannerInput');
       const status = document.getElementById('scannerStatus');
 
-      input.addEventListener('keypress', (e) => {
+      input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === 'Tab') {
           e.preventDefault();
           processScan(input.value);
@@ -257,6 +257,8 @@
     }
 
     let videoStream = null;
+    let scanLoopRunning = false;
+    let barcodeDetector = null;
 
     async function openCamera() {
       const status = document.getElementById('scannerStatus');
@@ -280,6 +282,42 @@
         });
         video.srcObject = videoStream;
         document.getElementById('cameraContainer').classList.add('active');
+
+        // Start decoding frames using the built-in BarcodeDetector (no external libs).
+        if (!('BarcodeDetector' in window)) {
+          status.className = 'scanner-status error';
+          status.textContent = 'Barcode scanning is not supported in this browser. Use the text field scanner.';
+          return;
+        }
+        if (!barcodeDetector) {
+          barcodeDetector = new BarcodeDetector({ formats: ['qr_code', 'data_matrix'] });
+        }
+        scanLoopRunning = true;
+        status.className = 'scanner-status';
+        status.textContent = '';
+
+        const tick = async () => {
+          if (!scanLoopRunning) return;
+          try {
+            // Wait until the video has dimensions.
+            if (video.readyState >= 2) {
+              const codes = await barcodeDetector.detect(video);
+              if (codes && codes.length) {
+                const raw = (codes[0].rawValue || '').toString();
+                if (raw) {
+                  scanLoopRunning = false;
+                  closeCamera();
+                  processScan(raw);
+                  return;
+                }
+              }
+            }
+          } catch (_) {
+            // Ignore decode errors and keep scanning.
+          }
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
       } catch (e) {
         status.className = 'scanner-status error';
         status.textContent = `Camera error: ${e?.message || 'access denied or not available'}`;
@@ -287,6 +325,7 @@
     }
 
     function closeCamera() {
+      scanLoopRunning = false;
       if (videoStream) {
         videoStream.getTracks().forEach(track => track.stop());
         videoStream = null;

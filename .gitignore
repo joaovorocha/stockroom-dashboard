@@ -1,6 +1,14 @@
 # Dependencies
 node_modules/
 
+# Local Python env / caches
+.venv/
+__pycache__/
+*.pyc
+
+# Local RTL-SDR binaries (built/extracted on host)
+.local-rtl/
+
 # Environment and secrets
 .env
 .env.*
@@ -27,6 +35,7 @@ data/store-metrics/
 data/sync-results/
 data/closing-duties/
 data/._*
+data/radio/
 
 # Logs
 logs/

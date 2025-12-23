@@ -143,10 +143,9 @@
       <div class="section-header section-header-row">
         <div>
           <h2 style="margin:0;">Shipments</h2>
-          <div class="small-note">Shows shipments captured from UPS emails (default) with optional visibility into other sources.</div>
         </div>
         <div class="controls">
-          <button class="btn btn-outline" id="refreshBtn">Refresh</button>
+          <div class="small-note" id="autoRefreshNote">Auto-refreshing…</div>
         </div>
       </div>
 
@@ -371,12 +370,30 @@
     }
 
     async function initPage() {
-      document.getElementById('refreshBtn').addEventListener('click', loadShipments);
       document.getElementById('searchInput').addEventListener('input', renderShipments);
       document.getElementById('sourceFilter').addEventListener('change', renderShipments);
       document.getElementById('statusFilter').addEventListener('change', renderShipments);
 
       await loadShipments();
+
+      // Auto refresh: update when returning to the tab and every 60s.
+      let refreshTimer = null;
+      const startTimer = () => {
+        if (refreshTimer) return;
+        refreshTimer = setInterval(() => loadShipments().catch(() => {}), 60_000);
+      };
+      const stopTimer = () => {
+        if (refreshTimer) clearInterval(refreshTimer);
+        refreshTimer = null;
+      };
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) stopTimer();
+        else {
+          loadShipments().catch(() => {});
+          startTimer();
+        }
+      });
+      startTimer();
     }
 
     document.addEventListener('DOMContentLoaded', initPage);

@@ -1,16 +1,34 @@
 const path = require('path');
-const { createJsonDAL } = require('./json');
-const { createSqlDAL } = require('./sql');
+const { getStoreDataDir } = require('../store-context');
+const { readJsonFile, writeJsonFile } = require('./fs-json');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+function createStoreDal(storeId) {
+  const baseDir = getStoreDataDir(storeId);
 
-function createDAL() {
-  const backend = (process.env.DATA_BACKEND || 'json').toLowerCase();
-  if (backend === 'sql') {
-    return createSqlDAL();
-  }
-  return createJsonDAL({ dataDir: DATA_DIR });
+  const files = {
+    config: path.join(baseDir, 'config.json'),
+    users: path.join(baseDir, 'users.json'),
+    employees: path.join(baseDir, 'employees.json'),
+    timeOff: path.join(baseDir, 'time-off.json'),
+  };
+
+  return {
+    storeId,
+    getConfig: () => readJsonFile(files.config, {}),
+    saveConfig: (cfg) => writeJsonFile(files.config, cfg),
+
+    getUsers: () => readJsonFile(files.users, { users: [] }),
+    saveUsers: (users) => writeJsonFile(files.users, users),
+
+    getEmployees: () => readJsonFile(files.employees, { employees: {} }),
+    saveEmployees: (employees) => writeJsonFile(files.employees, employees),
+
+    getTimeOff: () => readJsonFile(files.timeOff, { entries: [] }),
+    saveTimeOff: (timeOff) => writeJsonFile(files.timeOff, timeOff),
+  };
 }
 
-module.exports = createDAL();
+module.exports = {
+  createStoreDal,
+};
 

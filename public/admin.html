@@ -270,6 +270,24 @@
       width: 100%;
       justify-content: center;
     }
+
+    .admin-toast {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 2000;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+      color: #111;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+      font-size: 13px;
+      max-width: min(360px, calc(100vw - 32px));
+    }
+
+    .admin-toast.success { border-color: rgba(22, 163, 74, 0.25); }
+    .admin-toast.error { border-color: rgba(220, 38, 38, 0.25); }
   </style>
 </head>
 <body>
@@ -416,7 +434,7 @@
                     Tracking starts on: <span id="tomatoStartDate">--</span>
                   </div>
                 </div>
-                <button class="btn btn-outline btn-sm" id="resetTomatoAwardsBtn">Reset (Start Today)</button>
+                <button class="btn btn-outline btn-sm" id="resetTomatoAwardsBtn">Reset Tomato Awards</button>
               </div>
 	          </div>
 	        </div>
@@ -611,7 +629,7 @@
         </div>
         <div class="checkbox-group">
           <input type="checkbox" id="userIsManager">
-          <label for="userIsManager">Is Manager (can edit game plan, approve time off)</label>
+          <label for="userIsManager">Is Manager (management access)</label>
         </div>
         <div class="checkbox-group" id="userCanEditGameplanRow" style="display:none;">
           <input type="checkbox" id="userCanEditGameplan">
@@ -650,6 +668,19 @@
 	    let users = [];
 	    let storeConfig = null;
       let tomatoConfig = null;
+      let toastTimer = null;
+
+      function showToast(message, type = 'success') {
+        const el = document.getElementById('adminToast');
+        if (!el) return;
+        el.textContent = message;
+        el.className = `admin-toast ${type}`;
+        el.style.display = 'block';
+        window.clearTimeout(toastTimer);
+        toastTimer = window.setTimeout(() => {
+          el.style.display = 'none';
+        }, 2200);
+      }
 
 	    // Check auth
 	    async function checkAuth() {
@@ -751,6 +782,7 @@
 	        if (!resp.ok) throw new Error(`Save failed (HTTP ${resp.status})`);
 	        storeConfig = await resp.json();
 	        renderStoreConfig();
+          showToast('Store settings saved');
 	      } catch (e) {
 	        alert(e?.message || 'Failed to save store settings');
 	      } finally {
@@ -760,6 +792,10 @@
 
       async function resetTomatoAwards() {
         const btn = document.getElementById('resetTomatoAwardsBtn');
+        const current = (document.getElementById('tomatoStartDate')?.textContent || '').toString().trim();
+        if (!confirm(`Reset Tomato Awards?\n\nThis will restart counting from the next store day.\nCurrent start: ${current || '--'}`)) {
+          return;
+        }
         if (btn) {
           btn.disabled = true;
           btn.textContent = 'Resetting...';
@@ -770,12 +806,13 @@
           tomatoConfig = await resp.json();
           const el = document.getElementById('tomatoStartDate');
           if (el) el.textContent = tomatoConfig?.tomatoStartDate || '--';
+          showToast(`Tomato Awards reset (starts ${tomatoConfig?.tomatoStartDate || '--'})`);
         } catch (e) {
           alert(e?.message || 'Failed to reset tomato awards');
         } finally {
           if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Reset (Start Today)';
+            btn.textContent = 'Reset Tomato Awards';
           }
         }
       }
@@ -1016,7 +1053,7 @@
       return data.imageUrl;
     }
 
-	    async function saveUser() {
+    async function saveUser() {
 	      let userId = document.getElementById('editUserId').value;
 	      const photoMode = getPhotoMode();
 	      const photoFile = document.getElementById('userPhotoFile')?.files?.[0] || null;
@@ -1087,6 +1124,7 @@
 
         closeUserModal();
         await loadUsers();
+        showToast('User saved');
       } catch (err) {
         alert(err?.message || 'Error saving user');
       }
@@ -1145,8 +1183,20 @@
 	    loadUsers();
 	    document.getElementById('saveStoreConfigBtn')?.addEventListener('click', saveStoreConfig);
 	    document.getElementById('resetTomatoAwardsBtn')?.addEventListener('click', resetTomatoAwards);
+
+      // Expose handlers used by inline HTML attributes (onclick/onchange).
+      window.openAddUserModal = openAddUserModal;
+      window.editUser = editUser;
+      window.closeUserModal = closeUserModal;
+      window.saveUser = saveUser;
+      window.addSettingItem = addSettingItem;
+      window.removeSettingItem = removeSettingItem;
+      window.updateSettingItem = updateSettingItem;
+      window.downloadBackup = downloadBackup;
+      window.downloadStructuredExport = downloadStructuredExport;
 	    }
 	  </script>
+    <div id="adminToast" class="admin-toast" style="display:none;"></div>
   <script src="/js/shared-header.js?v=21"></script>
 </body>
 </html>

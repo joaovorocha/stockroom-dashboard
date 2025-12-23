@@ -83,10 +83,11 @@ function topNFromCountMap(countByKey, resolve, limit = 5) {
 
 function readTomatoStartDate() {
   const today = dal.getBusinessDate();
+  const tomorrow = dal.addDaysToIsoDate(today, 1);
   const cfg = readJsonFile(AWARDS_CONFIG_FILE, null) || {};
   const raw = (cfg.tomatoStartDate || '').toString().trim();
   if (/^\\d{4}-\\d{2}-\\d{2}$/.test(raw)) return raw;
-  return today;
+  return tomorrow;
 }
 
 router.get('/tomato', (req, res) => {

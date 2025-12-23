@@ -15,6 +15,7 @@ const timeoffRoutes = require('./routes/timeoff');
 const feedbackRoutes = require('./routes/feedback');
 const adminRoutes = require('./routes/admin');
 const awardsRoutes = require('./routes/awards');
+const radioRoutes = require('./routes/radio');
 const authMiddleware = require('./middleware/auth');
 const { getUPSScheduler } = require('./utils/ups-scheduler');
 
@@ -108,6 +109,7 @@ app.use('/api/timeoff', authMiddleware, timeoffRoutes);
 app.use('/api/feedback', authMiddleware, feedbackRoutes);
 app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
 app.use('/api/awards', authMiddleware, awardsRoutes);
+app.use('/api/radio', authMiddleware, radioRoutes);
 
 // Serve feedback uploads (auth required)
 app.use('/feedback-uploads', authMiddleware, express.static(path.join(__dirname, 'data/feedback-uploads')));
@@ -210,6 +212,10 @@ app.get('/ups-extension', authMiddleware, (req, res) => {
 
 app.get('/scanner', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'scanner.html'));
+});
+
+app.get('/radio', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'radio.html'));
 });
 
 app.get('/closing-duties', authMiddleware, (req, res) => {

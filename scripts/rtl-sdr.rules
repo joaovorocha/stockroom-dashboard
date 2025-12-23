@@ -1,0 +1,3 @@
+# Allow non-root access to RTL-SDR (Realtek RTL2838/RTL2832U)
+SUBSYSTEM=="usb", ATTR{idVendor}=="0bda", ATTR{idProduct}=="2838", MODE:="0666", GROUP:="plugdev"
+

@@ -1628,7 +1628,7 @@ function renderSASection() {
     grid.appendChild(createSACard(emp, emp.id === currentUserEmp?.id));
   });
 
-  renderDayOffGroup(grid, dayOffList, 'SA');
+  renderDayOffGroup(grid, dayOffList, 'SA', { open: showAllEmployees.SA });
 }
 
 function createSACard(emp, isCurrentUser = false) {
@@ -1761,7 +1761,7 @@ function renderBOHSection() {
     grid.appendChild(createBOHCard(emp, emp.id === currentUserEmp?.id));
   });
 
-  renderDayOffGroup(grid, dayOffList, 'BOH');
+  renderDayOffGroup(grid, dayOffList, 'BOH', { open: showAllEmployees.BOH });
 }
 
 function createBOHCard(emp, isCurrentUser = false) {
@@ -1870,7 +1870,7 @@ function renderManagementSection() {
   });
 
   // Render day off managers (collapsed)
-  renderDayOffGroup(grid, dayOffMgmt, 'MANAGEMENT');
+  renderDayOffGroup(grid, dayOffMgmt, 'MANAGEMENT', { open: showAllEmployees.MANAGEMENT });
 }
 
 function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
@@ -1964,7 +1964,7 @@ function renderTailorsSection() {
     expandBtn.textContent = 'Show Less';
   }
 
-  renderDayOffGroup(grid, dayOffTailors, 'TAILOR');
+  renderDayOffGroup(grid, dayOffTailors, 'TAILOR', { open: showAllEmployees.TAILOR });
 }
 
 function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
@@ -2027,13 +2027,15 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
   return card;
 }
 
-function renderDayOffGroup(grid, list, label) {
+function renderDayOffGroup(grid, list, label, options = {}) {
   if (!grid) return;
   if (!Array.isArray(list) || list.length === 0) return;
 
+  const open = options?.open === true;
+
   const details = document.createElement('details');
   details.className = 'day-off-group';
-  details.open = false;
+  details.open = open;
   const summary = document.createElement('summary');
   summary.textContent = `Day Off (${list.length})`;
   details.appendChild(summary);

@@ -1,0 +1,24 @@
+{
+  "storeId": "sr-us-sf-maiden",
+  "storeName": "San Francisco",
+  "timezone": "America/Los_Angeles",
+  "currency": "USD",
+  "features": {
+    "radioTranscription": true,
+    "lookerDashboards": true,
+    "shipments": true,
+    "scanner": true,
+    "adminPortal": true
+  },
+  "looker": {
+    "locationName": "San Francisco",
+    "contractLocationCode": "SR-US-SanFrancisco-Maiden",
+    "embeds": {
+      "opsStorePerformanceWTD": "https://lookersuitsupply.cloud.looker.com/embed/dashboards/603?...",
+      "employeeDiscount": "https://lookersuitsupply.cloud.looker.com/embed/dashboards/343?...",
+      "tailorAudit": "https://lookersuitsupply.cloud.looker.com/embed/dashboards/1542?...",
+      "alterationsPerEmployee": "https://lookersuitsupply.cloud.looker.com/embed/dashboards/1240?..."
+    }
+  }
+}
+

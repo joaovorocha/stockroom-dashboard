@@ -84,6 +84,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 12px;
     }
 
     .dashboard-info h3 {
@@ -93,6 +94,28 @@
     .dashboard-info .badge {
       background: #d1ecf1;
       color: #0c5460;
+    }
+
+    .dashboard-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .dashboard-actions a {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: var(--surface);
+    }
+
+    .dashboard-actions a:hover {
+      background: var(--background);
     }
   </style>
 </head>
@@ -142,15 +165,36 @@
 
   <div class="ops-container">
     <div class="ops-tabs">
-      <button class="ops-tab active" data-tab="stores">Stores Performance</button>
-      <button class="ops-tab" data-tab="loans">Loans Dashboard</button>
+      <button class="ops-tab active" data-tab="storesWtd">Store Performance</button>
+      <button class="ops-tab" data-tab="storesPrev">OPS Dashboard</button>
+      <button class="ops-tab" data-tab="finishedWeek">Tailor Audit</button>
+      <button class="ops-tab" data-tab="closingQuality">Alterations per Employee</button>
+      <button class="ops-tab" data-tab="employeePurchases">Employee Discount</button>
+      <button class="ops-tab" data-tab="tailor">Tailor Dashboard</button>
     </div>
 
-    <div id="storesTab" class="tab-content">
+    <div id="storesWtdTab" class="tab-content">
       <div class="dashboard-frame">
         <div class="dashboard-info">
-          <h3>Stores Performance - Previous Week</h3>
-          <span class="badge">Last Week Data</span>
+          <h3>Store Performance</h3>
+          <div class="dashboard-actions">
+            <a href="https://lookersuitsupply.cloud.looker.com/embed/dashboards/603?Regional+Manager=&Region=&Location=San+Francisco&Predefined+Period=Week+to+Date&Select+Currency=USD&Location+Type=Store%2COutlet&Employee+Name=" target="_blank" rel="noopener noreferrer">Open in Looker</a>
+          </div>
+        </div>
+        <iframe
+          src="https://lookersuitsupply.cloud.looker.com/embed/dashboards/603?Regional+Manager=&Region=&Location=San+Francisco&Predefined+Period=Week+to+Date&Select+Currency=USD&Location+Type=Store%2COutlet&Employee+Name="
+          allowfullscreen>
+        </iframe>
+      </div>
+    </div>
+
+    <div id="storesPrevTab" class="tab-content" style="display: none;">
+      <div class="dashboard-frame">
+        <div class="dashboard-info">
+          <h3>OPS Dashboard</h3>
+          <div class="dashboard-actions">
+            <a href="https://lookersuitsupply.cloud.looker.com/embed/dashboards/1104?Period=last+week&Location+Name=San+Francisco&Regional+Manager=&Region=" target="_blank" rel="noopener noreferrer">Open in Looker</a>
+          </div>
         </div>
         <iframe
           src="https://lookersuitsupply.cloud.looker.com/embed/dashboards/1104?Period=last+week&Location+Name=San+Francisco&Regional+Manager=&Region="
@@ -159,18 +203,66 @@
       </div>
     </div>
 
-    <div id="loansTab" class="tab-content" style="display: none;">
+    <div id="finishedWeekTab" class="tab-content" style="display: none;">
       <div class="dashboard-frame">
         <div class="dashboard-info">
-          <h3>Loans Dashboard</h3>
-          <span class="badge">Current Status</span>
+          <h3>Tailor Audit</h3>
+          <div class="dashboard-actions">
+            <a href="https://lookersuitsupply.cloud.looker.com/embed/dashboards/1542?Finished++Week=1+week+ago+for+1+week&Location+Name=San+Francisco" target="_blank" rel="noopener noreferrer">Open in Looker</a>
+          </div>
         </div>
-        <div style="padding: 40px; text-align: center;">
-          <p style="color: var(--text-secondary); margin-bottom: 20px;">Loans data is loaded from CSV files.</p>
-          <div id="loansData"></div>
-        </div>
+        <iframe
+          src="https://lookersuitsupply.cloud.looker.com/embed/dashboards/1542?Finished++Week=1+week+ago+for+1+week&Location+Name=San+Francisco"
+          allowfullscreen>
+        </iframe>
       </div>
     </div>
+
+    <div id="closingQualityTab" class="tab-content" style="display: none;">
+      <div class="dashboard-frame">
+        <div class="dashboard-info">
+          <h3>Alterations per Employee</h3>
+          <div class="dashboard-actions">
+            <a href="https://lookersuitsupply.cloud.looker.com/embed/dashboards/1240?Finished++Week=1+week+ago+for+1+week&Location+Name=San+Francisco&Employee+Full+Name=&Difficulty+Level=&Description=" target="_blank" rel="noopener noreferrer">Open in Looker</a>
+          </div>
+        </div>
+        <iframe
+          src="https://lookersuitsupply.cloud.looker.com/embed/dashboards/1240?Finished++Week=1+week+ago+for+1+week&Location+Name=San+Francisco&Employee+Full+Name=&Difficulty+Level=&Description="
+          allowfullscreen>
+        </iframe>
+      </div>
+    </div>
+
+    <div id="employeePurchasesTab" class="tab-content" style="display: none;">
+      <div class="dashboard-frame">
+        <div class="dashboard-info">
+          <h3>Employee Discount</h3>
+          <div class="dashboard-actions">
+            <a href="https://lookersuitsupply.cloud.looker.com/embed/dashboards/343?Customer+Type=Employee&Sale+Type=Normal%2COutlet&Calendar+Year=1+year&Contract+Location+Code=SR-US-SanFrancisco-Maiden&Location+Country=&Location+Country+Region=" target="_blank" rel="noopener noreferrer">Open in Looker</a>
+          </div>
+        </div>
+        <iframe
+          src="https://lookersuitsupply.cloud.looker.com/embed/dashboards/343?Customer+Type=Employee&Sale+Type=Normal%2COutlet&Calendar+Year=1+year&Contract+Location+Code=SR-US-SanFrancisco-Maiden&Location+Country=&Location+Country+Region="
+          allowfullscreen>
+        </iframe>
+      </div>
+    </div>
+
+    <div id="tailorTab" class="tab-content" style="display: none;">
+      <div class="dashboard-frame">
+        <div class="dashboard-info">
+          <h3>Tailor Dashboard</h3>
+          <div class="dashboard-actions">
+            <a href="https://lookersuitsupply.cloud.looker.com/embed/dashboards/949?Location+Name=San+Francisco&Tailor+Full+Name=" target="_blank" rel="noopener noreferrer">Open in Looker</a>
+          </div>
+        </div>
+        <iframe
+          src="https://lookersuitsupply.cloud.looker.com/embed/dashboards/949?Location+Name=San+Francisco&Tailor+Full+Name="
+          allowfullscreen>
+        </iframe>
+      </div>
+    </div>
+
   </div>
 
   <footer class="footer">
@@ -189,45 +281,6 @@
       document.getElementById('userName').textContent = data.user.name;
     }
 
-    // Load loans data
-    async function loadLoansData() {
-      const response = await fetch('/api/gameplan/loans');
-      const data = await response.json();
-
-      const container = document.getElementById('loansData');
-      if (data.overdue && data.overdue.length > 0) {
-        container.innerHTML = `
-          <div class="card" style="max-width: 600px; margin: 0 auto; text-align: left;">
-            <div class="card-header">
-              <h3>Overdue Loans (${data.overdue.length})</h3>
-            </div>
-            <div class="card-body">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Period</th>
-                    <th>Location</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${data.overdue.map(l => `
-                    <tr>
-                      <td>${l.employeeName}</td>
-                      <td>${l.period}</td>
-                      <td>${l.location}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        `;
-      } else {
-        container.innerHTML = '<p style="color: var(--success);">No overdue loans!</p>';
-      }
-    }
-
     // Tab switching
     document.querySelectorAll('.ops-tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -240,7 +293,6 @@
 
     // Init
     checkAuth();
-    loadLoansData();
   </script>
   <script src="/js/shared-header.js?v=21"></script>
 </body>
