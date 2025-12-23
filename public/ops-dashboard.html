@@ -2,10 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
   <title>Looker Dashboards - San Francisco | Suitsupply</title>
-  <link rel="stylesheet" href="/css/theme.css">
-  <link rel="stylesheet" href="/css/shared-header.css">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <style>
     .ops-header {
       display: flex;
@@ -91,7 +100,7 @@
   <!-- Header (No Refresh Bar on Ops Dashboard) -->
   <header class="header">
     <div class="header-brand">
-      <a href="/dashboard" class="logo-link">
+      <a href="/app" class="logo-link">
         <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
       </a>
       <div class="header-title">
@@ -101,6 +110,8 @@
     </div>
     <nav class="header-nav">
       <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
+      <a href="/awards" id="navAwards">Awards</a>
       <a href="/shipments" id="navShipments">Shipments</a>
       <a href="/scanner" id="navScanner">Scanner</a>
       <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
@@ -115,10 +126,10 @@
         <span id="currentDate"></span>
       </div>
       <div class="header-user" id="userMenu">
-        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
         <span id="userName">Guest</span>
         <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="switchUserBtn">Switch User</a>
+          <a href="#" id="logoutBtn">Logout</a>
         </div>
       </div>
     </div>
@@ -172,7 +183,7 @@
       const response = await fetch('/api/auth/check');
       const data = await response.json();
       if (!data.authenticated) {
-        window.location.href = '/login-v2';
+        window.location.href = '/login';
         return;
       }
       document.getElementById('userName').textContent = data.user.name;
@@ -231,6 +242,6 @@
     checkAuth();
     loadLoansData();
   </script>
-  <script src="/js/shared-header.js"></script>
+  <script src="/js/shared-header.js?v=21"></script>
 </body>
 </html>

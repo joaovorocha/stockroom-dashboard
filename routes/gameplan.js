@@ -3,12 +3,17 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { LookerDataProcessor } = require('../utils/looker-data-processor');
+const dal = require('../utils/dal');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const EMPLOYEES_FILE = path.join(DATA_DIR, 'employees-v2.json');
-const GAMEPLAN_DIR = path.join(DATA_DIR, 'gameplan-daily');
-const METRICS_DIR = path.join(DATA_DIR, 'store-metrics');
+const DATA_DIR = dal.paths.dataDir;
+const USERS_FILE = dal.paths.usersFile;
+const EMPLOYEES_FILE = dal.paths.employeesFile;
+const GAMEPLAN_DIR = dal.paths.gameplanDailyDir;
+const METRICS_DIR = dal.paths.storeMetricsDir;
+const PRODUCT_IMAGE_CACHE_FILE = dal.paths.productImagesCacheFile;
+const SCAN_PERFORMANCE_HISTORY_DIR = dal.paths.scanPerformanceHistoryDir;
+const WEEKLY_GOAL_DISTRIBUTIONS_FILE = dal.paths.weeklyGoalDistributionsFile;
+const NOTES_TEMPLATES_FILE = dal.paths.notesTemplatesFile;
 
 // Initialize Looker data processor
 const lookerProcessor = new LookerDataProcessor();
@@ -21,29 +26,140 @@ function requireManager(req, res, next) {
 
 // Helper to get today's date string
 function getTodayDate() {
-  return new Date().toISOString().split('T')[0];
+  return dal.getBusinessDate();
 }
+
+function getYesterdayDate() {
+  return dal.getYesterdayBusinessDate();
+}
+
+// GET /api/gameplan/today - Store-day date info (timezone + dayStart aware)
+router.get('/today', (req, res) => {
+  try {
+    const info = dal.getBusinessDayInfo ? dal.getBusinessDayInfo() : { date: getTodayDate(), weekdayIndex: null };
+    return res.json(info);
+  } catch (e) {
+    return res.status(500).json({ error: e?.message || 'Failed to compute store day' });
+  }
+});
 
 // Helper to read JSON file safely
 function readJsonFile(filePath, defaultValue = {}) {
-  try {
-    if (fs.existsSync(filePath)) {
-      const data = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(data);
-    }
-  } catch (error) {
-    console.error(`Error reading ${filePath}:`, error);
-  }
-  return defaultValue;
+  return dal.readJson(filePath, defaultValue);
 }
 
 // Helper to write JSON file
 function writeJsonFile(filePath, data) {
-  const dir = path.dirname(filePath);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  dal.writeJsonAtomic(filePath, data, { pretty: true });
+}
+
+function readWeeklyGoalDistributions() {
+  return readJsonFile(WEEKLY_GOAL_DISTRIBUTIONS_FILE, { weeks: {} });
+}
+
+function writeWeeklyGoalDistributions(next) {
+  writeJsonFile(WEEKLY_GOAL_DISTRIBUTIONS_FILE, next);
+}
+
+function readNotesTemplates() {
+  return readJsonFile(NOTES_TEMPLATES_FILE, { byUser: {} });
+}
+
+function writeNotesTemplates(next) {
+  writeJsonFile(NOTES_TEMPLATES_FILE, next);
+}
+
+function normalizeWeekKey(value) {
+  return (value || '').toString().trim().replace(/[^0-9A-Za-z_-]/g, '').slice(0, 32);
+}
+
+function isValidProductCode(value) {
+  return /^[A-Za-z0-9-]{2,32}$/.test((value || '').toString().trim());
+}
+
+function getProductImageCache() {
+  return readJsonFile(PRODUCT_IMAGE_CACHE_FILE, { items: {} });
+}
+
+function setProductImageCache(cache) {
+  writeJsonFile(PRODUCT_IMAGE_CACHE_FILE, { ...cache, updatedAt: new Date().toISOString() });
+}
+
+function getCachedProductImage(code) {
+  const cache = getProductImageCache();
+  const entry = cache?.items?.[code];
+  if (!entry?.imageUrl) return null;
+
+  // Keep cache entries for 30 days.
+  const fetchedAt = entry.fetchedAt ? Date.parse(entry.fetchedAt) : 0;
+  if (!Number.isFinite(fetchedAt) || fetchedAt <= 0) return entry.imageUrl;
+  const ageMs = Date.now() - fetchedAt;
+  const ttlMs = 30 * 24 * 60 * 60 * 1000;
+  if (ageMs > ttlMs) return null;
+  return entry.imageUrl;
+}
+
+function saveCachedProductImage(code, imageUrl) {
+  const cache = getProductImageCache();
+  if (!cache.items) cache.items = {};
+  cache.items[code] = { imageUrl, fetchedAt: new Date().toISOString() };
+  setProductImageCache(cache);
+}
+
+async function fetchText(url, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'stockroom-dashboard/1.0 (+internal)',
+        'Accept': 'text/html,application/xhtml+xml'
+      }
+    });
+    if (!resp.ok) return null;
+    return await resp.text();
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(t);
   }
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+function extractImageFromSuitsDevHtml(html, codeLower) {
+  if (!html) return null;
+  const re = new RegExp(`src=\"(https:\\/\\/cdn\\.suitsupply\\.com\\/image\\/upload[^\\\"]*\\/${codeLower}_[^\\\"\\s>]*)\"`, 'i');
+  const m = html.match(re);
+  return m?.[1] || null;
+}
+
+function extractImageFromSuitSupplySearchHtml(html, codeUpper) {
+  if (!html) return null;
+  const re = new RegExp(
+    `https:\\/\\/(?:cdn\\.suitsupply\\.com|a\\.suitsupplycdn\\.com)\\/image\\/upload[^\"'\\s>]*\\/${codeUpper}_[^\"'\\s>]*\\.jpg`,
+    'i'
+  );
+  const m = html.match(re);
+  return m?.[0] || null;
+}
+
+function safeReadDir(dirPath) {
+  return dal.safeReadDir(dirPath);
+}
+
+function readLatestScanPerformanceSnapshot() {
+  const files = safeReadDir(SCAN_PERFORMANCE_HISTORY_DIR)
+    .filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
+    .sort()
+    .reverse();
+  if (!files.length) return null;
+  return readJsonFile(path.join(SCAN_PERFORMANCE_HISTORY_DIR, files[0]), null);
+}
+
+function normalizeScanPersonKey(emp) {
+  const id = emp?.employeeId ? emp.employeeId.toString().trim() : '';
+  const name = normalizeName(emp?.name);
+  return id ? `id:${id}` : `name:${name}`;
 }
 
 function normalizeName(value) {
@@ -53,6 +169,13 @@ function normalizeName(value) {
 function pruneEmployeesFile() {
   const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
   const usersData = readJsonFile(USERS_FILE, { users: [] });
+  const today = getTodayDate();
+  // We want each new store day to start clean until a game plan is published for today.
+  // This also avoids UTC/local mismatches from older versions.
+  const todayGameplanFile = path.join(GAMEPLAN_DIR, `${today}.json`);
+  const hasTodayGameplan = fs.existsSync(todayGameplanFile);
+  const alreadyResetToday = (employees?.lastDailyResetForDate || '') === today;
+  const shouldResetDailyAssignments = !hasTodayGameplan && !alreadyResetToday;
 
   const usersByEmployeeId = new Map();
   const usersByName = new Map();
@@ -77,6 +200,19 @@ function pruneEmployeesFile() {
   };
 
   const seenEmployeeIds = new Set();
+  const dailyFieldsReset = {
+    isOff: true,
+    zones: [],
+    zone: '',
+    fittingRoom: '',
+    scheduledLunch: '',
+    closingSections: [],
+    shift: '',
+    lunch: '',
+    taskOfTheDay: '',
+    role: '',
+    station: ''
+  };
 
   // Start from existing employee records, but:
   // - drop employees that no longer exist in users.json
@@ -101,23 +237,31 @@ function pruneEmployeesFile() {
       if (canonicalEmployeeId && seenEmployeeIds.has(canonicalEmployeeId)) continue;
       if (canonicalEmployeeId) seenEmployeeIds.add(canonicalEmployeeId);
 
+      const base = shouldResetDailyAssignments ? { ...emp, ...dailyFieldsReset } : emp;
       targetList.push({
-        ...emp,
+        ...base,
         employeeId: canonicalEmployeeId || emp.employeeId,
         name: user.name || emp.name,
         imageUrl: user.imageUrl || emp.imageUrl || '',
         type: targetType,
-        zones: Array.isArray(emp.zones)
-          ? emp.zones.map(z => (z || '').toString().trim()).filter(Boolean)
-          : ((emp.zone || '').toString().trim() ? [(emp.zone || '').toString().trim()] : [])
+        zones: shouldResetDailyAssignments
+          ? []
+          : (Array.isArray(emp.zones)
+            ? emp.zones.map(z => (z || '').toString().trim()).filter(Boolean)
+            : ((emp.zone || '').toString().trim() ? [(emp.zone || '').toString().trim()] : []))
       });
     }
   }
 
   const next = { ...employees, employees: canonical };
+  if (shouldResetDailyAssignments) {
+    next.lastUpdated = today;
+    next.lastDailyResetAt = new Date().toISOString();
+    next.lastDailyResetForDate = today;
+  }
   const beforeStr = JSON.stringify(employees.employees || {});
   const afterStr = JSON.stringify(next.employees);
-  if (beforeStr !== afterStr) {
+  if (beforeStr !== afterStr || shouldResetDailyAssignments) {
     next.lastPrunedAt = new Date().toISOString();
     writeJsonFile(EMPLOYEES_FILE, next);
     return next;
@@ -218,10 +362,7 @@ router.get('/today', (req, res) => {
   if (!gameplan) {
     gameplan = { date: today, notes: '', assignments: {} };
     
-    // Get yesterday's date
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = getYesterdayDate();
     const yesterdayFile = path.join(GAMEPLAN_DIR, `${yesterdayStr}.json`);
     const yesterdayPlan = readJsonFile(yesterdayFile, null);
     
@@ -244,10 +385,7 @@ router.get('/today', (req, res) => {
 
 // GET /api/gameplan/yesterday - Get yesterday's gameplan for copy feature
 router.get('/yesterday', (req, res) => {
-  // Get yesterday's date
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = getYesterdayDate();
   
   const gameplanFile = path.join(GAMEPLAN_DIR, `${yesterdayStr}.json`);
   const gameplan = readJsonFile(gameplanFile, null);
@@ -418,6 +556,8 @@ router.get('/metrics', (req, res) => {
         lastSyncTime: savedData.lastSyncTime,
         lastSyncBy: savedData.lastSyncBy,
         lastEmailReceived: savedData.lastEmailReceived, // When the email was actually received
+        recordsImported: savedData.recordsImported,
+        recordsImportedFiles: savedData.recordsImportedFiles,
         dataDate: savedData.dataDate,
         // Include other saved data
         appointments: savedData.appointments,
@@ -430,6 +570,18 @@ router.get('/metrics', (req, res) => {
         employeeCountPerformance: savedData.countPerformance,
         loans: savedData.loans
       };
+
+      // If count performance is missing/empty for today, fall back to the latest persisted snapshot.
+      if (!metrics.employeeCountPerformance?.employees?.length) {
+        const snap = readLatestScanPerformanceSnapshot();
+        if (snap?.employees?.length) {
+          metrics.employeeCountPerformance = {
+            employees: snap.employees,
+            summary: snap.summary || {}
+          };
+          metrics.scanPerformanceFromDate = snap.date || null;
+        }
+      }
 
       // Backfill retail week target info if missing in older saved payloads.
       // This is used for "Target / SA Today" calculations across the UI.
@@ -466,6 +618,17 @@ router.get('/metrics', (req, res) => {
       tailorProductivityTrend: tailorTrend,
       employeeCountPerformance: countPerformance
     };
+
+    if (!metrics.employeeCountPerformance?.employees?.length) {
+      const snap = readLatestScanPerformanceSnapshot();
+      if (snap?.employees?.length) {
+        metrics.employeeCountPerformance = {
+          employees: snap.employees,
+          summary: snap.summary || {}
+        };
+        metrics.scanPerformanceFromDate = snap.date || null;
+      }
+    }
     
     res.json(maybeBackfillLastWeekOverview(metrics));
   } catch (error) {
@@ -505,6 +668,89 @@ router.get('/metrics', (req, res) => {
   }
 });
 
+// GET /api/gameplan/scan-performance/history?days=30 - persisted scan performance leaderboard
+router.get('/scan-performance/history', (req, res) => {
+  const days = Math.max(1, Math.min(365, parseInt(req.query.days, 10) || 30));
+  const files = safeReadDir(SCAN_PERFORMANCE_HISTORY_DIR)
+    .filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
+    .sort()
+    .reverse()
+    .slice(0, days);
+
+  const snapshots = files
+    .map(f => readJsonFile(path.join(SCAN_PERFORMANCE_HISTORY_DIR, f), null))
+    .filter(Boolean);
+
+  const byPerson = new Map();
+
+  snapshots.forEach(snap => {
+    (snap.employees || []).forEach(emp => {
+      const key = normalizeScanPersonKey(emp);
+      if (!key) return;
+
+      const countsDone = Number(emp.countsDone || 0);
+      const accuracy = Number(emp.accuracy || 0);
+      const missedReserved = Number(emp.missedReserved || 0);
+
+      if (!byPerson.has(key)) {
+        byPerson.set(key, {
+          key,
+          name: emp.name || 'Unknown',
+          employeeId: emp.employeeId || null,
+          id: emp.id || null,
+          type: emp.type || null,
+          imageUrl: emp.imageUrl || null,
+          totals: { countsDone: 0, missedReserved: 0, accuracyWeightedSum: 0, accuracyDays: 0 },
+          lastSeenDate: snap.date || null
+        });
+      }
+
+      const entry = byPerson.get(key);
+      entry.name = entry.name || emp.name;
+      entry.imageUrl = entry.imageUrl || emp.imageUrl || null;
+      entry.totals.countsDone += countsDone;
+      entry.totals.missedReserved += missedReserved;
+      if (countsDone > 0) {
+        entry.totals.accuracyWeightedSum += accuracy * countsDone;
+      } else {
+        entry.totals.accuracyDays += 1;
+        entry.totals.accuracyWeightedSum += accuracy;
+      }
+      entry.lastSeenDate = snap.date || entry.lastSeenDate;
+    });
+  });
+
+  const people = Array.from(byPerson.values()).map(p => {
+    const denom = p.totals.countsDone > 0 ? p.totals.countsDone : Math.max(1, p.totals.accuracyDays);
+    const avgAccuracy = p.totals.accuracyWeightedSum / denom;
+    return {
+      ...p,
+      avgAccuracy: Math.round(avgAccuracy * 10) / 10
+    };
+  });
+
+  const byAccuracy = people
+    .slice()
+    .sort((a, b) => (b.avgAccuracy - a.avgAccuracy) || (b.totals.countsDone - a.totals.countsDone))
+    .slice(0, 20);
+
+  const byCounts = people
+    .slice()
+    .sort((a, b) => b.totals.countsDone - a.totals.countsDone)
+    .slice(0, 20);
+
+  const byPickupsCleared = people
+    .slice()
+    .sort((a, b) => (a.totals.missedReserved - b.totals.missedReserved) || (b.totals.countsDone - a.totals.countsDone))
+    .slice(0, 20);
+
+  res.json({
+    success: true,
+    days: snapshots.map(s => ({ date: s.date, savedAt: s.savedAt, source: s.source, summary: s.summary })),
+    leaderboard: { byAccuracy, byCounts, byPickupsCleared }
+  });
+});
+
 // GET /api/gameplan/best-sellers - Get best sellers data (from saved data)
 router.get('/best-sellers', (req, res) => {
   try {
@@ -529,6 +775,42 @@ router.get('/best-sellers', (req, res) => {
     console.error('Error fetching best sellers:', error);
     res.status(500).json({ error: 'Failed to fetch best sellers' });
   }
+});
+
+// GET /api/gameplan/product-image/:code - Resolve a product image URL (cached)
+router.get('/product-image/:code', async (req, res) => {
+  const rawCode = (req.params.code || '').toString().trim();
+  if (!isValidProductCode(rawCode)) {
+    return res.status(400).json({ success: false, error: 'Invalid product code' });
+  }
+
+  const code = rawCode.toUpperCase();
+  const cached = getCachedProductImage(code);
+  if (cached) return res.json({ success: true, code, imageUrl: cached, source: 'cache' });
+
+  const codeLower = code.toLowerCase();
+
+  // Prefer internal suitsdev collections index (faster + stable URLs).
+  const suitsDevHtml = await fetchText(
+    `https://tools.suitsdev.nl/cloudinary_collections/index.php?search=${encodeURIComponent(codeLower)}`
+  );
+  const suitsDevImage = extractImageFromSuitsDevHtml(suitsDevHtml, codeLower);
+  if (suitsDevImage) {
+    saveCachedProductImage(code, suitsDevImage);
+    return res.json({ success: true, code, imageUrl: suitsDevImage, source: 'tools.suitsdev.nl' });
+  }
+
+  // Fallback to public Suitsupply search results.
+  const suitsupplyHtml = await fetchText(
+    `https://suitsupply.com/en-us/search?q=${encodeURIComponent(code)}`
+  );
+  const suitsupplyImage = extractImageFromSuitSupplySearchHtml(suitsupplyHtml, code);
+  if (suitsupplyImage) {
+    saveCachedProductImage(code, suitsupplyImage);
+    return res.json({ success: true, code, imageUrl: suitsupplyImage, source: 'suitsupply.com' });
+  }
+
+  return res.json({ success: false, code, imageUrl: null, source: 'none' });
 });
 
 // GET /api/gameplan/appointments - Get appointments/Waitwhile data (from saved data)
@@ -964,6 +1246,134 @@ router.get('/settings', (req, res) => {
     tailorStations: []
   });
   res.json(settings);
+});
+
+// GET /api/gameplan/store-config - Read-only store configuration (authenticated users)
+router.get('/store-config', (req, res) => {
+  try {
+    return res.json(dal.getStoreConfig());
+  } catch (e) {
+    return res.status(500).json({ error: e?.message || 'Failed to load store config' });
+  }
+});
+
+// GET /api/gameplan/weekly-goal-distribution/:weekKey - Read weekly % distribution (any authenticated user)
+router.get('/weekly-goal-distribution/:weekKey', (req, res) => {
+  const weekKey = normalizeWeekKey(req.params.weekKey);
+  if (!weekKey) return res.status(400).json({ error: 'Invalid weekKey' });
+  const all = readWeeklyGoalDistributions();
+  const entry = all?.weeks?.[weekKey] || null;
+  return res.json(entry || { weekKey, enabled: false, percents: [15, 15, 14, 14, 14, 14, 14] });
+});
+
+// POST /api/gameplan/weekly-goal-distribution/:weekKey - Update weekly % distribution (manager/admin)
+router.post('/weekly-goal-distribution/:weekKey', requireManager, express.json(), (req, res) => {
+  const weekKey = normalizeWeekKey(req.params.weekKey);
+  if (!weekKey) return res.status(400).json({ error: 'Invalid weekKey' });
+
+  const body = req.body || {};
+  const enabled = body.enabled === true || body.enabled === 'true';
+  const percents = Array.isArray(body.percents) ? body.percents.map(n => Number(n)) : null;
+  const maxDaily = 40;
+  if (!percents || percents.length !== 7 || percents.some(n => !Number.isFinite(n) || n < 0 || n > maxDaily)) {
+    return res.status(400).json({ error: `percents must be an array of 7 numbers (0-${maxDaily})` });
+  }
+
+  const total = Math.round(percents.reduce((a, b) => a + b, 0) * 100) / 100;
+  if (total !== 100) {
+    return res.status(400).json({ error: `percents must total 100 (got ${total})` });
+  }
+
+  const all = readWeeklyGoalDistributions();
+  if (!all.weeks) all.weeks = {};
+  const next = {
+    weekKey,
+    enabled,
+    percents,
+    updatedAt: new Date().toISOString(),
+    updatedBy: req.user?.name || null
+  };
+  all.weeks[weekKey] = next;
+  writeWeeklyGoalDistributions(all);
+  return res.json(next);
+});
+
+// GET /api/gameplan/notes-templates - Per-user notes templates (manager/admin)
+router.get('/notes-templates', requireManager, (req, res) => {
+  const userId = (req.user?.userId || '').toString();
+  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+  const data = readNotesTemplates();
+  const list = Array.isArray(data?.byUser?.[userId]) ? data.byUser[userId] : [];
+  return res.json({ templates: list });
+});
+
+// POST /api/gameplan/notes-templates - Create template (manager/admin)
+router.post('/notes-templates', requireManager, express.json(), (req, res) => {
+  const userId = (req.user?.userId || '').toString();
+  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+
+  const name = (req.body?.name || '').toString().trim();
+  const html = (req.body?.html || '').toString();
+  if (!name) return res.status(400).json({ error: 'name is required' });
+  if (name.length > 60) return res.status(400).json({ error: 'name too long' });
+  if (html.length > 100_000) return res.status(400).json({ error: 'template too large' });
+
+  const data = readNotesTemplates();
+  if (!data.byUser) data.byUser = {};
+  if (!Array.isArray(data.byUser[userId])) data.byUser[userId] = [];
+
+  const now = new Date().toISOString();
+  const template = {
+    id: `nt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    name,
+    html,
+    createdAt: now,
+    updatedAt: now
+  };
+  data.byUser[userId].push(template);
+  writeNotesTemplates(data);
+  return res.json({ success: true, template });
+});
+
+// PUT /api/gameplan/notes-templates/:id - Update template (manager/admin)
+router.put('/notes-templates/:id', requireManager, express.json(), (req, res) => {
+  const userId = (req.user?.userId || '').toString();
+  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+  const id = (req.params.id || '').toString().trim();
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+
+  const name = (req.body?.name || '').toString().trim();
+  const html = (req.body?.html || '').toString();
+  if (!name) return res.status(400).json({ error: 'name is required' });
+  if (name.length > 60) return res.status(400).json({ error: 'name too long' });
+  if (html.length > 100_000) return res.status(400).json({ error: 'template too large' });
+
+  const data = readNotesTemplates();
+  const list = Array.isArray(data?.byUser?.[userId]) ? data.byUser[userId] : [];
+  const idx = list.findIndex(t => t?.id === id);
+  if (idx === -1) return res.status(404).json({ error: 'Template not found' });
+
+  const now = new Date().toISOString();
+  list[idx] = { ...list[idx], name, html, updatedAt: now };
+  data.byUser[userId] = list;
+  writeNotesTemplates(data);
+  return res.json({ success: true, template: list[idx] });
+});
+
+// DELETE /api/gameplan/notes-templates/:id - Delete template (manager/admin)
+router.delete('/notes-templates/:id', requireManager, (req, res) => {
+  const userId = (req.user?.userId || '').toString();
+  if (!userId) return res.status(401).json({ error: 'Not authenticated' });
+  const id = (req.params.id || '').toString().trim();
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+
+  const data = readNotesTemplates();
+  const list = Array.isArray(data?.byUser?.[userId]) ? data.byUser[userId] : [];
+  const next = list.filter(t => t?.id !== id);
+  if (next.length === list.length) return res.status(404).json({ error: 'Template not found' });
+  data.byUser[userId] = next;
+  writeNotesTemplates(data);
+  return res.json({ success: true });
 });
 
 // POST /api/gameplan/settings - Save settings

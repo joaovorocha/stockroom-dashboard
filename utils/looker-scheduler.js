@@ -78,20 +78,24 @@ class LookerScheduler {
       // Step 2: Process CSV files
       this.log('Processing CSV files...');
       const processor = new LookerDataProcessor();
-      results.process = await processor.processAll();
+      const emailDate = results.fetch?.latestEmailDate || null;
+      results.process = await processor.processAll({
+        syncBy: 'scheduler',
+        emailDate,
+        importStats: {
+          recordsImported: results.fetch?.filesExtracted?.length || 0,
+          files: Array.isArray(results.fetch?.filesExtracted) ? results.fetch.filesExtracted : []
+        }
+      });
 
       if (results.process.errors.length > 0) {
         results.errors.push(...results.process.errors);
         this.log('Process errors:', results.process.errors);
       }
 
-      // Step 3: Save to dashboard-data.json for persistent storage
-      // Pass the email received date from the fetch results
-      this.log('Saving to dashboard data...');
-      const emailDate = results.fetch?.latestEmailDate || null;
-      const dashboardData = processor.saveToDashboardData(results.process, 'scheduler', emailDate);
+      // Dashboard data is saved as part of processAll()
       results.dashboardDataSaved = true;
-      results.hasNewData = dashboardData.hasNewData;
+      results.hasNewData = results.process?.hasNewData || false;
 
       results.success = results.errors.length === 0;
       results.endTime = new Date().toISOString();

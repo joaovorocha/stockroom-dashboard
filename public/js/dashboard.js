@@ -3,6 +3,7 @@ let currentUser = null;
 let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
 let metrics = {};
 let settings = {};
+let storeConfig = { requireSaShift: false, currency: 'USD' };
 let gameplanData = { notes: '', assignments: {}, published: false };
 let loansData = [];
 let currentEditEmployee = null;
@@ -13,6 +14,12 @@ let currentPageType = 'SA'; // Default to SA, will be determined by URL
 let sseReconnectTimer = null;
 let sseRetryDelayMs = 1000;
 let lastFocusedElement = null;
+const DEBUG = false;
+let storeDayInfo = null;
+
+function debugLog(...args) {
+  if (DEBUG) console.log(...args);
+}
 
 function hideEmojiPicker() {
   const picker = document.getElementById('emojiPicker');
@@ -109,6 +116,8 @@ function getLocalISODate() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+let currentClientDate = getLocalISODate();
+
 function getEmployeeZones(emp) {
   if (!emp) return [];
   if (Array.isArray(emp.zones)) return emp.zones.map(z => (z || '').toString().trim()).filter(Boolean);
@@ -137,12 +146,16 @@ function normalizeEmployeeDailyFields(emp) {
 
 function getWorkingSACount() {
   const list = employees.SA || [];
-  return list.filter(e => !e.isOff).length;
+  return list.filter(e => {
+    if (storeConfig?.requireSaShift) {
+      const shift = (e?.shift || '').toString().trim();
+      return !e.isOff && !!shift;
+    }
+    return !e.isOff;
+  }).length;
 }
 
 function getRetailWeekTargetPerPerson() {
-  // Can't compute per-person target until the game plan is published (we don't know who's working yet).
-  if (!gameplanData?.published) return null;
   const hasTargetPerDay = metrics?.retailWeek && Object.prototype.hasOwnProperty.call(metrics.retailWeek, 'targetPerDay');
   const hasTarget = metrics?.retailWeek && Object.prototype.hasOwnProperty.call(metrics.retailWeek, 'target');
   const dailyTarget = hasTargetPerDay
@@ -232,7 +245,7 @@ function renderRetailWeekStoreInfo() {
     ? `<span><strong>Target / SA Today:</strong> ${formatCurrencyOrDash(perPerson)}</span>
        <span style="color:var(--text-muted);">(${getWorkingSACount()} SA working)</span>`
     : `<span><strong>Target / SA Today:</strong> --</span>
-       <span style="color:var(--text-muted);">(publish game plan to calculate)</span>`;
+       <span style="color:var(--text-muted);">(assign shifts to calculate)</span>`;
 
   const weekSalesText = formatCurrencyFieldOrDash(retailWeek, 'salesAmount');
   const weekTargetText = formatCurrencyFieldOrDash(retailWeek, 'target');
@@ -267,10 +280,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   await checkAuth();
   setCurrentDate();
   await Promise.all([
+    getStoreDayInfo(),
     loadEmployees(),
     loadMetrics(),
     loadSettings(),
     loadGameplan(),
+    loadStoreConfig(),
     loadLoansData(),
     loadPendingShipments()
   ]);
@@ -278,6 +293,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupWelcomeSection();
   setupNotesPermissions();
   setupEventListeners();
+  startDayRolloverWatcher();
   setupSSEConnection(); // Real-time updates
   updateLastSyncTime();
 });
@@ -292,11 +308,13 @@ function determinePageType() {
     currentPageType = 'BOH';
   } else if (path.includes('/gameplan-management')) {
     currentPageType = 'MANAGEMENT';
+  } else if (path.includes('/operations-metrics')) {
+    currentPageType = 'OPS_METRICS';
   } else if (path.includes('/gameplan-edit')) {
     currentPageType = 'EDIT';
   }
   document.body.dataset.pageType = currentPageType.toLowerCase();
-  console.log(`Current page type: ${currentPageType}`);
+  debugLog(`Current page type: ${currentPageType}`);
 }
 
 // ===== Server-Sent Events for Real-Time Updates =====
@@ -342,7 +360,7 @@ function setupSSEConnection() {
         const resp = await fetch('/api/auth/check', { credentials: 'include' });
         const data = await resp.json();
         if (!data.authenticated) {
-          window.location.href = '/login-v2';
+          window.location.href = '/login';
           return;
         }
         currentUser = data.user;
@@ -404,7 +422,7 @@ async function checkAuth() {
     const data = await response.json();
 
     if (!data.authenticated) {
-      window.location.href = '/login-v2';
+      window.location.href = '/login';
       return;
     }
 
@@ -429,7 +447,7 @@ async function checkAuth() {
     }
   } catch (error) {
     console.error('Auth check failed:', error);
-    window.location.href = '/login-v2';
+    window.location.href = '/login';
   }
 }
 
@@ -469,11 +487,11 @@ async function loadEmployees() {
 
 async function loadMetrics() {
   try {
-    console.log('[DEBUG] Loading metrics...');
+    debugLog('[DEBUG] Loading metrics...');
     const response = await fetch('/api/gameplan/metrics');
     metrics = await response.json();
-    console.log('[DEBUG] Metrics loaded:', metrics);
-    updateLastUpdated(metrics.importedAt);
+    debugLog('[DEBUG] Metrics loaded:', metrics);
+    updateLastUpdated(metrics.lastSyncTime || metrics.lastEmailReceived || metrics.importedAt);
     
     // Update import status card (both welcome section and sidebar)
     const lastLookerSyncEl = document.getElementById('lastLookerSync');
@@ -481,8 +499,8 @@ async function loadMetrics() {
     const sidebarLastSyncEl = document.getElementById('sidebarLastSync');
     const recordsImportedEl = document.getElementById('recordsImported');
     const welcomeRecordsImportedEl = document.getElementById('welcomeRecordsImported');
-    // Prefer lastEmailReceived (actual email time) over importedAt (processing time)
-    const syncTimestamp = metrics.lastEmailReceived || metrics.importedAt;
+    // Prefer lastEmailReceived (actual email time) over lastSyncTime/importedAt (processing time)
+    const syncTimestamp = metrics.lastEmailReceived || metrics.lastSyncTime || metrics.importedAt;
     if (syncTimestamp) {
       const syncDate = new Date(syncTimestamp);
       const formattedDate = syncDate.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -491,13 +509,18 @@ async function loadMetrics() {
       if (sidebarLastSyncEl) sidebarLastSyncEl.textContent = formattedDate;
     }
     if (recordsImportedEl || welcomeRecordsImportedEl) {
-      // Count total records from various data sources
-      let totalRecords = 0;
-      if (metrics.wtd) totalRecords++;
-      if (metrics.operationsHealth) totalRecords += Object.keys(metrics.operationsHealth).length;
-      if (metrics.inventoryIssues) totalRecords += Object.keys(metrics.inventoryIssues).length;
-      if (metrics.employeeCountPerformance?.employees?.length) totalRecords += metrics.employeeCountPerformance.employees.length;
-      const txt = totalRecords > 0 ? `${totalRecords} metrics` : '--';
+      const savedCount = Number(metrics.recordsImported);
+      let txt = Number.isFinite(savedCount) && savedCount > 0 ? `${savedCount} metrics` : '--';
+
+      // Backward-compatible fallback: older saved payloads didn't persist import counts.
+      if (txt === '--') {
+        let totalRecords = 0;
+        if (metrics.wtd) totalRecords++;
+        if (metrics.operationsHealth) totalRecords += Object.keys(metrics.operationsHealth).length;
+        if (metrics.inventoryIssues) totalRecords += Object.keys(metrics.inventoryIssues).length;
+        if (metrics.employeeCountPerformance?.employees?.length) totalRecords += metrics.employeeCountPerformance.employees.length;
+        txt = totalRecords > 0 ? `${totalRecords} metrics` : '--';
+      }
       if (recordsImportedEl) recordsImportedEl.textContent = txt;
       if (welcomeRecordsImportedEl) welcomeRecordsImportedEl.textContent = txt;
     }
@@ -519,21 +542,24 @@ async function loadSettings() {
   }
 }
 
+async function loadStoreConfig() {
+  try {
+    const response = await fetch('/api/gameplan/store-config');
+    storeConfig = response.ok ? await response.json() : storeConfig;
+  } catch (_) {
+    // keep defaults
+  }
+}
+
 async function loadGameplan() {
   try {
-    // Check for date parameter in URL, fallback to today
-    const params = new URLSearchParams(window.location.search);
-    let clientDate = params.get('date');
-    
-    if (!clientDate) {
-      const now = new Date();
-      const pad = (n) => String(n).padStart(2, '0');
-      clientDate = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    }
+    // Always load the current store-day date from server (timezone + dayStart aware).
+    const today = await getStoreDayInfo();
+    const clientDate = today?.date || getLocalISODate();
     
 	    const response = await fetch(`/api/gameplan/date/${clientDate}`);
-	    if (response.ok) {
-	      gameplanData = await response.json();
+		    if (response.ok) {
+		      gameplanData = await response.json();
       
       // Update notes in both sidebar and inline editors (whichever exists)
       const notesEditor = document.getElementById('notesEditor') || document.getElementById('notesEditorInline');
@@ -546,14 +572,14 @@ async function loadGameplan() {
         lastEditedBy.textContent = `Last edited by ${gameplanData.lastEditedBy}${editTime ? ' at ' + editTime : ''}`;
       }
 
-	      // Merge assignments
-	      if (gameplanData.assignments) {
-	        mergeAssignments(gameplanData.assignments);
-	      }
+	      // Clear previous day's daily fields, then merge today's assignments (if any).
+	      resetAllEmployeesDailyFields();
+	      if (gameplanData.assignments) mergeAssignments(gameplanData.assignments);
 	    } else {
-	      // If there is no game plan file yet, treat as "not published".
-	      gameplanData = { notes: '', assignments: {}, published: false };
-	    }
+		      // If there is no game plan file yet, treat as "not published".
+		      gameplanData = { notes: '', assignments: {}, published: false };
+		      resetAllEmployeesDailyFields();
+		    }
 
 	    // Banner at TOP if not published (whether file exists or not)
 	    const statusBanner = document.getElementById('statusBanner');
@@ -566,7 +592,45 @@ async function loadGameplan() {
 	  } catch (error) {
 	    console.error('Error loading gameplan:', error);
 	  }
-	}
+		}
+
+function clearDailyAssignmentFields(emp) {
+  if (!emp) return;
+  emp.zones = [];
+  emp.zone = '';
+  emp.fittingRoom = '';
+  emp.scheduledLunch = '';
+  emp.closingSections = [];
+  emp.shift = '';
+  emp.lunch = '';
+  emp.taskOfTheDay = '';
+  emp.role = '';
+  emp.station = '';
+  // Leave metrics and identity fields intact.
+}
+
+function resetAllEmployeesDailyFields() {
+  for (const type of Object.keys(employees || {})) {
+    (employees[type] || []).forEach((emp) => {
+      clearDailyAssignmentFields(emp);
+      // New store-day default: everyone starts Day Off until assignments/publish.
+      emp.isOff = true;
+      const normalized = normalizeEmployeeDailyFields(emp);
+      Object.assign(emp, normalized);
+    });
+  }
+}
+
+async function getStoreDayInfo() {
+  try {
+    const resp = await fetch('/api/gameplan/today');
+    const data = resp.ok ? await resp.json() : null;
+    if (data?.date) storeDayInfo = data;
+    return data;
+  } catch (_) {
+    return storeDayInfo;
+  }
+}
 
 async function loadLoansData() {
   try {
@@ -576,7 +640,8 @@ async function loadLoansData() {
       checkLoansOverdue();
     }
   } catch (error) {
-    console.error('Error loading loans:', error);
+    // Keep the UI quiet if loans data isn't available.
+    debugLog('Error loading loans:', error);
   }
 }
 
@@ -600,7 +665,7 @@ async function loadPendingShipments() {
       }
     }
   } catch (error) {
-    console.error('Error loading shipments:', error);
+    debugLog('Error loading shipments:', error);
   }
 }
 
@@ -637,18 +702,21 @@ function updateLastSyncTime() {
 
 async function refreshAllData() {
   const refreshBtn = document.getElementById('refreshDataBtn');
-  refreshBtn.disabled = true;
-  refreshBtn.textContent = '↻ Refreshing...';
+  if (refreshBtn) {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '↻ Refreshing...';
+  }
 
   try {
-    await Promise.all([
-      loadEmployees(),
-      loadMetrics(),
-      loadSettings(),
-      loadGameplan(),
-      loadLoansData(),
-      loadPendingShipments()
-    ]);
+	    await Promise.all([
+	      loadEmployees(),
+	      loadMetrics(),
+	      loadSettings(),
+	      loadGameplan(),
+	      loadStoreConfig(),
+	      loadLoansData(),
+	      loadPendingShipments()
+	    ]);
     renderAll();
     setupWelcomeSection();
     updateLastSyncTime();
@@ -657,9 +725,36 @@ async function refreshAllData() {
     console.error('Error refreshing data:', error);
     showNotification('Error refreshing data', 'error');
   } finally {
-    refreshBtn.disabled = false;
-    refreshBtn.textContent = '↻ Refresh Data';
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '↻ Refresh Data';
+    }
   }
+}
+
+function startDayRolloverWatcher() {
+  if (window.__dayRolloverWatcher) return;
+  window.__dayRolloverWatcher = true;
+  currentClientDate = null;
+
+  setInterval(async () => {
+    const nextInfo = await getStoreDayInfo();
+    const next = nextInfo?.date || getLocalISODate();
+    if (next === currentClientDate) return;
+    currentClientDate = next;
+
+    // Remove any stale ?date= param so we never "stick" to yesterday.
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('date')) {
+        url.searchParams.delete('date');
+        window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : ''));
+      }
+    } catch (_) {}
+
+    await refreshAllData();
+    showNotification('New day started — cleared for today');
+  }, 60_000);
 }
 
 function mergeAssignments(assignments) {
@@ -699,6 +794,9 @@ function checkLoansOverdue() {
   const totalEl = document.getElementById('loansOverdueTotal');
   const namesEl = document.getElementById('loansOverdueNames');
   const cardEl = document.getElementById('loansCard');
+
+  // Some pages don't render the loans card; keep the console clean.
+  if (!totalEl || !namesEl || !cardEl) return;
 
   if (!loansData.overdue || loansData.overdue.length === 0) {
     totalEl.textContent = '0';
@@ -768,9 +866,12 @@ function showLoansModal() {
 // Setup Welcome Section
 function setupWelcomeSection() {
   if (!currentUser) return;
+  const welcomeNameEl = document.getElementById('welcomeName');
+  const welcomeRoleEl = document.getElementById('welcomeRole');
+  if (!welcomeNameEl || !welcomeRoleEl) return; // Not all pages have the welcome box
 
-  document.getElementById('welcomeName').textContent = currentUser.name.split(' ')[0];
-  document.getElementById('welcomeRole').textContent = getRoleName(currentUser.role);
+  welcomeNameEl.textContent = currentUser.name.split(' ')[0];
+  welcomeRoleEl.textContent = getRoleName(currentUser.role);
 
   // Find current user's employee data first (to get their photo)
   let userEmployee = null;
@@ -829,8 +930,6 @@ function setupWelcomeSection() {
         // Store info/notes preview will be shown separately
         storeInfoEl.style.display = 'block';
         
-        // Setup lunch timeline for SA
-        setupLunchTimeline(userEmployee);
         break;
 
       case 'BOH':
@@ -889,9 +988,25 @@ function setupWelcomeSection() {
 
   // Ensure game plan is hidden for employees if not published
   applyUnpublishedVisibility();
+
+  // Lunch timeline should show for everyone (not only SA).
+  setupLunchTimeline(userEmployee || null);
 }
 
-// Setup Lunch Timeline - shows all SAs and their lunch times
+function parseTimeToMinutes(timeStr) {
+  if (!timeStr) return null;
+  const m = timeStr.toString().trim().match(/^(\d{1,2})\s*:\s*(\d{2})(?:\s*([AaPp][Mm]))?$/);
+  if (!m) return null;
+  let hours = parseInt(m[1], 10);
+  const minutes = parseInt(m[2], 10);
+  const ampm = m[3] ? m[3].toUpperCase() : null;
+  if (ampm === 'PM' && hours !== 12) hours += 12;
+  if (ampm === 'AM' && hours === 12) hours = 0;
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return hours * 60 + minutes;
+}
+
+// Setup Lunch Timeline - shows the whole team's lunch times
 function setupLunchTimeline(currentEmployee) {
   const timelineSection = document.getElementById('lunchTimelineSection');
   const timeline = document.getElementById('lunchTimeline');
@@ -900,10 +1015,24 @@ function setupLunchTimeline(currentEmployee) {
   if (!timelineSection || !timeline) return;
   
   // Get all employees with lunch times (scheduledLunch preferred, fall back to lunch)
-  const allSAs = employees.SA || [];
-  const employeesWithLunch = allSAs
+  const allEmployees = [
+    ...(employees.MANAGEMENT || []),
+    ...(employees.SA || []),
+    ...(employees.BOH || []),
+    ...(employees.TAILOR || [])
+  ];
+
+  const byId = new Map();
+  allEmployees.forEach((e) => {
+    if (!e) return;
+    const key = e.id ?? `${e.type || ''}:${e.employeeId || e.name || Math.random()}`;
+    if (!byId.has(key)) byId.set(key, e);
+  });
+
+  const employeesWithLunch = Array.from(byId.values())
     .map(e => ({ ...e, lunchTime: e.scheduledLunch || e.lunch }))
-    .filter(e => e.lunchTime);
+    .filter(e => e.lunchTime && parseTimeToMinutes(e.lunchTime) !== null)
+    .sort((a, b) => (parseTimeToMinutes(a.lunchTime) ?? 0) - (parseTimeToMinutes(b.lunchTime) ?? 0));
   
   if (employeesWithLunch.length === 0) {
     timelineSection.style.display = 'none';
@@ -913,14 +1042,14 @@ function setupLunchTimeline(currentEmployee) {
   timelineSection.style.display = 'block';
   
   // Show my lunch time
-  const myLunch = currentEmployee.scheduledLunch || currentEmployee.lunch;
-  if (myLunchTimeEl && myLunch) {
-    myLunchTimeEl.textContent = `Your lunch: ${myLunch}`;
+  if (myLunchTimeEl) {
+    const myLunch = currentEmployee ? (currentEmployee.scheduledLunch || currentEmployee.lunch) : null;
+    myLunchTimeEl.textContent = myLunch ? `Your lunch: ${myLunch}` : 'Your lunch: --';
   }
   
-  // Timeline from 11:00 to 16:00 (typical lunch range)
+  // Timeline from 11:00 to 17:00 (11AM to 5PM)
   const startHour = 11;
-  const endHour = 16;
+  const endHour = 17;
   const totalMinutes = (endHour - startHour) * 60;
   
   // Create scale with 30-minute intervals
@@ -936,20 +1065,23 @@ function setupLunchTimeline(currentEmployee) {
   scaleHtml += '</div>';
   
   // Create bars
-  let barsHtml = '<div class="timeline-bars">';
+  const rowCount = Math.min(4, Math.max(2, Math.ceil(employeesWithLunch.length / 6)));
+  const rowHeight = 26;
+  const barAreaHeight = rowCount * rowHeight + 12;
+  let barsHtml = `<div class="timeline-bars" style="height:${barAreaHeight}px;">`;
   const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1'];
-  let row = 0;
   
   employeesWithLunch.forEach((emp, idx) => {
     const lunchTime = emp.lunchTime;
-    const [hours, minutes] = lunchTime.split(':').map(Number);
-    const lunchMinutes = (hours - startHour) * 60 + minutes;
+    const minutesOfDay = parseTimeToMinutes(lunchTime);
+    if (minutesOfDay === null) return;
+    const lunchMinutes = minutesOfDay - startHour * 60;
     const leftPercent = (lunchMinutes / totalMinutes) * 100;
     const width = (30 / totalMinutes) * 100; // 30 min lunch
     
-    const isMyLunch = emp.id === currentEmployee.id;
-    const firstName = emp.name.split(' ')[0];
-    const topOffset = (idx % 2) * 28 + 4; // Alternate rows
+    const isMyLunch = !!(currentEmployee && emp.id === currentEmployee.id);
+    const firstName = (emp.name || '--').toString().trim().split(/\s+/)[0] || '--';
+    const topOffset = (idx % rowCount) * rowHeight + 6;
     
     barsHtml += `<div class="lunch-bar${isMyLunch ? ' my-lunch' : ''}" 
       style="left: ${Math.max(0, Math.min(leftPercent, 95))}%; width: ${width}%; top: ${topOffset}px; background: ${isMyLunch ? '#22c55e' : colors[idx % colors.length]};"
@@ -961,6 +1093,7 @@ function setupLunchTimeline(currentEmployee) {
   barsHtml += '</div>';
   
   timeline.innerHTML = scaleHtml + barsHtml;
+  timeline.style.height = `${barAreaHeight + 20}px`;
 }
 
 // Setup Expandable Boxes (Fitting Room, Zone, Closing Duties)
@@ -1138,7 +1271,7 @@ function renderManagementQuickSection() {
   if (!grid) return;
   grid.innerHTML = '';
 
-  const mgmtArray = employees.MANAGEMENT || [];
+  const mgmtArray = (employees.MANAGEMENT || []).filter(e => !e?.isOff);
   const saArray = employees.SA || [];
   const bohArray = employees.BOH || [];
   const shownIds = new Set();
@@ -1161,7 +1294,7 @@ function renderManagementQuickSection() {
   );
 
   // Get BOH employees working today
-  const bohWorking = bohArray.filter(e => e.shift || e.taskOfTheDay);
+  const bohWorking = bohArray.filter(e => !e?.isOff && (e.shift || e.taskOfTheDay));
 
   // Show all MODs first
   mods.forEach(mod => {
@@ -1198,6 +1331,7 @@ function createManagementQuickCard(emp, roleLabel, extraClass) {
   const card = document.createElement('div');
   card.className = `management-quick-card ${extraClass}`.trim();
 
+  const displayName = (emp?.name || '--').toString().trim().split(/\s+/)[0] || '--';
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}">`
     : getInitials(emp.name);
@@ -1208,7 +1342,7 @@ function createManagementQuickCard(emp, roleLabel, extraClass) {
     <div class="card-icon">${emp.imageUrl ? `<img src="${emp.imageUrl}" alt="${emp.name}">` : getInitials(emp.name)}</div>
     <div class="card-content">
       <div class="card-role">${roleLabel}</div>
-      <div class="card-name">${emp.name}</div>
+      <div class="card-name">${displayName}</div>
       ${timeInfo ? `<div class="card-time">${timeInfo}</div>` : ''}
     </div>
   `;
@@ -1277,15 +1411,31 @@ function renderAll() {
       break;
     case 'BOH':
       renderBOHSection();
-      renderOperationsHealth();
-      renderInventoryIssues();
-      renderCustomerOrders();
-      renderCountLeaderboard();
+      // Ops dashboard moved to /operations-metrics
+      setDisplay('operationsSection', 'none');
       // Hide other sections
       setDisplay('welcomeSection', 'none');
       setDisplay('managementQuickSection', 'none');
       setDisplay('metricsSection', 'none');
       setDisplay('saSection', 'none');
+      setDisplay('managementSection', 'none');
+      setDisplay('tailorsSection', 'none');
+      setDisplay('lookerSection', 'none');
+      break;
+    case 'OPS_METRICS':
+      renderOperationsHealth();
+      renderInventoryIssues();
+      renderCustomerOrders();
+      renderCountLeaderboard();
+      renderTailorTrend();
+      renderAppointmentsWidget();
+      renderBestSellers();
+      // Hide non-ops sections (if present)
+      setDisplay('welcomeSection', 'none');
+      setDisplay('managementQuickSection', 'none');
+      setDisplay('metricsSection', 'none');
+      setDisplay('saSection', 'none');
+      setDisplay('bohSection', 'none');
       setDisplay('managementSection', 'none');
       setDisplay('tailorsSection', 'none');
       setDisplay('lookerSection', 'none');
@@ -1299,13 +1449,8 @@ function renderAll() {
       renderBOHSection();
       renderManagementSection();
       renderTailorsSection();
-      renderOperationsHealth();
-      renderInventoryIssues();
-      renderCustomerOrders();
-      renderCountLeaderboard();
-      renderTailorTrend();
-      renderAppointmentsWidget();
-      renderBestSellers();
+      // Ops dashboard moved to /operations-metrics
+      setDisplay('operationsSection', 'none');
       break;
     default:
       updateMetricsDisplay();
@@ -1315,13 +1460,8 @@ function renderAll() {
       renderBOHSection();
       renderManagementSection();
       renderTailorsSection();
-      renderOperationsHealth();
-      renderInventoryIssues();
-      renderCustomerOrders();
-      renderCountLeaderboard();
-      renderTailorTrend();
-      renderAppointmentsWidget();
-      renderBestSellers();
+      // Ops dashboard moved to /operations-metrics
+      setDisplay('operationsSection', 'none');
       break;
   }
 }
@@ -1403,6 +1543,12 @@ function getInitials(name) {
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 }
 
+function formatUsd(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return '--';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+}
+
 function hasLoanOverdue(employeeName) {
   if (!loansData.overdue) return false;
   return loansData.overdue.some(l => l.employeeName === employeeName);
@@ -1423,60 +1569,74 @@ function renderSASection() {
   const expandBtn = document.getElementById('expandSA');
   grid.innerHTML = '';
   const saEmployees = employees.SA || [];
+  const isPrivileged = !!(currentUser?.isManager || currentUser?.isAdmin || (currentUser?.role || '').toString().toUpperCase() === 'MANAGEMENT');
 
   const currentUserEmp = findCurrentUserEmployee('SA');
-  let displayedEmployees = [...saEmployees];
+  const hasShift = (e) => !!(e?.shift || '').toString().trim();
+  const isWorking = (e) => {
+    if (!e) return false;
+    if (e.isOff) return false;
+    if (storeConfig?.requireSaShift) return hasShift(e);
+    return true;
+  };
 
-  if (currentPageType === 'SA') {
-    if (currentUserEmp) {
-      displayedEmployees = displayedEmployees.filter(e => e.id !== currentUserEmp.id);
-    }
+  const workingList = saEmployees.filter(isWorking);
+  const dayOffList = saEmployees.filter(e => !isWorking(e));
 
-    count.textContent = displayedEmployees.length;
+  // Full ordered list (used when "Show All" is active) — only working employees (day off shown separately)
+  let orderedAll = [...workingList];
+  if (currentUserEmp && isWorking(currentUserEmp)) {
+    orderedAll = [currentUserEmp, ...workingList.filter(e => e.id !== currentUserEmp.id)];
+  }
 
-    if (!showAllEmployees.SA && displayedEmployees.length > 4) {
-      displayedEmployees = displayedEmployees.slice(0, 4);
-      expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = `Show All (${Number(count.textContent)})`;
-    } else if (showAllEmployees.SA && displayedEmployees.length > 4) {
-      expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = 'Show Less';
-    } else {
+  // On the SA page, we don't repeat the current user in the grid.
+  if (currentPageType === 'SA' && currentUserEmp) {
+    orderedAll = orderedAll.filter(e => e.id !== currentUserEmp.id);
+  }
+
+  // Count should reflect total employees in this type (not just what's shown).
+  if (count) count.textContent = saEmployees.length;
+
+  const getCollapsedList = () => {
+    // SA page: always show a compact list (1 card) until expanded.
+    if (currentPageType === 'SA') return orderedAll.slice(0, 1);
+
+    // Non-privileged users: show only themselves until expanded.
+    if (!isPrivileged) return currentUserEmp ? [currentUserEmp] : [];
+
+    // Privileged: show a few cards until expanded.
+    const initialVisible = 4;
+    return orderedAll.slice(0, initialVisible);
+  };
+
+  const collapsed = getCollapsedList();
+  const shown = showAllEmployees.SA ? orderedAll : collapsed;
+
+  // Toggle button
+  const maxCollapsed = collapsed.length;
+  const canExpand = orderedAll.length > maxCollapsed || (!isPrivileged && workingList.length > 1);
+  if (expandBtn) {
+    if (!canExpand) {
       expandBtn.style.display = 'none';
-    }
-
-    displayedEmployees.forEach(emp => {
-      grid.appendChild(createSACard(emp, false));
-    });
-    return;
-  }
-
-  // If not manager and not showing all, show only current user's card first
-  if (!showAllEmployees.SA && !currentUser?.isManager && !currentUser?.isAdmin) {
-    if (currentUserEmp) {
-      displayedEmployees = [currentUserEmp];
+    } else {
       expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = `Show All (${saEmployees.length})`;
-    }
-  } else {
-    // Sort to show current user first
-    if (currentUserEmp) {
-      displayedEmployees = [currentUserEmp, ...saEmployees.filter(e => e.id !== currentUserEmp.id)];
-    }
-    if (saEmployees.length > 1) {
-      expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = 'Show Less';
+      expandBtn.textContent = showAllEmployees.SA ? 'Show Less' : `Show All (${workingList.length})`;
     }
   }
 
-  displayedEmployees.forEach(emp => {
+  shown.forEach(emp => {
     grid.appendChild(createSACard(emp, emp.id === currentUserEmp?.id));
   });
+
+  renderDayOffGroup(grid, dayOffList, 'SA');
 }
 
 function createSACard(emp, isCurrentUser = false) {
   const card = document.createElement('div');
-  card.className = `employee-card${isCurrentUser ? ' current-user' : ''}`;
+  const hasShift = !!(emp?.shift || '').toString().trim();
+  const isWorking = !emp.isOff && (!storeConfig?.requireSaShift || hasShift);
+  const isDayOff = !isWorking;
+  card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
@@ -1496,11 +1656,26 @@ function createSACard(emp, isCurrentUser = false) {
     `
     : '';
 
-	  card.innerHTML = `
-	    <div class="card-header">
-      ${photoHtml}
-      <div class="employee-info">
-        <h4>${emp.name}</h4>
+  const perPersonTarget = getRetailWeekTargetPerPerson();
+
+  if (isDayOff) {
+    card.innerHTML = `
+      <div class="card-header">
+        ${photoHtml}
+        <div class="employee-info">
+          <h4>${emp.name}</h4>
+          <span class="role day-off-badge">Day Off</span>
+        </div>
+      </div>
+    `;
+    return card;
+  }
+
+		  card.innerHTML = `
+		    <div class="card-header">
+	      ${photoHtml}
+	      <div class="employee-info">
+	        <h4>${emp.name}</h4>
         <span class="role">Sales Associate</span>
       </div>
     </div>
@@ -1513,10 +1688,10 @@ function createSACard(emp, isCurrentUser = false) {
         <span class="field-label">Fitting Room</span>
         <span class="field-value">${emp.fittingRoom || '-'}</span>
       </div>
-	      <div class="card-field">
-	        <span class="field-label">Target</span>
-	        <span class="field-value">${(!emp.isOff && gameplanData?.published && getRetailWeekTargetPerPerson()) ? formatCurrency(getRetailWeekTargetPerPerson()) : '-'}</span>
-	      </div>
+		      <div class="card-field">
+		        <span class="field-label">Target</span>
+		        <span class="field-value">${(isWorking && perPersonTarget) ? formatCurrency(perPersonTarget) : '-'}</span>
+		      </div>
       <div class="card-field">
         <span class="field-label">Lunch</span>
         <span class="field-value">${emp.scheduledLunch || '-'}</span>
@@ -1544,9 +1719,9 @@ function createSACard(emp, isCurrentUser = false) {
     </div>
     ` : ''}
     ${loanWarning}
-  `;
-  return card;
-}
+	  `;
+	  return card;
+	}
 
 // BOH Section
 function renderBOHSection() {
@@ -1554,37 +1729,62 @@ function renderBOHSection() {
   const count = document.getElementById('bohCount');
   const expandBtn = document.getElementById('expandBOH');
   grid.innerHTML = '';
-  count.textContent = employees.BOH.length;
+  const bohEmployees = employees.BOH || [];
+  const isPrivileged = !!(currentUser?.isManager || currentUser?.isAdmin || (currentUser?.role || '').toString().toUpperCase() === 'MANAGEMENT');
+  if (count) count.textContent = bohEmployees.length;
 
   const currentUserEmp = findCurrentUserEmployee('BOH');
-  let displayedEmployees = [...employees.BOH];
+  const workingList = bohEmployees.filter(e => !e?.isOff);
+  const dayOffList = bohEmployees.filter(e => !!e?.isOff);
 
-  if (!showAllEmployees.BOH && !currentUser?.isManager && !currentUser?.isAdmin) {
-    if (currentUserEmp) {
-      displayedEmployees = [currentUserEmp];
+  let orderedAll = [...workingList];
+  if (currentUserEmp && !currentUserEmp?.isOff) orderedAll = [currentUserEmp, ...workingList.filter(e => e.id !== currentUserEmp.id)];
+
+  const collapsed = (() => {
+    if (!isPrivileged) return currentUserEmp ? [currentUserEmp] : [];
+    return orderedAll.slice(0, 4);
+  })();
+
+  const shown = showAllEmployees.BOH ? orderedAll : collapsed;
+
+  const canExpand = orderedAll.length > collapsed.length || (!isPrivileged && workingList.length > 1);
+  if (expandBtn) {
+    if (!canExpand) {
+      expandBtn.style.display = 'none';
+    } else {
       expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = `Show All (${employees.BOH.length})`;
-    }
-  } else if (currentUserEmp) {
-    displayedEmployees = [currentUserEmp, ...employees.BOH.filter(e => e.id !== currentUserEmp.id)];
-    if (employees.BOH.length > 1) {
-      expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = 'Show Less';
+      expandBtn.textContent = showAllEmployees.BOH ? 'Show Less' : `Show All (${workingList.length})`;
     }
   }
 
-  displayedEmployees.forEach(emp => {
+  shown.forEach(emp => {
     grid.appendChild(createBOHCard(emp, emp.id === currentUserEmp?.id));
   });
+
+  renderDayOffGroup(grid, dayOffList, 'BOH');
 }
 
 function createBOHCard(emp, isCurrentUser = false) {
   const card = document.createElement('div');
-  card.className = `employee-card${isCurrentUser ? ' current-user' : ''}`;
+  const isDayOff = !!emp?.isOff;
+  card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
+
+  if (isDayOff) {
+    card.innerHTML = `
+      <div class="card-header">
+        ${photoHtml}
+        <div class="employee-info">
+          <h4>${emp.name}</h4>
+          <span class="role day-off-badge">Day Off</span>
+        </div>
+      </div>
+    `;
+    return card;
+  }
 
   const scan = getDailyScanStatsForEmployee(emp);
   const accuracy = emp.metrics?.inventoryAccuracy !== undefined ? Number(emp.metrics.inventoryAccuracy) : scan?.accuracy;
@@ -1646,9 +1846,9 @@ function renderManagementSection() {
   const expandBtn = document.getElementById('expandMgmt');
   grid.innerHTML = '';
 
-  // Filter scheduled (has shift or role) vs day off
-  const scheduledMgmt = employees.MANAGEMENT.filter(e => e.shift || e.role);
-  const dayOffMgmt = employees.MANAGEMENT.filter(e => !e.shift && !e.role);
+  // Working vs day off (driven by Game Plan Edit toggle)
+  const scheduledMgmt = employees.MANAGEMENT.filter(e => !e?.isOff);
+  const dayOffMgmt = employees.MANAGEMENT.filter(e => !!e?.isOff);
   count.textContent = employees.MANAGEMENT.length;
 
   const currentUserEmp = findCurrentUserEmployee('MANAGEMENT');
@@ -1670,11 +1870,7 @@ function renderManagementSection() {
   });
 
   // Render day off managers (collapsed)
-  if (dayOffMgmt.length > 0 && showAllEmployees.MANAGEMENT) {
-    dayOffMgmt.forEach(emp => {
-      grid.appendChild(createManagementCard(emp, emp.id === currentUserEmp?.id, true));
-    });
-  }
+  renderDayOffGroup(grid, dayOffMgmt, 'MANAGEMENT');
 }
 
 function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
@@ -1741,9 +1937,9 @@ function renderTailorsSection() {
   const expandBtn = document.getElementById('expandTailors');
   grid.innerHTML = '';
 
-  // Filter scheduled vs day off
-  const scheduledTailors = employees.TAILOR.filter(e => e.station || e.lunch);
-  const dayOffTailors = employees.TAILOR.filter(e => !e.station && !e.lunch);
+  // Working vs day off (driven by Game Plan Edit toggle)
+  const scheduledTailors = employees.TAILOR.filter(e => !e?.isOff);
+  const dayOffTailors = employees.TAILOR.filter(e => !!e?.isOff);
   count.textContent = employees.TAILOR.length;
 
   const currentUserEmp = findCurrentUserEmployee('TAILOR');
@@ -1763,13 +1959,12 @@ function renderTailorsSection() {
     scheduledTailors.forEach(emp => {
       grid.appendChild(createTailorCard(emp, emp.id === currentUserEmp?.id, false));
     });
-    // Show day off tailors
-    dayOffTailors.forEach(emp => {
-      grid.appendChild(createTailorCard(emp, emp.id === currentUserEmp?.id, true));
-    });
+    // Day off tailors are rendered in a collapsed group below.
     expandBtn.style.display = 'inline-block';
     expandBtn.textContent = 'Show Less';
   }
+
+  renderDayOffGroup(grid, dayOffTailors, 'TAILOR');
 }
 
 function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
@@ -1830,6 +2025,29 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
     `;
   }
   return card;
+}
+
+function renderDayOffGroup(grid, list, label) {
+  if (!grid) return;
+  if (!Array.isArray(list) || list.length === 0) return;
+
+  const details = document.createElement('details');
+  details.className = 'day-off-group';
+  details.open = false;
+  const summary = document.createElement('summary');
+  summary.textContent = `Day Off (${list.length})`;
+  details.appendChild(summary);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'employee-grid day-off-grid';
+  list.forEach(emp => {
+    if (label === 'SA') wrap.appendChild(createSACard(emp, false));
+    else if (label === 'BOH') wrap.appendChild(createBOHCard(emp, false));
+    else if (label === 'MANAGEMENT') wrap.appendChild(createManagementCard(emp, false, true));
+    else if (label === 'TAILOR') wrap.appendChild(createTailorCard(emp, false, true));
+  });
+  details.appendChild(wrap);
+  grid.appendChild(details);
 }
 
 // =====================================================
@@ -2004,7 +2222,7 @@ function renderDailyScanLog() {
     ...(employees.TAILOR || [])
   ];
 
-  countData.employees.forEach((emp, index) => {
+  (countData.employees || []).filter(Boolean).forEach((emp, index) => {
     // Try to find the employee's photo from our employee data
     const matchedEmployee = allEmployees.find(e => 
       e.name?.toLowerCase() === emp.name?.toLowerCase() ||
@@ -2016,7 +2234,8 @@ function renderDailyScanLog() {
       ? `<img src="${photoUrl}" alt="${emp.name}" class="employee-photo">` 
       : `<div class="employee-photo placeholder">${getInitials(emp.name || 'Unknown')}</div>`;
     
-    const accuracyClass = emp.accuracy >= 99.5 ? 'good' : emp.accuracy >= 99 ? '' : 'bad';
+    const accuracy = Number(emp.accuracy);
+    const accuracyClass = accuracy >= 99.5 ? 'good' : accuracy >= 99 ? '' : 'bad';
     const missedClass = emp.missedReserved === 0 ? 'good' : 'bad';
     const rankBadge = index < 3 ? `<span class="rank-badge rank-${index + 1}">${index + 1}</span>` : '';
 
@@ -2028,7 +2247,7 @@ function renderDailyScanLog() {
         <h5>${rankBadge}${emp.name || 'Unknown'}</h5>
         <div class="scan-log-stats">
           <span class="scan-log-stat ${accuracyClass}">
-            <strong>${emp.accuracy}%</strong> accuracy
+            <strong>${Number.isFinite(accuracy) ? accuracy : '--'}${Number.isFinite(accuracy) ? '%' : ''}</strong> accuracy
           </span>
           <span class="scan-log-stat">
             <strong>${emp.countsDone}</strong> scans
@@ -2051,12 +2270,15 @@ function renderTailorTrend() {
   if (!trendData) return;
 
   // Update YTD averages
-  document.getElementById('ytdAvg2024').textContent = `${trendData.ytdAvg2024}%`;
-  document.getElementById('ytdAvg2025').textContent = `${trendData.ytdAvg2025}%`;
+  const ytd24 = document.getElementById('ytdAvg2024');
+  if (ytd24) ytd24.textContent = `${trendData.ytdAvg2024}%`;
+  const ytd25 = document.getElementById('ytdAvg2025');
+  if (ytd25) ytd25.textContent = `${trendData.ytdAvg2025}%`;
 
   // Create chart
   const ctx = document.getElementById('tailorTrendChart');
   if (!ctx) return;
+  if (typeof Chart === 'undefined') return;
 
   // Destroy existing chart
   if (tailorTrendChart) {
@@ -2135,44 +2357,49 @@ function renderTailorTrend() {
 
 // Appointments/Waitwhile Widget
 function renderAppointmentsWidget() {
-  console.log('[DEBUG] renderAppointmentsWidget called');
-  // Fetch appointments data from API
+  const appointmentsFromMetrics = metrics?.waitwhile?.currentWeek;
+  if (appointmentsFromMetrics) {
+    const appointments = appointmentsFromMetrics;
+        
+    // Update week number
+    const weekNumEl = document.getElementById('appointmentsWeekNum');
+    if (weekNumEl) weekNumEl.textContent = `Week ${appointments.week}`;
+
+    // Update totals
+    const totalEl = document.getElementById('appointmentsTotal');
+    if (totalEl) totalEl.textContent = appointments.total || 0;
+
+    const bookedEl = document.getElementById('appointmentsBooked');
+    if (bookedEl) bookedEl.textContent = appointments.appointments || 0;
+
+    const walkInsEl = document.getElementById('appointmentsWalkIns');
+    if (walkInsEl) walkInsEl.textContent = appointments.walkIns || 0;
+
+    const dropOffEl = document.getElementById('appointmentsDropOff');
+    if (dropOffEl) dropOffEl.textContent = `${appointments.dropOffRate || 0}%`;
+
+    // Update breakdown by type
+    const shoppingEl = document.getElementById('appointmentsShopping');
+    if (shoppingEl) shoppingEl.textContent = appointments.shopping || 0;
+
+    const pickupEl = document.getElementById('appointmentsPickup');
+    if (pickupEl) pickupEl.textContent = appointments.pickup || 0;
+
+    const consultEl = document.getElementById('appointmentsConsultation');
+    if (consultEl) consultEl.textContent = appointments.consultation || 0;
+
+    const otherEl = document.getElementById('appointmentsOther');
+    if (otherEl) otherEl.textContent = appointments.other || 0;
+    return;
+  }
+
+  // Fallback: fetch appointments data from API (older pages / missing metrics payload)
   fetch('/api/gameplan/appointments')
     .then(res => res.json())
     .then(data => {
-      console.log('[DEBUG] Appointments data:', data);
       if (data.success && data.data?.waitwhile?.currentWeek) {
-        const appointments = data.data.waitwhile.currentWeek;
-        
-        // Update week number
-        const weekNumEl = document.getElementById('appointmentsWeekNum');
-        if (weekNumEl) weekNumEl.textContent = `Week ${appointments.week}`;
-
-        // Update totals
-        const totalEl = document.getElementById('appointmentsTotal');
-        if (totalEl) totalEl.textContent = appointments.total || 0;
-
-        const bookedEl = document.getElementById('appointmentsBooked');
-        if (bookedEl) bookedEl.textContent = appointments.appointments || 0;
-
-        const walkInsEl = document.getElementById('appointmentsWalkIns');
-        if (walkInsEl) walkInsEl.textContent = appointments.walkIns || 0;
-
-        const dropOffEl = document.getElementById('appointmentsDropOff');
-        if (dropOffEl) dropOffEl.textContent = `${appointments.dropOffRate || 0}%`;
-
-        // Update breakdown by type
-        const shoppingEl = document.getElementById('appointmentsShopping');
-        if (shoppingEl) shoppingEl.textContent = appointments.shopping || 0;
-
-        const pickupEl = document.getElementById('appointmentsPickup');
-        if (pickupEl) pickupEl.textContent = appointments.pickup || 0;
-
-        const consultEl = document.getElementById('appointmentsConsultation');
-        if (consultEl) consultEl.textContent = appointments.consultation || 0;
-
-        const otherEl = document.getElementById('appointmentsOther');
-        if (otherEl) otherEl.textContent = appointments.other || 0;
+        metrics.waitwhile = data.data.waitwhile;
+        renderAppointmentsWidget();
       }
     })
     .catch(err => {
@@ -2185,22 +2412,25 @@ let currentBestSellersView = 'revenue';
 let bestSellersData = { byRevenue: [], byQuantity: [] };
 
 function renderBestSellers() {
-  console.log('[DEBUG] renderBestSellers called');
-  // Fetch best sellers data
-  fetch('/api/gameplan/best-sellers')
-    .then(res => res.json())
-    .then(data => {
-      console.log('[DEBUG] Best sellers data:', data);
-      if (data.success && data.data) {
-        bestSellersData = data.data;
-        renderBestSellersList();
-      }
-    })
-    .catch(err => {
-      console.error('Error loading best sellers:', err);
-      const list = document.getElementById('bestSellersList');
-      if (list) list.innerHTML = '<div class="best-seller-placeholder">Unable to load best sellers</div>';
-    });
+  if (metrics?.bestSellers && (metrics.bestSellers.byRevenue?.length || metrics.bestSellers.byQuantity?.length)) {
+    bestSellersData = metrics.bestSellers;
+    renderBestSellersList();
+  } else {
+    fetch('/api/gameplan/best-sellers')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          metrics.bestSellers = data.data;
+          bestSellersData = data.data;
+          renderBestSellersList();
+        }
+      })
+      .catch(err => {
+        console.error('Error loading best sellers:', err);
+        const list = document.getElementById('bestSellersList');
+        if (list) list.innerHTML = '<div class="best-seller-placeholder">Unable to load best sellers</div>';
+      });
+  }
 
   // Setup toggle buttons
   const revenueBtn = document.getElementById('toggleByRevenue');
@@ -2240,12 +2470,15 @@ function renderBestSellersList() {
 
   list.innerHTML = items.slice(0, 10).map((item, index) => {
     const value = currentBestSellersView === 'revenue'
-      ? `€${item.amount?.toLocaleString() || 0}`
+      ? formatUsd(item.amount)
       : `${item.quantity || 0} units`;
 
     return `
       <div class="best-seller-item">
         <div class="best-seller-rank">${index + 1}</div>
+        <div class="best-seller-thumb-wrap">
+          <img class="best-seller-thumb" alt="${item.code || 'Product'}" loading="lazy" data-product-code="${item.code || ''}">
+        </div>
         <div class="best-seller-info">
           <div class="best-seller-code">${item.code || 'Unknown'}</div>
           <div class="best-seller-desc">${item.description || ''}</div>
@@ -2254,6 +2487,41 @@ function renderBestSellersList() {
       </div>
     `;
   }).join('');
+
+  hydrateBestSellerImages();
+}
+
+function hydrateBestSellerImages() {
+  const imgs = Array.from(document.querySelectorAll('img.best-seller-thumb[data-product-code]'));
+  if (!imgs.length) return;
+
+  imgs.forEach(img => {
+    const code = (img.dataset.productCode || '').toString().trim();
+    if (!code) {
+      img.classList.add('best-seller-thumb--empty');
+      img.style.display = 'none';
+      return;
+    }
+
+    if (img.dataset.hydrated === '1') return;
+    img.dataset.hydrated = '1';
+
+    fetch(`/api/gameplan/product-image/${encodeURIComponent(code)}`, { credentials: 'include' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (!data?.success || !data?.imageUrl) {
+          img.classList.add('best-seller-thumb--empty');
+          img.style.display = 'none';
+          return;
+        }
+        img.src = data.imageUrl;
+        img.style.display = 'block';
+      })
+      .catch(() => {
+        img.classList.add('best-seller-thumb--empty');
+        img.style.display = 'none';
+      });
+  });
 }
 
 // Modal Functions
@@ -2693,35 +2961,25 @@ function setupEventListeners() {
     });
   }
 
-  // Switch user link (id is switchUserBtn in HTML)
-  document.getElementById('switchUserBtn')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    window.location.href = '/home';
-  });
+  const toggleSection = (btnId, contentId) => {
+    const btn = document.getElementById(btnId);
+    const content = document.getElementById(contentId);
+    if (!btn || !content) return;
 
-  // Toggle metrics
-  document.getElementById('toggleMetrics')?.addEventListener('click', () => {
-    const content = document.getElementById('metricsContent');
-    const btn = document.getElementById('toggleMetrics');
-    if (content) content.style.display = content.style.display === 'none' ? 'block' : 'none';
-    if (btn) btn.textContent = content?.style.display === 'none' ? 'Show' : 'Hide';
-  });
+    // Preserve original display type so we can restore correctly (grid/flex/etc).
+    if (!content.dataset.defaultDisplay) {
+      const computed = window.getComputedStyle(content).display;
+      content.dataset.defaultDisplay = (computed && computed !== 'none') ? computed : 'block';
+    }
 
-  // Toggle Looker
-  document.getElementById('toggleLooker')?.addEventListener('click', () => {
-    const container = document.getElementById('lookerContainer');
-    const btn = document.getElementById('toggleLooker');
-    if (container) container.style.display = container.style.display === 'none' ? 'block' : 'none';
-    if (btn) btn.textContent = container?.style.display === 'none' ? 'Show' : 'Hide';
-  });
+    const isHidden = window.getComputedStyle(content).display === 'none';
+    content.style.display = isHidden ? content.dataset.defaultDisplay : 'none';
+    btn.textContent = isHidden ? 'Hide' : 'Show';
+  };
 
-  // Toggle consolidated Operations Dashboard
-  document.getElementById('toggleOperations')?.addEventListener('click', () => {
-    const content = document.getElementById('operationsContent');
-    const btn = document.getElementById('toggleOperations');
-    if (content) content.style.display = content.style.display === 'none' ? 'block' : 'none';
-    if (btn) btn.textContent = content?.style.display === 'none' ? 'Show' : 'Hide';
-  });
+  document.getElementById('toggleMetrics')?.addEventListener('click', () => toggleSection('toggleMetrics', 'metricsContent'));
+  document.getElementById('toggleLooker')?.addEventListener('click', () => toggleSection('toggleLooker', 'lookerContainer'));
+  document.getElementById('toggleOperations')?.addEventListener('click', () => toggleSection('toggleOperations', 'operationsContent'));
 
   // Collapse Management section
   document.getElementById('collapseMgmt')?.addEventListener('click', () => {

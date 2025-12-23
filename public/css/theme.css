@@ -13,7 +13,7 @@ html, body {
 }
 
 :root {
-  --font-scale: 1; /* 16px base */
+  --font-scale: 1.08; /* 16px base */
   --primary: #000000;
   --primary-hover: #333333;
   --primary-rgb: 0, 0, 0;
@@ -48,7 +48,6 @@ body {
   min-height: 100vh;
   line-height: 1.5;
   font-size: calc(16px * var(--font-scale));
-  /* Prevent flash of unstyled content */
   opacity: 1;
 }
 
@@ -65,78 +64,116 @@ h1, h2, h3, h4, h5, h6 {
   padding: 20px;
 }
 
-/* Header */
+/* Header
+   NOTE: Keep this aligned with `public/css/shared-header.css` to prevent layout "blinking"
+   while CSS loads (FOUC/layout shift). Avoid high-specificity selectors that override shared-header. */
 .header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  padding: 16px 24px;
-  background: var(--background);
-  border-bottom: 1px solid var(--border);
+  padding: 10px 18px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
   position: sticky;
   top: 0;
   z-index: 100;
+  min-height: 56px;
 }
 
 .header-brand {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  justify-self: start;
+}
+
+.logo-link {
+  display: flex;
   align-items: center;
-  gap: 16px;
+  text-decoration: none;
 }
 
-.header-brand img {
-  height: 32px;
+.logo-img {
+  height: 24px;
+  width: auto;
 }
 
-.header-brand h1 {
+.logo-text {
+  font-weight: 700;
   font-size: calc(18px * var(--font-scale));
-  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 1px;
 }
 
-.header-brand .location {
-  font-size: calc(14px * var(--font-scale));
+.header-title h1 {
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.header-title .location {
+  font-size: calc(11px * var(--font-scale));
   color: var(--text-secondary);
-  font-weight: 400;
+  line-height: 1.1;
 }
 
 .header-nav {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 18px;
+  justify-self: center;
 }
 
 .header-nav a {
+  white-space: nowrap;
   color: var(--text-secondary);
   text-decoration: none;
-  font-size: calc(14px * var(--font-scale));
+  font-size: calc(13px * var(--font-scale));
   font-weight: 500;
-  transition: color 0.2s;
+  padding: 6px 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
 }
 
-.header-nav a:hover,
+.header-nav a:hover {
+  color: var(--text-primary);
+}
+
 .header-nav a.active {
   color: var(--text-primary);
+  border-bottom-color: var(--primary);
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
+  justify-self: end;
 }
 
 .header-date {
-  font-size: calc(14px * var(--font-scale));
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-secondary);
 }
 
 .header-user {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
+  position: relative;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: background 0.2s;
 }
 
-.header-user img {
+.header-user:hover {
+  background: var(--surface);
+}
+
+.user-avatar-img {
   width: 32px;
   height: 32px;
   border-radius: 50%;

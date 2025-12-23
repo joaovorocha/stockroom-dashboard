@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
+  <title>Operations Metrics - San Francisco | Suitsupply</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+	  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
+  <link rel="stylesheet" href="/css/mobile.css?v=3">
+  <script src="/vendor/chart.umd.min.js?v=1" defer></script>
+</head>
+<body>
+  <header class="header">
+    <div class="header-brand">
+      <a href="/app" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Operations Metrics</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/operations-metrics" class="active" id="navOperationsMetrics">Operations</a>
+      <a href="/awards" id="navAwards">Awards</a>
+      <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="logoutBtn">Logout</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard-layout dashboard-layout--single">
+    <section class="section operations-section" id="operationsSection" style="margin-top: 20px;">
+      <div class="section-header">
+        <h2>📊 Operations Dashboard</h2>
+        <button class="btn btn-sm btn-outline" id="toggleOperations">Hide</button>
+      </div>
+      <div class="operations-content" id="operationsContent">
+        <div class="import-status-card" id="importStatusCardOps" style="margin: 0 0 16px 0;">
+          <h4>📊 Data Import</h4>
+          <div class="import-info">
+            <span class="import-label">Last Looker sync:</span>
+            <span class="import-value" id="lastLookerSync">--</span>
+          </div>
+          <div class="import-info">
+            <span class="import-label">Records imported:</span>
+            <span class="import-value" id="recordsImported">--</span>
+          </div>
+        </div>
+
+        <div class="ops-two-col">
+          <div class="ops-subsection">
+            <h4 class="ops-subsection-title">Health Metrics</h4>
+            <div class="metrics-row">
+              <div class="metric-card" id="tailorProdCard">
+                <span class="metric-label">Tailor Productivity</span>
+                <span class="metric-value" id="tailorProductivity">--</span>
+                <span class="metric-change neutral">Current Week</span>
+              </div>
+              <div class="metric-card" id="ontimeCard">
+                <span class="metric-label">On-Time Alterations</span>
+                <span class="metric-value" id="ontimeAlterations">--</span>
+                <span class="metric-change neutral">Target: 95%</span>
+              </div>
+              <div class="metric-card" id="overdueAltsCard">
+                <span class="metric-label">Overdue Alterations</span>
+                <span class="metric-value" id="overdueAlterations">--</span>
+                <span class="metric-change neutral">Count</span>
+              </div>
+              <div class="metric-card" id="invAccuracyCard">
+                <span class="metric-label">Inventory Accuracy</span>
+                <span class="metric-value" id="inventoryAccuracy">--</span>
+                <span class="metric-change neutral">Target: 99%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ops-subsection">
+            <h4 class="ops-subsection-title">Inventory Issues</h4>
+            <div class="metrics-row">
+              <div class="metric-card warning" id="missingCard">
+                <span class="metric-label">Missing Items</span>
+                <span class="metric-value" id="missingItems">--</span>
+                <span class="metric-change neutral">% of inventory</span>
+              </div>
+              <div class="metric-card warning" id="overdueReservedCard">
+                <span class="metric-label">Overdue Reserved</span>
+                <span class="metric-value" id="overdueReserved">--</span>
+                <span class="metric-change neutral">% of reserved</span>
+              </div>
+              <div class="metric-card" id="unexpectedCard">
+                <span class="metric-label">Unexpected Items</span>
+                <span class="metric-value" id="unexpectedItems">--</span>
+                <span class="metric-change neutral">% of inventory</span>
+              </div>
+              <div class="metric-card" id="pullbacksCard">
+                <span class="metric-label">Due Pullbacks</span>
+                <span class="metric-value" id="duePullbacks">--</span>
+                <span class="metric-change neutral">Count</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ops-subsection">
+          <h4 class="ops-subsection-title">Tailor Productivity Trend
+            <span class="trend-legend">
+              <span class="legend-item"><span class="legend-color y2024"></span>2024</span>
+              <span class="legend-item"><span class="legend-color y2025"></span>2025</span>
+            </span>
+          </h4>
+          <div class="trend-summary">
+            <div class="trend-stat">
+              <span class="trend-value" id="ytdAvg2024">--</span>
+              <span class="trend-label">2024 YTD Avg</span>
+            </div>
+            <div class="trend-stat">
+              <span class="trend-value" id="ytdAvg2025">--</span>
+              <span class="trend-label">2025 YTD Avg</span>
+            </div>
+          </div>
+          <div class="trend-chart-container">
+            <canvas id="tailorTrendChart"></canvas>
+          </div>
+        </div>
+
+        <div class="ops-subsection">
+          <h4 class="ops-subsection-title">📅 Appointments This Week <span class="section-count-inline" id="appointmentsWeekNum">Week --</span></h4>
+          <div class="appointments-summary">
+            <div class="summary-stat highlight">
+              <span class="summary-value" id="appointmentsTotal">0</span>
+              <span class="summary-label">Total Visits</span>
+            </div>
+            <div class="summary-stat">
+              <span class="summary-value" id="appointmentsBooked">0</span>
+              <span class="summary-label">Appointments</span>
+            </div>
+            <div class="summary-stat">
+              <span class="summary-value" id="appointmentsWalkIns">0</span>
+              <span class="summary-label">Walk-Ins</span>
+            </div>
+            <div class="summary-stat warning">
+              <span class="summary-value" id="appointmentsDropOff">0%</span>
+              <span class="summary-label">Drop-Off Rate</span>
+            </div>
+          </div>
+          <div class="appointments-breakdown">
+            <div class="breakdown-item">
+              <span class="breakdown-label">🛍️ Shopping</span>
+              <span class="breakdown-value" id="appointmentsShopping">0</span>
+            </div>
+            <div class="breakdown-item">
+              <span class="breakdown-label">📦 Pickup</span>
+              <span class="breakdown-value" id="appointmentsPickup">0</span>
+            </div>
+            <div class="breakdown-item">
+              <span class="breakdown-label">💼 Consultation</span>
+              <span class="breakdown-value" id="appointmentsConsultation">0</span>
+            </div>
+            <div class="breakdown-item">
+              <span class="breakdown-label">📋 Other</span>
+              <span class="breakdown-value" id="appointmentsOther">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ops-subsection">
+          <h4 class="ops-subsection-title">🏆 Best Seller Items Last 7 Days
+            <div class="best-sellers-toggle">
+              <button class="toggle-btn active" id="toggleByRevenue">By Revenue</button>
+              <button class="toggle-btn" id="toggleByQuantity">By Quantity</button>
+            </div>
+          </h4>
+          <div class="best-sellers-list" id="bestSellersList">
+            <div class="best-seller-placeholder">Loading best sellers...</div>
+          </div>
+        </div>
+
+        <div class="ops-subsection">
+          <h4 class="ops-subsection-title">COG <span class="section-count-inline" id="ordersCount">0 orders</span></h4>
+          <div class="orders-summary">
+            <div class="summary-stat alert">
+              <span class="summary-value" id="orders30Days">0</span>
+              <span class="summary-label">30+ Days</span>
+            </div>
+            <div class="summary-stat warning">
+              <span class="summary-value" id="orders60Days">0</span>
+              <span class="summary-label">60+ Days</span>
+            </div>
+            <div class="summary-stat critical">
+              <span class="summary-value" id="orders90Days">0</span>
+              <span class="summary-label">90+ Days</span>
+            </div>
+            <div class="summary-stat missing">
+              <span class="summary-value" id="missingReservedCount">0</span>
+              <span class="summary-label">Missing</span>
+            </div>
+          </div>
+          <div class="orders-table-container collapsed" id="ordersTableContainer">
+            <table class="orders-table" id="ordersTable">
+              <thead>
+                <tr>
+                  <th>Fulfillment ID</th>
+                  <th>Created</th>
+                  <th>Days Old</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+	  <script src="/js/shared-header.js?v=21"></script>
+	  <script src="/js/dashboard.js?v=21"></script>
+</body>
+</html>

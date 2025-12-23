@@ -23,6 +23,8 @@ const TAILOR_DIR = path.join(FILES_DIR, 'dashboard-tailor_myr');
 const COUNT_PERFORMANCE_DIR = path.join(FILES_DIR, 'dashboard-store_count_performance_-_employee_level');
 const GMAIL_IMPORTS_DIR = path.join(FILES_DIR, 'gmail-imports');
 const DASHBOARD_DATA_FILE = path.join(DATA_DIR, 'dashboard-data.json');
+const SCAN_PERFORMANCE_HISTORY_DIR = path.join(DATA_DIR, 'scan-performance-history');
+const SYNC_RESULTS_DIR = path.join(DATA_DIR, 'sync-results');
 
 class LookerDataProcessor {
   constructor() {
@@ -60,7 +62,7 @@ class LookerDataProcessor {
 
   // Save all processed data to dashboard-data.json for persistent storage
   // If no new data, keep existing data and return status
-  saveToDashboardData(results, syncBy = 'scheduler', emailDate = null) {
+  saveToDashboardData(results, syncBy = 'scheduler', emailDate = null, importStats = null) {
     // Get existing data to merge with
     const existingData = LookerDataProcessor.getSavedDashboardData() || {};
     
@@ -80,6 +82,41 @@ class LookerDataProcessor {
     
     const hasAnyNewData = Object.values(updates).some(v => v);
     
+    const resolveSchedulerImportStats = () => {
+      try {
+        const dateKey = this.getTodayDate();
+        const filePath = path.join(SYNC_RESULTS_DIR, `${dateKey}.json`);
+        if (!fs.existsSync(filePath)) return null;
+        const all = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (!Array.isArray(all) || all.length === 0) return null;
+        const last = all[all.length - 1];
+        const files = Array.isArray(last?.fetch?.filesExtracted) ? last.fetch.filesExtracted : [];
+        const count = Number(last?.fetch?.filesExtracted?.length);
+        return {
+          recordsImported: Number.isFinite(count) ? count : files.length,
+          files: files.map(f => path.basename(String(f)))
+        };
+      } catch (_) {
+        return null;
+      }
+    };
+
+    const statsFromParam =
+      importStats && Number.isFinite(Number(importStats.recordsImported))
+        ? {
+            recordsImported: Number(importStats.recordsImported),
+            files: Array.isArray(importStats.files) ? importStats.files : null
+          }
+        : null;
+
+    const statsFromSyncResults = syncBy === 'scheduler' ? resolveSchedulerImportStats() : null;
+    const finalStats = statsFromParam || statsFromSyncResults || null;
+
+    const nextImported = finalStats?.recordsImported;
+    const shouldOverrideImported = Number.isFinite(nextImported) && nextImported > 0;
+    const nextImportedFiles = Array.isArray(finalStats?.files) ? finalStats.files : null;
+    const shouldOverrideFiles = Array.isArray(nextImportedFiles) && nextImportedFiles.length > 0;
+
     const dashboardData = {
       lastSyncTime: new Date().toISOString(),
       lastSyncBy: syncBy,
@@ -87,6 +124,9 @@ class LookerDataProcessor {
       dataDate: this.getTodayDate(),
       hasNewData: hasAnyNewData,
       updatedSections: updates,
+      // Persist the real import stats from the Looker fetch step (not computed in the browser).
+      recordsImported: shouldOverrideImported ? nextImported : (existingData.recordsImported ?? null),
+      recordsImportedFiles: shouldOverrideFiles ? nextImportedFiles : (existingData.recordsImportedFiles ?? null),
       
       // Merge: use new data if available, otherwise keep existing
       metrics: hasNewMetrics ? results.storeMetrics : (existingData.metrics || {}),
@@ -120,8 +160,62 @@ class LookerDataProcessor {
     this.writeJsonFile(DASHBOARD_DATA_FILE, dashboardData);
     console.log(`Saved dashboard data to: ${DASHBOARD_DATA_FILE}`);
     console.log(`Has new data: ${hasAnyNewData}`);
+
+    // Persist daily scan performance snapshots (Looker "Store Count Performance - Employee Level")
+    // so BOH scan accuracy/history remains available even when Looker exports rotate.
+    this.persistScanPerformanceSnapshot(results.employeeCountPerformance, dashboardData.dataDate, syncBy);
     
     return dashboardData;
+  }
+
+  normalizeName(value) {
+    return (value || '').toString().trim().toLowerCase();
+  }
+
+  persistScanPerformanceSnapshot(countPerformance, date, source = 'scheduler') {
+    try {
+      if (!countPerformance || !Array.isArray(countPerformance.employees) || countPerformance.employees.length === 0) return;
+
+      const employeesData = this.readJsonFile(EMPLOYEES_FILE, { employees: {} });
+      const roster = []
+        .concat(employeesData.employees?.BOH || [])
+        .concat(employeesData.employees?.MANAGEMENT || [])
+        .concat(employeesData.employees?.SA || [])
+        .concat(employeesData.employees?.TAILOR || []);
+
+      const rosterByName = new Map();
+      roster.forEach(e => {
+        if (e?.name) rosterByName.set(this.normalizeName(e.name), e);
+      });
+
+      const enriched = countPerformance.employees.map(e => {
+        const match = rosterByName.get(this.normalizeName(e.name));
+        return {
+          ...e,
+          employeeId: match?.employeeId || null,
+          id: match?.id || null,
+          type: match?.type || null,
+          imageUrl: match?.imageUrl || null
+        };
+      });
+
+      if (!fs.existsSync(SCAN_PERFORMANCE_HISTORY_DIR)) {
+        fs.mkdirSync(SCAN_PERFORMANCE_HISTORY_DIR, { recursive: true });
+      }
+
+      const snapshot = {
+        date: date || this.getTodayDate(),
+        savedAt: new Date().toISOString(),
+        source,
+        summary: countPerformance.summary || {},
+        employees: enriched
+      };
+
+      const filePath = path.join(SCAN_PERFORMANCE_HISTORY_DIR, `${snapshot.date}.json`);
+      this.writeJsonFile(filePath, snapshot);
+    } catch (e) {
+      console.error('Error persisting scan performance snapshot:', e);
+    }
   }
 
   // Get saved dashboard data
@@ -996,7 +1090,7 @@ class LookerDataProcessor {
   }
 
   // Main processing function - process all data
-  async processAll() {
+  async processAll(options = {}) {
     console.log('=== Looker Data Processor ===');
     console.log(`Date: ${this.getTodayDate()}`);
     console.log('');
@@ -1059,9 +1153,6 @@ class LookerDataProcessor {
       this.writeJsonFile(metricsFile, results.storeMetrics);
       console.log(`Saved metrics to: ${metricsFile}`);
 
-      // Also save to dashboard-data.json for persistent storage
-      this.saveToDashboardData(results);
-
       // Process employee metrics
       console.log('Processing employee metrics...');
       results.employeeMetrics = this.processEmployeeMetrics();
@@ -1077,6 +1168,23 @@ class LookerDataProcessor {
       results.filesProcessed = this.processedFiles;
       results.errors = this.errors;
       results.success = this.errors.length === 0;
+
+      // Also save to dashboard-data.json for persistent storage (after we know filesProcessed).
+      const syncBy = options?.syncBy || 'manual';
+      const emailDate = options?.emailDate || null;
+      const importStats =
+        options?.importStats && typeof options.importStats === 'object'
+          ? options.importStats
+          : {
+              // Derive a stable-ish "records imported" for the UI from the processing step.
+              // Exclude best-seller pagination CSVs to avoid inflated counts.
+              recordsImported: results.filesProcessed.filter(f => !/^best_seller_/i.test(f)).length,
+              files: results.filesProcessed.filter(f => !/^best_seller_/i.test(f))
+            };
+
+      const dashboardData = this.saveToDashboardData(results, syncBy, emailDate, importStats);
+      results.dashboardDataSaved = true;
+      results.hasNewData = dashboardData?.hasNewData || false;
 
       console.log('\n=== Processing Complete ===');
       console.log(`Files processed: ${this.processedFiles.length}`);

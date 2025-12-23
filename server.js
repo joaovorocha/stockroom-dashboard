@@ -14,6 +14,7 @@ const gameplanRoutes = require('./routes/gameplan');
 const timeoffRoutes = require('./routes/timeoff');
 const feedbackRoutes = require('./routes/feedback');
 const adminRoutes = require('./routes/admin');
+const awardsRoutes = require('./routes/awards');
 const authMiddleware = require('./middleware/auth');
 const { getUPSScheduler } = require('./utils/ups-scheduler');
 
@@ -58,15 +59,23 @@ app.use((req, res, next) => {
 // Normalize common copy/paste dash characters in URLs (e.g. Safari/Docs en-dash/em-dash)
 app.use((req, res, next) => {
   const url = req.url || '';
-  const hasUnicodeDash = /[–—]/.test(url);
-  const hasEncodedDash = /%E2%80%93|%E2%80%94/i.test(url);
+  // Includes: hyphen (U+2010), non-breaking hyphen (U+2011), figure dash (U+2012),
+  // en dash (U+2013), em dash (U+2014), minus (U+2212), small hyphen-minus (U+FE63), fullwidth hyphen-minus (U+FF0D).
+  const hasUnicodeDash = /[‐‑‒–—−﹣－]/.test(url);
+  const hasEncodedDash = /%E2%80%90|%E2%80%91|%E2%80%92|%E2%80%93|%E2%80%94|%E2%88%92|%EF%B9%A3|%EF%BC%8D/i.test(url);
   if (!hasUnicodeDash && !hasEncodedDash) return next();
   return res.redirect(
     302,
     url
-      .replace(/[–—]/g, '-')
+      .replace(/[‐‑‒–—−﹣－]/g, '-')
+      .replace(/%E2%80%90/gi, '-') // U+2010
+      .replace(/%E2%80%91/gi, '-') // U+2011
+      .replace(/%E2%80%92/gi, '-') // U+2012
       .replace(/%E2%80%93/gi, '-')
       .replace(/%E2%80%94/gi, '-')
+      .replace(/%E2%88%92/gi, '-')
+      .replace(/%EF%B9%A3/gi, '-') // U+FE63
+      .replace(/%EF%BC%8D/gi, '-') // U+FF0D
   );
 });
 
@@ -98,6 +107,7 @@ app.use('/api/gameplan', authMiddleware, gameplanRoutes);
 app.use('/api/timeoff', authMiddleware, timeoffRoutes);
 app.use('/api/feedback', authMiddleware, feedbackRoutes);
 app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
+app.use('/api/awards', authMiddleware, awardsRoutes);
 
 // Serve feedback uploads (auth required)
 app.use('/feedback-uploads', authMiddleware, express.static(path.join(__dirname, 'data/feedback-uploads')));
@@ -107,7 +117,7 @@ app.use('/user-uploads', authMiddleware, express.static(path.join(__dirname, 'da
 
 // Redirect old pages to new ones
 app.get('/login', (req, res) => {
-  res.redirect('/login-v2');
+  res.sendFile(path.join(__dirname, 'public', 'login-v2.html'));
 });
 
 app.get('/gameplan', (req, res) => {
@@ -123,7 +133,7 @@ app.get('/dashboard.html', (req, res) => {
 });
 
 app.get('/index.html', (req, res) => {
-  res.redirect('/login-v2');
+  res.redirect('/login');
 });
 
 // Serve HTML pages
@@ -164,11 +174,28 @@ app.get('/time-off', authMiddleware, (req, res) => {
 });
 
 app.get('/login-v2', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login-v2.html'));
+  res.redirect('/login');
 });
 
 app.get('/shipments', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'shipments.html'));
+});
+
+app.get('/awards', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'awards.html'));
+});
+
+app.get('/app', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'app.html'));
+});
+
+// Extra safety: accept common unicode dash variants in the Operations route.
+app.get(/^\/operations[‐‑‒–—−﹣－]metrics$/, authMiddleware, (req, res) => {
+  return res.redirect('/operations-metrics');
+});
+
+app.get('/operations-metrics', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'operations-metrics.html'));
 });
 
 app.get('/shipments-processing', authMiddleware, (req, res) => {
@@ -209,8 +236,8 @@ app.get('/home', authMiddleware, (req, res) => {
 app.get('/', (req, res) => {
   // If already authenticated, go home; otherwise go to login
   const userSession = req.cookies.userSession;
-  if (userSession) return res.redirect('/home');
-  res.redirect('/login-v2');
+  if (userSession) return res.redirect('/app');
+  res.redirect('/login');
 });
 
 // ===== Server-Sent Events (SSE) for Real-Time Updates =====

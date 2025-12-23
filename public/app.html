@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
+  <title>Home | Stockroom Dashboard</title>
+
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Stockroom">
+
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/app-home.css?v=1">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <a href="/app" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>Stockroom</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
+      <a href="/awards" id="navAwards">Awards</a>
+      <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="logoutBtn">Logout</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-home">
+    <div class="app-home-title">
+      <h2>Quick Access</h2>
+      <p class="muted">Tap a tile to open a section. Tap the logo anytime to return here.</p>
+    </div>
+
+    <div class="app-tiles" id="appTiles">
+      <a class="app-tile" href="/dashboard">
+        <div class="app-tile-icon">📋</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Game Plan</div>
+          <div class="app-tile-subtitle">Daily assignments</div>
+        </div>
+      </a>
+
+      <a class="app-tile" href="/operations-metrics">
+        <div class="app-tile-icon">🛠️</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Operations</div>
+          <div class="app-tile-subtitle">Metrics</div>
+        </div>
+      </a>
+
+      <a class="app-tile" href="/awards">
+        <div class="app-tile-icon">🏆</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Awards</div>
+          <div class="app-tile-subtitle">Celebrate wins</div>
+        </div>
+      </a>
+
+      <a class="app-tile" href="/shipments">
+        <div class="app-tile-icon">📦</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Shipments</div>
+          <div class="app-tile-subtitle">UPS capture</div>
+        </div>
+      </a>
+
+      <a class="app-tile" href="/scanner">
+        <div class="app-tile-icon">📷</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Scanner</div>
+          <div class="app-tile-subtitle">Order tools</div>
+        </div>
+      </a>
+
+      <a class="app-tile" href="/lost-punch">
+        <div class="app-tile-icon">🕒</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Lost Punch</div>
+          <div class="app-tile-subtitle">Approve / deny</div>
+        </div>
+      </a>
+
+      <a class="app-tile" href="/closing-duties">
+        <div class="app-tile-icon">✅</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Closing Duties</div>
+          <div class="app-tile-subtitle">Checklist</div>
+        </div>
+      </a>
+
+      <a class="app-tile" href="/time-off">
+        <div class="app-tile-icon">🗓️</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Time Off</div>
+          <div class="app-tile-subtitle">Calendar</div>
+        </div>
+      </a>
+
+      <a class="app-tile" href="/ops-dashboard" id="appLookerTile">
+        <div class="app-tile-icon">📈</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Looker</div>
+          <div class="app-tile-subtitle">Dashboards</div>
+        </div>
+      </a>
+
+      <a class="app-tile app-tile--admin" href="/admin" id="appAdminTile" style="display:none;">
+        <div class="app-tile-icon">🔐</div>
+        <div class="app-tile-text">
+          <div class="app-tile-title">Admin</div>
+          <div class="app-tile-subtitle">Users + export</div>
+        </div>
+      </a>
+    </div>
+  </main>
+
+  <script src="/js/shared-header.js?v=21"></script>
+  <script src="/js/app-home.js?v=1"></script>
+</body>
+</html>

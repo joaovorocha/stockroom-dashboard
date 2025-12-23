@@ -4,12 +4,33 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const AdmZip = require('adm-zip');
+const dal = require('../utils/dal');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const TIMEOFF_FILE = path.join(DATA_DIR, 'time-off.json');
-const GAMEPLAN_DAILY_DIR = path.join(DATA_DIR, 'gameplan-daily');
-const SHIPMENTS_FILE = path.join(DATA_DIR, 'shipments.json');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const DATA_DIR = dal.paths.dataDir;
+const TIMEOFF_FILE = dal.paths.timeoffFile;
+const GAMEPLAN_DAILY_DIR = dal.paths.gameplanDailyDir;
+const SHIPMENTS_FILE = dal.paths.shipmentsFile;
+const USERS_FILE = dal.paths.usersFile;
+const AWARDS_CONFIG_FILE = path.join(DATA_DIR, 'awards-config.json');
+
+function getTomatoConfigDefaults() {
+  const today = dal.getBusinessDate();
+  return { tomatoStartDate: dal.addDaysToIsoDate(today, 1) };
+}
+
+function readTomatoConfig() {
+  const defaults = getTomatoConfigDefaults();
+  const cfg = readJson(AWARDS_CONFIG_FILE, null) || {};
+  return {
+    ...defaults,
+    ...cfg,
+    tomatoStartDate: (cfg.tomatoStartDate || defaults.tomatoStartDate || '').toString()
+  };
+}
+
+function writeTomatoConfig(next) {
+  dal.writeJsonAtomic(AWARDS_CONFIG_FILE, next, { pretty: true });
+}
 
 function getTimestampForFilename() {
   const d = new Date();
@@ -27,11 +48,51 @@ function safeFileName(value) {
 }
 
 function readJson(filePath, fallback) {
-  try {
-    if (fs.existsSync(filePath)) return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  } catch (e) {}
-  return fallback;
+  return dal.readJson(filePath, fallback);
 }
+
+// GET /api/admin/store-config - Get store configuration (admin only; middleware enforced in server.js)
+router.get('/store-config', (req, res) => {
+  return res.json(dal.getStoreConfig());
+});
+
+// POST /api/admin/store-config - Update store configuration (admin only)
+router.post('/store-config', express.json(), (req, res) => {
+  try {
+    const patch = req.body || {};
+    if (Object.prototype.hasOwnProperty.call(patch, 'requireSaShift')) {
+      patch.requireSaShift = patch.requireSaShift === true || patch.requireSaShift === 'true';
+    }
+    const actorName = req.user?.name || null;
+    const next = dal.updateStoreConfig(patch, actorName);
+    return res.json(next);
+  } catch (e) {
+    return res.status(400).json({ error: e?.message || 'Invalid store config' });
+  }
+});
+
+// GET /api/admin/tomato-awards - Tomato awards configuration (admin only)
+router.get('/tomato-awards', (req, res) => {
+  const cfg = readTomatoConfig();
+  // Persist if file didn't exist so awards start "tomorrow" by default.
+  if (!fs.existsSync(AWARDS_CONFIG_FILE)) {
+    writeTomatoConfig({ ...cfg, createdAt: new Date().toISOString(), createdBy: req.user?.name || null });
+  }
+  return res.json(cfg);
+});
+
+// POST /api/admin/tomato-awards/reset - Reset tomato awards (starts tomorrow)
+router.post('/tomato-awards/reset', (req, res) => {
+  const today = dal.getBusinessDate();
+  const next = {
+    ...readTomatoConfig(),
+    tomatoStartDate: dal.addDaysToIsoDate(today, 1),
+    updatedAt: new Date().toISOString(),
+    updatedBy: req.user?.name || null
+  };
+  writeTomatoConfig(next);
+  return res.json(next);
+});
 
 function buildTimeOffCsv(entries) {
   const esc = (v) => `"${String(v ?? '').replace(/\"/g, '""')}"`;

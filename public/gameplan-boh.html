@@ -2,19 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
   <title>Daily Game Plan - Back of House | Suitsupply</title>
-  <link rel="stylesheet" href="/css/theme.css?v=13">
-  <link rel="stylesheet" href="/css/shared-header.css?v=13">
-  <link rel="stylesheet" href="/css/dashboard.css?v=13">
-  <link rel="stylesheet" href="/css/mobile.css?v=1">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+	  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
+  <link rel="stylesheet" href="/css/mobile.css?v=3">
+  <script src="/vendor/chart.umd.min.js?v=1" defer></script>
 </head>
 <body>
   <!-- Header -->
   <header class="header">
     <div class="header-brand">
-      <a href="/home" class="logo-link">
+      <a href="/app" class="logo-link">
         <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
       </a>
       <div class="header-title">
@@ -24,7 +33,9 @@
     </div>
 
     <nav class="header-nav">
-      <a href="/home" class="active" id="navGamePlan">Game Plan</a>
+      <a href="/dashboard" class="active" id="navGamePlan">Game Plan</a>
+      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
+      <a href="/awards" id="navAwards">Awards</a>
       <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
       <a href="/scanner" id="navScanner">Scanner</a>
       <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
@@ -40,17 +51,17 @@
         <span id="currentDate"></span>
       </div>
       <div class="header-user" id="userMenu">
-        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
-        <span id="userName"></span>
+        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
         <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="switchUserBtn">Home</a>
+          <a href="#" id="logoutBtn">Logout</a>
         </div>
       </div>
     </div>
   </header>
 
   <!-- Main Content -->
-  <div class="dashboard-layout">
+  <div class="dashboard-layout dashboard-layout--single">
     <!-- Left Side - Main Content -->
     <main class="main-content">
       <!-- Status Banner - Shows when game plan not published (at TOP) -->
@@ -67,26 +78,28 @@
         <div class="welcome-card">
           <div class="welcome-header">
             <div class="welcome-profile">
-              <img src="" alt="" id="welcomeAvatar" class="welcome-avatar-large" onerror="this.style.display='none'; document.getElementById('avatarPlaceholder').style.display='flex'">
-              <div class="welcome-avatar-placeholder" id="avatarPlaceholder" style="display:none;"></div>
+              <img src="data:," alt="" id="welcomeAvatar" class="welcome-avatar-large" style="display:none;" onerror="this.style.display='none'; document.getElementById('avatarPlaceholder').style.display='flex'">
+              <div class="welcome-avatar-placeholder" id="avatarPlaceholder">--</div>
 	              <div class="welcome-info">
 	                <h2>Welcome, <span id="welcomeName">--</span>!</h2>
 	                <p class="welcome-role" id="welcomeRole">--</p>
-	                <div class="welcome-action-row" id="welcomeActionRow" style="display:none;">
-	                  <a href="/gameplan-edit" class="btn btn-primary">Edit Game Plan</a>
-	                </div>
 	              </div>
 	            </div>
-            <!-- Data Import Status (nested inside welcome box) -->
-            <div class="import-status-card import-status-card--welcome" id="importStatusCardWelcome" style="display:none;">
-              <h4>📊 Data Import</h4>
-              <div class="import-info">
-                <span class="import-label">Last Looker sync:</span>
-                <span class="import-value" id="welcomeLastSync">--</span>
+            <div class="welcome-right">
+              <div class="welcome-action-row" id="welcomeActionRow" style="display:none;">
+                <a href="/gameplan-edit" class="btn btn-primary">Edit Game Plan</a>
               </div>
-              <div class="import-info">
-                <span class="import-label">Records imported:</span>
-                <span class="import-value" id="welcomeRecordsImported">--</span>
+              <!-- Data Import Status (nested inside welcome box) -->
+              <div class="import-status-card import-status-card--welcome" id="importStatusCardWelcome" style="display:none;">
+                <h4>📊 Data Import</h4>
+                <div class="import-info">
+                  <span class="import-label">Last Looker sync:</span>
+                  <span class="import-value" id="welcomeLastSync">--</span>
+                </div>
+                <div class="import-info">
+                  <span class="import-label">Records imported:</span>
+                  <span class="import-value" id="welcomeRecordsImported">--</span>
+                </div>
               </div>
             </div>
           </div>
@@ -299,108 +312,72 @@
       </section>
 
       <!-- Operations Dashboard - Consolidated -->
-      <section class="section operations-section" id="operationsSection">
+      <section class="section operations-section" id="operationsSection" style="display:none;">
         <div class="section-header">
           <h2>📊 Operations Dashboard</h2>
           <button class="btn btn-sm btn-outline" id="toggleOperations">Hide</button>
-        </div>
-        <div class="operations-content" id="operationsContent">
-          <!-- Operations Health Cards -->
-          <div class="ops-subsection">
-            <h4 class="ops-subsection-title">Health Metrics</h4>
-            <div class="metrics-row">
-              <div class="metric-card" id="tailorProdCard">
-                <span class="metric-label">Tailor Productivity</span>
-                <span class="metric-value" id="tailorProductivity">--</span>
-                <span class="metric-change neutral">Current Week</span>
-              </div>
-              <div class="metric-card" id="ontimeCard">
-                <span class="metric-label">On-Time Alterations</span>
-                <span class="metric-value" id="ontimeAlterations">--</span>
-                <span class="metric-change neutral">Target: 95%</span>
-              </div>
-              <div class="metric-card" id="overdueAltsCard">
-                <span class="metric-label">Overdue Alterations</span>
-                <span class="metric-value" id="overdueAlterations">--</span>
-                <span class="metric-change neutral">Count</span>
-              </div>
-              <div class="metric-card" id="invAccuracyCard">
-                <span class="metric-label">Inventory Accuracy</span>
-                <span class="metric-value" id="inventoryAccuracy">--</span>
-                <span class="metric-change neutral">Target: 99%</span>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Inventory Issues Cards -->
-          <div class="ops-subsection">
-            <h4 class="ops-subsection-title">Inventory Issues</h4>
-            <div class="metrics-row">
-              <div class="metric-card warning" id="missingCard">
-                <span class="metric-label">Missing Items</span>
-                <span class="metric-value" id="missingItems">--</span>
-                <span class="metric-change neutral">% of inventory</span>
-              </div>
-              <div class="metric-card warning" id="overdueReservedCard">
-                <span class="metric-label">Overdue Reserved</span>
-                <span class="metric-value" id="overdueReserved">--</span>
-                <span class="metric-change neutral">% of reserved</span>
-              </div>
-              <div class="metric-card" id="unexpectedCard">
-                <span class="metric-label">Unexpected Items</span>
-                <span class="metric-value" id="unexpectedItems">--</span>
-                <span class="metric-change neutral">% of inventory</span>
-              </div>
-              <div class="metric-card" id="pullbacksCard">
-                <span class="metric-label">Due Pullbacks</span>
-                <span class="metric-value" id="duePullbacks">--</span>
-                <span class="metric-change neutral">Count</span>
-              </div>
-            </div>
-          </div>
+	        </div>
+	        <div class="operations-content" id="operationsContent">
+	          <div class="ops-two-col">
+	            <!-- Operations Health Cards -->
+	            <div class="ops-subsection">
+	              <h4 class="ops-subsection-title">Health Metrics</h4>
+	              <div class="metrics-row">
+	                <div class="metric-card" id="tailorProdCard">
+	                  <span class="metric-label">Tailor Productivity</span>
+	                  <span class="metric-value" id="tailorProductivity">--</span>
+	                  <span class="metric-change neutral">Current Week</span>
+	                </div>
+	                <div class="metric-card" id="ontimeCard">
+	                  <span class="metric-label">On-Time Alterations</span>
+	                  <span class="metric-value" id="ontimeAlterations">--</span>
+	                  <span class="metric-change neutral">Target: 95%</span>
+	                </div>
+	                <div class="metric-card" id="overdueAltsCard">
+	                  <span class="metric-label">Overdue Alterations</span>
+	                  <span class="metric-value" id="overdueAlterations">--</span>
+	                  <span class="metric-change neutral">Count</span>
+	                </div>
+	                <div class="metric-card" id="invAccuracyCard">
+	                  <span class="metric-label">Inventory Accuracy</span>
+	                  <span class="metric-value" id="inventoryAccuracy">--</span>
+	                  <span class="metric-change neutral">Target: 99%</span>
+	                </div>
+	              </div>
+	            </div>
+	            
+	            <!-- Inventory Issues Cards -->
+	            <div class="ops-subsection">
+	              <h4 class="ops-subsection-title">Inventory Issues</h4>
+	              <div class="metrics-row">
+	                <div class="metric-card warning" id="missingCard">
+	                  <span class="metric-label">Missing Items</span>
+	                  <span class="metric-value" id="missingItems">--</span>
+	                  <span class="metric-change neutral">% of inventory</span>
+	                </div>
+	                <div class="metric-card warning" id="overdueReservedCard">
+	                  <span class="metric-label">Overdue Reserved</span>
+	                  <span class="metric-value" id="overdueReserved">--</span>
+	                  <span class="metric-change neutral">% of reserved</span>
+	                </div>
+	                <div class="metric-card" id="unexpectedCard">
+	                  <span class="metric-label">Unexpected Items</span>
+	                  <span class="metric-value" id="unexpectedItems">--</span>
+	                  <span class="metric-change neutral">% of inventory</span>
+	                </div>
+	                <div class="metric-card" id="pullbacksCard">
+	                  <span class="metric-label">Due Pullbacks</span>
+	                  <span class="metric-value" id="duePullbacks">--</span>
+	                  <span class="metric-change neutral">Count</span>
+	                </div>
+	              </div>
+	            </div>
+	          </div>
 
-          <!-- Customer Reserved Orders -->
-          <div class="ops-subsection">
-            <h4 class="ops-subsection-title">Customer Reserved Orders <span class="section-count-inline" id="ordersCount">0 orders</span></h4>
-            <div class="orders-summary">
-              <div class="summary-stat alert">
-                <span class="summary-value" id="orders30Days">0</span>
-                <span class="summary-label">30+ Days</span>
-              </div>
-              <div class="summary-stat warning">
-                <span class="summary-value" id="orders60Days">0</span>
-                <span class="summary-label">60+ Days</span>
-              </div>
-              <div class="summary-stat critical">
-                <span class="summary-value" id="orders90Days">0</span>
-                <span class="summary-label">90+ Days</span>
-              </div>
-              <div class="summary-stat missing">
-                <span class="summary-value" id="missingReservedCount">0</span>
-                <span class="summary-label">Missing</span>
-              </div>
-            </div>
-            <div class="orders-table-container collapsed" id="ordersTableContainer">
-              <table class="orders-table" id="ordersTable">
-                <thead>
-                  <tr>
-                    <th>Fulfillment ID</th>
-                    <th>Created</th>
-                    <th>Days Old</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="ordersTableBody">
-                  <!-- Populated by JS -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Daily Scan Log (formerly Count Leaderboard) -->
-          <div class="ops-subsection">
-            <h4 class="ops-subsection-title">Daily Scan Log</h4>
-            <div class="scan-log-content" id="scanLogContent">
+		          <!-- Daily Scan Log (formerly Count Leaderboard) -->
+		          <div class="ops-subsection">
+		            <h4 class="ops-subsection-title">Daily Scan Log</h4>
+		            <div class="scan-log-content" id="scanLogContent">
               <div class="scan-log-grid" id="scanLogGrid">
                 <!-- Populated by JS with employee photos -->
               </div>
@@ -479,14 +456,52 @@
                 <button class="toggle-btn" id="toggleByQuantity">By Quantity</button>
               </div>
             </h4>
-            <div class="best-sellers-list" id="bestSellersList">
-              <!-- Populated by JS -->
-              <div class="best-seller-placeholder">Loading best sellers...</div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
+	            <div class="best-sellers-list" id="bestSellersList">
+	              <!-- Populated by JS -->
+	              <div class="best-seller-placeholder">Loading best sellers...</div>
+	            </div>
+	          </div>
+
+	          <!-- COG -->
+	          <div class="ops-subsection">
+	            <h4 class="ops-subsection-title">COG <span class="section-count-inline" id="ordersCount">0 orders</span></h4>
+	            <div class="orders-summary">
+	              <div class="summary-stat alert">
+	                <span class="summary-value" id="orders30Days">0</span>
+	                <span class="summary-label">30+ Days</span>
+	              </div>
+	              <div class="summary-stat warning">
+	                <span class="summary-value" id="orders60Days">0</span>
+	                <span class="summary-label">60+ Days</span>
+	              </div>
+	              <div class="summary-stat critical">
+	                <span class="summary-value" id="orders90Days">0</span>
+	                <span class="summary-label">90+ Days</span>
+	              </div>
+	              <div class="summary-stat missing">
+	                <span class="summary-value" id="missingReservedCount">0</span>
+	                <span class="summary-label">Missing</span>
+	              </div>
+	            </div>
+	            <div class="orders-table-container collapsed" id="ordersTableContainer">
+	              <table class="orders-table" id="ordersTable">
+	                <thead>
+	                  <tr>
+	                    <th>Fulfillment ID</th>
+	                    <th>Created</th>
+	                    <th>Days Old</th>
+	                    <th>Status</th>
+	                  </tr>
+	                </thead>
+	                <tbody id="ordersTableBody">
+	                  <!-- Populated by JS -->
+	                </tbody>
+	              </table>
+	            </div>
+	          </div>
+	        </div>
+	      </section>
+	    </main>
 
     <!-- Right Sidebar - Manager Actions Only (Notes moved inline) -->
     <aside class="sidebar">
@@ -619,7 +634,7 @@
     </div>
   </div>
 
-  <script src="/js/shared-header.js?v=13"></script>
-  <script src="/js/dashboard.js?v=13"></script>
-</body>
-</html>
+	  <script src="/js/shared-header.js?v=21"></script>
+	  <script src="/js/dashboard.js?v=21"></script>
+	</body>
+	</html>

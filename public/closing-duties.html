@@ -2,11 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
   <title>Closing Duties - Daily Game Plan | San Francisco</title>
-  <link rel="stylesheet" href="/css/theme.css">
-  <link rel="stylesheet" href="/css/shared-header.css">
-  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
   <style>
     .duties-tabs {
       display: flex;
@@ -191,7 +200,7 @@
   <!-- Header (No Refresh Bar on Closing Duties) -->
   <header class="header">
     <div class="header-brand">
-      <a href="/dashboard" class="logo-link">
+      <a href="/app" class="logo-link">
         <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
       </a>
       <div class="header-title">
@@ -201,6 +210,8 @@
     </div>
     <nav class="header-nav">
       <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
+      <a href="/awards" id="navAwards">Awards</a>
       <a href="/shipments" id="navShipments">Shipments</a>
       <a href="/scanner" id="navScanner">Scanner</a>
       <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
@@ -215,10 +226,10 @@
         <span id="currentDate"></span>
       </div>
       <div class="header-user" id="userMenu">
-        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
         <span id="userName">Guest</span>
         <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="switchUserBtn">Switch User</a>
+          <a href="#" id="logoutBtn">Logout</a>
         </div>
       </div>
     </div>
@@ -231,15 +242,16 @@
           <h2>Closing Duties</h2>
         </div>
 
-        <!-- Tabs -->
-        <div class="duties-tabs">
-          <button class="tab active" data-tab="submit">Submit Duties</button>
-          <button class="tab" data-tab="history">History</button>
-        </div>
+	        <!-- Tabs -->
+	        <div class="duties-tabs">
+	          <button class="tab active" data-tab="submit">Assigned Duties</button>
+	          <button class="tab" data-tab="unassigned">Not Assigned</button>
+	          <button class="tab" data-tab="history">History</button>
+	        </div>
 
-        <!-- Submit Tab (now first) -->
-        <div id="submitTab" class="tab-content">
-          <div class="summary-cards" style="margin-bottom: 16px;">
+	        <!-- Submit Tab -->
+	        <div id="submitTab" class="tab-content">
+	          <div class="summary-cards" style="margin-bottom: 16px;">
             <div class="summary-card">
               <div class="value" id="totalSections">0</div>
               <div class="label">Total Sections</div>
@@ -258,55 +270,45 @@
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; align-items: start;" class="closing-two-col">
-            <div>
-          <!-- Assigned Duties Section -->
-          <div id="assignedDutiesSection" style="margin-bottom: 24px;">
-            <h3 style="margin-bottom: 12px;" id="assignedDutiesTitle">Your Assigned Duties</h3>
-            <div id="assignedDuties">
-              <p style="color: var(--text-muted);">Loading...</p>
-            </div>
-          </div>
-
-          <div id="unassigned-submission-cta" style="margin-bottom: 24px; display: none;">
-            <button class="btn btn-outline" id="showSubmitFormBtn">Submit Unassigned Duty</button>
-          </div>
-
-          <div class="submit-form" style="display: none;">
-            <h3 style="margin-bottom: 20px;">Submit Closing Duty</h3>
-            <form id="closingForm">
-              <input type="hidden" id="submitName">
-              <div class="form-group" style="margin-bottom: 16px;">
-                <label>Closing Duty</label>
-                <select class="form-control" id="submitSection" required>
-                  <option value="">Select duty...</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Photos (required for duty completion)</label>
-                <input type="file" class="form-control" id="submitPhotos" accept="image/*" multiple>
-                <div class="photo-preview" id="photoPreview"></div>
-              </div>
-              <div class="form-group">
-                <label>Notes</label>
-                <textarea class="form-control" id="submitNotes" rows="3" placeholder="Any notes about completion..."></textarea>
-              </div>
-              <button type="submit" class="btn btn-primary">Submit Closing Duty</button>
-            </form>
-          </div>
+	          <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; align-items: start;" class="closing-two-col">
+	            <div>
+	          <!-- Assigned Duties Section -->
+	          <div id="assignedDutiesSection" style="margin-bottom: 24px;">
+	            <h3 style="margin-bottom: 12px;" id="assignedDutiesTitle">Your Assigned Duties</h3>
+	            <div id="assignedDuties">
+	              <p style="color: var(--text-muted);">Loading...</p>
+	            </div>
+	          </div>
             </div>
 
-            <div>
-              <h3 style="margin-bottom: 16px;">Today's Status</h3>
-              <div id="todayDuties"></div>
-            </div>
-          </div>
-        </div>
+	            <div>
+	              <h3 style="margin-bottom: 16px;">Today's Status</h3>
+	              <div id="todayDuties"></div>
+	            </div>
+	          </div>
+	        </div>
 
-        <!-- History Tab -->
-        <div id="historyTab" class="tab-content" style="display:none;">
-          <div class="date-nav">
-            <button class="btn btn-sm btn-secondary" id="prevDay">&larr; Previous</button>
+	        <!-- Unassigned Tab -->
+	        <div id="unassignedTab" class="tab-content" style="display:none;">
+	          <div style="padding: 12px; background: var(--surface); border-radius: 8px; margin-bottom: 16px;">
+	            <div style="font-weight: 600; margin-bottom: 4px;">Not assigned today</div>
+	            <div style="font-size: 13px; color: var(--text-secondary);">
+	              These duties are not assigned to any employee for the selected day. If you completed one, submit it here.
+	            </div>
+	          </div>
+            <div style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); margin-bottom: 16px;">
+              <div style="font-weight: 600; margin-bottom: 4px;">Submit Not Assigned Duty</div>
+              <div style="font-size: 13px; color: var(--text-secondary);">Tap “Submit” on a section below to upload photos and notes.</div>
+            </div>
+	          <div id="unassignedDutiesList">
+	            <p style="color: var(--text-muted);">Loading...</p>
+	          </div>
+	        </div>
+
+	        <!-- History Tab -->
+	        <div id="historyTab" class="tab-content" style="display:none;">
+	          <div class="date-nav">
+	            <button class="btn btn-sm btn-secondary" id="prevDay">&larr; Previous</button>
             <input type="date" id="historyDate">
             <button class="btn btn-sm btn-secondary" id="nextDay">Next &rarr;</button>
             <button class="btn btn-sm btn-outline" id="todayBtn">Today</button>
@@ -331,6 +333,36 @@
     </div>
   </div>
 
+  <!-- Submit Duty Modal -->
+  <div class="modal-overlay" id="submitDutyModal">
+    <div class="modal" style="max-width: 560px;">
+      <div class="modal-header">
+        <h3 id="submitDutyModalTitle">Submit Closing Duty</h3>
+        <button class="modal-close" id="closeSubmitDutyModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label>Closing Duty</label>
+          <input class="form-control" id="submitDutySection" type="text" readonly>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label>Photos (required for duty completion)</label>
+          <input type="file" class="form-control" id="submitDutyPhotos" accept="image/*" multiple>
+          <div class="photo-preview" id="submitDutyPreview"></div>
+        </div>
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label>Notes</label>
+          <textarea class="form-control" id="submitDutyNotes" rows="3" placeholder="Any notes about completion..."></textarea>
+        </div>
+        <div style="display:flex; justify-content: flex-end; gap: 12px;">
+          <button type="button" class="btn btn-secondary" id="cancelSubmitDuty">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmSubmitDuty">Submit</button>
+        </div>
+        <div id="submitDutyHint" style="margin-top: 10px; font-size: 12px; color: var(--text-secondary);"></div>
+      </div>
+    </div>
+  </div>
+
   <footer class="footer">
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
@@ -340,6 +372,7 @@
     let settings = { closingSections: [] };
     let closingDuties = [];
     let employees = { SA: [] };
+    let submitDutyState = { section: '', type: '' };
     let selectedDate = (() => {
       const today = new Date();
       const year = today.getFullYear();
@@ -365,30 +398,22 @@
       } catch (e) { console.error(e); }
     }
 
-    function renderAssignedDuties() {
-      const container = document.getElementById('assignedDuties');
-      const title = document.getElementById('assignedDutiesTitle');
-      const unassignedCta = document.getElementById('unassigned-submission-cta');
+	    function renderAssignedDuties() {
+	      const container = document.getElementById('assignedDuties');
+	      const title = document.getElementById('assignedDutiesTitle');
 
-      if (!currentUser) {
-        container.innerHTML = '<p style="color: var(--text-muted);">Please log in to see your assigned duties.</p>';
-        return;
-      }
+	      if (!currentUser) {
+	        container.innerHTML = '<p style="color: var(--text-muted);">Please log in to see your assigned duties.</p>';
+	        return;
+	      }
 
       const isManager = currentUser.isManager || currentUser.isAdmin;
       title.textContent = isManager ? 'All Employees\' Assigned Duties' : 'Your Assigned Duties';
 
-      if (isManager) {
-        unassignedCta.style.display = 'none';
-        document.querySelector('.submit-form').style.display = 'block';
-      } else {
-        unassignedCta.style.display = 'block';
-      }
-
-      // Get all employees with closing sections
-      const employeesWithDuties = [];
-      for (const type of Object.keys(employees)) {
-        employees[type].forEach(emp => {
+	      // Get all employees with closing sections
+	      const employeesWithDuties = [];
+	      for (const type of Object.keys(employees)) {
+	        employees[type].forEach(emp => {
           if (emp.closingSections && emp.closingSections.length > 0) {
             employeesWithDuties.push(emp);
           }
@@ -434,7 +459,7 @@
               <span style="font-weight: 500;">${section}</span>
               ${isComplete
                 ? '<span style="color: var(--success); font-size: 13px;">Completed</span>'
-                : isToday ? `<button class=\"btn btn-sm btn-primary\" onclick=\"quickSubmit('${section}')\">Submit Now</button>` : '<span style=\"color: #aaa; font-size: 13px;\">Upload only allowed on assigned day</span>'
+                : isToday ? `<button class=\"btn btn-sm btn-primary\" onclick=\"openSubmitDutyModal('assigned','${section.replace(/'/g, '\\\\\'')}')\">Submit Now</button>` : '<span style=\"color: #aaa; font-size: 13px;\">Upload only allowed on assigned day</span>'
               }
             </div>
           `;
@@ -499,83 +524,220 @@
         html += '</div>';
         container.innerHTML = html;
       }
-    }
+	    }
 
-    function quickSubmit(section) {
-      document.getElementById('submitSection').value = section;
-      document.getElementById('submitSection').scrollIntoView({ behavior: 'smooth' });
-    }
+      function todayISO() {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
 
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/auth/check');
-        const data = await response.json();
-        if (data.authenticated) {
-          currentUser = data.user;
-          document.getElementById('userName').textContent = currentUser.name;
-          const userDropdown = document.getElementById('userDropdown');
-          if(userDropdown) {
-            const logoutLink = document.createElement('a');
-            logoutLink.href = '#';
-            logoutLink.id = 'logoutLink';
-            logoutLink.textContent = 'Logout';
-            logoutLink.addEventListener('click', logout);
-            userDropdown.appendChild(logoutLink);
-          }
-          document.getElementById('submitName').value = currentUser.name;
-          if (currentUser.isManager || currentUser.isAdmin) {
-            const adminLink = document.getElementById('adminLink');
-            if (adminLink) adminLink.style.display = 'inline';
-          }
+      function isSelectedDateToday() {
+        return selectedDate === todayISO();
+      }
+
+      function openSubmitDutyModal(type, section) {
+        if (!currentUser) {
+          alert('Please log in first.');
+          return;
         }
-      } catch (e) { console.error(e); }
-    }
+
+        const activeTab = document.querySelector('.duties-tabs .tab.active')?.dataset?.tab || '';
+        if (type === 'unassigned' && activeTab !== 'unassigned') {
+          alert('Not Assigned duties can only be submitted from the Not Assigned tab.');
+          return;
+        }
+
+        if (!isSelectedDateToday()) {
+          alert('Submitting is only available for today.');
+          return;
+        }
+
+        submitDutyState = { type, section };
+        document.getElementById('submitDutyModalTitle').textContent =
+          type === 'unassigned' ? 'Submit Not Assigned Duty' : 'Submit Assigned Duty';
+        document.getElementById('submitDutySection').value = section || '';
+        document.getElementById('submitDutyNotes').value = '';
+        document.getElementById('submitDutyPhotos').value = '';
+        document.getElementById('submitDutyPreview').innerHTML = '';
+        document.getElementById('submitDutyHint').textContent =
+          type === 'unassigned'
+            ? 'This will be saved as a Not Assigned submission for today.'
+            : 'This will be saved as your Assigned Duty submission for today.';
+
+        document.getElementById('submitDutyModal').classList.add('active');
+      }
+
+      function closeSubmitDutyModal() {
+        document.getElementById('submitDutyModal').classList.remove('active');
+        submitDutyState = { section: '', type: '' };
+      }
+
+      async function submitDutyFromModal() {
+        if (!currentUser) return;
+        if (!submitDutyState.section) {
+          alert('Missing duty section.');
+          return;
+        }
+        if (!isSelectedDateToday()) {
+          alert('Submitting is only available for today.');
+          return;
+        }
+
+        const files = document.getElementById('submitDutyPhotos').files;
+        if (!files || files.length === 0) {
+          alert('Please add at least 1 photo.');
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('userId', currentUser.employeeId || currentUser.id);
+        formData.append('userName', currentUser.name);
+        formData.append('section', submitDutyState.section);
+        formData.append('notes', document.getElementById('submitDutyNotes').value || '');
+        formData.append('date', selectedDate);
+
+        for (let i = 0; i < files.length; i++) formData.append('photos', files[i]);
+
+        const submitBtn = document.getElementById('confirmSubmitDuty');
+        try {
+          if (submitBtn) submitBtn.disabled = true;
+          const response = await fetch('/api/closing-duties/submit', { method: 'POST', body: formData });
+          if (!response.ok) {
+            const msg = await response.text();
+            throw new Error(msg || 'Submit failed');
+          }
+          alert('Closing duty submitted successfully!');
+          closeSubmitDutyModal();
+          await loadTodayDuties();
+          renderAssignedDuties();
+        } catch (e) {
+          console.error(e);
+          alert('Error submitting duty');
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
+      }
+
+	    async function checkAuth() {
+	      try {
+	        const response = await fetch('/api/auth/check');
+	        const data = await response.json();
+	        if (data.authenticated) {
+	          currentUser = data.user;
+	          document.getElementById('userName').textContent = currentUser.name;
+
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) logoutBtn.addEventListener('click', (e) => { e.preventDefault(); logout(); });
+
+	          if (currentUser.isManager || currentUser.isAdmin) {
+	            const adminLink = document.getElementById('adminLink');
+	            if (adminLink) adminLink.style.display = 'inline';
+	          }
+	        }
+	      } catch (e) { console.error(e); }
+	    }
 
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/login-v2';
+      window.location.href = '/login';
     }
 
     async function loadSettings() {
       try {
         const response = await fetch('/api/gameplan/settings');
         settings = await response.json();
-        populateSections();
       } catch (e) { console.error(e); }
     }
 
-    function populateSections() {
-      const select = document.getElementById('submitSection');
-      select.innerHTML = '<option value="">Select duty...</option>';
-      (settings.closingSections || []).forEach(s => {
-        select.innerHTML += `<option value="${s.name}">${s.name}</option>`;
-      });
-    }
-
-    async function loadTodayDuties() {
-      try {
-        const response = await fetch(`/api/closing-duties/${selectedDate}`);
-        const data = await response.json();
+	    async function loadTodayDuties() {
+	      try {
+	        const response = await fetch(`/api/closing-duties/${selectedDate}`);
+	        const data = await response.json();
         closingDuties = (data.submissions || []).map(sub => ({
           ...sub,
           employeeName: sub.employeeName || sub.userName || '',
           userName: sub.userName || sub.employeeName || '',
           photos: Array.isArray(sub.photos) ? sub.photos : []
         }));
-        await renderTodayStatus();
-        await renderHistory();
-      } catch (e) {
-        console.error(e);
-        closingDuties = [];
-        await renderTodayStatus();
-        await renderHistory();
-      }
-    }
+	        await renderTodayStatus();
+	        await renderUnassignedDuties();
+	        await renderHistory();
+	      } catch (e) {
+	        console.error(e);
+	        closingDuties = [];
+	        await renderTodayStatus();
+	        await renderUnassignedDuties();
+	        await renderHistory();
+	      }
+	    }
 
-    async function renderTodayStatus() {
-      const sections = settings.closingSections || [];
-      const container = document.getElementById('todayDuties');
-      container.innerHTML = '';
+	    async function renderUnassignedDuties() {
+	      const container = document.getElementById('unassignedDutiesList');
+	      if (!container) return;
+
+	      const sections = (settings.closingSections || []).map(s => s?.name).filter(Boolean);
+	      if (sections.length === 0) {
+	        container.innerHTML = '<p style="color: var(--text-muted);">No closing sections configured.</p>';
+	        return;
+	      }
+
+	      // Map section -> employee for the selected day (published game plan)
+	      let sectionToEmployee = {};
+	      try {
+	        const toEmployeeNameById = new Map();
+	        for (const type of Object.keys(employees || {})) {
+	          (employees[type] || []).forEach(emp => {
+	            if (emp?.id && emp?.name) toEmployeeNameById.set(emp.id, emp.name);
+	          });
+	        }
+
+	        const res = await fetch(`/api/gameplan/date/${selectedDate}`);
+	        if (res.ok) {
+	          const data = await res.json();
+	          const assignments = data.assignments || null;
+	          if (assignments) {
+	            Object.entries(assignments).forEach(([empId, assignment]) => {
+	              if (assignment?.isOff === true || assignment?.isOff === 'true') return;
+	              const name = toEmployeeNameById.get(empId) || empId;
+	              const list = Array.isArray(assignment?.closingSections) ? assignment.closingSections : [];
+	              list.forEach(section => {
+	                if (section) sectionToEmployee[section] = name;
+	              });
+	            });
+	          }
+	        }
+	      } catch (_) {
+	        sectionToEmployee = {};
+	      }
+
+	      const unassigned = sections.filter(name => !sectionToEmployee[name]);
+	      if (unassigned.length === 0) {
+	        container.innerHTML = '<p style="color: var(--text-muted);">No unassigned closing duties for this day.</p>';
+	        return;
+	      }
+
+	      container.innerHTML = `
+	        <div style="display: grid; gap: 12px;">
+	          ${unassigned.map(section => `
+	            <div style="display:flex; justify-content: space-between; align-items:center; padding: 12px 16px; background: var(--background); border: 1px solid var(--border); border-radius: 8px;">
+	              <div style="font-weight: 600;">${section}</div>
+	              ${isSelectedDateToday()
+                  ? `<button class="btn btn-sm btn-primary" onclick="openSubmitDutyModal('unassigned','${section.replace(/'/g, '\\\\\'')}')">Submit</button>`
+                  : `<button class="btn btn-sm btn-secondary" disabled>Today only</button>`
+                }
+	            </div>
+	          `).join('')}
+	        </div>
+	      `;
+	    }
+
+	    async function renderTodayStatus() {
+	      const sections = settings.closingSections || [];
+	      const container = document.getElementById('todayDuties');
+	      container.innerHTML = '';
 
       let completed = 0;
       let pending = 0;
@@ -776,52 +938,24 @@
         });
       });
 
-      // Photo preview (no limit)
-      document.getElementById('submitPhotos').addEventListener('change', (e) => {
-        const preview = document.getElementById('photoPreview');
+      // Submit modal events
+      document.getElementById('closeSubmitDutyModal').addEventListener('click', closeSubmitDutyModal);
+      document.getElementById('cancelSubmitDuty').addEventListener('click', closeSubmitDutyModal);
+      document.getElementById('confirmSubmitDuty').addEventListener('click', submitDutyFromModal);
+      document.getElementById('submitDutyModal').addEventListener('click', (e) => {
+        if (e.target.id === 'submitDutyModal') closeSubmitDutyModal();
+      });
+
+      document.getElementById('submitDutyPhotos').addEventListener('change', (e) => {
+        const preview = document.getElementById('submitDutyPreview');
         preview.innerHTML = '';
-        Array.from(e.target.files).forEach(file => {
+        Array.from(e.target.files || []).forEach(file => {
           const reader = new FileReader();
           reader.onload = (ev) => {
             preview.innerHTML += `<img src="${ev.target.result}">`;
           };
           reader.readAsDataURL(file);
         });
-      });
-
-      // Form submit
-      document.getElementById('closingForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData();
-        formData.append('userId', currentUser.employeeId || currentUser.id);
-        formData.append('userName', document.getElementById('submitName').value);
-        formData.append('section', document.getElementById('submitSection').value);
-        formData.append('notes', document.getElementById('submitNotes').value);
-        formData.append('date', selectedDate);
-
-        const files = document.getElementById('submitPhotos').files;
-        for (let i = 0; i < files.length; i++) {
-          formData.append('photos', files[i]);
-        }
-
-        try {
-          const response = await fetch('/api/closing-duties/submit', {
-            method: 'POST',
-            body: formData
-          });
-          if (response.ok) {
-            alert('Closing duty submitted successfully!');
-            document.getElementById('closingForm').reset();
-            document.getElementById('photoPreview').innerHTML = '';
-            if (currentUser) {
-              document.getElementById('submitName').value = currentUser.name;
-            }
-            await loadTodayDuties();
-            renderAssignedDuties();
-          }
-        } catch (e) {
-          alert('Error submitting duty');
-        }
       });
 
       // Date navigation
@@ -868,12 +1002,8 @@
         if (e.target.id === 'photoModal') document.getElementById('photoModal').classList.remove('active');
       });
 
-      document.getElementById('showSubmitFormBtn').addEventListener('click', () => {
-        document.querySelector('.submit-form').style.display = 'block';
-        document.getElementById('showSubmitFormBtn').style.display = 'none';
-      });
-    }
-  </script>
-  <script src="/js/shared-header.js"></script>
-</body>
+	    }
+	  </script>
+	  <script src="/js/shared-header.js?v=21"></script>
+	</body>
 </html>

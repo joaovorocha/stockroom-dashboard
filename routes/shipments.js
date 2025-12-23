@@ -3,56 +3,34 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { getTrackingStatus } = require('../utils/upsApi');
+const dal = require('../utils/dal');
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
 
-const SHIPMENTS_FILE = path.join(__dirname, '../data/shipments.json');
-const SHIPMENTS_BACKUP_DIR = path.join(__dirname, '../data/shipments-backups');
+const SHIPMENTS_FILE = dal.paths.shipmentsFile;
+const SHIPMENTS_BACKUP_DIR = dal.paths.shipmentsBackupDir;
 
 // Ensure data directory exists
-const dataDir = path.dirname(SHIPMENTS_FILE);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+dal.ensureDir(path.dirname(SHIPMENTS_FILE));
 
 // Initialize shipments file if it doesn't exist
 if (!fs.existsSync(SHIPMENTS_FILE)) {
-  fs.writeFileSync(SHIPMENTS_FILE, JSON.stringify([], null, 2));
+  dal.writeJsonAtomic(SHIPMENTS_FILE, [], { pretty: true });
 }
 
 function loadShipments() {
-  try {
-    const data = fs.readFileSync(SHIPMENTS_FILE, 'utf8');
-    const parsed = JSON.parse(data);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    return [];
-  }
+  const parsed = dal.readJson(SHIPMENTS_FILE, []);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 function saveShipments(shipments) {
-  try {
-    if (!fs.existsSync(SHIPMENTS_BACKUP_DIR)) fs.mkdirSync(SHIPMENTS_BACKUP_DIR, { recursive: true });
-    if (fs.existsSync(SHIPMENTS_FILE)) {
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupPath = path.join(SHIPMENTS_BACKUP_DIR, `shipments.${stamp}.json`);
-      fs.copyFileSync(SHIPMENTS_FILE, backupPath);
-      // Keep last 20 backups
-      const backups = fs
-        .readdirSync(SHIPMENTS_BACKUP_DIR)
-        .filter(f => f.startsWith('shipments.') && f.endsWith('.json'))
-        .sort()
-        .reverse();
-      for (const old of backups.slice(20)) {
-        try { fs.unlinkSync(path.join(SHIPMENTS_BACKUP_DIR, old)); } catch (_) {}
-      }
-    }
-  } catch (_) {
-    // Never block writes due to backup issues
-  }
-  fs.writeFileSync(SHIPMENTS_FILE, JSON.stringify(shipments, null, 2));
+  dal.writeJsonWithBackups(SHIPMENTS_FILE, shipments, {
+    backupDir: SHIPMENTS_BACKUP_DIR,
+    backupsToKeep: 20,
+    pretty: true
+  });
 }
 
 function normalizeString(value) {

@@ -76,6 +76,33 @@
     display: none;
   }
 
+  /* Mobile app-style navigation: hamburger menu + left sheet (driven by shared-header.js) */
+  body.is-mobile-nav .header {
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 8px 12px;
+  }
+
+  body.is-mobile-nav .header-brand {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  body.is-mobile-nav .header-title,
+  body.is-mobile-nav .header-nav {
+    display: none !important;
+  }
+
+  body.is-mobile-nav .mobile-menu-btn {
+    display: inline-flex !important;
+  }
+
+  body.is-mobile-nav .header-actions {
+    align-items: center;
+    padding-top: 0;
+  }
+
   #userName {
     font-size: 12px;
     max-width: 80px;

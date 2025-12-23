@@ -2,13 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Time Off Calendar - San Francisco | Suitsupply</title>
-  <link rel="stylesheet" href="/css/theme.css">
-  <link rel="stylesheet" href="/css/shared-header.css">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <style>
     .timeoff-header {
       display: flex;
@@ -373,18 +382,70 @@
     .cell-wrap { white-space: normal; max-width: 340px; }
     .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
-    @media (max-width: 1024px) {
-      .timeoff-container {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
+	    @media (max-width: 1024px) {
+	      .timeoff-container {
+	        grid-template-columns: 1fr;
+	      }
+	    }
+
+		    /* Phone layout: make the month grid fit the screen */
+		    @media (max-width: 768px) {
+		      .timeoff-container {
+		        padding: 10px;
+		        gap: 12px;
+		      }
+
+	      .calendar-header {
+	        padding: 10px 12px;
+	      }
+
+	      .calendar-nav button {
+	        padding: 6px 10px;
+	      }
+
+	      #currentMonth {
+	        font-size: 16px;
+	        margin: 0;
+	      }
+
+		      .calendar-section {
+		        /* Keep the full month visible without stretching each day cell */
+		        display: block;
+		      }
+
+		      .calendar-grid {
+		        grid-template-rows: 26px repeat(6, 56px);
+		      }
+
+	      .calendar-day-header {
+	        padding: 6px 0;
+	        font-size: 10px;
+	      }
+
+		      .calendar-day {
+		        min-height: 0;
+		        padding: 4px;
+		        overflow: hidden;
+		      }
+
+	      .day-number {
+	        font-size: 12px;
+	        margin-bottom: 2px;
+	      }
+
+	      .timeoff-event {
+	        font-size: 9px;
+	        padding: 1px 4px;
+	        margin-bottom: 1px;
+	      }
+	    }
+	  </style>
 </head>
 <body>
   <!-- Header (No Refresh Bar on Time Off) -->
   <header class="header">
     <div class="header-brand">
-      <a href="/dashboard" class="logo-link">
+      <a href="/app" class="logo-link">
         <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
       </a>
       <div class="header-title">
@@ -394,6 +455,8 @@
     </div>
     <nav class="header-nav">
       <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
+      <a href="/awards" id="navAwards">Awards</a>
       <a href="/shipments" id="navShipments">Shipments</a>
       <a href="/scanner" id="navScanner">Scanner</a>
       <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
@@ -408,18 +471,22 @@
         <span id="currentDate"></span>
       </div>
       <div class="header-user" id="userMenu">
-        <img src="" alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
         <span id="userName">Guest</span>
         <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="switchUserBtn">Switch User</a>
+          <a href="#" id="logoutBtn">Logout</a>
         </div>
       </div>
     </div>
   </header>
 
-  <div class="timeoff-container">
-    <div class="calendar-section">
-      <div class="calendar-header">
+	  <div class="timeoff-header">
+	    <h2 style="margin: 0; font-size: 20px;">Time Off</h2>
+	  </div>
+
+	  <div class="timeoff-container">
+	    <div class="calendar-section">
+	      <div class="calendar-header">
         <div class="calendar-nav">
           <button id="prevMonth">&larr;</button>
           <button id="nextMonth">&rarr;</button>
@@ -555,7 +622,7 @@
       const response = await fetch('/api/auth/check', { credentials: 'include' });
       const data = await response.json();
       if (!data.authenticated) {
-        window.location.href = '/login-v2';
+        window.location.href = '/login';
         return;
       }
       currentUser = {
@@ -891,6 +958,6 @@
       initTimeOffPage();
     }
   </script>
-  <script src="/js/shared-header.js"></script>
+  <script src="/js/shared-header.js?v=21"></script>
 </body>
 </html>

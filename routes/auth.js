@@ -4,17 +4,18 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
+const dal = require('../utils/dal');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const EMPLOYEES_FILE = path.join(DATA_DIR, 'employees-v2.json');
-const ACTIVITY_LOG_FILE = path.join(DATA_DIR, 'activity-log.json');
-const USER_UPLOADS_DIR = path.join(DATA_DIR, 'user-uploads');
+const DATA_DIR = dal.paths.dataDir;
+const USERS_FILE = dal.paths.usersFile;
+const EMPLOYEES_FILE = dal.paths.employeesFile;
+const ACTIVITY_LOG_FILE = dal.paths.activityLogFile;
+const USER_UPLOADS_DIR = dal.paths.userUploadsDir;
 
 // Avatar upload (stored locally, served via /user-uploads/* with auth)
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    if (!fs.existsSync(USER_UPLOADS_DIR)) fs.mkdirSync(USER_UPLOADS_DIR, { recursive: true });
+    dal.ensureDir(USER_UPLOADS_DIR);
     cb(null, USER_UPLOADS_DIR);
   },
   filename: (req, file, cb) => {
@@ -39,18 +40,11 @@ const avatarUpload = multer({
 
 // Helper functions
 function readJsonFile(filePath, defaultValue = {}) {
-  try {
-    if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    }
-  } catch (error) {
-    console.error(`Error reading ${filePath}:`, error);
-  }
-  return defaultValue;
+  return dal.readJson(filePath, defaultValue);
 }
 
 function writeJsonFile(filePath, data) {
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  dal.writeJsonAtomic(filePath, data, { pretty: true });
 }
 
 function hashPassword(plain) {
@@ -154,7 +148,7 @@ function syncUserToEmployees(user) {
   // Add employee to target type
   employees.employees[targetType].push(employeeData);
 
-  employees.lastUpdated = new Date().toISOString().split('T')[0];
+  employees.lastUpdated = dal.getBusinessDate();
   writeJsonFile(EMPLOYEES_FILE, employees);
 }
 
@@ -392,7 +386,7 @@ router.post('/users', (req, res) => {
     };
 
     usersData.users.push(newUser);
-    usersData.lastUpdated = new Date().toISOString().split('T')[0];
+    usersData.lastUpdated = dal.getBusinessDate();
     writeJsonFile(USERS_FILE, usersData);
 
     // Sync to employees-v2.json
@@ -440,7 +434,7 @@ router.put('/users/:id', (req, res) => {
       }
     });
 
-    usersData.lastUpdated = new Date().toISOString().split('T')[0];
+    usersData.lastUpdated = dal.getBusinessDate();
     writeJsonFile(USERS_FILE, usersData);
 
     // Sync to employees-v2.json
@@ -479,7 +473,7 @@ router.post('/users/:id/photo', avatarUpload.single('photo'), (req, res) => {
 
     const imageUrl = `/user-uploads/${req.file.filename}`;
     usersData.users[userIndex].imageUrl = imageUrl;
-    usersData.lastUpdated = new Date().toISOString().split('T')[0];
+    usersData.lastUpdated = dal.getBusinessDate();
     writeJsonFile(USERS_FILE, usersData);
 
     // Sync to employees-v2.json
@@ -513,7 +507,7 @@ router.delete('/users/:id', (req, res) => {
     }
 
     const deletedUser = usersData.users.splice(userIndex, 1)[0];
-    usersData.lastUpdated = new Date().toISOString().split('T')[0];
+    usersData.lastUpdated = dal.getBusinessDate();
     writeJsonFile(USERS_FILE, usersData);
 
     // Also remove from employees-v2.json

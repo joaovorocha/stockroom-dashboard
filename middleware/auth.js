@@ -1,10 +1,14 @@
 const authMiddleware = (req, res, next) => {
+  const originalUrl = req.originalUrl || req.url || '';
+  const baseUrl = req.baseUrl || '';
+  const isApiRequest = originalUrl.startsWith('/api/') || baseUrl.startsWith('/api/');
+
   // Check if user has a valid session cookie
   const userSession = req.cookies.userSession;
 
   if (!userSession) {
     // No session found - redirect to login
-    if (req.path.startsWith('/api/')) {
+    if (isApiRequest) {
       // For API requests, return 401
       return res.status(401).json({ error: 'Not authenticated' });
     } else {
@@ -35,7 +39,7 @@ const authMiddleware = (req, res, next) => {
 
     if (!currentUser) {
       res.clearCookie('userSession');
-      if (req.path.startsWith('/api/')) {
+      if (isApiRequest) {
         return res.status(401).json({ error: 'Not authenticated' });
       }
       return res.redirect('/login');
@@ -62,7 +66,7 @@ const authMiddleware = (req, res, next) => {
   } catch (error) {
     // Invalid session data
     res.clearCookie('userSession');
-    if (req.path.startsWith('/api/')) {
+    if (isApiRequest) {
       return res.status(401).json({ error: 'Invalid session' });
     } else {
       return res.redirect('/login');
