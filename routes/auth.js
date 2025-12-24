@@ -5,12 +5,14 @@ const path = require('path');
 const multer = require('multer');
 const crypto = require('crypto');
 const dal = require('../utils/dal');
+const { sendPasswordResetEmail, getAppBaseUrl } = require('../utils/mailer');
 
 const DATA_DIR = dal.paths.dataDir;
 const USERS_FILE = dal.paths.usersFile;
 const EMPLOYEES_FILE = dal.paths.employeesFile;
 const ACTIVITY_LOG_FILE = dal.paths.activityLogFile;
 const USER_UPLOADS_DIR = dal.paths.userUploadsDir;
+const PASSWORD_RESET_TOKENS_FILE = path.join(DATA_DIR, 'password-reset-tokens.json');
 
 // Avatar upload (stored locally, served via /user-uploads/* with auth)
 const avatarStorage = multer.diskStorage({
@@ -74,6 +76,24 @@ function verifyPassword(plain, stored) {
 
 function isHashedPassword(value) {
   return (value || '').toString().startsWith('scrypt$');
+}
+
+function sha256Base64Url(value) {
+  return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('base64url');
+}
+
+function pruneResetTokens(tokens, nowMs) {
+  const cutoff = nowMs - 7 * 24 * 60 * 60 * 1000; // keep 7 days of used tokens
+  return (Array.isArray(tokens) ? tokens : []).filter(t => {
+    const createdAt = Date.parse(t?.createdAt || '');
+    const expiresAt = Date.parse(t?.expiresAt || '');
+    const usedAt = Date.parse(t?.usedAt || '');
+
+    if (Number.isFinite(expiresAt) && expiresAt > nowMs) return true;
+    if (Number.isFinite(usedAt) && usedAt > cutoff) return true;
+    if (Number.isFinite(createdAt) && createdAt > cutoff) return true;
+    return false;
+  });
 }
 
 // Sync user to employees-v2.json
@@ -198,6 +218,8 @@ function getVerifiedSessionUser(req) {
       name: currentUser.name,
       role: currentUser.role,
       imageUrl: currentUser.imageUrl,
+      email: currentUser.email || '',
+      phone: currentUser.phone || '',
       isAdmin: !!currentUser.isAdmin,
       isManager: !!(currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toUpperCase() === 'MANAGEMENT'),
       canEditGameplan: !!(
@@ -224,6 +246,13 @@ router.post('/login', (req, res) => {
     const usersData = readJsonFile(USERS_FILE, { users: [] });
     const user = findUserByLogin(usersData.users, employeeId);
 
+    // If a user has never logged in and no password is set, default to 1234 (must change on first login).
+    const isFirstLogin = !user?.lastLogin;
+    if (user && isFirstLogin && !String(user.password || '').trim()) {
+      user.password = hashPassword('1234');
+      user.mustChangePassword = true;
+    }
+
     if (!user || !verifyPassword(password, user.password)) {
       return res.status(401).json({ success: false, error: 'Invalid Employee ID or password' });
     }
@@ -237,6 +266,10 @@ router.post('/login', (req, res) => {
     user.lastLogin = new Date().toISOString();
     writeJsonFile(USERS_FILE, usersData);
 
+    const needsProfileCompletion = !String(user.email || '').trim() || !String(user.phone || '').trim();
+    // Force password change on first login (especially when initial password is 1234).
+    const mustChangePassword = !!user.mustChangePassword || isFirstLogin;
+
     // Create session data
     const sessionData = {
       userId: user.id,
@@ -244,10 +277,14 @@ router.post('/login', (req, res) => {
       name: user.name,
       role: user.role,
       imageUrl: user.imageUrl,
+      email: user.email || '',
+      phone: user.phone || '',
       isAdmin: !!user.isAdmin,
       // Treat management and admins as managers even if the flag is missing
       isManager: !!(user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
-      canEditGameplan: !!(user.canEditGameplan || user.isManager || user.isAdmin || user.role === 'MANAGEMENT')
+      canEditGameplan: !!(user.canEditGameplan || user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
+      needsProfileCompletion,
+      mustChangePassword
     };
 
     // Set cookie
@@ -268,6 +305,151 @@ router.post('/login', (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ success: false, error: 'Server error during login' });
+  }
+});
+
+// POST /api/auth/password-reset/request
+// Body: { login: string } (employeeId/email)
+router.post('/password-reset/request', async (req, res) => {
+  const login = (req.body?.login || req.body?.employeeId || req.body?.email || '').toString().trim();
+  if (!login) {
+    return res.status(400).json({ success: false, error: 'Employee ID or email is required' });
+  }
+
+  try {
+    const usersData = readJsonFile(USERS_FILE, { users: [] });
+    const user = findUserByLogin(usersData.users, login);
+
+    // Don't leak whether the account exists.
+    if (!user) {
+      return res.json({ success: true, message: 'If that account exists, an email will be sent.' });
+    }
+
+    const email = (user.email || '').toString().trim();
+    if (!email || !email.includes('@')) {
+      return res.json({ success: true, message: 'If that account exists, an email will be sent.' });
+    }
+
+    const now = Date.now();
+    const tokensData = readJsonFile(PASSWORD_RESET_TOKENS_FILE, { tokens: [] });
+    const tokens = pruneResetTokens(tokensData.tokens, now);
+
+    const lastForUser = tokens
+      .filter(t => t?.userId === user.id)
+      .sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0))[0];
+
+    if (lastForUser) {
+      const lastCreated = Date.parse(lastForUser.createdAt || '');
+      if (Number.isFinite(lastCreated) && now - lastCreated < 60 * 1000) {
+        return res.json({ success: true, message: 'If that account exists, an email will be sent.' });
+      }
+    }
+
+    const token = crypto.randomBytes(32).toString('base64url');
+    const expiresAt = new Date(now + 30 * 60 * 1000).toISOString(); // 30 minutes
+
+    tokens.unshift({
+      id: `prt-${now}-${crypto.randomBytes(4).toString('hex')}`,
+      userId: user.id,
+      tokenHash: sha256Base64Url(token),
+      createdAt: new Date(now).toISOString(),
+      expiresAt,
+      usedAt: null,
+      ip: (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').toString()
+    });
+
+    tokensData.tokens = tokens.slice(0, 2000);
+    writeJsonFile(PASSWORD_RESET_TOKENS_FILE, tokensData);
+
+    await sendPasswordResetEmail({ to: email, name: user.name, token });
+    logActivity('PASSWORD_RESET_REQUEST', user.id, user.name, { via: 'email' });
+
+    return res.json({ success: true, message: 'If that account exists, an email will be sent.' });
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    return res.json({ success: true, message: 'If that account exists, an email will be sent.' });
+  }
+});
+
+// POST /api/auth/password-reset/confirm
+// Body: { token, password, rememberDevice?, email?, phone? }
+router.post('/password-reset/confirm', (req, res) => {
+  const token = (req.body?.token || '').toString().trim();
+  const password = (req.body?.password || '').toString();
+  const rememberDevice = !!req.body?.rememberDevice;
+  const email = (req.body?.email || '').toString().trim();
+  const phone = (req.body?.phone || '').toString().trim();
+
+  if (!token || !password) {
+    return res.status(400).json({ success: false, error: 'Token and new password are required' });
+  }
+  if (password.length < 4) {
+    return res.status(400).json({ success: false, error: 'Password must be at least 4 characters' });
+  }
+
+  try {
+    const now = Date.now();
+    const tokenHash = sha256Base64Url(token);
+
+    const tokensData = readJsonFile(PASSWORD_RESET_TOKENS_FILE, { tokens: [] });
+    const tokens = pruneResetTokens(tokensData.tokens, now);
+    const tokenRecord = tokens.find(t => t?.tokenHash === tokenHash && !t?.usedAt);
+    if (!tokenRecord) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired reset link' });
+    }
+
+    const expiresAtMs = Date.parse(tokenRecord.expiresAt || '');
+    if (!Number.isFinite(expiresAtMs) || expiresAtMs <= now) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired reset link' });
+    }
+
+    const usersData = readJsonFile(USERS_FILE, { users: [] });
+    const user = usersData.users.find(u => u.id === tokenRecord.userId);
+    if (!user) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired reset link' });
+    }
+
+    user.password = hashPassword(password);
+    if (email) user.email = email;
+    if (phone) user.phone = phone;
+    user.mustChangePassword = false;
+    user.updatedAt = new Date().toISOString();
+
+    tokenRecord.usedAt = new Date(now).toISOString();
+    tokensData.tokens = tokens;
+
+    writeJsonFile(USERS_FILE, usersData);
+    writeJsonFile(PASSWORD_RESET_TOKENS_FILE, tokensData);
+
+    // Create session data + cookie (optional "remember this device").
+    const sessionData = {
+      userId: user.id,
+      employeeId: user.employeeId,
+      name: user.name,
+      role: user.role,
+      imageUrl: user.imageUrl,
+      email: user.email || '',
+      phone: user.phone || '',
+      isAdmin: !!user.isAdmin,
+      isManager: !!(user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
+      canEditGameplan: !!(user.canEditGameplan || user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
+      needsProfileCompletion: !String(user.email || '').trim() || !String(user.phone || '').trim(),
+      mustChangePassword: false
+    };
+
+    const maxAge = rememberDevice ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    res.cookie('userSession', JSON.stringify(sessionData), {
+      httpOnly: true,
+      maxAge,
+      sameSite: 'lax',
+      secure: false
+    });
+
+    logActivity('PASSWORD_RESET', user.id, user.name, { via: 'email' });
+    return res.json({ success: true, user: sessionData, redirectTo: getAppBaseUrl() + '/app' });
+  } catch (error) {
+    console.error('Password reset confirm error:', error);
+    return res.status(500).json({ success: false, error: 'Server error during password reset' });
   }
 });
 
@@ -307,9 +489,13 @@ router.get('/check', (req, res) => {
       name: currentUser.name,
       role: currentUser.role,
       imageUrl: currentUser.imageUrl,
+      email: currentUser.email || '',
+      phone: currentUser.phone || '',
       isAdmin: !!currentUser.isAdmin,
       isManager: !!(currentUser.isManager || currentUser.isAdmin || currentUser.role === 'MANAGEMENT'),
-      canEditGameplan: !!(currentUser.canEditGameplan || currentUser.isManager || currentUser.isAdmin || currentUser.role === 'MANAGEMENT')
+      canEditGameplan: !!(currentUser.canEditGameplan || currentUser.isManager || currentUser.isAdmin || currentUser.role === 'MANAGEMENT'),
+      needsProfileCompletion: !String(currentUser.email || '').trim() || !String(currentUser.phone || '').trim(),
+      mustChangePassword: !!currentUser.mustChangePassword
     };
     return res.json({
       authenticated: true,
@@ -358,9 +544,9 @@ router.post('/users', (req, res) => {
   }
 
   try {
-    const { employeeId, name, password, role, imageUrl, isManager, isAdmin, canEditGameplan } = req.body;
+    const { employeeId, name, password, role, imageUrl, isManager, isAdmin, canEditGameplan, email, phone, mustChangePassword } = req.body;
 
-    if (!employeeId || !name || !password || !role) {
+    if (!employeeId || !name || !role) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -375,12 +561,15 @@ router.post('/users', (req, res) => {
       id: `user-${Date.now()}`,
       employeeId,
       name,
-      password: hashPassword(password),
+      password: hashPassword(password || '1234'),
       role,
       imageUrl: imageUrl || '',
+      email: email || '',
+      phone: phone || '',
       isManager: isManager || false,
       isAdmin: isAdmin || false,
       canEditGameplan: canEditGameplan !== undefined ? !!canEditGameplan : !!(isManager || isAdmin || role === 'MANAGEMENT'),
+      mustChangePassword: mustChangePassword !== undefined ? !!mustChangePassword : true,
       createdAt: new Date().toISOString(),
       lastLogin: null
     };
@@ -423,16 +612,24 @@ router.put('/users/:id', (req, res) => {
     }
 
     // Update allowed fields
-    const allowedFields = ['name', 'password', 'role', 'imageUrl', 'isManager', 'email', 'phone', 'isAdmin', 'canEditGameplan'];
+    const allowedFields = ['name', 'password', 'role', 'imageUrl', 'isManager', 'email', 'phone', 'isAdmin', 'canEditGameplan', 'mustChangePassword'];
     allowedFields.forEach(field => {
       if (updates[field] !== undefined) {
         if (field === 'password') {
           usersData.users[userIndex][field] = hashPassword(updates[field]);
+        } else if (field === 'mustChangePassword') {
+          usersData.users[userIndex][field] = !!updates[field];
         } else {
           usersData.users[userIndex][field] = updates[field];
         }
       }
     });
+
+    // If the user has never logged in, default to forcing a change when password is set/updated,
+    // unless explicitly overridden by mustChangePassword.
+    if (!usersData.users[userIndex].lastLogin && updates.password !== undefined && updates.mustChangePassword === undefined) {
+      usersData.users[userIndex].mustChangePassword = true;
+    }
 
     usersData.lastUpdated = dal.getBusinessDate();
     writeJsonFile(USERS_FILE, usersData);
@@ -451,8 +648,78 @@ router.put('/users/:id', (req, res) => {
   }
 });
 
+// POST /api/auth/profile/complete
+// Requires auth; Body: { email, phone, password, rememberDevice? }
+router.post('/profile/complete', (req, res) => {
+  const currentUser = getVerifiedSessionUser(req);
+  if (!currentUser) return res.status(401).json({ success: false, error: 'Not authenticated' });
+
+  const email = (req.body?.email || '').toString().trim();
+  const phone = (req.body?.phone || '').toString().trim();
+  const password = (req.body?.password || '').toString();
+  const rememberDevice = !!req.body?.rememberDevice;
+
+  if (!email || !email.includes('@')) {
+    return res.status(400).json({ success: false, error: 'Valid email is required' });
+  }
+  if (!phone) {
+    return res.status(400).json({ success: false, error: 'Phone is required' });
+  }
+  if (!password || password.length < 4) {
+    return res.status(400).json({ success: false, error: 'Password must be at least 4 characters' });
+  }
+
+  try {
+    const usersData = readJsonFile(USERS_FILE, { users: [] });
+    const user = usersData.users.find(u => u.id === currentUser.userId || u.employeeId === currentUser.employeeId);
+    if (!user) return res.status(401).json({ success: false, error: 'Not authenticated' });
+
+    user.email = email;
+    user.phone = phone;
+    user.password = hashPassword(password);
+    user.mustChangePassword = false;
+    user.updatedAt = new Date().toISOString();
+    writeJsonFile(USERS_FILE, usersData);
+
+    const sessionData = {
+      userId: user.id,
+      employeeId: user.employeeId,
+      name: user.name,
+      role: user.role,
+      imageUrl: user.imageUrl,
+      email: user.email || '',
+      phone: user.phone || '',
+      isAdmin: !!user.isAdmin,
+      isManager: !!(user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
+      canEditGameplan: !!(user.canEditGameplan || user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
+      needsProfileCompletion: false,
+      mustChangePassword: false
+    };
+
+    const maxAge = rememberDevice ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    res.cookie('userSession', JSON.stringify(sessionData), {
+      httpOnly: true,
+      maxAge,
+      sameSite: 'lax',
+      secure: false
+    });
+
+    logActivity('PROFILE_COMPLETED', user.id, user.name, {});
+    return res.json({ success: true, user: sessionData });
+  } catch (error) {
+    console.error('Profile completion error:', error);
+    return res.status(500).json({ success: false, error: 'Server error saving profile' });
+  }
+});
+
 // POST /api/auth/users/:id/photo - Upload user avatar (managers only)
-router.post('/users/:id/photo', avatarUpload.single('photo'), (req, res) => {
+router.post('/users/:id/photo', (req, res, next) => {
+  avatarUpload.single('photo')(req, res, (err) => {
+    if (!err) return next();
+    const message = err?.message || 'Upload failed';
+    return res.status(400).json({ error: message });
+  });
+}, (req, res) => {
   const currentUser = getVerifiedSessionUser(req);
   if (!currentUser) return res.status(401).json({ error: 'Not authenticated' });
   if (!currentUser.isManager && !currentUser.isAdmin) {

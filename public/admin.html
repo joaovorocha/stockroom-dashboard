@@ -981,14 +981,23 @@
       document.getElementById('userModal').classList.add('active');
     }
 
-    function closeUserModal() {
-      document.getElementById('userModal').classList.remove('active');
-    }
+	    function closeUserModal() {
+	      document.getElementById('userModal').classList.remove('active');
+	    }
 
-    function getPhotoMode() {
-      const el = document.querySelector('input[name="photoMode"]:checked');
-      return el?.value || 'url';
-    }
+	    // Password reset button (no password is shown in the UI)
+	    document.getElementById('resetPasswordBtn')?.addEventListener('click', () => {
+	      const el = document.getElementById('userPassword');
+	      if (!el) return;
+	      el.value = '1234';
+	      el.dataset.resetArmed = 'true';
+	      alert('Password will be reset to 1234 when you click Save User.\n\nUser will be prompted to complete profile + choose a new password on next login.');
+	    });
+
+	    function getPhotoMode() {
+	      const el = document.querySelector('input[name="photoMode"]:checked');
+	      return el?.value || 'url';
+	    }
 
     function setPhotoMode(mode) {
       const urlRadio = document.querySelector('input[name="photoMode"][value="url"]');
@@ -1044,22 +1053,22 @@
       syncCanEditGameplanVisibility();
     });
 
-    async function uploadUserPhoto(userId, file) {
-      const form = new FormData();
-      form.append('photo', file);
-      const response = await fetch(`/api/auth/users/${userId}/photo`, { method: 'POST', body: form });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || `Upload failed (HTTP ${response.status})`);
-      return data.imageUrl;
-    }
+	    async function uploadUserPhoto(userId, file) {
+	      const form = new FormData();
+	      form.append('photo', file);
+	      const response = await fetch(`/api/auth/users/${userId}/photo`, { method: 'POST', body: form, credentials: 'include' });
+	      const data = await response.json().catch(() => ({}));
+	      if (!response.ok) throw new Error(data.error || `Upload failed (HTTP ${response.status})`);
+	      return data.imageUrl;
+	    }
 
-    async function saveUser() {
-	      let userId = document.getElementById('editUserId').value;
-	      const photoMode = getPhotoMode();
-	      const photoFile = document.getElementById('userPhotoFile')?.files?.[0] || null;
-	      const passwordEl = document.getElementById('userPassword');
-	      const resetArmed = passwordEl?.dataset?.resetArmed === 'true';
-	      const passwordValue = resetArmed ? (passwordEl.value || '1234') : '';
+	    async function saveUser() {
+		      let userId = document.getElementById('editUserId').value;
+		      const photoMode = getPhotoMode();
+		      const photoFile = document.getElementById('userPhotoFile')?.files?.[0] || null;
+		      const passwordEl = document.getElementById('userPassword');
+		      const resetArmed = passwordEl?.dataset?.resetArmed === 'true';
+		      const passwordValue = resetArmed ? (passwordEl.value || '1234') : '';
 
 	      const userData = {
 	        name: document.getElementById('userFullName').value,
@@ -1073,9 +1082,10 @@
 	        isAdmin: document.getElementById('userIsAdmin').checked
 	      };
 
-	      // Only include password when creating or when reset was requested.
-	      if (!userId) userData.password = passwordValue || '1234';
-	      else if (resetArmed) userData.password = passwordValue || '1234';
+		      // Only include password when creating or when reset was requested.
+		      if (!userId) userData.password = passwordValue || '1234';
+		      else if (resetArmed) userData.password = passwordValue || '1234';
+		      if (!userId || resetArmed) userData.mustChangePassword = true;
 
 	      if (!userData.name || !userData.employeeId || (!userId && !userData.password)) {
 	        alert('Name and Employee ID are required' + (!userId ? ' (password will default to 1234)' : ''));
@@ -1106,29 +1116,26 @@
           if (!updateRes.ok) throw new Error(updateData.error || 'Error saving user');
 	    }
 
-	    // Password reset button (no password is shown in the UI)
-	    document.getElementById('resetPasswordBtn')?.addEventListener('click', () => {
-	      const el = document.getElementById('userPassword');
-	      if (!el) return;
-	      el.value = '1234';
-	      el.dataset.resetArmed = 'true';
-	      alert('Password will be reset to 1234 when you click Save User.');
-	    });
+	        if (photoMode === 'upload' && photoFile) {
+	          try {
+	            const imageUrl = await uploadUserPhoto(userId, photoFile);
+	            // Ensure latest user record has the new image URL (upload endpoint already saves it),
+	            // but keep the UI field in sync for the next edit.
+	            document.getElementById('userPhotoUrl').value = imageUrl || '';
+	          } catch (e) {
+	            // Don't block saving the user if the photo upload fails.
+	            console.error('Photo upload failed:', e);
+	            showToast(e?.message ? `Photo upload failed: ${e.message}` : 'Photo upload failed', 'warning');
+	          }
+	        }
 
-        if (photoMode === 'upload' && photoFile) {
-          const imageUrl = await uploadUserPhoto(userId, photoFile);
-          // Ensure latest user record has the new image URL (upload endpoint already saves it),
-          // but keep the UI field in sync for the next edit.
-          document.getElementById('userPhotoUrl').value = imageUrl || '';
-        }
-
-        closeUserModal();
-        await loadUsers();
-        showToast('User saved');
-      } catch (err) {
-        alert(err?.message || 'Error saving user');
-      }
-    }
+	        closeUserModal();
+	        await loadUsers();
+	        showToast('User saved');
+	      } catch (err) {
+	        alert(err?.message || 'Error saving user');
+	      }
+	    }
 
     async function deleteUser(userId, userName) {
       if (!confirm(`Are you sure you want to delete user "${userName}"?\n\nThis action cannot be undone.`)) {

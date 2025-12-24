@@ -122,6 +122,15 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login-v2.html'));
 });
 
+// Public password reset pages (no auth)
+app.get('/forgot-password', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'forgot-password.html'));
+});
+
+app.get('/reset-password', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'reset-password.html'));
+});
+
 app.get('/gameplan', (req, res) => {
   res.redirect('/dashboard');
 });
@@ -189,6 +198,11 @@ app.get('/awards', authMiddleware, (req, res) => {
 
 app.get('/app', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
+});
+
+// Profile completion / password change gate (auth required)
+app.get('/complete-profile', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'complete-profile.html'));
 });
 
 // Extra safety: accept common unicode dash variants in the Operations route.

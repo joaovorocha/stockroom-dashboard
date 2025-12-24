@@ -46,12 +46,16 @@ const authMiddleware = (req, res, next) => {
     }
 
     // Attach normalized user data to request
+    const needsProfileCompletion = !String(currentUser.email || '').trim() || !String(currentUser.phone || '').trim();
+    const mustChangePassword = !!currentUser.mustChangePassword;
     req.user = {
       userId: currentUser.id || userData.userId,
       employeeId: currentUser.employeeId || userData.employeeId,
       name: currentUser.name || userData.name,
       role: currentUser.role || userData.role,
       imageUrl: currentUser.imageUrl || userData.imageUrl,
+      email: currentUser.email || '',
+      phone: currentUser.phone || '',
       isAdmin: !!currentUser.isAdmin,
       isManager: !!(currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toUpperCase() === 'MANAGEMENT'),
       canEditGameplan: !!(
@@ -59,8 +63,17 @@ const authMiddleware = (req, res, next) => {
         currentUser.isManager ||
         currentUser.isAdmin ||
         (currentUser.role || '').toUpperCase() === 'MANAGEMENT'
-      )
+      ),
+      needsProfileCompletion,
+      mustChangePassword
     };
+
+    // For page requests, force profile completion before accessing the app.
+    if (!isApiRequest && (needsProfileCompletion || mustChangePassword)) {
+      if (!originalUrl.startsWith('/complete-profile')) {
+        return res.redirect('/complete-profile');
+      }
+    }
 
     next();
   } catch (error) {

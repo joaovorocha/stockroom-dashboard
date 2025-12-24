@@ -180,13 +180,16 @@
           <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
         </div>
 
-        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="remember" style="width: auto;">
-          <label for="remember" style="margin: 0; text-transform: none; font-size: 14px; color: var(--text-secondary);">Remember me for 30 days</label>
-        </div>
+	        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+	          <input type="checkbox" id="remember" style="width: auto;">
+	          <label for="remember" style="margin: 0; text-transform: none; font-size: 14px; color: var(--text-secondary);">Remember me for 30 days</label>
+	        </div>
 
-        <button type="submit" class="btn btn-primary">Sign In</button>
-      </form>
+	        <button type="submit" class="btn btn-primary">Sign In</button>
+	        <div style="margin-top: 12px; text-align: center;">
+	          <a href="/forgot-password" style="color: var(--text-secondary); text-decoration: underline;">Forgot password?</a>
+	        </div>
+	      </form>
 
       <div class="login-footer">
         <p>Developed by Victor Rocha | 831-998-3808</p>
@@ -215,13 +218,17 @@
         const data = await response.json();
         console.log('Response data:', data);
 
-        if (data.success) {
-          console.log('Login success, redirecting...');
-          window.location.replace('/app');
-        } else {
-          console.log('Login failed:', data.error);
-          document.getElementById('loginError').classList.add('show');
-        }
+	        if (data.success) {
+	          console.log('Login success, redirecting...');
+	          if (data.user?.mustChangePassword || data.user?.needsProfileCompletion) {
+	            window.location.replace('/complete-profile');
+	          } else {
+	            window.location.replace('/app');
+	          }
+	        } else {
+	          console.log('Login failed:', data.error);
+	          document.getElementById('loginError').classList.add('show');
+	        }
       } catch (error) {
         console.error('Login error:', error);
         document.getElementById('loginError').textContent = 'Connection error. Please try again.';
