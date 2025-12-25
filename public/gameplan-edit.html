@@ -1033,19 +1033,24 @@
 				      if (document.dayRolloverWatcher) return;
 				      document.dayRolloverWatcher = true;
 
+				      // Initialize using server store-day (timezone + dayStart aware).
+				      // If the request fails, keep the current date and avoid repeated prompts.
 				      currentEditorDate = null;
+				      getStoreDayInfo().then((info) => {
+				        currentEditorDate = info?.date || getLocalISODate();
+				      }).catch(() => {
+				        currentEditorDate = getLocalISODate();
+				      });
+
 				      setInterval(async () => {
 				        const info = await getStoreDayInfo();
-				        const next = info?.date || getLocalISODate();
+				        if (!info?.date) return; // don't flap between server/local dates
+				        const next = info.date;
+				        if (!currentEditorDate) {
+				          currentEditorDate = next;
+				          return;
+				        }
 				        if (next === currentEditorDate) return;
-
-				        if (hasUnsavedChanges) {
-				          const ok = confirm('A new day has started. Clear all fields for the new day? Unsaved changes will be lost.');
-				          if (!ok) {
-				            currentEditorDate = next;
-			            return;
-			          }
-			        }
 
 				        currentEditorDate = next;
 				        hasUnsavedChanges = false;

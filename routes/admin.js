@@ -12,6 +12,7 @@ const GAMEPLAN_DAILY_DIR = dal.paths.gameplanDailyDir;
 const SHIPMENTS_FILE = dal.paths.shipmentsFile;
 const USERS_FILE = dal.paths.usersFile;
 const AWARDS_CONFIG_FILE = path.join(DATA_DIR, 'awards-config.json');
+const WORK_EXPENSES_CONFIG_FILE = path.join(DATA_DIR, 'work-expenses-config.json');
 
 function getTomatoConfigDefaults() {
   const today = dal.getBusinessDate();
@@ -24,7 +25,8 @@ function readTomatoConfig() {
   return {
     ...defaults,
     ...cfg,
-    tomatoStartDate: (cfg.tomatoStartDate || defaults.tomatoStartDate || '').toString()
+    tomatoStartDate: (cfg.tomatoStartDate || defaults.tomatoStartDate || '').toString(),
+    tomatoResetAt: cfg.tomatoResetAt || null
   };
 }
 
@@ -49,6 +51,21 @@ function safeFileName(value) {
 
 function readJson(filePath, fallback) {
   return dal.readJson(filePath, fallback);
+}
+
+function readWorkExpensesConfig() {
+  const cfg = readJson(WORK_EXPENSES_CONFIG_FILE, null) || {};
+  return {
+    globalMonthlyLimit: Number.isFinite(Number(cfg.globalMonthlyLimit)) ? Number(cfg.globalMonthlyLimit) : null,
+    globalYearlyLimit: Number.isFinite(Number(cfg.globalYearlyLimit)) ? Number(cfg.globalYearlyLimit) : null,
+    overrides: cfg.overrides && typeof cfg.overrides === 'object' ? cfg.overrides : {},
+    updatedAt: cfg.updatedAt || null,
+    updatedBy: cfg.updatedBy || null
+  };
+}
+
+function writeWorkExpensesConfig(next) {
+  dal.writeJsonAtomic(WORK_EXPENSES_CONFIG_FILE, next, { pretty: true });
 }
 
 // GET /api/admin/store-config - Get store configuration (admin only; middleware enforced in server.js)
@@ -86,12 +103,54 @@ router.post('/tomato-awards/reset', (req, res) => {
   const today = dal.getBusinessDate();
   const next = {
     ...readTomatoConfig(),
-    tomatoStartDate: dal.addDaysToIsoDate(today, 1),
+    // Reset immediately: numbers go back to 0 and start counting again from the current store day.
+    tomatoStartDate: today,
+    tomatoResetAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     updatedBy: req.user?.name || null
   };
   writeTomatoConfig(next);
   return res.json(next);
+});
+
+// GET /api/admin/work-expenses-config - Work-related expenses limits (admin)
+router.get('/work-expenses-config', (req, res) => {
+  return res.json(readWorkExpensesConfig());
+});
+
+// POST /api/admin/work-expenses-config - Update limits (admin)
+router.post('/work-expenses-config', express.json(), (req, res) => {
+  try {
+    const patch = req.body || {};
+    const current = readWorkExpensesConfig();
+
+    const next = {
+      ...current,
+      globalMonthlyLimit: Object.prototype.hasOwnProperty.call(patch, 'globalMonthlyLimit')
+        ? (patch.globalMonthlyLimit === null || patch.globalMonthlyLimit === '' ? null : Number(patch.globalMonthlyLimit))
+        : current.globalMonthlyLimit,
+      globalYearlyLimit: Object.prototype.hasOwnProperty.call(patch, 'globalYearlyLimit')
+        ? (patch.globalYearlyLimit === null || patch.globalYearlyLimit === '' ? null : Number(patch.globalYearlyLimit))
+        : current.globalYearlyLimit,
+      overrides: Object.prototype.hasOwnProperty.call(patch, 'overrides') && patch.overrides && typeof patch.overrides === 'object'
+        ? patch.overrides
+        : current.overrides,
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.user?.name || null
+    };
+
+    if (next.globalMonthlyLimit !== null && !Number.isFinite(next.globalMonthlyLimit)) {
+      return res.status(400).json({ error: 'globalMonthlyLimit must be a number or null' });
+    }
+    if (next.globalYearlyLimit !== null && !Number.isFinite(next.globalYearlyLimit)) {
+      return res.status(400).json({ error: 'globalYearlyLimit must be a number or null' });
+    }
+
+    writeWorkExpensesConfig(next);
+    return res.json(next);
+  } catch (e) {
+    return res.status(400).json({ error: e?.message || 'Invalid work expenses config' });
+  }
 });
 
 function buildTimeOffCsv(entries) {

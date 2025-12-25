@@ -16,6 +16,7 @@ const feedbackRoutes = require('./routes/feedback');
 const adminRoutes = require('./routes/admin');
 const awardsRoutes = require('./routes/awards');
 const radioRoutes = require('./routes/radio');
+const expensesRoutes = require('./routes/expenses');
 const authMiddleware = require('./middleware/auth');
 const { getUPSScheduler } = require('./utils/ups-scheduler');
 
@@ -24,14 +25,14 @@ const PORT = process.env.PORT || 3000;
 
 function managerOnly(req, res, next) {
   const user = req.user;
-  if (user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT') return next();
+  if (user?.isManager || user?.isAdmin) return next();
   if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Manager access required' });
   return res.status(403).send('Manager access required');
 }
 
 function gameplanEditorOnly(req, res, next) {
   const user = req.user;
-  if (user?.canEditGameplan || user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT') return next();
+  if (user?.canEditGameplan || user?.isManager || user?.isAdmin) return next();
   if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Gameplan editor access required' });
   return res.status(403).send('Gameplan editor access required');
 }
@@ -110,6 +111,7 @@ app.use('/api/feedback', authMiddleware, feedbackRoutes);
 app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
 app.use('/api/awards', authMiddleware, awardsRoutes);
 app.use('/api/radio', authMiddleware, radioRoutes);
+app.use('/api/expenses', authMiddleware, expensesRoutes);
 
 // Serve feedback uploads (auth required)
 app.use('/feedback-uploads', authMiddleware, express.static(path.join(__dirname, 'data/feedback-uploads')));
@@ -149,6 +151,8 @@ app.get('/index.html', (req, res) => {
 
 // Serve HTML pages
 app.get('/dashboard', authMiddleware, (req, res) => {
+  // Admins always see the management view (even if their role label is SA/BOH/etc).
+  if (req.user?.isAdmin) return res.redirect('/gameplan-management');
   const role = (req.user?.role || '').toUpperCase();
   if (role === 'TAILOR') return res.redirect('/gameplan-tailors');
   if (role === 'BOH') return res.redirect('/gameplan-boh');
@@ -212,6 +216,10 @@ app.get(/^\/operations[‐‑‒–—−﹣－]metrics$/, authMiddleware, (req,
 
 app.get('/operations-metrics', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'operations-metrics.html'));
+});
+
+app.get('/expenses', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'expenses.html'));
 });
 
 app.get('/shipments-processing', authMiddleware, (req, res) => {

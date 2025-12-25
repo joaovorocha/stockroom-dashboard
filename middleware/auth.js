@@ -57,13 +57,14 @@ const authMiddleware = (req, res, next) => {
       email: currentUser.email || '',
       phone: currentUser.phone || '',
       isAdmin: !!currentUser.isAdmin,
-      isManager: !!(currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toUpperCase() === 'MANAGEMENT'),
+      isManager: !!(currentUser.isManager || currentUser.isAdmin),
       canEditGameplan: !!(
         currentUser.canEditGameplan ||
         currentUser.isManager ||
-        currentUser.isAdmin ||
-        (currentUser.role || '').toUpperCase() === 'MANAGEMENT'
+        currentUser.isAdmin
       ),
+      canConfigRadio: !!(currentUser.canConfigRadio || currentUser.isManager || currentUser.isAdmin),
+      canManageLostPunch: !!(currentUser.canManageLostPunch || currentUser.isManager || currentUser.isAdmin),
       needsProfileCompletion,
       mustChangePassword
     };

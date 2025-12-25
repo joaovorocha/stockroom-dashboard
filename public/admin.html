@@ -364,30 +364,30 @@
       </div>
 
 	      <!-- Users Tab -->
-	      <div id="usersTab" class="tab-content active">
-	        <div class="admin-card">
-	          <div class="admin-card-header">
-	            <h3>All Users</h3>
-	            <button class="btn btn-primary btn-sm" onclick="openAddUserModal()">Add User</button>
-	          </div>
+		      <div id="usersTab" class="tab-content active">
+		        <div class="admin-card">
+		          <div class="admin-card-header">
+		            <h3 style="display:none;">All Users</h3>
+		            <button class="btn btn-primary btn-sm" onclick="openAddUserModal()">Add User</button>
+		          </div>
           <div class="admin-card-body">
-            <table class="users-table">
-              <thead>
-                <tr>
-                  <th>Photo</th>
-                  <th>Name</th>
-                  <th>Employee ID</th>
-                  <th>Role</th>
-                  <th>Manager</th>
-                  <th>Game Plan</th>
-                  <th>Admin</th>
-                  <th>Last Login</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody id="usersTableBody"></tbody>
-            </table>
-          </div>
+	            <table class="users-table">
+	              <thead>
+	                <tr>
+	                  <th>Photo</th>
+	                  <th class="sortable" data-sort-key="name">Name <span class="sort-indicator" aria-hidden="true"></span></th>
+	                  <th class="sortable" data-sort-key="employeeId">Employee ID <span class="sort-indicator" aria-hidden="true"></span></th>
+	                  <th class="sortable" data-sort-key="role">Role <span class="sort-indicator" aria-hidden="true"></span></th>
+	                  <th class="sortable" data-sort-key="manager">Manager <span class="sort-indicator" aria-hidden="true"></span></th>
+	                  <th class="sortable" data-sort-key="gameplan">Game Plan <span class="sort-indicator" aria-hidden="true"></span></th>
+	                  <th class="sortable" data-sort-key="admin">Admin <span class="sort-indicator" aria-hidden="true"></span></th>
+	                  <th class="sortable" data-sort-key="lastLogin">Last Login <span class="sort-indicator" aria-hidden="true"></span></th>
+	                  <th>Actions</th>
+	                </tr>
+	              </thead>
+	              <tbody id="usersTableBody"></tbody>
+	            </table>
+	          </div>
 	        </div>
 	      </div>
 
@@ -627,18 +627,26 @@
             <div style="font-size: 12px; color: #666; margin-top: 6px;">Uploads are saved locally and require login to view.</div>
           </div>
         </div>
-        <div class="checkbox-group">
-          <input type="checkbox" id="userIsManager">
-          <label for="userIsManager">Is Manager (management access)</label>
-        </div>
-        <div class="checkbox-group" id="userCanEditGameplanRow" style="display:none;">
-          <input type="checkbox" id="userCanEditGameplan">
-          <label for="userCanEditGameplan">Can Edit Game Plan (without being a manager)</label>
-        </div>
-        <div class="checkbox-group">
-          <input type="checkbox" id="userIsAdmin">
-          <label for="userIsAdmin">Is Admin (Admin portal + full data export)</label>
-        </div>
+	        <div class="checkbox-group">
+	          <input type="checkbox" id="userIsManager">
+	          <label for="userIsManager">Is Manager (management access)</label>
+	        </div>
+	        <div class="checkbox-group" id="userCanEditGameplanRow" style="display:none;">
+	          <input type="checkbox" id="userCanEditGameplan">
+	          <label for="userCanEditGameplan">Can Edit Game Plan (without being a manager)</label>
+	        </div>
+	        <div class="checkbox-group" id="userCanConfigRadioRow">
+	          <input type="checkbox" id="userCanConfigRadio">
+	          <label for="userCanConfigRadio">Can Configure Radio</label>
+	        </div>
+	        <div class="checkbox-group" id="userCanManageLostPunchRow">
+	          <input type="checkbox" id="userCanManageLostPunch">
+	          <label for="userCanManageLostPunch">Can Manage Lost Punch</label>
+	        </div>
+	        <div class="checkbox-group">
+	          <input type="checkbox" id="userIsAdmin">
+	          <label for="userIsAdmin">Is Admin (Admin portal + full data export)</label>
+	        </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
@@ -657,18 +665,19 @@
     }
 
     // Phones: show message and stop running the admin app code.
-    if (isPhoneViewport()) {
+	    if (isPhoneViewport()) {
       const block = document.getElementById('adminPhoneBlock');
       const layout = document.querySelector('.admin-layout');
       if (block) block.style.display = 'block';
       if (layout) layout.style.display = 'none';
-    } else {
-	    let currentUser = null;
-	    let settings = {};
-	    let users = [];
-	    let storeConfig = null;
-      let tomatoConfig = null;
-      let toastTimer = null;
+	    } else {
+		    let currentUser = null;
+		    let settings = {};
+		    let users = [];
+		    let usersSort = { key: 'name', dir: 'asc' };
+		    let storeConfig = null;
+	      let tomatoConfig = null;
+	      let toastTimer = null;
 
       function showToast(message, type = 'success') {
         const el = document.getElementById('adminToast');
@@ -683,12 +692,12 @@
       }
 
 	    // Check auth
-	    async function checkAuth() {
-	      const response = await fetch('/api/auth/check');
-	      const data = await response.json();
-      if (!data.authenticated || !data.user.isAdmin) {
-        window.location.href = '/dashboard';
-        return;
+		    async function checkAuth() {
+		      const response = await fetch('/api/auth/check', { credentials: 'include' });
+		      const data = await response.json();
+	      if (!data.authenticated || !data.user.isAdmin) {
+	        window.location.href = '/dashboard';
+	        return;
 	      }
 	      currentUser = data.user;
 	      const nameEl = document.getElementById('userName');
@@ -701,38 +710,114 @@
 	    }
 
 	    // Load data
-	    async function loadSettings() {
-      const response = await fetch('/api/gameplan/settings');
-      settings = await response.json();
-      renderSettings();
-    }
-
-	    async function loadUsers() {
-	      const response = await fetch('/api/auth/users');
-	      const data = await response.json();
-	      users = data.users || [];
-	      renderUsers();
+		    async function loadSettings() {
+	      const response = await fetch('/api/gameplan/settings', { credentials: 'include' });
+	      settings = await response.json();
+	      renderSettings();
 	    }
 
-	    async function loadStoreConfig() {
-	      try {
-	        const response = await fetch('/api/admin/store-config');
-	        if (!response.ok) throw new Error(`Failed to load store config (HTTP ${response.status})`);
-	        storeConfig = await response.json();
-	        renderStoreConfig();
-          await loadTomatoConfig();
+		    async function loadUsers() {
+		      const response = await fetch('/api/auth/users', { credentials: 'include' });
+		      const data = await response.json();
+		      users = data.users || [];
+		      applyUsersSort();
+		      renderUsers();
+		    }
+
+		    function applyUsersSort() {
+		      const key = usersSort?.key || 'name';
+		      const dir = usersSort?.dir === 'desc' ? -1 : 1;
+
+		      const getRole = (u) => (u?.role || '').toString().toUpperCase();
+		      const isManagerLike = (u) => !!(u?.isManager || u?.isAdmin);
+		      const isAdminLike = (u) => !!u?.isAdmin;
+		      const canEditGameplanLike = (u) => !!(u?.canEditGameplan || isManagerLike(u));
+		      const lastLoginMs = (u) => {
+		        const t = Date.parse(u?.lastLogin || '');
+		        return Number.isFinite(t) ? t : 0;
+		      };
+
+		      const getValue = (u) => {
+		        if (key === 'name') return (u?.name || '').toString().toLowerCase();
+		        if (key === 'employeeId') return (u?.employeeId || '').toString().toLowerCase();
+		        if (key === 'role') return getRole(u);
+		        if (key === 'manager') return isManagerLike(u) ? 1 : 0;
+		        if (key === 'admin') return isAdminLike(u) ? 1 : 0;
+		        if (key === 'gameplan') return canEditGameplanLike(u) ? 1 : 0;
+		        if (key === 'lastLogin') return lastLoginMs(u);
+		        return '';
+		      };
+
+		      users = (users || [])
+		        .map((u, i) => ({ u, i }))
+		        .sort((a, b) => {
+		          const av = getValue(a.u);
+		          const bv = getValue(b.u);
+		          if (typeof av === 'number' && typeof bv === 'number') {
+		            if (av !== bv) return (av - bv) * dir;
+		          } else {
+		            const cmp = String(av).localeCompare(String(bv));
+		            if (cmp !== 0) return cmp * dir;
+		          }
+		          return a.i - b.i;
+		        })
+		        .map(x => x.u);
+		    }
+
+		    function setUsersSort(nextKey) {
+		      if (!nextKey) return;
+		      if (usersSort.key === nextKey) {
+		        usersSort.dir = usersSort.dir === 'asc' ? 'desc' : 'asc';
+		      } else {
+		        usersSort.key = nextKey;
+		        usersSort.dir = 'asc';
+		      }
+		      applyUsersSort();
+		      renderUsers();
+		      renderUsersSortIndicators();
+		    }
+
+		    function renderUsersSortIndicators() {
+		      document.querySelectorAll('th.sortable').forEach(th => {
+		        const key = th.getAttribute('data-sort-key');
+		        const ind = th.querySelector('.sort-indicator');
+		        if (!ind) return;
+		        if (key !== usersSort.key) {
+		          ind.textContent = '';
+		          return;
+		        }
+		        ind.textContent = usersSort.dir === 'desc' ? '▼' : '▲';
+		      });
+		    }
+
+		    function initUsersSortUI() {
+		      document.querySelectorAll('th.sortable').forEach(th => {
+		        th.addEventListener('click', () => setUsersSort(th.getAttribute('data-sort-key')));
+		        th.style.cursor = 'pointer';
+		        th.title = 'Sort';
+		      });
+		      renderUsersSortIndicators();
+		    }
+
+		    async function loadStoreConfig() {
+		      try {
+		        const response = await fetch('/api/admin/store-config', { credentials: 'include' });
+		        if (!response.ok) throw new Error(`Failed to load store config (HTTP ${response.status})`);
+		        storeConfig = await response.json();
+		        renderStoreConfig();
+	          await loadTomatoConfig();
 	      } catch (e) {
 	        alert(e?.message || 'Failed to load store settings');
 	      }
 	    }
 
-      async function loadTomatoConfig() {
-        try {
-          const resp = await fetch('/api/admin/tomato-awards');
-          if (!resp.ok) throw new Error(`Failed to load tomato awards (HTTP ${resp.status})`);
-          tomatoConfig = await resp.json();
-          const el = document.getElementById('tomatoStartDate');
-          if (el) el.textContent = tomatoConfig?.tomatoStartDate || '--';
+	      async function loadTomatoConfig() {
+	        try {
+	          const resp = await fetch('/api/admin/tomato-awards', { credentials: 'include' });
+	          if (!resp.ok) throw new Error(`Failed to load tomato awards (HTTP ${resp.status})`);
+	          tomatoConfig = await resp.json();
+	          const el = document.getElementById('tomatoStartDate');
+	          if (el) el.textContent = tomatoConfig?.tomatoStartDate || '--';
         } catch (_) {
           const el = document.getElementById('tomatoStartDate');
           if (el) el.textContent = '--';
@@ -777,7 +862,8 @@
 	        const resp = await fetch('/api/admin/store-config', {
 	          method: 'POST',
 	          headers: { 'Content-Type': 'application/json' },
-	          body: JSON.stringify(payload)
+	          body: JSON.stringify(payload),
+	          credentials: 'include'
 	        });
 	        if (!resp.ok) throw new Error(`Save failed (HTTP ${resp.status})`);
 	        storeConfig = await resp.json();
@@ -792,8 +878,7 @@
 
       async function resetTomatoAwards() {
         const btn = document.getElementById('resetTomatoAwardsBtn');
-        const current = (document.getElementById('tomatoStartDate')?.textContent || '').toString().trim();
-        if (!confirm(`Reset Tomato Awards?\n\nThis will restart counting from the next store day.\nCurrent start: ${current || '--'}`)) {
+        if (!confirm('Reset Tomato Awards?\n\nThis will set the Tomato numbers back to 0.')) {
           return;
         }
         if (btn) {
@@ -801,12 +886,12 @@
           btn.textContent = 'Resetting...';
         }
         try {
-          const resp = await fetch('/api/admin/tomato-awards/reset', { method: 'POST' });
+          const resp = await fetch('/api/admin/tomato-awards/reset', { method: 'POST', credentials: 'include' });
           if (!resp.ok) throw new Error(`Reset failed (HTTP ${resp.status})`);
           tomatoConfig = await resp.json();
           const el = document.getElementById('tomatoStartDate');
           if (el) el.textContent = tomatoConfig?.tomatoStartDate || '--';
-          showToast(`Tomato Awards reset (starts ${tomatoConfig?.tomatoStartDate || '--'})`);
+          showToast('Tomato Awards reset');
         } catch (e) {
           alert(e?.message || 'Failed to reset tomato awards');
         } finally {
@@ -817,11 +902,11 @@
         }
       }
 
-	    async function loadActivity() {
-	      const response = await fetch('/api/auth/activity?limit=50');
-	      const data = await response.json();
-	      renderActivity(data.logs || []);
-    }
+		    async function loadActivity() {
+		      const response = await fetch('/api/auth/activity?limit=50', { credentials: 'include' });
+		      const data = await response.json();
+		      renderActivity(data.logs || []);
+	    }
 
     function downloadBackup() {
       window.location.href = '/api/admin/backup.zip';
@@ -852,34 +937,40 @@
       `).join('');
     }
 
-    function renderUsers() {
-      const tbody = document.getElementById('usersTableBody');
-      tbody.innerHTML = users.map(user => `
-        <tr>
-          <td>
-            ${user.imageUrl
-              ? `<img src="${user.imageUrl}" class="user-avatar">`
-              : `<div class="user-avatar" style="display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#666;">${getInitials(user.name)}</div>`
-            }
-          </td>
-          <td><strong>${user.name}</strong></td>
-          <td>${user.employeeId}</td>
-          <td><span class="badge badge-${user.role.toLowerCase()}">${user.role}</span></td>
-          <td>${user.isManager ? 'Yes' : 'No'}</td>
-          <td>${user.canEditGameplan ? 'Yes' : 'No'}</td>
-          <td>${user.isAdmin ? 'Yes' : 'No'}</td>
-          <td>${user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}</td>
-          <td>
-            <button class="btn btn-sm btn-secondary" onclick="editUser('${user.id}')">Edit</button>
-            <button class="btn btn-sm delete-user-btn" style="background:#dc2626;color:#fff;margin-left:8px;" data-user-id="${user.id}" data-user-name="${user.name.replace(/"/g, '&quot;')}" title="Delete user">Delete</button>
-          </td>
-        </tr>
-      `).join('');
+	    function renderUsers() {
+	      const tbody = document.getElementById('usersTableBody');
+	      tbody.innerHTML = users.map(user => {
+	        const managerLike = !!user.isManager || !!user.isAdmin;
+	        const adminLike = !!user.isAdmin;
+	        const gameplanLike = !!user.canEditGameplan || managerLike;
 
-      // Attach delete event listeners
-      document.querySelectorAll('.delete-user-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          deleteUser(this.dataset.userId, this.dataset.userName);
+	        return `
+	        <tr>
+	          <td>
+	            ${user.imageUrl
+	              ? `<img src="${user.imageUrl}" class="user-avatar">`
+	              : `<div class="user-avatar" style="display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#666;">${getInitials(user.name)}</div>`
+	            }
+	          </td>
+	          <td><strong>${user.name}</strong></td>
+	          <td>${user.employeeId}</td>
+	          <td><span class="badge badge-${user.role.toLowerCase()}">${user.role}</span></td>
+	          <td>${managerLike ? 'Yes' : 'No'}</td>
+	          <td>${gameplanLike ? 'Yes' : 'No'}</td>
+	          <td>${adminLike ? 'Yes' : 'No'}</td>
+	          <td>${user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}</td>
+	          <td>
+	            <button class="btn btn-sm btn-secondary" onclick="editUser('${user.id}')">Edit</button>
+	            <button class="btn btn-sm delete-user-btn" style="background:#dc2626;color:#fff;margin-left:8px;" data-user-id="${user.id}" data-user-name="${user.name.replace(/"/g, '&quot;')}" title="Delete user">Delete</button>
+	          </td>
+	        </tr>
+	      `;
+	      }).join('');
+
+	      // Attach delete event listeners
+	      document.querySelectorAll('.delete-user-btn').forEach(btn => {
+	        btn.addEventListener('click', function() {
+	          deleteUser(this.dataset.userId, this.dataset.userName);
         });
       });
     }
@@ -925,16 +1016,17 @@
       input.value = '';
     }
 
-    async function saveSettings() {
-      await fetch('/api/gameplan/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
-      });
-    }
+	    async function saveSettings() {
+	      await fetch('/api/gameplan/settings', {
+	        method: 'POST',
+	        headers: { 'Content-Type': 'application/json' },
+	        body: JSON.stringify(settings),
+	        credentials: 'include'
+	      });
+	    }
 
     // User actions
-	    function openAddUserModal() {
+		    function openAddUserModal() {
 	      document.getElementById('userModalTitle').textContent = 'Add User';
 	      document.getElementById('editUserId').value = '';
 	      document.getElementById('userFullName').value = '';
@@ -949,14 +1041,16 @@
 	      const fileEl = document.getElementById('userPhotoFile');
 	      if (fileEl) fileEl.value = '';
       setPhotoMode('url');
-      document.getElementById('userIsManager').checked = false;
-      document.getElementById('userCanEditGameplan').checked = false;
-      document.getElementById('userIsAdmin').checked = false;
-      syncCanEditGameplanVisibility();
-      document.getElementById('userModal').classList.add('active');
-    }
+	      document.getElementById('userIsManager').checked = false;
+	      document.getElementById('userCanEditGameplan').checked = false;
+	      document.getElementById('userCanConfigRadio').checked = false;
+	      document.getElementById('userCanManageLostPunch').checked = false;
+	      document.getElementById('userIsAdmin').checked = false;
+	      syncCanEditGameplanVisibility();
+	      document.getElementById('userModal').classList.add('active');
+	    }
 
-	    function editUser(userId) {
+		    function editUser(userId) {
 	      const user = users.find(u => u.id === userId);
 	      if (!user) return;
 
@@ -974,12 +1068,14 @@
 	      const fileEl = document.getElementById('userPhotoFile');
 	      if (fileEl) fileEl.value = '';
       setPhotoMode('url');
-      document.getElementById('userIsManager').checked = user.isManager || false;
-      document.getElementById('userCanEditGameplan').checked = user.canEditGameplan || false;
-      document.getElementById('userIsAdmin').checked = user.isAdmin || false;
-      syncCanEditGameplanVisibility();
-      document.getElementById('userModal').classList.add('active');
-    }
+	      document.getElementById('userIsManager').checked = user.isManager || false;
+	      document.getElementById('userCanEditGameplan').checked = user.canEditGameplan || false;
+	      document.getElementById('userCanConfigRadio').checked = user.canConfigRadio || false;
+	      document.getElementById('userCanManageLostPunch').checked = user.canManageLostPunch || false;
+	      document.getElementById('userIsAdmin').checked = user.isAdmin || false;
+	      syncCanEditGameplanVisibility();
+	      document.getElementById('userModal').classList.add('active');
+	    }
 
 	    function closeUserModal() {
 	      document.getElementById('userModal').classList.remove('active');
@@ -1015,43 +1111,42 @@
       if (uploadRow) uploadRow.style.display = mode === 'upload' ? 'block' : 'none';
     }
 
-    function syncCanEditGameplanVisibility() {
-      const isManagerEl = document.getElementById('userIsManager');
-      const roleEl = document.getElementById('userRole');
-      const isAdminEl = document.getElementById('userIsAdmin');
-      const row = document.getElementById('userCanEditGameplanRow');
-      const canEditEl = document.getElementById('userCanEditGameplan');
-      if (!isManagerEl || !roleEl || !isAdminEl || !row || !canEditEl) return;
+	    function syncCanEditGameplanVisibility() {
+	      const isManagerEl = document.getElementById('userIsManager');
+	      const isAdminEl = document.getElementById('userIsAdmin');
+	      const row = document.getElementById('userCanEditGameplanRow');
+	      const canEditEl = document.getElementById('userCanEditGameplan');
+	      const radioRow = document.getElementById('userCanConfigRadioRow');
+	      const radioEl = document.getElementById('userCanConfigRadio');
+	      const lostRow = document.getElementById('userCanManageLostPunchRow');
+	      const lostEl = document.getElementById('userCanManageLostPunch');
+	      if (!isManagerEl || !isAdminEl || !row || !canEditEl) return;
 
-      const role = (roleEl.value || '').toString().toUpperCase();
-      const isRoleManagerLike = role === 'MANAGEMENT' || role === 'ADMIN';
-      const isManagerLike = !!isManagerEl.checked || !!isAdminEl.checked || isRoleManagerLike;
+	      const isManagerLike = !!isManagerEl.checked || !!isAdminEl.checked;
 
-      row.style.display = isManagerLike ? 'none' : 'block';
-      canEditEl.disabled = isManagerLike;
-      if (isManagerLike) canEditEl.checked = false;
-    }
+	      row.style.display = isManagerLike ? 'none' : 'block';
+	      canEditEl.disabled = isManagerLike;
+	      if (isManagerLike) canEditEl.checked = false;
+
+	      // Managers/admins already have these abilities; only show toggles for non-managers.
+	      if (radioRow && radioEl) {
+	        radioRow.style.display = isManagerLike ? 'none' : 'block';
+	        radioEl.disabled = isManagerLike;
+	        if (isManagerLike) radioEl.checked = false;
+	      }
+	      if (lostRow && lostEl) {
+	        lostRow.style.display = isManagerLike ? 'none' : 'block';
+	        lostEl.disabled = isManagerLike;
+	        if (isManagerLike) lostEl.checked = false;
+	      }
+	    }
 
     document.getElementById('userIsManager')?.addEventListener('change', syncCanEditGameplanVisibility);
     document.getElementById('userIsAdmin')?.addEventListener('change', syncCanEditGameplanVisibility);
-    document.getElementById('userRole')?.addEventListener('change', () => {
-      const roleEl = document.getElementById('userRole');
-      const isManagerEl = document.getElementById('userIsManager');
-      const isAdminEl = document.getElementById('userIsAdmin');
-      if (!roleEl || !isManagerEl || !isAdminEl) return;
-
-      const role = (roleEl.value || '').toString().toUpperCase();
-      if (role === 'ADMIN') {
-        isAdminEl.checked = true;
-        isManagerEl.checked = true;
-      } else if (role === 'MANAGEMENT') {
-        isManagerEl.checked = true;
-      } else {
-        // If user selects a non-manager role, default manager privileges off (can be re-enabled manually).
-        isManagerEl.checked = false;
-      }
-      syncCanEditGameplanVisibility();
-    });
+	    document.getElementById('userRole')?.addEventListener('change', () => {
+	      // Role is for visualization only; permissions are controlled by the checkboxes.
+	      syncCanEditGameplanVisibility();
+	    });
 
 	    async function uploadUserPhoto(userId, file) {
 	      const form = new FormData();
@@ -1070,17 +1165,19 @@
 		      const resetArmed = passwordEl?.dataset?.resetArmed === 'true';
 		      const passwordValue = resetArmed ? (passwordEl.value || '1234') : '';
 
-	      const userData = {
-	        name: document.getElementById('userFullName').value,
-	        employeeId: document.getElementById('userEmployeeId').value,
-	        email: document.getElementById('userEmail').value,
-	        phone: document.getElementById('userPhone').value,
-	        role: document.getElementById('userRole').value,
-	        imageUrl: photoMode === 'url' ? document.getElementById('userPhotoUrl').value : '',
-	        isManager: document.getElementById('userIsManager').checked,
-	        canEditGameplan: document.getElementById('userCanEditGameplan').checked,
-	        isAdmin: document.getElementById('userIsAdmin').checked
-	      };
+		      const userData = {
+		        name: document.getElementById('userFullName').value,
+		        employeeId: document.getElementById('userEmployeeId').value,
+		        email: document.getElementById('userEmail').value,
+		        phone: document.getElementById('userPhone').value,
+		        role: document.getElementById('userRole').value,
+		        imageUrl: photoMode === 'url' ? document.getElementById('userPhotoUrl').value : '',
+		        isManager: document.getElementById('userIsManager').checked,
+		        canEditGameplan: document.getElementById('userCanEditGameplan').checked,
+		        canConfigRadio: document.getElementById('userCanConfigRadio').checked,
+		        canManageLostPunch: document.getElementById('userCanManageLostPunch').checked,
+		        isAdmin: document.getElementById('userIsAdmin').checked
+		      };
 
 		      // Only include password when creating or when reset was requested.
 		      if (!userId) userData.password = passwordValue || '1234';
@@ -1094,12 +1191,13 @@
 
 	      try {
         // If creating a new user, create first (so we have an id for upload).
-	        if (!userId) {
-	          const createRes = await fetch('/api/auth/users', {
-	            method: 'POST',
-	            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData)
-          });
+		        if (!userId) {
+		          const createRes = await fetch('/api/auth/users', {
+		            method: 'POST',
+		            headers: { 'Content-Type': 'application/json' },
+	            body: JSON.stringify(userData),
+	            credentials: 'include'
+	          });
           const createData = await createRes.json().catch(() => ({}));
           if (!createRes.ok) throw new Error(createData.error || 'Error saving user');
           userId = createData.user?.id || '';
@@ -1107,11 +1205,12 @@
 	        } else {
 	          // Prevent accidentally clearing password when editing.
 	          if (!userData.password) delete userData.password;
-	          const updateRes = await fetch(`/api/auth/users/${userId}`, {
-	            method: 'PUT',
-	            headers: { 'Content-Type': 'application/json' },
-	            body: JSON.stringify(userData)
-	          });
+		          const updateRes = await fetch(`/api/auth/users/${userId}`, {
+		            method: 'PUT',
+		            headers: { 'Content-Type': 'application/json' },
+		            body: JSON.stringify(userData),
+		            credentials: 'include'
+		          });
           const updateData = await updateRes.json().catch(() => ({}));
           if (!updateRes.ok) throw new Error(updateData.error || 'Error saving user');
 	    }
@@ -1137,16 +1236,17 @@
 	      }
 	    }
 
-    async function deleteUser(userId, userName) {
+	    async function deleteUser(userId, userName) {
       if (!confirm(`Are you sure you want to delete user "${userName}"?\n\nThis action cannot be undone.`)) {
         return;
       }
 
-      try {
-        const response = await fetch(`/api/auth/users/${userId}`, {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' }
-        });
+	      try {
+	        const response = await fetch(`/api/auth/users/${userId}`, {
+	          method: 'DELETE',
+	          headers: { 'Content-Type': 'application/json' },
+	          credentials: 'include'
+	        });
 
         if (response.ok) {
           alert(`User "${userName}" has been deleted successfully.`);
@@ -1161,7 +1261,7 @@
       }
     }
 
-    function getInitials(name) {
+	    function getInitials(name) {
       return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
     }
 
@@ -1184,12 +1284,13 @@
 	      });
 	    });
 
-	    // Init
-	    checkAuth();
-	    loadSettings();
-	    loadUsers();
-	    document.getElementById('saveStoreConfigBtn')?.addEventListener('click', saveStoreConfig);
-	    document.getElementById('resetTomatoAwardsBtn')?.addEventListener('click', resetTomatoAwards);
+		    // Init
+		    initUsersSortUI();
+		    checkAuth();
+		    loadSettings();
+		    loadUsers();
+		    document.getElementById('saveStoreConfigBtn')?.addEventListener('click', saveStoreConfig);
+		    document.getElementById('resetTomatoAwardsBtn')?.addEventListener('click', resetTomatoAwards);
 
       // Expose handlers used by inline HTML attributes (onclick/onchange).
       window.openAddUserModal = openAddUserModal;
@@ -1200,9 +1301,9 @@
       window.removeSettingItem = removeSettingItem;
       window.updateSettingItem = updateSettingItem;
       window.downloadBackup = downloadBackup;
-      window.downloadStructuredExport = downloadStructuredExport;
-	    }
-	  </script>
+	      window.downloadStructuredExport = downloadStructuredExport;
+		    }
+		  </script>
     <div id="adminToast" class="admin-toast" style="display:none;"></div>
   <script src="/js/shared-header.js?v=21"></script>
 </body>

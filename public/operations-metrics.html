@@ -34,6 +34,7 @@
       <a href="/dashboard" id="navGamePlan">Game Plan</a>
       <a href="/operations-metrics" class="active" id="navOperationsMetrics">Operations</a>
       <a href="/awards" id="navAwards">Awards</a>
+      <a href="/expenses" id="navExpenses">Expenses</a>
       <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
       <a href="/scanner" id="navScanner">Scanner</a>
       <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
@@ -73,6 +74,128 @@
           <div class="import-info">
             <span class="import-label">Records imported:</span>
             <span class="import-value" id="recordsImported">--</span>
+          </div>
+        </div>
+
+        <div class="ops-subsection">
+          <h4 class="ops-subsection-title">🥇 Main Retail KPIs (WTD)</h4>
+          <div class="metrics-row">
+            <div class="metric-card" id="kpiApcCard">
+              <span class="metric-label">APC</span>
+              <span class="metric-value" id="kpiApc">--</span>
+              <span class="metric-change neutral" id="kpiApcChange">--</span>
+            </div>
+            <div class="metric-card" id="kpiApcVsTargetCard">
+              <span class="metric-label">APC vs Target</span>
+              <span class="metric-value" id="kpiApcVsTarget">--</span>
+              <span class="metric-change neutral" id="kpiApcTargetLabel">--</span>
+            </div>
+            <div class="metric-card" id="kpiCpcCard">
+              <span class="metric-label">CPC</span>
+              <span class="metric-value" id="kpiCpc">--</span>
+              <span class="metric-change neutral" id="kpiCpcChange">--</span>
+            </div>
+            <div class="metric-card" id="kpiCpcVsTargetCard">
+              <span class="metric-label">CPC vs Target</span>
+              <span class="metric-value" id="kpiCpcVsTarget">--</span>
+              <span class="metric-change neutral" id="kpiCpcTargetLabel">--</span>
+            </div>
+            <div class="metric-card" id="kpiIpcCard">
+              <span class="metric-label">IPC</span>
+              <span class="metric-value" id="kpiIpc">--</span>
+              <span class="metric-change neutral" id="kpiIpcChange">--</span>
+            </div>
+            <div class="metric-card" id="kpiIpcVsTargetCard">
+              <span class="metric-label">IPC vs Target</span>
+              <span class="metric-value" id="kpiIpcVsTarget">--</span>
+              <span class="metric-change neutral" id="kpiIpcTargetLabel">--</span>
+            </div>
+            <div class="metric-card" id="kpiSphCard">
+              <span class="metric-label">SPH</span>
+              <span class="metric-value" id="kpiSph">--</span>
+              <span class="metric-change neutral" id="kpiSphChange">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ops-subsection">
+          <h4 class="ops-subsection-title">🧵 Tailor Productivity (Last Complete Week)</h4>
+          <div class="metrics-row">
+            <div class="metric-card" id="tailorTeamProdCard">
+              <span class="metric-label">Team Productivity</span>
+              <span class="metric-value" id="tailorTeamProductivityPct">--</span>
+              <span class="metric-change neutral">Last complete week</span>
+            </div>
+            <div class="metric-card" id="tailorUtilCard">
+              <span class="metric-label">Utilization</span>
+              <span class="metric-value" id="tailorUtilizationPct">--</span>
+              <span class="metric-change neutral">Alterations / Worked</span>
+            </div>
+            <div class="metric-card" id="tailorWorkedCard">
+              <span class="metric-label">Worked Hours</span>
+              <span class="metric-value" id="tailorWorkedHours">--</span>
+              <span class="metric-change neutral">Total</span>
+            </div>
+            <div class="metric-card" id="tailorAltHoursCard">
+              <span class="metric-label">Hours of Alterations</span>
+              <span class="metric-value" id="tailorAlterationsHours">--</span>
+              <span class="metric-change neutral">Total</span>
+            </div>
+          </div>
+
+          <details style="margin-top: 12px;">
+            <summary style="cursor:pointer; user-select:none;">Per-tailor breakdown</summary>
+            <div class="orders-table-container" style="margin-top: 10px;">
+              <table class="orders-table">
+                <thead>
+                  <tr>
+                    <th>Tailor</th>
+                    <th>Productivity</th>
+                    <th>Benchmark (hrs)</th>
+                    <th>Worked (hrs)</th>
+                    <th>Efficiency</th>
+                  </tr>
+                </thead>
+                <tbody id="tailorLastWeekTableBody"></tbody>
+              </table>
+            </div>
+          </details>
+
+          <details style="margin-top: 10px;">
+            <summary style="cursor:pointer; user-select:none;">Benchmark times (minutes)</summary>
+            <div class="orders-table-container" style="margin-top: 10px;">
+              <table class="orders-table">
+                <thead>
+                  <tr>
+                    <th>Difficulty</th>
+                    <th>Description</th>
+                    <th>Minutes</th>
+                  </tr>
+                </thead>
+                <tbody id="benchmarkTimesTableBody"></tbody>
+              </table>
+            </div>
+          </details>
+        </div>
+
+        <div class="ops-subsection">
+          <h4 class="ops-subsection-title">💳 Work-Related Expenses (Employee Discounts)</h4>
+          <div class="metrics-row">
+            <div class="metric-card" id="expDiscountYtdCard">
+              <span class="metric-label">Discount (YTD)</span>
+              <span class="metric-value" id="expDiscountYtd">--</span>
+              <span class="metric-change neutral" id="expDiscountYtdHint">--</span>
+            </div>
+            <div class="metric-card" id="expDiscountMonthCard">
+              <span class="metric-label">Discount (This Month)</span>
+              <span class="metric-value" id="expDiscountMonth">--</span>
+              <span class="metric-change neutral" id="expDiscountMonthHint">--</span>
+            </div>
+            <div class="metric-card clickable" onclick="window.location.href='/expenses'">
+              <span class="metric-label">View Orders</span>
+              <span class="metric-value">Open</span>
+              <span class="metric-hint">See employee totals + order list</span>
+            </div>
           </div>
         </div>
 

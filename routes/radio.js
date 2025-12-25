@@ -61,8 +61,7 @@ function loadTranscripts({ afterId = 0, limit = 200 }) {
 
 function isPrivileged(req) {
   const user = req.user || {};
-  const role = String(user.role || '').toUpperCase();
-  return !!(user.isAdmin || user.isManager || role === 'MANAGEMENT' || role === 'ADMIN');
+  return !!(user.isAdmin || user.isManager || user.canConfigRadio);
 }
 
 function requirePrivileged(req, res) {

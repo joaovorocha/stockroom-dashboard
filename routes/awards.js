@@ -28,13 +28,6 @@ function toISODate(d) {
   return new Date(d).toISOString().slice(0, 10);
 }
 
-function daysAgoISO(days) {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - days);
-  return toISODate(d);
-}
-
 function clampInt(value, min, max, fallback) {
   const n = Number.parseInt(value, 10);
   if (!Number.isFinite(n)) return fallback;
@@ -86,15 +79,25 @@ function readTomatoStartDate() {
   const tomorrow = dal.addDaysToIsoDate(today, 1);
   const cfg = readJsonFile(AWARDS_CONFIG_FILE, null) || {};
   const raw = (cfg.tomatoStartDate || '').toString().trim();
-  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(raw)) return raw;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
   return tomorrow;
+}
+
+function readTomatoResetAtMs() {
+  const cfg = readJsonFile(AWARDS_CONFIG_FILE, null) || {};
+  const raw = (cfg.tomatoResetAt || '').toString().trim();
+  if (!raw) return null;
+  const t = Date.parse(raw);
+  return Number.isFinite(t) ? t : null;
 }
 
 router.get('/tomato', (req, res) => {
   const windowDays = clampInt(req.query.days, 1, 180, 30);
-  const endDate = daysAgoISO(0);
-  const startDate = daysAgoISO(windowDays - 1);
+  // Use store business day (timezone + dayStart aware) instead of UTC dates.
+  const endDate = dal.getBusinessDate();
+  const startDate = dal.addDaysToIsoDate(endDate, -(windowDays - 1));
   const tomatoStartDate = readTomatoStartDate();
+  const tomatoResetAtMs = readTomatoResetAtMs();
   const effectiveStartDate = tomatoStartDate > startDate ? tomatoStartDate : startDate;
 
   const { userById, userByEmployeeId, userByName } = buildUserMaps();
@@ -106,12 +109,19 @@ router.get('/tomato', (req, res) => {
   const closingDutiesLog = readJsonFile(CLOSING_DUTIES_LOG_FILE, []);
 
   const inWindow = dateStr => typeof dateStr === 'string' && dateStr >= effectiveStartDate && dateStr <= endDate;
+  const isAfterReset = (iso) => {
+    if (!tomatoResetAtMs) return true;
+    const t = Date.parse(iso || '');
+    if (!Number.isFinite(t)) return true;
+    return t >= tomatoResetAtMs;
+  };
 
   // 1) Lost punch "offenders" (most submissions)
   const lostPunchCountByUserId = new Map();
   if (Array.isArray(lostPunchLog)) {
     lostPunchLog.forEach(entry => {
       if (!entry || !inWindow(entry.missedDate)) return;
+      if (!isAfterReset(entry.submittedAt)) return;
       const userId = (entry.employeeUserId || '').toString();
       if (!userId) return;
       lostPunchCountByUserId.set(userId, (lostPunchCountByUserId.get(userId) || 0) + 1);
@@ -135,6 +145,9 @@ router.get('/tomato', (req, res) => {
       const section = entry?.section;
       const userId = entry?.userId;
       if (!inWindow(date)) return;
+      // Don't count "missed" closing duties for the current store day (it's still in progress).
+      if (date === endDate) return;
+      if (!isAfterReset(entry?.submittedAt)) return;
       if (!date || !section) return;
 
       let bucket = submissionsByDate.get(date);
@@ -163,7 +176,9 @@ router.get('/tomato', (req, res) => {
 
   // Iterate store days
   for (let i = 0; i < windowDays; i++) {
-    const date = daysAgoISO(windowDays - 1 - i);
+    const date = dal.addDaysToIsoDate(startDate, i);
+    if (date < effectiveStartDate || date > endDate) continue;
+    if (date === endDate) continue;
     const gameplanFile = path.join(GAMEPLAN_DAILY_DIR, `${date}.json`);
     if (!fs.existsSync(gameplanFile)) continue;
 

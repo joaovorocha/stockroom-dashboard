@@ -214,7 +214,7 @@
       <!-- Last Week Store Overview -->
       <section class="section metrics-section" id="metricsSection">
         <div class="section-header">
-          <h2>Last Week Store Overview</h2>
+          <h2>Week to Date Store Overview</h2>
           <div class="section-actions">
             <button class="btn btn-sm btn-outline" id="toggleMetrics">Hide</button>
           </div>
@@ -259,6 +259,53 @@
             <span class="mix-item tuxedo"><span id="tuxedoPct">--</span> Tuxedo</span>
             <span class="mix-total">= 100%</span>
           </div>
+
+          <div style="margin-top: 14px;">
+            <div style="font-weight: 600; margin-bottom: 8px;">🧵 Tailor Productivity (Last Complete Week)</div>
+            <div class="metrics-row">
+              <div class="metric-card" id="mgrTailorTeamProdCard">
+                <span class="metric-label">Team Productivity</span>
+                <span class="metric-value" id="mgrTailorTeamProductivityPct">--</span>
+                <span class="metric-change neutral">Last complete week</span>
+              </div>
+              <div class="metric-card" id="mgrTailorUtilCard">
+                <span class="metric-label">Utilization</span>
+                <span class="metric-value" id="mgrTailorUtilizationPct">--</span>
+                <span class="metric-change neutral">Alterations / Worked</span>
+              </div>
+              <div class="metric-card" id="mgrTailorWorkedCard">
+                <span class="metric-label">Worked Hours</span>
+                <span class="metric-value" id="mgrTailorWorkedHours">--</span>
+                <span class="metric-change neutral">Total</span>
+              </div>
+              <div class="metric-card" id="mgrTailorAltHoursCard">
+                <span class="metric-label">Hours of Alterations</span>
+                <span class="metric-value" id="mgrTailorAlterationsHours">--</span>
+                <span class="metric-change neutral">Total</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 14px;">
+            <div style="font-weight: 600; margin-bottom: 8px;">💳 Work-Related Expenses (Employee Discounts)</div>
+            <div class="metrics-row">
+              <div class="metric-card" id="mgrExpDiscountYtdCard">
+                <span class="metric-label">Discount (YTD)</span>
+                <span class="metric-value" id="mgrExpDiscountYtd">--</span>
+                <span class="metric-change neutral" id="mgrExpDiscountYtdHint">--</span>
+              </div>
+              <div class="metric-card" id="mgrExpDiscountMonthCard">
+                <span class="metric-label">Discount (This Month)</span>
+                <span class="metric-value" id="mgrExpDiscountMonth">--</span>
+                <span class="metric-change neutral" id="mgrExpDiscountMonthHint">--</span>
+              </div>
+              <div class="metric-card clickable" onclick="window.location.href='/expenses'">
+                <span class="metric-label">View Orders</span>
+                <span class="metric-value">Open</span>
+                <span class="metric-hint">See employee totals + order list</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -268,7 +315,6 @@
           <h2>Sales Associates</h2>
           <div class="section-actions">
             <span class="section-count" id="saCount">0</span>
-            <button class="btn btn-sm btn-outline expand-btn" id="expandSA" style="display:none;">Show All</button>
           </div>
         </div>
         <div class="employee-grid" id="saGrid"></div>
@@ -280,7 +326,6 @@
           <h2>Back of House</h2>
           <div class="section-actions">
             <span class="section-count" id="bohCount">0</span>
-            <button class="btn btn-sm btn-outline expand-btn" id="expandBOH" style="display:none;">Show All</button>
           </div>
         </div>
         <div class="employee-grid" id="bohGrid"></div>
@@ -292,7 +337,6 @@
           <h2>Management Details</h2>
           <div class="section-actions">
             <span class="section-count" id="mgmtCount">0</span>
-            <button class="btn btn-sm btn-outline expand-btn" id="expandMgmt" style="display:none;">Show All</button>
             <button class="btn btn-sm btn-outline collapse-btn" id="collapseMgmt">▼</button>
           </div>
         </div>
@@ -305,7 +349,6 @@
           <h2>Tailors</h2>
           <div class="section-actions">
             <span class="section-count" id="tailorCount">0</span>
-            <button class="btn btn-sm btn-outline expand-btn" id="expandTailors" style="display:none;">Show All</button>
           </div>
         </div>
         <div class="employee-grid" id="tailorGrid"></div>

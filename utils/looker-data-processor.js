@@ -21,6 +21,7 @@ const APPOINTMENTS_DIR = path.join(FILES_DIR, 'dashboard-appointment_booking_ins
 const LOANS_DIR = path.join(FILES_DIR, 'dashboard-loan_dashboard');
 const TAILOR_DIR = path.join(FILES_DIR, 'dashboard-tailor_myr');
 const COUNT_PERFORMANCE_DIR = path.join(FILES_DIR, 'dashboard-store_count_performance_-_employee_level');
+const WORK_EXPENSES_DIR = path.join(FILES_DIR, 'dashboard-work_related_expenses');
 const GMAIL_IMPORTS_DIR = path.join(FILES_DIR, 'gmail-imports');
 const DASHBOARD_DATA_FILE = path.join(DATA_DIR, 'dashboard-data.json');
 const SCAN_PERFORMANCE_HISTORY_DIR = path.join(DATA_DIR, 'scan-performance-history');
@@ -77,7 +78,8 @@ class LookerDataProcessor {
       waitwhile: hasNewWaitwhile && Object.keys(hasNewWaitwhile).length > 0,
       bestSellers: hasNewBestSellers && (hasNewBestSellers.byRevenue?.length > 0 || hasNewBestSellers.byQuantity?.length > 0),
       operationsHealth: results.operationsHealth && Object.keys(results.operationsHealth).length > 0,
-      customerOrders: results.customerReservedOrders && (results.customerReservedOrders.orders?.length > 0 || results.customerReservedOrders.total > 0)
+      customerOrders: results.customerReservedOrders && (results.customerReservedOrders.orders?.length > 0 || results.customerReservedOrders.total > 0),
+      workRelatedExpenses: results.workRelatedExpenses && Array.isArray(results.workRelatedExpenses.orders) && results.workRelatedExpenses.orders.length > 0
     };
     
     const hasAnyNewData = Object.values(updates).some(v => v);
@@ -154,7 +156,10 @@ class LookerDataProcessor {
       countPerformance: results.employeeCountPerformance || existingData.countPerformance || {},
       
       // Loans
-      loans: results.loans || existingData.loans || {}
+      loans: results.loans || existingData.loans || {},
+
+      // Work-related expenses / employee discounts
+      workRelatedExpenses: updates.workRelatedExpenses ? results.workRelatedExpenses : (existingData.workRelatedExpenses || {})
     };
 
     this.writeJsonFile(DASHBOARD_DATA_FILE, dashboardData);
@@ -357,6 +362,13 @@ class LookerDataProcessor {
       metrics.metrics.ipcVsPY = this.parsePercent(ipcData[0]['Retail Management - Metrics % IPC vs PY']);
     }
 
+    // IPC vs Target
+    const ipcTargetData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'ipc_vs_target.csv'));
+    if (ipcTargetData.length > 0) {
+      metrics.metrics.itemsPerCustomerTarget = parseFloat((ipcTargetData[0]['Retail Management - Metrics # Items Per Customer Target'] || '').toString().replace(/[^0-9.-]/g, '')) || null;
+      metrics.metrics.ipcVsTarget = this.parsePercent(ipcTargetData[0]['Retail Management - Metrics % IPC vs Target']);
+    }
+
     // APC data
     const apcData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'apc.csv'));
     if (apcData.length > 0) {
@@ -364,11 +376,25 @@ class LookerDataProcessor {
       metrics.metrics.apcVsPY = this.parsePercent(apcData[0]['Retail Management - Metrics % APC vs PY']);
     }
 
+    // APC vs Target
+    const apcTargetData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'apc_vs_target.csv'));
+    if (apcTargetData.length > 0) {
+      metrics.metrics.apcTarget = this.parseAmount(apcTargetData[0]['Retail Management - Metrics Average Per Customer Target']);
+      metrics.metrics.apcVsTarget = this.parsePercent(apcTargetData[0]['Retail Management - Metrics % APC vs Target']);
+    }
+
     // CPC data
     const cpcData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'cpc.csv'));
     if (cpcData.length > 0) {
       metrics.metrics.cpc = parseFloat(cpcData[0]['Retail Management - Metrics # Categories Per Customer']) || 0;
       metrics.metrics.cpcVsPY = this.parsePercent(cpcData[0]['Retail Management - Metrics % CPC vs PY']);
+    }
+
+    // CPC vs Target (this CSV has different headers)
+    const cpcTargetData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'cpc_vs_target.csv'));
+    if (cpcTargetData.length > 0) {
+      metrics.metrics.cpcTarget = parseFloat((cpcTargetData[0]['CPC Target'] || '').toString().replace(/[^0-9.-]/g, '')) || null;
+      metrics.metrics.cpcVsTarget = this.parsePercent(cpcTargetData[0]['Percentage']);
     }
 
     // Drop-offs data
@@ -653,10 +679,151 @@ class LookerDataProcessor {
     return result;
   }
 
+  parseLooseNumber(value) {
+    if (value === null || value === undefined) return null;
+    const n = parseFloat(value.toString().replace(/[^0-9.-]/g, ''));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  processWorkRelatedExpenses() {
+    const filePath = path.join(WORK_EXPENSES_DIR, 'full_dump.csv');
+    if (!fs.existsSync(filePath)) return null;
+
+    const rows = this.readCSV(filePath);
+    if (!rows.length) return null;
+
+    const orders = rows
+      .map(row => {
+        const orderId = (row['Order ID'] || '').toString().trim();
+        const date = (row['Calendar Date'] || '').toString().trim();
+        const employeeEmail = (row['Employee Work Email'] || '').toString().trim();
+        const employeeName = (row['Employee Full Name'] || '').toString().trim();
+        const employeeNumber = (row['Employee Number'] || '').toString().trim();
+        const customerName = (row['Customer Full Name'] || '').toString().trim();
+        const reason = (row['Discount Reason'] || '').toString().trim();
+        const contractLocationCode = (row['Contract Location Code'] || '').toString().trim();
+
+        const lcFull = this.parseLooseNumber(row['LC Total Full Price Amount']);
+        const lcNet = this.parseLooseNumber(row['LC Net Revenue Amount']);
+        const lcDiscount = this.parseLooseNumber(row['LC Total Discount Amount']);
+
+        const euroFull = this.parseLooseNumber(row['€ Total Full Price Amount']);
+        const euroNet = this.parseLooseNumber(row['€ Net Revenue Amount']);
+        const euroDiscount = this.parseLooseNumber(row['€ Total Discount Amount']);
+
+        const pct = this.parsePercent(row['% Discounted Full Price (Euro)']);
+
+        return {
+          orderId: orderId || null,
+          calendarDate: date || null,
+          discountReason: reason || null,
+          customerName: customerName || null,
+          employee: {
+            number: employeeNumber || null,
+            name: employeeName || null,
+            email: employeeEmail || null
+          },
+          location: {
+            contractLocationCode: contractLocationCode || null,
+            country: (row['Location Country'] || '').toString().trim() || null,
+            countryRegion: (row['Location Country Region'] || '').toString().trim() || null
+          },
+          amounts: {
+            lc: { fullPrice: lcFull, netRevenue: lcNet, discount: lcDiscount },
+            eur: { fullPrice: euroFull, netRevenue: euroNet, discount: euroDiscount },
+            percentDiscountedFullPriceEuro: Number.isFinite(pct) ? pct : null
+          }
+        };
+      })
+      .filter(o => o.orderId || o.calendarDate || o.employee.email);
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const monthKey = `${year}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+    const byEmployee = new Map();
+    const storeTotals = {
+      currentYear: { orders: 0, discountLc: 0, fullPriceLc: 0, netRevenueLc: 0 },
+      currentMonth: { orders: 0, discountLc: 0, fullPriceLc: 0, netRevenueLc: 0 }
+    };
+
+    for (const o of orders) {
+      const key = (o.employee.email || o.employee.number || o.employee.name || '').toString().trim().toLowerCase();
+      if (!key) continue;
+
+      if (!byEmployee.has(key)) {
+        byEmployee.set(key, {
+          key,
+          employee: o.employee,
+          location: o.location,
+          totals: {
+            currentYear: { orders: 0, discountLc: 0, fullPriceLc: 0, netRevenueLc: 0 },
+            currentMonth: { orders: 0, discountLc: 0, fullPriceLc: 0, netRevenueLc: 0 }
+          }
+        });
+      }
+
+      const entry = byEmployee.get(key);
+      entry.employee = entry.employee?.email ? entry.employee : o.employee;
+      entry.location = entry.location?.contractLocationCode ? entry.location : o.location;
+
+      const d = o.calendarDate ? new Date(`${o.calendarDate}T00:00:00Z`) : null;
+      const y = d && Number.isFinite(d.getTime()) ? d.getUTCFullYear() : null;
+      const mk = d && Number.isFinite(d.getTime()) ? `${y}-${String(d.getUTCMonth() + 1).padStart(2, '0')}` : null;
+
+      const lc = o.amounts?.lc || {};
+      const discount = Number(lc.discount || 0);
+      const full = Number(lc.fullPrice || 0);
+      const net = Number(lc.netRevenue || 0);
+
+      if (y === year) {
+        entry.totals.currentYear.orders += 1;
+        entry.totals.currentYear.discountLc += discount;
+        entry.totals.currentYear.fullPriceLc += full;
+        entry.totals.currentYear.netRevenueLc += net;
+
+        storeTotals.currentYear.orders += 1;
+        storeTotals.currentYear.discountLc += discount;
+        storeTotals.currentYear.fullPriceLc += full;
+        storeTotals.currentYear.netRevenueLc += net;
+      }
+
+      if (mk === monthKey) {
+        entry.totals.currentMonth.orders += 1;
+        entry.totals.currentMonth.discountLc += discount;
+        entry.totals.currentMonth.fullPriceLc += full;
+        entry.totals.currentMonth.netRevenueLc += net;
+
+        storeTotals.currentMonth.orders += 1;
+        storeTotals.currentMonth.discountLc += discount;
+        storeTotals.currentMonth.fullPriceLc += full;
+        storeTotals.currentMonth.netRevenueLc += net;
+      }
+    }
+
+    return {
+      type: 'employee-discounts',
+      importedAt: new Date().toISOString(),
+      sourceFile: path.basename(filePath),
+      monthKey,
+      year,
+      orders,
+      storeTotals,
+      employees: Array.from(byEmployee.values())
+        .sort((a, b) => (b.totals.currentYear.discountLc - a.totals.currentYear.discountLc))
+    };
+  }
+
   // Process operations health metrics (new)
   processOperationsHealth() {
     const health = {
       tailorProductivity: null,
+      teamProductivity: null,
+      workedHours: null,
+      hoursOfAlterations: null,
+      utilization: null,
+      tailorsLastWeek: [],
+      benchmarkTimesMinutes: [],
       onTimeAlterations: null,
       overdueAlterations: 0,
       inventoryAccuracy: null
@@ -668,6 +835,104 @@ class LookerDataProcessor {
       const row = productivityData[0];
       const value = row['Alterations % Tailor Productivity'] || Object.values(row)[0];
       health.tailorProductivity = this.parsePercent(value);
+    }
+
+    // Team Productivity % (same dashboard as "Store Ops Dashboard - Productivity")
+    const teamProdData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'team_productivity_.csv'));
+    if (teamProdData.length > 0) {
+      const row = teamProdData[0];
+      const value = row['Team Productivity %'] || Object.values(row)[0];
+      health.teamProductivity = this.parsePercent(value);
+    }
+
+    // Worked hours + hours of alterations (last complete week)
+    const workedHoursData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'worked_hours.csv'));
+    if (workedHoursData.length > 0) {
+      const row = workedHoursData[0];
+      const value = row['Total Hours'] || Object.values(row)[0];
+      const num = parseFloat((value || '').toString().replace(/[^0-9.\\-]/g, ''));
+      health.workedHours = Number.isFinite(num) ? num : null;
+    }
+
+    const alterationsHoursData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'hours_of_alterations.csv'));
+    if (alterationsHoursData.length > 0) {
+      const row = alterationsHoursData[0];
+      const value = row['Hours of Alterations'] || Object.values(row)[0];
+      const num = parseFloat((value || '').toString().replace(/[^0-9.\\-]/g, ''));
+      health.hoursOfAlterations = Number.isFinite(num) ? num : null;
+    }
+
+    // Scheduled vs alterations utilization (the export sometimes arrives blank; compute as fallback).
+    const utilizationData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'scheduled_vs_alterations_.csv'));
+    if (utilizationData.length > 0) {
+      const row = utilizationData[0];
+      const value = row['Utilization'] || row['Ulitilization'] || Object.values(row)[0];
+      const parsed = this.parsePercent(value);
+      health.utilization = Number.isFinite(parsed) && parsed !== 0 ? parsed : null;
+    }
+    if (health.utilization === null && Number.isFinite(health.workedHours) && Number.isFinite(health.hoursOfAlterations) && health.workedHours > 0) {
+      health.utilization = Math.round((health.hoursOfAlterations / health.workedHours) * 1000) / 10;
+    }
+
+    if (health.teamProductivity === null && Number.isFinite(health.utilization)) {
+      health.teamProductivity = health.utilization;
+    }
+
+    // Tailor productivity last week (per-tailor + hours)
+    const tailorProdLastWeek = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'tailor_productivity_.csv'));
+    const tailorHoursLastWeek = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'tailor_productivity_last_week.csv'));
+
+    const byName = new Map();
+    tailorProdLastWeek.forEach(row => {
+      const name = (row['Tailor Full Name'] || '').toString().trim();
+      if (!name) return;
+      byName.set(name, {
+        name,
+        productivityPercent: this.parsePercent(row['% Tailor Productivity']),
+        benchmarkHours: null,
+        workedHours: null
+      });
+    });
+
+    tailorHoursLastWeek.forEach(row => {
+      const name = (row['Tailor Full Name'] || '').toString().trim();
+      if (!name) return;
+      if (!byName.has(name)) {
+        byName.set(name, {
+          name,
+          productivityPercent: null,
+          benchmarkHours: null,
+          workedHours: null
+        });
+      }
+      const entry = byName.get(name);
+      const bench = parseFloat((row['# Benchmark time (hours)'] || '').toString().replace(/[^0-9.\\-]/g, ''));
+      const worked = parseFloat((row['# Total Hours Worked Combined'] || '').toString().replace(/[^0-9.\\-]/g, ''));
+      entry.benchmarkHours = Number.isFinite(bench) ? bench : entry.benchmarkHours;
+      entry.workedHours = Number.isFinite(worked) ? worked : entry.workedHours;
+    });
+
+    health.tailorsLastWeek = Array.from(byName.values())
+      .map(t => {
+        const efficiency =
+          Number.isFinite(t.benchmarkHours) && Number.isFinite(t.workedHours) && t.workedHours > 0
+            ? Math.round((t.benchmarkHours / t.workedHours) * 1000) / 10
+            : null;
+        return { ...t, efficiency };
+      })
+      .sort((a, b) => (Number(b.productivityPercent || 0) - Number(a.productivityPercent || 0)));
+
+    // Benchmark times (minutes) table
+    const benchmarkTimes = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'benchmark_times_in_minutes.csv'));
+    if (benchmarkTimes.length > 0) {
+      health.benchmarkTimesMinutes = benchmarkTimes
+        .map(r => ({
+          difficultyLevel: parseInt((r['Difficulty Level'] || '').toString().replace(/[^0-9]/g, ''), 10) || null,
+          description: (r['Description'] || '').toString().trim() || null,
+          minutes: parseFloat((r['Benchmark Times  Min.'] || '').toString().replace(/[^0-9.\\-]/g, '')) || null
+        }))
+        .filter(r => r.description && Number.isFinite(r.minutes))
+        .slice(0, 60);
     }
 
     // On-time Alterations
@@ -1109,6 +1374,7 @@ class LookerDataProcessor {
       customerReservedOrders: null,
       employeeCountPerformance: null,
       tailorProductivityTrend: null,
+      workRelatedExpenses: null,
       filesProcessed: [],
       errors: []
     };
@@ -1147,6 +1413,10 @@ class LookerDataProcessor {
       console.log('Processing tailor productivity trend...');
       results.tailorProductivityTrend = this.processTailorProductivityTrend();
       results.storeMetrics.tailorProductivityTrend = results.tailorProductivityTrend;
+
+      // Process work-related expenses (employee discounts)
+      console.log('Processing work-related expenses...');
+      results.workRelatedExpenses = this.processWorkRelatedExpenses();
 
       // Save metrics
       const metricsFile = path.join(METRICS_DIR, `${this.getTodayDate()}.json`);

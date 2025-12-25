@@ -26,6 +26,10 @@ const LOOKER_EMAIL_PATTERNS = [
     targetFolder: 'dashboard-stores_performance'
   },
   {
+    subjectPattern: /work[-\s]*related.*expense|expense|expenses/i,
+    targetFolder: 'dashboard-work_related_expenses'
+  },
+  {
     subjectPattern: /appointment|booking/i,
     targetFolder: 'dashboard-appointment_booking_insights_v2'
   },
@@ -93,7 +97,7 @@ class GmailLookerFetcher {
   }
 
   // Search for Looker emails
-  searchLookerEmails(daysBack = 1) {
+  searchLookerEmails(daysBack = 1, includeSeen = false) {
     return new Promise((resolve, reject) => {
       const sinceDate = new Date();
       sinceDate.setDate(sinceDate.getDate() - daysBack);
@@ -114,13 +118,21 @@ class GmailLookerFetcher {
             ['SUBJECT', 'dashboard'],
             ['OR',
               ['SUBJECT', 'stores performance'],
-              ['SUBJECT', 'store ops']
+              ['OR',
+                ['SUBJECT', 'store ops'],
+                ['OR',
+                  ['SUBJECT', 'expense'],
+                  ['SUBJECT', 'work-related']
+                ]
+              ]
             ]
           ]
         ],
-        ['SINCE', dateStr],
-        ['UNSEEN'] // Only unread emails to avoid reprocessing
+        ['SINCE', dateStr]
       ];
+      if (!includeSeen) {
+        searchCriteria.push(['UNSEEN']); // Only unread emails to avoid reprocessing
+      }
 
       console.log(`Searching for emails since ${dateStr}`);
 
@@ -304,7 +316,7 @@ class GmailLookerFetcher {
   }
 
   // Main function to fetch and process Looker emails
-  async fetchLookerData(daysBack = 1, deleteAfterProcess = true) {
+  async fetchLookerData(daysBack = 1, deleteAfterProcess = true, includeSeen = false) {
     const results = {
       success: false,
       emailsProcessed: 0,
@@ -319,7 +331,7 @@ class GmailLookerFetcher {
       await this.connect();
       await this.openMailbox('INBOX');
 
-      const messageIds = await this.searchLookerEmails(daysBack);
+      const messageIds = await this.searchLookerEmails(daysBack, includeSeen);
       console.log(`Found ${messageIds.length} Looker emails from last ${daysBack} day(s)`);
 
       const processedMsgIds = [];
@@ -411,12 +423,14 @@ async function testGmailConnection() {
   const fetcher = new GmailLookerFetcher();
   const args = process.argv.slice(2);
   const noDelete = args.includes('--no-delete');
+  const includeSeen = args.includes('--include-seen') || args.includes('--all');
   const daysBack = parseInt(args.find(a => !a.startsWith('-')) || '2');
 
   console.log('=== Gmail Looker Fetcher ===\n');
   console.log('Gmail user:', GMAIL_CONFIG.user || 'NOT SET');
   console.log('App password:', GMAIL_CONFIG.password ? 'SET' : 'NOT SET');
   console.log('Delete after process:', !noDelete);
+  console.log('Include seen emails:', includeSeen);
   console.log('Days back:', daysBack);
 
   if (!GMAIL_CONFIG.user || !GMAIL_CONFIG.password) {
@@ -430,7 +444,7 @@ async function testGmailConnection() {
 
   try {
     console.log('\nFetching Looker emails...');
-    const result = await fetcher.fetchLookerData(daysBack, !noDelete);
+    const result = await fetcher.fetchLookerData(daysBack, !noDelete, includeSeen);
     console.log('\n=== Results ===');
     console.log(`Emails processed: ${result.emailsProcessed}`);
     console.log(`Emails deleted: ${result.emailsDeleted || 0}`);

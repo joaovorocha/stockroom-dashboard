@@ -16,6 +16,8 @@ let sseRetryDelayMs = 1000;
 let lastFocusedElement = null;
 const DEBUG = false;
 let storeDayInfo = null;
+let weeklyGoalDistribution = null;
+let weeklyGoalWeekKey = null;
 
 function debugLog(...args) {
   if (DEBUG) console.log(...args);
@@ -155,12 +157,69 @@ function getWorkingSACount() {
   }).length;
 }
 
+function getWeekKeyFromRetailWeek(retailWeek) {
+  const weekNumber = retailWeek?.weekNumber;
+  const weekStart = (retailWeek?.weekStart || '').toString();
+  const year = /^\d{4}-\d{2}-\d{2}$/.test(weekStart) ? weekStart.slice(0, 4) : '';
+  const wk = Number(weekNumber);
+  if (!year || !Number.isFinite(wk)) return null;
+  return `${year}-W${String(wk).padStart(2, '0')}`;
+}
+
+async function loadWeeklyGoalDistributionFromMetrics() {
+  const retailWeek = metrics?.retailWeek || null;
+  const weekKey = getWeekKeyFromRetailWeek(retailWeek);
+  weeklyGoalWeekKey = weekKey;
+  if (!weekKey) {
+    weeklyGoalDistribution = null;
+    return;
+  }
+
+  try {
+    const resp = await fetch(`/api/gameplan/weekly-goal-distribution/${encodeURIComponent(weekKey)}`, { credentials: 'include' });
+    if (!resp.ok) {
+      weeklyGoalDistribution = null;
+      return;
+    }
+    const data = await resp.json().catch(() => null);
+    if (!data || data.weekKey !== weekKey || !Array.isArray(data.percents) || data.percents.length !== 7) {
+      weeklyGoalDistribution = null;
+      return;
+    }
+    weeklyGoalDistribution = data;
+  } catch (_) {
+    weeklyGoalDistribution = null;
+  }
+}
+
+function getDailyTargetValue() {
+  const retailWeek = metrics?.retailWeek || null;
+  const weekly = Number(retailWeek?.target || 0);
+  const dayIndex = Number(storeDayInfo?.weekdayIndex);
+
+  if (
+    weeklyGoalDistribution?.enabled === true &&
+    Number.isFinite(weekly) &&
+    weekly > 0 &&
+    Number.isFinite(dayIndex) &&
+    dayIndex >= 0 &&
+    dayIndex <= 6
+  ) {
+    const pct = Number(weeklyGoalDistribution?.percents?.[dayIndex]);
+    if (Number.isFinite(pct)) return weekly * (pct / 100);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(retailWeek || {}, 'targetPerDay')) {
+    const direct = Number(retailWeek.targetPerDay);
+    return Number.isFinite(direct) && direct > 0 ? direct : null;
+  }
+
+  if (Number.isFinite(weekly) && weekly > 0) return weekly / 7;
+  return null;
+}
+
 function getRetailWeekTargetPerPerson() {
-  const hasTargetPerDay = metrics?.retailWeek && Object.prototype.hasOwnProperty.call(metrics.retailWeek, 'targetPerDay');
-  const hasTarget = metrics?.retailWeek && Object.prototype.hasOwnProperty.call(metrics.retailWeek, 'target');
-  const dailyTarget = hasTargetPerDay
-    ? Number(metrics.retailWeek.targetPerDay)
-    : (hasTarget ? (Number(metrics.retailWeek.target) / 7) : null);
+  const dailyTarget = getDailyTargetValue();
   if (!Number.isFinite(dailyTarget) || !dailyTarget) return null;
   const working = getWorkingSACount();
   if (!working) return null;
@@ -249,22 +308,22 @@ function renderRetailWeekStoreInfo() {
 
   const weekSalesText = formatCurrencyFieldOrDash(retailWeek, 'salesAmount');
   const weekTargetText = formatCurrencyFieldOrDash(retailWeek, 'target');
-  let dailyTargetText = '--';
-  if (Object.prototype.hasOwnProperty.call(retailWeek, 'targetPerDay')) {
-    dailyTargetText = formatCurrencyOrDash(retailWeek.targetPerDay);
-  } else if (Object.prototype.hasOwnProperty.call(retailWeek, 'target')) {
-    const computed = Number(retailWeek.target) / 7;
-    dailyTargetText = Number.isFinite(computed) ? formatCurrencyOrDash(computed) : '--';
-  }
+  const dailyTarget = getDailyTargetValue();
+  const dailyTargetText = Number.isFinite(Number(dailyTarget)) ? formatCurrencyOrDash(dailyTarget) : '--';
+  const isAdmin = !!currentUser?.isAdmin;
+  const sourcesHint = isAdmin && metrics?.dataSources
+    ? `<span style="color:var(--text-muted);">Sources: WTD cards = ${metrics.dataSources.wtdSales}; Retail week = ${metrics.dataSources.retailWeek}</span>`
+    : '';
 
   box.innerHTML = `
     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
       <strong>Retail Week ${retailWeek.weekNumber}</strong>
       <span style="color:var(--text-secondary);">${retailWeek.weekStart} → ${retailWeek.weekEnd}</span>
-      <span><strong>Week Sales:</strong> ${weekSalesText}</span>
-      <span><strong>Week Target:</strong> ${weekTargetText}</span>
-      <span><strong>Daily Target:</strong> ${dailyTargetText}</span>
+      <span><strong>Retail Week Sales:</strong> ${weekSalesText}</span>
+      <span><strong>Retail Week Target:</strong> ${weekTargetText}</span>
+      <span><strong>Daily Target (Today):</strong> ${dailyTargetText}</span>
       ${saLine}
+      ${sourcesHint}
     </div>
   `;
 }
@@ -397,6 +456,14 @@ function handleSSEUpdate(update) {
       loadMetrics().then(() => renderAll());
       showNotification('Metrics updated from Looker');
       break;
+
+    case 'weekly_goal_distribution_updated':
+      if (update.data?.weekKey && weeklyGoalWeekKey && update.data.weekKey !== weeklyGoalWeekKey) break;
+      loadWeeklyGoalDistributionFromMetrics().then(() => {
+        renderRetailWeekStoreInfo();
+        renderAll();
+      });
+      break;
     
     case 'employee_updated':
       loadEmployees().then(() => renderAll());
@@ -491,6 +558,7 @@ async function loadMetrics() {
     const response = await fetch('/api/gameplan/metrics');
     metrics = await response.json();
     debugLog('[DEBUG] Metrics loaded:', metrics);
+    await loadWeeklyGoalDistributionFromMetrics();
     updateLastUpdated(metrics.lastSyncTime || metrics.lastEmailReceived || metrics.importedAt);
     
     // Update import status card (both welcome section and sidebar)
@@ -735,7 +803,8 @@ async function refreshAllData() {
 function startDayRolloverWatcher() {
   if (window.__dayRolloverWatcher) return;
   window.__dayRolloverWatcher = true;
-  currentClientDate = null;
+  // Initialize to the current store day so we don't show a "new day" banner on first tick.
+  currentClientDate = storeDayInfo?.date || getLocalISODate();
 
   setInterval(async () => {
     const nextInfo = await getStoreDayInfo();
@@ -1423,6 +1492,9 @@ function renderAll() {
       setDisplay('lookerSection', 'none');
       break;
     case 'OPS_METRICS':
+      renderMainRetailKpis();
+      renderTailorProductivityLastWeek();
+      renderWorkRelatedExpensesSummary();
       renderOperationsHealth();
       renderInventoryIssues();
       renderCustomerOrders();
@@ -1445,6 +1517,8 @@ function renderAll() {
       updateMetricsDisplay();
       updateWorkingToday();
       renderManagementQuickSection();
+      renderTailorProductivityLastWeek();
+      renderWorkRelatedExpensesSummary();
       renderSASection();
       renderBOHSection();
       renderManagementSection();
@@ -1934,35 +2008,22 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
 function renderTailorsSection() {
   const grid = document.getElementById('tailorGrid');
   const count = document.getElementById('tailorCount');
-  const expandBtn = document.getElementById('expandTailors');
+  if (!grid) return;
   grid.innerHTML = '';
 
   // Working vs day off (driven by Game Plan Edit toggle)
-  const scheduledTailors = employees.TAILOR.filter(e => !e?.isOff);
-  const dayOffTailors = employees.TAILOR.filter(e => !!e?.isOff);
-  count.textContent = employees.TAILOR.length;
+  const tailors = employees.TAILOR || [];
+  const scheduledTailors = tailors.filter(e => !e?.isOff);
+  const dayOffTailors = tailors.filter(e => !!e?.isOff);
+  if (count) count.textContent = tailors.length;
 
   const currentUserEmp = findCurrentUserEmployee('TAILOR');
 
-  // Collapsed by default - show only scheduled, max 3
-  if (!showAllEmployees.TAILOR) {
-    const toShow = scheduledTailors.slice(0, 3);
-    toShow.forEach(emp => {
-      grid.appendChild(createTailorCard(emp, emp.id === currentUserEmp?.id, false));
-    });
-    if (employees.TAILOR.length > 3) {
-      expandBtn.style.display = 'inline-block';
-      expandBtn.textContent = `Show All (${employees.TAILOR.length})`;
-    }
-  } else {
-    // Show all scheduled
-    scheduledTailors.forEach(emp => {
-      grid.appendChild(createTailorCard(emp, emp.id === currentUserEmp?.id, false));
-    });
-    // Day off tailors are rendered in a collapsed group below.
-    expandBtn.style.display = 'inline-block';
-    expandBtn.textContent = 'Show Less';
-  }
+  // Collapsed by default - show only scheduled, max 3 (expand by clicking section title).
+  const shownScheduled = showAllEmployees.TAILOR ? scheduledTailors : scheduledTailors.slice(0, 3);
+  shownScheduled.forEach(emp => {
+    grid.appendChild(createTailorCard(emp, emp.id === currentUserEmp?.id, false));
+  });
 
   renderDayOffGroup(grid, dayOffTailors, 'TAILOR', { open: showAllEmployees.TAILOR });
 }
@@ -2108,6 +2169,187 @@ function renderOperationsHealth() {
       else if (health.inventoryAccuracy < 98) card.classList.add('warning');
     }
   }
+}
+
+function renderMainRetailKpis() {
+  const kpi = metrics?.metrics;
+  if (!kpi) return;
+
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  const setChange = (id, value, suffix) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      el.textContent = '--';
+      el.className = 'metric-change neutral';
+      return;
+    }
+
+    el.textContent = `${num >= 0 ? '+' : ''}${num}% ${suffix}`;
+    el.className = `metric-change ${num >= 0 ? 'positive' : 'negative'}`;
+  };
+
+  const setVsTarget = (valueId, labelId, vs, target, targetFormatter) => {
+    const vsEl = document.getElementById(valueId);
+    const labelEl = document.getElementById(labelId);
+    if (!vsEl && !labelEl) return;
+
+    const vsNum = Number(vs);
+    if (!Number.isFinite(vsNum)) {
+      if (vsEl) vsEl.textContent = '--';
+      if (labelEl) {
+        labelEl.textContent = '--';
+        labelEl.className = 'metric-change neutral';
+      }
+      return;
+    }
+
+    if (vsEl) vsEl.textContent = `${vsNum >= 0 ? '+' : ''}${vsNum}%`;
+    if (labelEl) {
+      const formattedTarget = targetFormatter ? targetFormatter(target) : target;
+      labelEl.textContent = formattedTarget !== null && formattedTarget !== undefined && formattedTarget !== '' ? `Target: ${formattedTarget}` : 'Target: --';
+      labelEl.className = `metric-change ${vsNum >= 0 ? 'positive' : 'negative'}`;
+    }
+  };
+
+  // APC
+  if (kpi.apc !== undefined) setText('kpiApc', formatUsd(kpi.apc).replace('.00', ''));
+  setChange('kpiApcChange', kpi.apcVsPY, 'vs PY');
+  setVsTarget('kpiApcVsTarget', 'kpiApcTargetLabel', kpi.apcVsTarget, kpi.apcTarget, (v) => formatUsd(v).replace('.00', ''));
+
+  // CPC
+  setText('kpiCpc', Number.isFinite(Number(kpi.cpc)) ? Number(kpi.cpc).toFixed(2) : '--');
+  setChange('kpiCpcChange', kpi.cpcVsPY, 'vs PY');
+  setVsTarget('kpiCpcVsTarget', 'kpiCpcTargetLabel', kpi.cpcVsTarget, kpi.cpcTarget, (v) => (Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '--'));
+
+  // IPC
+  setText('kpiIpc', Number.isFinite(Number(kpi.itemsPerCustomer)) ? Number(kpi.itemsPerCustomer).toFixed(2) : '--');
+  setChange('kpiIpcChange', kpi.ipcVsPY, 'vs PY');
+  setVsTarget('kpiIpcVsTarget', 'kpiIpcTargetLabel', kpi.ipcVsTarget, kpi.itemsPerCustomerTarget, (v) => (Number.isFinite(Number(v)) ? Number(v).toFixed(2) : '--'));
+
+  // SPH
+  if (kpi.salesPerHour !== undefined) setText('kpiSph', formatUsd(kpi.salesPerHour).replace('.00', ''));
+  setChange('kpiSphChange', kpi.sphVsPY, 'vs PY');
+}
+
+function formatNumberOrDash(value, digits = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  if (digits <= 0) return `${Math.round(n)}`;
+  const factor = Math.pow(10, digits);
+  return `${Math.round(n * factor) / factor}`;
+}
+
+function renderTailorProductivityLastWeek() {
+  const health = metrics?.operationsHealth;
+  if (!health) return;
+
+  const formatPct = (v) => (Number.isFinite(Number(v)) ? `${formatNumberOrDash(v, 1)}%` : '--');
+
+  const setIfPresent = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  const team = health.teamProductivity ?? health.tailorProductivity;
+  setIfPresent('tailorTeamProductivityPct', formatPct(team));
+  setIfPresent('tailorUtilizationPct', formatPct(health.utilization));
+  setIfPresent('tailorWorkedHours', formatNumberOrDash(health.workedHours, 0));
+  setIfPresent('tailorAlterationsHours', formatNumberOrDash(health.hoursOfAlterations, 0));
+
+  setIfPresent('mgrTailorTeamProductivityPct', formatPct(team));
+  setIfPresent('mgrTailorUtilizationPct', formatPct(health.utilization));
+  setIfPresent('mgrTailorWorkedHours', formatNumberOrDash(health.workedHours, 0));
+  setIfPresent('mgrTailorAlterationsHours', formatNumberOrDash(health.hoursOfAlterations, 0));
+
+  const tailorBody = document.getElementById('tailorLastWeekTableBody');
+  if (tailorBody) {
+    tailorBody.innerHTML = '';
+    const rows = Array.isArray(health.tailorsLastWeek) ? health.tailorsLastWeek : [];
+    rows.forEach(t => {
+      const tr = document.createElement('tr');
+
+      const tdName = document.createElement('td');
+      tdName.textContent = t?.name || '--';
+
+      const tdProd = document.createElement('td');
+      tdProd.textContent = formatPct(t?.productivityPercent);
+
+      const tdBench = document.createElement('td');
+      tdBench.textContent = Number.isFinite(Number(t?.benchmarkHours)) ? formatNumberOrDash(t.benchmarkHours, 2) : '--';
+
+      const tdWorked = document.createElement('td');
+      tdWorked.textContent = Number.isFinite(Number(t?.workedHours)) ? formatNumberOrDash(t.workedHours, 2) : '--';
+
+      const tdEff = document.createElement('td');
+      tdEff.textContent = Number.isFinite(Number(t?.efficiency)) ? `${formatNumberOrDash(t.efficiency, 1)}%` : '--';
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdProd);
+      tr.appendChild(tdBench);
+      tr.appendChild(tdWorked);
+      tr.appendChild(tdEff);
+      tailorBody.appendChild(tr);
+    });
+  }
+
+  const benchBody = document.getElementById('benchmarkTimesTableBody');
+  if (benchBody) {
+    benchBody.innerHTML = '';
+    const rows = Array.isArray(health.benchmarkTimesMinutes) ? health.benchmarkTimesMinutes : [];
+    rows.slice(0, 40).forEach(r => {
+      const tr = document.createElement('tr');
+
+      const tdDiff = document.createElement('td');
+      tdDiff.textContent = r?.difficultyLevel ?? '--';
+
+      const tdDesc = document.createElement('td');
+      tdDesc.textContent = r?.description || '--';
+
+      const tdMin = document.createElement('td');
+      tdMin.textContent = Number.isFinite(Number(r?.minutes)) ? formatNumberOrDash(r.minutes, 0) : '--';
+
+      tr.appendChild(tdDiff);
+      tr.appendChild(tdDesc);
+      tr.appendChild(tdMin);
+      benchBody.appendChild(tr);
+    });
+  }
+}
+
+function renderWorkRelatedExpensesSummary() {
+  const exp = metrics?.workRelatedExpenses;
+  if (!exp || !exp.storeTotals) return;
+
+  const ytd = exp.storeTotals.currentYear || {};
+  const month = exp.storeTotals.currentMonth || {};
+
+  const formatUsdCompact = (n) => {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '--';
+    return formatUsd(num).replace('.00', '');
+  };
+
+  const set = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+
+  set('expDiscountYtd', formatUsdCompact(ytd.discountLc));
+  set('expDiscountYtdHint', `${Number(ytd.orders || 0)} orders`);
+  set('expDiscountMonth', formatUsdCompact(month.discountLc));
+  set('expDiscountMonthHint', `${Number(month.orders || 0)} orders`);
+
+  set('mgrExpDiscountYtd', formatUsdCompact(ytd.discountLc));
+  set('mgrExpDiscountYtdHint', `${Number(ytd.orders || 0)} orders`);
+  set('mgrExpDiscountMonth', formatUsdCompact(month.discountLc));
+  set('mgrExpDiscountMonthHint', `${Number(month.orders || 0)} orders`);
 }
 
 // Inventory Issues Section
@@ -2989,20 +3231,20 @@ function setupEventListeners() {
     if (section) section.classList.toggle('collapsed');
   });
 
-  // Expand buttons for employee sections
-  document.getElementById('expandSA')?.addEventListener('click', () => {
+  // Expand via section title click (replaces "Show All" buttons).
+  document.querySelector('#saSection .section-header h2')?.addEventListener('click', () => {
     showAllEmployees.SA = !showAllEmployees.SA;
     renderSASection();
   });
-  document.getElementById('expandBOH')?.addEventListener('click', () => {
+  document.querySelector('#bohSection .section-header h2')?.addEventListener('click', () => {
     showAllEmployees.BOH = !showAllEmployees.BOH;
     renderBOHSection();
   });
-  document.getElementById('expandMgmt')?.addEventListener('click', () => {
+  document.querySelector('#managementSection .section-header h2')?.addEventListener('click', () => {
     showAllEmployees.MANAGEMENT = !showAllEmployees.MANAGEMENT;
     renderManagementSection();
   });
-  document.getElementById('expandTailors')?.addEventListener('click', () => {
+  document.querySelector('#tailorsSection .section-header h2')?.addEventListener('click', () => {
     showAllEmployees.TAILOR = !showAllEmployees.TAILOR;
     renderTailorsSection();
   });

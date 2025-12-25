@@ -78,6 +78,37 @@ function isHashedPassword(value) {
   return (value || '').toString().startsWith('scrypt$');
 }
 
+function normalizeUserDefaults(user) {
+  if (!user) return { changed: false };
+  let changed = false;
+
+  if (user.email === undefined) { user.email = ''; changed = true; }
+  if (user.phone === undefined) { user.phone = ''; changed = true; }
+  if (user.canEditGameplan === undefined) { user.canEditGameplan = false; changed = true; }
+  if (user.canConfigRadio === undefined) { user.canConfigRadio = false; changed = true; }
+  if (user.canManageLostPunch === undefined) { user.canManageLostPunch = false; changed = true; }
+  if (user.mustChangePassword === undefined) { user.mustChangePassword = false; changed = true; }
+  if (user.lastLogin === undefined) { user.lastLogin = null; changed = true; }
+
+  // If a user has never logged in and password is empty, default to 1234 (hashed) and force change.
+  if (!user.lastLogin && !String(user.password || '').trim()) {
+    user.password = hashPassword('1234');
+    user.mustChangePassword = true;
+    changed = true;
+  }
+
+  return { changed };
+}
+
+function normalizeUsersData(usersData) {
+  const users = Array.isArray(usersData?.users) ? usersData.users : [];
+  let changed = false;
+  for (const u of users) {
+    if (normalizeUserDefaults(u).changed) changed = true;
+  }
+  return { changed };
+}
+
 function sha256Base64Url(value) {
   return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('base64url');
 }
@@ -221,13 +252,14 @@ function getVerifiedSessionUser(req) {
       email: currentUser.email || '',
       phone: currentUser.phone || '',
       isAdmin: !!currentUser.isAdmin,
-      isManager: !!(currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toUpperCase() === 'MANAGEMENT'),
+      isManager: !!(currentUser.isManager || currentUser.isAdmin),
       canEditGameplan: !!(
         currentUser.canEditGameplan ||
         currentUser.isManager ||
-        currentUser.isAdmin ||
-        (currentUser.role || '').toUpperCase() === 'MANAGEMENT'
-      )
+        currentUser.isAdmin
+      ),
+      canConfigRadio: !!(currentUser.canConfigRadio || currentUser.isManager || currentUser.isAdmin),
+      canManageLostPunch: !!(currentUser.canManageLostPunch || currentUser.isManager || currentUser.isAdmin)
     };
   } catch (_) {
     return null;
@@ -244,14 +276,11 @@ router.post('/login', (req, res) => {
 
   try {
     const usersData = readJsonFile(USERS_FILE, { users: [] });
+    // Ensure legacy users are normalized (role flags + missing fields).
+    const normalized = normalizeUsersData(usersData);
     const user = findUserByLogin(usersData.users, employeeId);
 
-    // If a user has never logged in and no password is set, default to 1234 (must change on first login).
     const isFirstLogin = !user?.lastLogin;
-    if (user && isFirstLogin && !String(user.password || '').trim()) {
-      user.password = hashPassword('1234');
-      user.mustChangePassword = true;
-    }
 
     if (!user || !verifyPassword(password, user.password)) {
       return res.status(401).json({ success: false, error: 'Invalid Employee ID or password' });
@@ -264,6 +293,7 @@ router.post('/login', (req, res) => {
 
     // Update last login
     user.lastLogin = new Date().toISOString();
+    if (normalized.changed) usersData.lastUpdated = dal.getBusinessDate();
     writeJsonFile(USERS_FILE, usersData);
 
     const needsProfileCompletion = !String(user.email || '').trim() || !String(user.phone || '').trim();
@@ -281,8 +311,10 @@ router.post('/login', (req, res) => {
       phone: user.phone || '',
       isAdmin: !!user.isAdmin,
       // Treat management and admins as managers even if the flag is missing
-      isManager: !!(user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
-      canEditGameplan: !!(user.canEditGameplan || user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
+      isManager: !!(user.isManager || user.isAdmin),
+      canEditGameplan: !!(user.canEditGameplan || user.isManager || user.isAdmin),
+      canConfigRadio: !!(user.canConfigRadio || user.isManager || user.isAdmin),
+      canManageLostPunch: !!(user.canManageLostPunch || user.isManager || user.isAdmin),
       needsProfileCompletion,
       mustChangePassword
     };
@@ -492,8 +524,10 @@ router.get('/check', (req, res) => {
       email: currentUser.email || '',
       phone: currentUser.phone || '',
       isAdmin: !!currentUser.isAdmin,
-      isManager: !!(currentUser.isManager || currentUser.isAdmin || currentUser.role === 'MANAGEMENT'),
-      canEditGameplan: !!(currentUser.canEditGameplan || currentUser.isManager || currentUser.isAdmin || currentUser.role === 'MANAGEMENT'),
+      isManager: !!(currentUser.isManager || currentUser.isAdmin),
+      canEditGameplan: !!(currentUser.canEditGameplan || currentUser.isManager || currentUser.isAdmin),
+      canConfigRadio: !!(currentUser.canConfigRadio || currentUser.isManager || currentUser.isAdmin),
+      canManageLostPunch: !!(currentUser.canManageLostPunch || currentUser.isManager || currentUser.isAdmin),
       needsProfileCompletion: !String(currentUser.email || '').trim() || !String(currentUser.phone || '').trim(),
       mustChangePassword: !!currentUser.mustChangePassword
     };
@@ -530,6 +564,11 @@ router.get('/users', (req, res) => {
   }
 
   const usersData = readJsonFile(USERS_FILE, { users: [] });
+  const normalized = normalizeUsersData(usersData);
+  if (normalized.changed) {
+    usersData.lastUpdated = dal.getBusinessDate();
+    writeJsonFile(USERS_FILE, usersData);
+  }
   // Remove passwords from response
   const users = usersData.users.map(u => ({ ...u, password: undefined }));
   return res.json({ users });
@@ -544,7 +583,21 @@ router.post('/users', (req, res) => {
   }
 
   try {
-    const { employeeId, name, password, role, imageUrl, isManager, isAdmin, canEditGameplan, email, phone, mustChangePassword } = req.body;
+    const {
+      employeeId,
+      name,
+      password,
+      role,
+      imageUrl,
+      isManager,
+      isAdmin,
+      canEditGameplan,
+      canConfigRadio,
+      canManageLostPunch,
+      email,
+      phone,
+      mustChangePassword
+    } = req.body;
 
     if (!employeeId || !name || !role) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -568,11 +621,14 @@ router.post('/users', (req, res) => {
       phone: phone || '',
       isManager: isManager || false,
       isAdmin: isAdmin || false,
-      canEditGameplan: canEditGameplan !== undefined ? !!canEditGameplan : !!(isManager || isAdmin || role === 'MANAGEMENT'),
+      canEditGameplan: canEditGameplan !== undefined ? !!canEditGameplan : !!(isManager || isAdmin),
+      canConfigRadio: !!canConfigRadio,
+      canManageLostPunch: !!canManageLostPunch,
       mustChangePassword: mustChangePassword !== undefined ? !!mustChangePassword : true,
       createdAt: new Date().toISOString(),
       lastLogin: null
     };
+    normalizeUserDefaults(newUser);
 
     usersData.users.push(newUser);
     usersData.lastUpdated = dal.getBusinessDate();
@@ -612,18 +668,54 @@ router.put('/users/:id', (req, res) => {
     }
 
     // Update allowed fields
-    const allowedFields = ['name', 'password', 'role', 'imageUrl', 'isManager', 'email', 'phone', 'isAdmin', 'canEditGameplan', 'mustChangePassword'];
+    const allowedFields = [
+      'employeeId',
+      'name',
+      'password',
+      'role',
+      'imageUrl',
+      'isManager',
+      'email',
+      'phone',
+      'isAdmin',
+      'canEditGameplan',
+      'canConfigRadio',
+      'canManageLostPunch',
+      'mustChangePassword'
+    ];
+
+    if (updates.employeeId !== undefined) {
+      const nextEmployeeId = String(updates.employeeId || '').trim();
+      if (!nextEmployeeId) {
+        return res.status(400).json({ error: 'Employee ID is required' });
+      }
+
+      const nextNorm = normalizeLoginId(nextEmployeeId);
+      const collision = usersData.users.some((u, idx) => {
+        if (idx === userIndex) return false;
+        return normalizeLoginId(u?.employeeId) === nextNorm;
+      });
+      if (collision) {
+        return res.status(400).json({ error: 'Employee ID already exists' });
+      }
+    }
+
     allowedFields.forEach(field => {
       if (updates[field] !== undefined) {
         if (field === 'password') {
           usersData.users[userIndex][field] = hashPassword(updates[field]);
         } else if (field === 'mustChangePassword') {
           usersData.users[userIndex][field] = !!updates[field];
+        } else if (field === 'employeeId') {
+          usersData.users[userIndex][field] = String(updates[field] || '').trim();
         } else {
           usersData.users[userIndex][field] = updates[field];
         }
       }
     });
+
+    // Ensure default fields exist for older records.
+    normalizeUserDefaults(usersData.users[userIndex]);
 
     // If the user has never logged in, default to forcing a change when password is set/updated,
     // unless explicitly overridden by mustChangePassword.

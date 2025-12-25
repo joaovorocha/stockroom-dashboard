@@ -545,6 +545,20 @@ router.get('/date/:date', (req, res) => {
 // GET /api/gameplan/metrics - Get today's store metrics (from saved data)
 router.get('/metrics', (req, res) => {
   try {
+    const dataSources = {
+      wtdSales: 'files/dashboard-stores_performance/sales.csv',
+      wtdTarget: 'files/dashboard-stores_performance/sales_target.csv',
+      retailWeek: 'files/dashboard-stores_performance/sales_by_retail_weeks.csv',
+      storeWeekSummary: 'files/dashboard-stores_performance/sales_by_retail_weeks_(copy).csv',
+      tailorTeamProductivity: 'files/dashboard-stores_performance/team_productivity_.csv',
+      tailorProductivity: 'files/dashboard-stores_performance/productivity_.csv',
+      tailorWorkedHours: 'files/dashboard-stores_performance/worked_hours.csv',
+      tailorAlterationsHours: 'files/dashboard-stores_performance/hours_of_alterations.csv',
+      tailorProductivityLastWeek: 'files/dashboard-stores_performance/tailor_productivity_.csv',
+      tailorProductivityLastWeekHours: 'files/dashboard-stores_performance/tailor_productivity_last_week.csv',
+      tailorBenchmarkTimes: 'files/dashboard-stores_performance/benchmark_times_in_minutes.csv'
+    };
+
     // First try to get saved dashboard data
     const savedData = LookerDataProcessor.getSavedDashboardData();
     
@@ -553,6 +567,8 @@ router.get('/metrics', (req, res) => {
       const metrics = {
         ...savedData.metrics,
         source: 'saved',
+        dataSources,
+        workRelatedExpenses: savedData.workRelatedExpenses || null,
         lastSyncTime: savedData.lastSyncTime,
         lastSyncBy: savedData.lastSyncBy,
         lastEmailReceived: savedData.lastEmailReceived, // When the email was actually received
@@ -571,6 +587,21 @@ router.get('/metrics', (req, res) => {
         loans: savedData.loans
       };
 
+      // Backfill operations health "Productivity" details in older saved payloads.
+      if (!metrics.operationsHealth?.tailorsLastWeek?.length || metrics.operationsHealth?.workedHours === undefined || metrics.operationsHealth?.hoursOfAlterations === undefined) {
+        try {
+          const computedOps = lookerProcessor.processOperationsHealth();
+          metrics.operationsHealth = metrics.operationsHealth || {};
+          for (const [k, v] of Object.entries(computedOps || {})) {
+            if (metrics.operationsHealth[k] === undefined || metrics.operationsHealth[k] === null || (Array.isArray(metrics.operationsHealth[k]) && metrics.operationsHealth[k].length === 0)) {
+              metrics.operationsHealth[k] = v;
+            }
+          }
+        } catch (_) {
+          // Ignore.
+        }
+      }
+
       // If count performance is missing/empty for today, fall back to the latest persisted snapshot.
       if (!metrics.employeeCountPerformance?.employees?.length) {
         const snap = readLatestScanPerformanceSnapshot();
@@ -585,12 +616,21 @@ router.get('/metrics', (req, res) => {
 
       // Backfill retail week target info if missing in older saved payloads.
       // This is used for "Target / SA Today" calculations across the UI.
-      if (!metrics.retailWeek || !metrics.retailWeek.target) {
+      // Also backfill KPI target fields (APC/CPC/IPC vs target) from the latest CSVs.
+      if (!metrics.retailWeek || !metrics.retailWeek.target || !metrics?.metrics?.apcVsTarget || !metrics?.metrics?.cpcVsTarget || !metrics?.metrics?.ipcVsTarget) {
         try {
           const computed = lookerProcessor.processStoreMetrics();
           if (computed?.retailWeek) metrics.retailWeek = computed.retailWeek;
           if (!metrics.salesByRetailWeeks && computed?.salesByRetailWeeks) metrics.salesByRetailWeeks = computed.salesByRetailWeeks;
           if (!metrics.storeWeekSummary && computed?.storeWeekSummary) metrics.storeWeekSummary = computed.storeWeekSummary;
+          if (computed?.metrics && metrics.metrics) {
+            if (metrics.metrics.apcVsTarget === undefined && computed.metrics.apcVsTarget !== undefined) metrics.metrics.apcVsTarget = computed.metrics.apcVsTarget;
+            if (metrics.metrics.apcTarget === undefined && computed.metrics.apcTarget !== undefined) metrics.metrics.apcTarget = computed.metrics.apcTarget;
+            if (metrics.metrics.cpcVsTarget === undefined && computed.metrics.cpcVsTarget !== undefined) metrics.metrics.cpcVsTarget = computed.metrics.cpcVsTarget;
+            if (metrics.metrics.cpcTarget === undefined && computed.metrics.cpcTarget !== undefined) metrics.metrics.cpcTarget = computed.metrics.cpcTarget;
+            if (metrics.metrics.ipcVsTarget === undefined && computed.metrics.ipcVsTarget !== undefined) metrics.metrics.ipcVsTarget = computed.metrics.ipcVsTarget;
+            if (metrics.metrics.itemsPerCustomerTarget === undefined && computed.metrics.itemsPerCustomerTarget !== undefined) metrics.metrics.itemsPerCustomerTarget = computed.metrics.itemsPerCustomerTarget;
+          }
         } catch (e) {
           // Ignore; caller can show "--" when unavailable.
         }
@@ -605,11 +645,16 @@ router.get('/metrics', (req, res) => {
     const customerOrders = lookerProcessor.processCustomerReservedOrders();
     const tailorTrend = lookerProcessor.processTailorProductivityTrend();
     const countPerformance = lookerProcessor.processEmployeeCountPerformance();
+    const workRelatedExpenses = typeof lookerProcessor.processWorkRelatedExpenses === 'function'
+      ? lookerProcessor.processWorkRelatedExpenses()
+      : null;
     
     // Merge all data
     const metrics = {
       ...storeMetrics,
       source: 'live',
+      dataSources,
+      workRelatedExpenses,
       importedAt: new Date().toISOString(),
       appointments: appointments,
       operationsHealth: operations.operationsHealth || {},
@@ -652,16 +697,29 @@ router.get('/metrics', (req, res) => {
       }
     }
 
-    // Backfill retail week target info if missing in stored metrics files.
-    if (metrics && (!metrics.retailWeek || !metrics.retailWeek.targetPerDay)) {
+    // Backfill retail week + KPI target info if missing in stored metrics files.
+    if (metrics && (!metrics.retailWeek || !metrics.retailWeek.targetPerDay || !metrics?.metrics?.apcVsTarget || !metrics?.metrics?.cpcVsTarget || !metrics?.metrics?.ipcVsTarget)) {
       try {
         const computed = lookerProcessor.processStoreMetrics();
         if (computed?.retailWeek) metrics.retailWeek = computed.retailWeek;
         if (!metrics.salesByRetailWeeks && computed?.salesByRetailWeeks) metrics.salesByRetailWeeks = computed.salesByRetailWeeks;
         if (!metrics.storeWeekSummary && computed?.storeWeekSummary) metrics.storeWeekSummary = computed.storeWeekSummary;
+        if (computed?.metrics) {
+          metrics.metrics = metrics.metrics || {};
+          if (metrics.metrics.apcVsTarget === undefined && computed.metrics.apcVsTarget !== undefined) metrics.metrics.apcVsTarget = computed.metrics.apcVsTarget;
+          if (metrics.metrics.apcTarget === undefined && computed.metrics.apcTarget !== undefined) metrics.metrics.apcTarget = computed.metrics.apcTarget;
+          if (metrics.metrics.cpcVsTarget === undefined && computed.metrics.cpcVsTarget !== undefined) metrics.metrics.cpcVsTarget = computed.metrics.cpcVsTarget;
+          if (metrics.metrics.cpcTarget === undefined && computed.metrics.cpcTarget !== undefined) metrics.metrics.cpcTarget = computed.metrics.cpcTarget;
+          if (metrics.metrics.ipcVsTarget === undefined && computed.metrics.ipcVsTarget !== undefined) metrics.metrics.ipcVsTarget = computed.metrics.ipcVsTarget;
+          if (metrics.metrics.itemsPerCustomerTarget === undefined && computed.metrics.itemsPerCustomerTarget !== undefined) metrics.metrics.itemsPerCustomerTarget = computed.metrics.itemsPerCustomerTarget;
+        }
       } catch (e) {
         // Ignore; UI will show "--" when unavailable.
       }
+    }
+
+    if (metrics && !metrics.dataSources) {
+      metrics.dataSources = dataSources;
     }
     
     res.json(maybeBackfillLastWeekOverview(metrics));
@@ -1295,6 +1353,10 @@ router.post('/weekly-goal-distribution/:weekKey', requireManager, express.json()
   };
   all.weeks[weekKey] = next;
   writeWeeklyGoalDistributions(all);
+  const broadcastUpdate = req.app?.get?.('broadcastUpdate');
+  if (typeof broadcastUpdate === 'function') {
+    broadcastUpdate('weekly_goal_distribution_updated', { weekKey });
+  }
   return res.json(next);
 });
 

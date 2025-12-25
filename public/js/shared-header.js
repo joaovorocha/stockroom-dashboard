@@ -28,6 +28,7 @@ const SharedHeader = {
       { href: '/dashboard', label: 'Game Plan', id: 'navGamePlan' },
       { href: '/operations-metrics', label: 'Operations', id: 'navOperationsMetrics' },
       { href: '/awards', label: 'Awards', id: 'navAwards' },
+      { href: '/expenses', label: 'Expenses', id: 'navExpenses', badge: 'expensesBadge' },
       { href: '/shipments', label: 'Shipments', id: 'navShipments', badge: 'shipmentsBadge' },
       { href: '/scanner', label: 'Scanner', id: 'navScanner' },
       { href: '/lost-punch', label: 'Lost Punch', id: 'navLostPunch' },
@@ -126,6 +127,9 @@ const SharedHeader = {
 
     // Shipments badge
     this.setupShipmentsBadge();
+
+    // Expenses badge
+    this.setupExpensesBadge();
   },
 
   bindResponsiveHandlers() {
@@ -487,6 +491,29 @@ const SharedHeader = {
     this.shipmentsBadgeTimer = setInterval(() => {
       this.updateShipmentsBadge();
     }, 60000);
+  },
+
+  async setupExpensesBadge() {
+    try {
+      const badge = document.getElementById('expensesBadge');
+      if (!badge) return;
+      const resp = await fetch('/api/expenses/status', { credentials: 'include' });
+      if (!resp.ok) {
+        badge.style.display = 'none';
+        return;
+      }
+      const data = await resp.json();
+      const over = !!(data?.overLimit?.monthly || data?.overLimit?.yearly);
+      if (!data?.available || !over) {
+        badge.style.display = 'none';
+        return;
+      }
+      badge.textContent = '!';
+      badge.style.display = 'inline-flex';
+    } catch (_) {
+      const badge = document.getElementById('expensesBadge');
+      if (badge) badge.style.display = 'none';
+    }
   },
 
   // Setup user switching (direct, no logout loop)

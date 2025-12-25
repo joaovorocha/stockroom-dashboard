@@ -7,8 +7,7 @@ const DATA_DIR = path.join(__dirname, '..', 'data');
 const PUNCH_LOG_FILE = path.join(DATA_DIR, 'lost-punch-log.json');
 
 function canManage(user) {
-  const role = (user?.role || '').toString().toUpperCase();
-  return !!(user?.isAdmin || user?.isManager || role === 'MANAGEMENT');
+  return !!(user?.isAdmin || user?.isManager || user?.canManageLostPunch);
 }
 
 function readPunches() {
