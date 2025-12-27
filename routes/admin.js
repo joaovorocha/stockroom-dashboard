@@ -155,6 +155,96 @@ router.post('/work-expenses-config', express.json(), (req, res) => {
   }
 });
 
+function splitForwardedFor(value) {
+  const raw = (value || '').toString().trim();
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function getNetworkInterfacesSnapshot() {
+  const ifaces = os.networkInterfaces();
+  const all = [];
+
+  Object.entries(ifaces).forEach(([name, addrs]) => {
+    (addrs || []).forEach((a) => {
+      if (!a || typeof a !== 'object') return;
+      all.push({
+        name,
+        address: a.address,
+        family: a.family,
+        netmask: a.netmask,
+        mac: a.mac,
+        internal: !!a.internal,
+        cidr: a.cidr || null,
+        scopeid: a.scopeid ?? null,
+      });
+    });
+  });
+
+  // Heuristics: Tailscale interface is usually `tailscale0` and uses 100.64.0.0/10.
+  const tailscale = all.filter((r) => {
+    const addr = (r.address || '').toString();
+    const name = (r.name || '').toString().toLowerCase();
+    if (name.includes('tailscale')) return true;
+    return /^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\./.test(addr);
+  });
+
+  const nonInternal = all.filter((r) => !r.internal);
+  return {
+    all,
+    nonInternal,
+    ipv4: nonInternal.filter((r) => r.family === 'IPv4'),
+    ipv6: nonInternal.filter((r) => r.family === 'IPv6'),
+    tailscale,
+  };
+}
+
+// GET /api/admin/network-info - Debug IP/proxy/network info (admin only)
+router.get('/network-info', (req, res) => {
+  const forwardedFor = splitForwardedFor(req.headers['x-forwarded-for']);
+  const forwarded = (req.headers['forwarded'] || '').toString().trim() || null;
+  const remoteAddress = req.socket?.remoteAddress || null;
+  const network = getNetworkInterfacesSnapshot();
+
+  return res.json({
+    ok: true,
+    server: {
+      hostname: os.hostname(),
+      platform: process.platform,
+      pid: process.pid,
+      node: process.version,
+      port: process.env.PORT || 3000,
+      appBaseUrl: (process.env.APP_BASE_URL || '').toString().trim() || null,
+      interfaces: {
+        ipv4: network.ipv4,
+        ipv6: network.ipv6,
+        tailscale: network.tailscale,
+      },
+    },
+    request: {
+      method: req.method,
+      path: req.originalUrl || req.url,
+      // Express-derived values (affected by `app.set('trust proxy', ...)` if enabled).
+      expressIp: req.ip || null,
+      expressIps: Array.isArray(req.ips) ? req.ips : [],
+      // Raw socket + common proxy headers.
+      remoteAddress,
+      headers: {
+        host: req.headers.host || null,
+        'x-forwarded-for': forwardedFor,
+        'x-forwarded-proto': req.headers['x-forwarded-proto'] || null,
+        'x-forwarded-host': req.headers['x-forwarded-host'] || null,
+        'x-real-ip': req.headers['x-real-ip'] || null,
+        forwarded,
+        'cf-connecting-ip': req.headers['cf-connecting-ip'] || null,
+      },
+    },
+  });
+});
+
 function buildTimeOffCsv(entries) {
   const esc = (v) => `"${String(v ?? '').replace(/\"/g, '""')}"`;
   const header = [
