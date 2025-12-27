@@ -12,7 +12,6 @@ const DATA_DIR = dal.paths.dataDir;
 const CONFIG_FILE = path.join(DATA_DIR, 'work-expenses-config.json');
 const NOTES_FILE = path.join(DATA_DIR, 'expense-order-notes.json');
 const UPLOADS_DIR = path.join(DATA_DIR, 'expense-order-uploads');
-const APPROVER_OVERRIDES_FILE = path.join(DATA_DIR, 'expense-approver-overrides.json');
 
 function readJson(filePath, fallback) {
   return dal.readJson(filePath, fallback);
@@ -85,25 +84,11 @@ function readUsersIndex() {
   return { byEmail, byEmployeeId, byName };
 }
 
-function readApproverOverrides() {
-  const raw = readJson(APPROVER_OVERRIDES_FILE, null) || {};
-  const approvers = raw.approvers && typeof raw.approvers === 'object' ? raw.approvers : {};
-  return { approvers };
-}
-
-function writeApproverOverrides(next) {
-  writeJson(APPROVER_OVERRIDES_FILE, next);
-}
-
 function getSavedExpenses() {
   const saved = LookerDataProcessor.getSavedDashboardData();
   const exp = saved?.workRelatedExpenses;
   if (!exp || !Array.isArray(exp.orders)) return null;
   return exp;
-}
-
-function isManagerOrAdmin(user) {
-  return !!(user?.isAdmin || user?.isManager);
 }
 
 function parseIsoDate(value) {
@@ -150,11 +135,14 @@ function sumLcFullPrice(orders) {
 
 function buildLimitStatus({ retailValueLc, limit } = {}) {
   const used = Number(retailValueLc || 0);
+  if (limit === null || limit === undefined || limit === '') {
+    return { limit: null, used, remaining: null, percentUsed: null, over: false };
+  }
   const lim = Number(limit);
   if (!Number.isFinite(lim)) {
     return { limit: null, used, remaining: null, percentUsed: null, over: false };
   }
-  const remaining = Math.max(0, lim - used);
+  const remaining = lim - used; // can be negative when overspent
   const percentUsed = lim > 0 ? Math.round((used / lim) * 1000) / 10 : null;
   const over = used > lim;
   return { limit: lim, used, remaining, percentUsed, over };
@@ -183,37 +171,25 @@ function resolveLimits(config, userEmail) {
     ? config.overrides[email] || null
     : null;
 
-  const monthlyLimit = override && Number.isFinite(Number(override.monthlyLimit))
-    ? Number(override.monthlyLimit)
-    : config.globalMonthlyLimit;
-
   const yearlyLimit = override && Number.isFinite(Number(override.yearlyLimit))
     ? Number(override.yearlyLimit)
     : config.globalYearlyLimit;
 
-  return { monthlyLimit: monthlyLimit ?? null, yearlyLimit: yearlyLimit ?? null };
+  return { monthlyLimit: null, yearlyLimit: yearlyLimit ?? null };
 }
 
-function normalizeOrder(order, usersIndex, overrides) {
+function normalizeOrder(order, usersIndex) {
   const o = order || {};
-  const ov = overrides || { approvers: {} };
 
   const beneficiaryName = o?.beneficiary?.name || o?.customerName || null;
-  const approverEmail = o?.approver?.email || o?.employee?.email || null;
-  const approverNumber = o?.approver?.number || o?.employee?.number || null;
-
-  const approverUser =
-    (approverEmail ? usersIndex.byEmail.get(normalizeEmail(approverEmail)) : null) ||
-    (approverNumber ? usersIndex.byEmployeeId.get(String(approverNumber).trim()) : null) ||
-    null;
 
   const beneficiaryUser = beneficiaryName
-    ? usersIndex.byName.get(normalizeNameKey(beneficiaryName)) || null
+    ? usersIndex.byName.get(normalizeNameKey(beneficiaryName)) ||
+      (suggestWorkEmailFromName(beneficiaryName)
+        ? usersIndex.byEmail.get(normalizeEmail(suggestWorkEmailFromName(beneficiaryName)))
+        : null) ||
+      null
     : null;
-
-  const approverRole = (approverUser?.role || '').toString().trim().toUpperCase();
-  const approverRoleIsManager = approverRole === 'MANAGEMENT' || approverRole === 'ADMIN';
-  const approverRoleIsAdmin = approverRole === 'ADMIN';
 
   const beneficiary = {
     name: beneficiaryName,
@@ -223,77 +199,12 @@ function normalizeOrder(order, usersIndex, overrides) {
   };
   beneficiary.key = normalizeEmail(beneficiary.email) || (beneficiary.employeeId || '').toString().trim() || normalizeNameKey(beneficiary.name);
 
-  const approver = {
-    name: o?.approver?.name || o?.employee?.name || null,
-    email: approverEmail || null,
-    number: approverNumber || null,
-    imageUrl: o?.approver?.imageUrl || o?.employee?.imageUrl || approverUser?.imageUrl || null,
-    isManager: o?.approver?.isManager === true || approverUser?.isManager === true || approverRoleIsManager,
-    isAdmin: o?.approver?.isAdmin === true || approverUser?.isAdmin === true || approverRoleIsAdmin
-  };
-
-  const overrideKey = normalizeEmail(approver.email);
-  const forced = overrideKey && ov.approvers && ov.approvers[overrideKey] ? ov.approvers[overrideKey] : null;
-  const forceManager = typeof forced?.forceManager === 'boolean' ? forced.forceManager : null;
-  if (forceManager === true) approver.isManager = true;
-  if (forceManager === false) {
-    approver.isManager = false;
-    approver.isAdmin = false;
-  }
-
-  // Only used for row-level “needs review” highlighting.
-  const unauthorized = !(approver.isAdmin || approver.isManager);
-
   return {
     ...o,
     beneficiary,
-    approver,
-    // Keep legacy fields around for older UI bits.
-    customerName: beneficiary.name || null,
-    employee: {
-      ...(o?.employee || {}),
-      number: approver.number || o?.employee?.number || null,
-      name: approver.name || o?.employee?.name || null,
-      email: approver.email || o?.employee?.email || null,
-      imageUrl: approver.imageUrl || o?.employee?.imageUrl || null
-    },
-    unauthorized
+    // Keep legacy field around for older UI bits.
+    customerName: beneficiary.name || null
   };
-}
-
-function listApproversFromOrders(orders, usersIndex) {
-  const overrides = readApproverOverrides();
-  const byKey = new Map();
-
-  (orders || []).forEach(raw => {
-    const o = normalizeOrder(raw, usersIndex, overrides);
-    const a = o?.approver || {};
-    const name = (a.name || '').toString().trim();
-    const email = normalizeEmail(a.email);
-    const key = email || normalizeNameKey(name);
-    if (!key) return;
-    if (!byKey.has(key)) {
-      const autoManager =
-        !!(a?.isAdmin || a?.isManager) &&
-        !(overrides.approvers?.[email]?.forceManager === false);
-
-      byKey.set(key, {
-        key,
-        name: name || null,
-        email: email || null,
-        suggestedEmail: !email && name ? suggestWorkEmailFromName(name) : null,
-        autoManager,
-        forceManager: email && overrides.approvers?.[email] && typeof overrides.approvers[email].forceManager === 'boolean'
-          ? overrides.approvers[email].forceManager
-          : null,
-        effectiveManager: !!(a?.isAdmin || a?.isManager),
-        count: 0
-      });
-    }
-    byKey.get(key).count += 1;
-  });
-
-  return Array.from(byKey.values()).sort((x, y) => (y.count - x.count));
 }
 
 function computeAggregatesFromOrders(orders, config) {
@@ -319,7 +230,6 @@ function computeAggregatesFromOrders(orders, config) {
         key: normKey,
         employee: { ...(o.beneficiary || {}), key: normKey },
         known: !!emailKey,
-        unauthorizedOrders: 0,
         totals: {
           currentYear: { orders: 0, discountLc: 0, fullPriceLc: 0, netRevenueLc: 0 },
           currentMonth: { orders: 0, discountLc: 0, fullPriceLc: 0, netRevenueLc: 0 }
@@ -330,7 +240,6 @@ function computeAggregatesFromOrders(orders, config) {
     const entry = byEmployee.get(normKey);
     entry.employee = entry.employee?.email ? entry.employee : { ...(o.beneficiary || {}), key: normKey };
     if (entry.known !== true && o?.beneficiary?.email) entry.known = true;
-    if (o?.unauthorized) entry.unauthorizedOrders += 1;
 
     const d = o.calendarDate ? new Date(`${o.calendarDate}T00:00:00Z`) : null;
     const y = d && Number.isFinite(d.getTime()) ? d.getUTCFullYear() : null;
@@ -368,19 +277,17 @@ function computeAggregatesFromOrders(orders, config) {
 
   const employees = Array.from(byEmployee.values()).map(e => {
     const email = normalizeEmail(e?.employee?.email);
-    const { monthlyLimit, yearlyLimit } = resolveLimits(config, email);
+    const { yearlyLimit } = resolveLimits(config, email);
 
-    const monthRetail = Number(e?.totals?.currentMonth?.fullPriceLc || 0);
     const yearRetail = Number(e?.totals?.currentYear?.fullPriceLc || 0);
 
-    const month = buildLimitStatus({ retailValueLc: monthRetail, limit: monthlyLimit });
     const yearStatus = buildLimitStatus({ retailValueLc: yearRetail, limit: yearlyLimit });
 
     return {
       ...e,
-      limits: { monthlyLimit, yearlyLimit },
-      status: { monthly: month, yearly: yearStatus },
-      overLimit: { monthly: month.over, yearly: yearStatus.over }
+      limits: { yearlyLimit },
+      status: { yearly: yearStatus },
+      overLimit: { yearly: yearStatus.over }
     };
   });
 
@@ -407,14 +314,8 @@ function getOrderAccessKey(user) {
 }
 
 function canAccessOrder(user, order) {
-  if (isManagerOrAdmin(user) || user?.isAdmin) return true;
-  const { email, nameKey } = getOrderAccessKey(user);
-  const b = order?.beneficiary || {};
-  const bEmail = normalizeEmail(b?.email);
-  const bName = normalizeNameKey(b?.name);
-  if (email && bEmail && email === bEmail) return true;
-  if (nameKey && bName && nameKey === bName) return true;
-  return false;
+  // This page is intentionally visible to all logged-in users.
+  return !!user;
 }
 
 function ensureOrderUploadDir(orderId) {
@@ -451,25 +352,21 @@ router.get('/config', (req, res) => {
   return res.json({ ...config, limits });
 });
 
-// GET /api/expenses - list orders (employees: self only; managers/admin: can filter)
+// GET /api/expenses - list orders (visible to all authed users)
 router.get('/', (req, res) => {
   const exp = getSavedExpenses();
   if (!exp) return res.json({ success: true, source: null, orders: [], employees: [], storeTotals: null });
 
   const config = getConfig();
   const usersIndex = readUsersIndex();
-  const overrides = readApproverOverrides();
-  const userEmail = normalizeEmail(req.user?.email);
 
   const requestedRaw = (req.query.employeeEmail || '').toString().trim();
-  const effectiveEmployeeFilter = isManagerOrAdmin(req.user)
-    ? (requestedRaw || '')
-    : (userEmail || req.user?.name || '');
+  const effectiveEmployeeFilter = requestedRaw || '';
 
   const start = parseIsoDate(req.query.start);
   const end = parseIsoDate(req.query.end);
 
-  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex, overrides));
+  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const filtered = filterOrders(normalizedOrders, {
     start,
     end,
@@ -485,7 +382,7 @@ router.get('/', (req, res) => {
     filters: { start: start || null, end: end || null, employeeEmail: effectiveEmployeeFilter || null },
     orders: filtered,
     storeTotals: aggregates.storeTotals || exp.storeTotals || null,
-    employees: isManagerOrAdmin(req.user) ? aggregates.employees : [],
+    employees: aggregates.employees,
     currentYear: aggregates.year,
     currentMonthKey: aggregates.monthKey
   });
@@ -497,20 +394,19 @@ router.get('/status', (req, res) => {
   const config = getConfig();
   const limits = resolveLimits(config, req.user?.email);
   const usersIndex = readUsersIndex();
-  const overrides = readApproverOverrides();
 
   if (!exp) {
     return res.json({
       success: true,
       available: false,
-      totals: { currentMonthRetailLc: 0, currentYearRetailLc: 0 },
+      totals: { currentYearRetailLc: 0, yearOrders: 0 },
       limits
     });
   }
 
   const email = normalizeEmail(req.user?.email);
   const nameKey = normalizeNameKey(req.user?.name);
-  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex, overrides));
+  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const mine = normalizedOrders.filter(o => {
     const bEmail = normalizeEmail(o?.beneficiary?.email);
     const bName = normalizeNameKey(o?.beneficiary?.name);
@@ -521,13 +417,10 @@ router.get('/status', (req, res) => {
   const monthKey = currentMonthKey();
   const year = new Date().getFullYear();
 
-  const monthOrders = mine.filter(o => isInMonth(o, monthKey));
   const yearOrders = mine.filter(o => isInYear(o, year));
 
-  const currentMonthRetailLc = sumLcFullPrice(monthOrders);
   const currentYearRetailLc = sumLcFullPrice(yearOrders);
 
-  const monthly = buildLimitStatus({ retailValueLc: currentMonthRetailLc, limit: limits.monthlyLimit });
   const yearly = buildLimitStatus({ retailValueLc: currentYearRetailLc, limit: limits.yearlyLimit });
 
   return res.json({
@@ -535,50 +428,11 @@ router.get('/status', (req, res) => {
     available: true,
     monthKey,
     year,
-    totals: { currentMonthRetailLc, currentYearRetailLc, monthOrders: monthOrders.length, yearOrders: yearOrders.length },
+    totals: { currentYearRetailLc, yearOrders: yearOrders.length },
     limits,
-    status: { monthly, yearly },
-    overLimit: { monthly: monthly.over, yearly: yearly.over }
+    status: { yearly },
+    overLimit: { yearly: yearly.over }
   });
-});
-
-// GET /api/expenses/approvers - list approvers + overrides (manager/admin)
-router.get('/approvers', (req, res) => {
-  if (!isManagerOrAdmin(req.user)) return res.status(403).json({ error: 'Manager access required' });
-  const exp = getSavedExpenses();
-  if (!exp) return res.json({ success: true, available: false, approvers: [], overrides: readApproverOverrides() });
-  const usersIndex = readUsersIndex();
-  const list = listApproversFromOrders(exp.orders || [], usersIndex);
-  return res.json({ success: true, available: true, approvers: list, overrides: readApproverOverrides() });
-});
-
-// POST /api/expenses/approvers - update overrides (manager/admin)
-router.post('/approvers', express.json(), (req, res) => {
-  if (!isManagerOrAdmin(req.user)) return res.status(403).json({ error: 'Manager access required' });
-  const patch = req.body || {};
-  const items = Array.isArray(patch.approvers) ? patch.approvers : [];
-
-  const next = readApproverOverrides();
-  next.approvers = next.approvers && typeof next.approvers === 'object' ? next.approvers : {};
-
-  items.forEach(it => {
-    const email = normalizeEmail(it?.email);
-    if (!email || !email.includes('@')) return;
-    const force = it?.forceManager;
-    if (force === null || force === undefined || force === '') {
-      delete next.approvers[email];
-      return;
-    }
-    if (force !== true && force !== false) return;
-    next.approvers[email] = {
-      forceManager: force,
-      updatedAt: new Date().toISOString(),
-      updatedBy: req.user?.name || req.user?.email || null
-    };
-  });
-
-  writeApproverOverrides(next);
-  return res.json({ success: true, overrides: next });
 });
 
 // GET /api/expenses/orders/:orderId/notes - read notes + attachments
@@ -587,8 +441,7 @@ router.get('/orders/:orderId/notes', (req, res) => {
   if (!exp) return res.status(404).json({ error: 'No expenses data available' });
 
   const usersIndex = readUsersIndex();
-  const overrides = readApproverOverrides();
-  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex, overrides));
+  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const orderId = (req.params.orderId || '').toString().trim();
   const order = normalizedOrders.find(o => String(o?.orderId || '') === orderId);
   if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -606,8 +459,7 @@ router.post('/orders/:orderId/notes', (req, res) => {
   if (!exp) return res.status(404).json({ error: 'No expenses data available' });
 
   const usersIndex = readUsersIndex();
-  const overrides = readApproverOverrides();
-  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex, overrides));
+  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const orderId = (req.params.orderId || '').toString().trim();
   const order = normalizedOrders.find(o => String(o?.orderId || '') === orderId);
   if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -637,8 +489,7 @@ router.post('/orders/:orderId/attachments', upload.array('files', 5), (req, res)
   if (!exp) return res.status(404).json({ error: 'No expenses data available' });
 
   const usersIndex = readUsersIndex();
-  const overrides = readApproverOverrides();
-  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex, overrides));
+  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const orderId = (req.params.orderId || '').toString().trim();
   const order = normalizedOrders.find(o => String(o?.orderId || '') === orderId);
   if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -680,8 +531,7 @@ router.get('/orders/:orderId/attachments/:attachmentId', (req, res) => {
   if (!exp) return res.status(404).json({ error: 'No expenses data available' });
 
   const usersIndex = readUsersIndex();
-  const overrides = readApproverOverrides();
-  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex, overrides));
+  const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const orderId = (req.params.orderId || '').toString().trim();
   const order = normalizedOrders.find(o => String(o?.orderId || '') === orderId);
   if (!order) return res.status(404).json({ error: 'Order not found' });

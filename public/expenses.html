@@ -57,9 +57,7 @@
     .employee-card:hover { background: var(--surface); }
     .employee-card.over { border-color: rgba(220,38,38,0.35); background: rgba(220,38,38,0.06); }
     .pill.danger { border-color: rgba(220,38,38,0.35); background: rgba(220,38,38,0.08); color: #b91c1c; }
-    .pill.warn { border-color: rgba(234,179,8,0.35); background: rgba(234,179,8,0.14); color: #92400e; }
-    .pill.success { border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.12); color: #166534; }
-    .employee-card.unauth { border-color: rgba(234,179,8,0.35); }
+    
     .employee-card .top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .employee-card .meta { display:flex; align-items:center; gap:10px; min-width: 0; }
     .employee-card .meta .text { min-width:0; }
@@ -144,51 +142,11 @@
         <h3>Employees (YTD retail value vs limit)</h3>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
           <div id="employeeTabs" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;"></div>
-          <span class="pill" id="employeePanelHint">Managers/Admins only</span>
+          <span class="pill" id="employeePanelHint">All users</span>
         </div>
       </div>
       <div class="employee-grid" id="employeeGrid"></div>
     </div>
-
-    <div class="summary-card" id="adminLimitsCard" style="display:none; margin: 0 0 14px 0;">
-      <div class="label">Admin: Expense Limits</div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; align-items:flex-end;">
-        <div class="field">
-          <label for="adminYearlyLimit">Global yearly retail limit (USD)</label>
-          <input type="number" id="adminYearlyLimit" placeholder="ex: 2500" step="1" min="0">
-        </div>
-        <button class="btn-sm" id="adminSaveLimitsBtn">Save</button>
-        <span class="pill" id="adminLimitsSavedBy" style="display:none;"></span>
-      </div>
-      <div class="hint" style="margin-top: 8px;">Overrides per employee email can be added next (if needed).</div>
-    </div>
-
-    <details id="approverManagerSection" style="display:none; margin: 0 0 14px 0;">
-      <summary style="cursor:pointer; user-select:none;">Approvers (who can approve discounts)</summary>
-      <div class="summary-card" style="margin-top:10px;">
-        <div class="label">Approver roster</div>
-        <div class="hint" style="margin-top:6px; line-height:1.6;">
-          Approver status is auto-detected from the user list (`Is Manager` / `Is Admin` / role `MANAGEMENT`), but you can force an approver to be treated as a manager here (yellow = review).
-        </div>
-        <div style="margin-top:12px; overflow:auto; border:1px solid var(--border); border-radius:10px;">
-          <table style="width:100%; border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="text-align:left; font-size:12px; padding:10px 12px; color:var(--text-secondary); background:var(--background); border-bottom:1px solid var(--border);">Approver</th>
-                <th style="text-align:left; font-size:12px; padding:10px 12px; color:var(--text-secondary); background:var(--background); border-bottom:1px solid var(--border);">Email</th>
-                <th style="text-align:left; font-size:12px; padding:10px 12px; color:var(--text-secondary); background:var(--background); border-bottom:1px solid var(--border);">Status</th>
-                <th style="text-align:right; font-size:12px; padding:10px 12px; color:var(--text-secondary); background:var(--background); border-bottom:1px solid var(--border);">Orders</th>
-              </tr>
-            </thead>
-            <tbody id="approverTableBody"></tbody>
-          </table>
-        </div>
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end; margin-top:12px;">
-          <span class="pill" id="approverSaveMeta" style="display:none;"></span>
-          <button class="btn-sm" id="approverSaveBtn">Save</button>
-        </div>
-      </div>
-    </details>
 
     <div class="table-wrap">
       <table>
@@ -196,7 +154,6 @@
           <tr>
             <th>Date</th>
             <th>Employee</th>
-            <th>Approver</th>
             <th>Reason</th>
             <th class="right">Retail Value (USD)</th>
             <th class="right">Discount (USD)</th>

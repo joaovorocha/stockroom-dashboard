@@ -30,6 +30,46 @@ function normalizeEmail(v) {
   return (v || '').toString().trim().toLowerCase();
 }
 
+function normalizeNameKey(v) {
+  return (v || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function suggestWorkEmailFromName(name) {
+  const raw = (name || '').toString().trim();
+  if (!raw) return null;
+  const cleaned = raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z\s-]+/g, ' ')
+    .trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return null;
+  const first = parts[0];
+  const last = parts[parts.length - 1].replace(/[^a-zA-Z]/g, '');
+  if (!first || !last) return null;
+  return `${first[0].toLowerCase()}${last.toLowerCase()}@suitsupply.com`;
+}
+
+const IGNORED_EMPLOYEE_STORAGE_KEY = 'expensesIgnoredEmployees.v1';
+
+function loadIgnoredEmployees() {
+  try {
+    const raw = localStorage.getItem(IGNORED_EMPLOYEE_STORAGE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.map(x => String(x || '')) : []);
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function saveIgnoredEmployees(set) {
+  try {
+    localStorage.setItem(IGNORED_EMPLOYEE_STORAGE_KEY, JSON.stringify(Array.from(set || [])));
+  } catch (_) {}
+}
+
+let ignoredEmployees = loadIgnoredEmployees();
+
 function getRangeFilters() {
   const range = document.getElementById('rangeSelect')?.value || 'ytd';
   const startEl = document.getElementById('startDate');
@@ -46,6 +86,14 @@ function getInitials(nameOrEmail) {
   const parts = raw.includes(' ') ? raw.split(/\s+/) : raw.split('@')[0].split('.');
   const letters = parts.filter(Boolean).map(p => p[0]).slice(0, 2).join('');
   return (letters || raw[0] || '--').toUpperCase();
+}
+
+function firstNameOnly(value) {
+  const raw = (value || '').toString().trim();
+  if (!raw) return '';
+  const name = raw.split('@')[0].trim();
+  const parts = name.split(/\s+/).filter(Boolean);
+  return parts[0] || raw;
 }
 
 function setBanner(text) {
@@ -95,16 +143,19 @@ function populateEmployeeSelect(employees) {
   if (unknownGroup.children.length) select.appendChild(unknownGroup);
 }
 
-let currentEmployeeTab = 'known'; // known | unknown | all
+let currentEmployeeTab = 'known'; // known | unknown | ignored | all
 let lastEmployeesForPanel = [];
 
 function renderEmployeeTabs(employees) {
   const tabs = document.getElementById('employeeTabs');
   if (!tabs) return;
   const list = Array.isArray(employees) ? employees : [];
-  const knownCount = list.filter(e => e?.known !== false).length;
-  const unknownCount = list.filter(e => e?.known === false).length;
-  const total = list.length;
+  const isIgnored = (e) => ignoredEmployees.has(String(e?.key || e?.employee?.key || ''));
+
+  const knownCount = list.filter(e => e?.known !== false && !isIgnored(e)).length;
+  const unknownCount = list.filter(e => e?.known === false && !isIgnored(e)).length;
+  const ignoredCount = list.filter(e => isIgnored(e)).length;
+  const total = list.filter(e => !isIgnored(e)).length;
 
   const mkBtn = (key, label) => {
     const btn = document.createElement('button');
@@ -125,6 +176,7 @@ function renderEmployeeTabs(employees) {
   tabs.innerHTML = '';
   tabs.appendChild(mkBtn('known', `Known (${knownCount})`));
   if (unknownCount) tabs.appendChild(mkBtn('unknown', `Unknown (${unknownCount})`));
+  if (ignoredCount) tabs.appendChild(mkBtn('ignored', `Ignored (${ignoredCount})`));
   tabs.appendChild(mkBtn('all', `All (${total})`));
 }
 
@@ -142,28 +194,34 @@ function renderEmployeePanel(employees) {
     return;
   }
 
+  const isIgnored = (e) => ignoredEmployees.has(String(e?.key || e?.employee?.key || ''));
+
   const filteredEmployees = currentEmployeeTab === 'known'
-    ? employees.filter(e => e?.known !== false)
+    ? employees.filter(e => e?.known !== false && !isIgnored(e))
     : currentEmployeeTab === 'unknown'
-      ? employees.filter(e => e?.known === false)
-      : employees;
+      ? employees.filter(e => e?.known === false && !isIgnored(e))
+      : currentEmployeeTab === 'ignored'
+        ? employees.filter(e => isIgnored(e))
+        : employees.filter(e => !isIgnored(e));
 
   panel.style.display = 'block';
   grid.innerHTML = '';
 
   filteredEmployees.slice(0, 200).forEach(e => {
     const card = document.createElement('div');
-    const over = !!(e?.overLimit?.yearly || e?.overLimit?.monthly);
-    const unauthCount = Number(e?.unauthorizedOrders || 0);
-    const hasUnauth = unauthCount > 0;
-    card.className = `employee-card${over ? ' over' : ''}${hasUnauth ? ' unauth' : ''}`;
+    const over = !!(e?.overLimit?.yearly);
+    card.className = `employee-card${over ? ' over' : ''}`;
 
     const name = e?.employee?.name || e?.employee?.email || 'Unknown';
+    const displayName = firstNameOnly(name) || name;
     const email = e?.employee?.email || '';
     const imgUrl = e?.employee?.imageUrl || null;
+    const isUnknown = e?.known === false || !email;
+    const suggested = isUnknown ? suggestWorkEmailFromName(name) : null;
     const used = Number(e?.status?.yearly?.used || 0);
     const limit = Number(e?.status?.yearly?.limit || 0);
-    const remaining = Number(e?.status?.yearly?.remaining || 0);
+    const remainingRaw = e?.status?.yearly?.remaining;
+    const remaining = Number.isFinite(Number(remainingRaw)) ? Number(remainingRaw) : null;
     const percent = Number.isFinite(Number(e?.status?.yearly?.percentUsed)) ? Number(e.status.yearly.percentUsed) : null;
     const pctWidth = percent !== null ? Math.max(0, Math.min(100, percent)) : (limit > 0 ? Math.max(0, Math.min(100, (used / limit) * 100)) : 0);
 
@@ -171,20 +229,31 @@ function renderEmployeePanel(employees) {
       ? `<img class="emp-avatar" src="${imgUrl}" alt="" onerror="this.remove()">`
       : `<div class="emp-initials">${getInitials(name)}</div>`;
 
-    const unauthPill = hasUnauth ? `<span class="pill warn" title="Orders approved by a non-manager">(!) ${unauthCount} review</span>` : '';
+    const ignoreBtn = isUnknown
+      ? `<button class="btn-sm js-ignore-btn" style="padding:4px 8px; border-radius:999px;">Ignore</button>`
+      : '';
+    const unignoreBtn = currentEmployeeTab === 'ignored'
+      ? `<button class="btn-sm js-unignore-btn" style="padding:4px 8px; border-radius:999px;">Unignore</button>`
+      : '';
+
+    const remainingText = remaining === null
+      ? '--'
+      : remaining >= 0
+        ? `${toMoney(remaining)} left`
+        : `${toMoney(Math.abs(remaining))} over`;
 
     card.innerHTML = `
       <div class="top">
         <div class="meta">
           ${avatar}
           <div class="text">
-            <div class="title">${name}</div>
-            <div class="sub">${email || 'Not in user list'}</div>
+            <div class="title" title="${name}">${displayName}</div>
+            <div class="sub">${email || (suggested ? `${suggested} (suggested)` : 'Not in user list')}</div>
           </div>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-          ${unauthPill}
-          <span class="pill">${toMoney(remaining)} left</span>
+          ${unignoreBtn || ignoreBtn}
+          <span class="pill">${remainingText}</span>
         </div>
       </div>
       <div class="bar"><div style="width:${pctWidth}%;"></div></div>
@@ -193,6 +262,34 @@ function renderEmployeePanel(employees) {
         <span>Limit ${toMoney(limit || 2500)}</span>
       </div>
     `;
+
+    const ignoreEl = card.querySelector('.js-ignore-btn');
+    if (ignoreEl) {
+      ignoreEl.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const k = String(e?.key || e?.employee?.key || '');
+        if (!k) return;
+        ignoredEmployees.add(k);
+        saveIgnoredEmployees(ignoredEmployees);
+        renderEmployeeTabs(lastEmployeesForPanel);
+        renderEmployeePanel(lastEmployeesForPanel);
+      });
+    }
+
+    const unignoreEl = card.querySelector('.js-unignore-btn');
+    if (unignoreEl) {
+      unignoreEl.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const k = String(e?.key || e?.employee?.key || '');
+        if (!k) return;
+        ignoredEmployees.delete(k);
+        saveIgnoredEmployees(ignoredEmployees);
+        renderEmployeeTabs(lastEmployeesForPanel);
+        renderEmployeePanel(lastEmployeesForPanel);
+      });
+    }
 
     card.addEventListener('click', () => {
       const select = document.getElementById('employeeSelect');
@@ -226,7 +323,7 @@ function renderOrders(orders) {
   if (!Array.isArray(orders) || orders.length === 0) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 8;
+    td.colSpan = 7;
     td.textContent = 'No orders found for this range.';
     tr.appendChild(td);
     tbody.appendChild(tr);
@@ -235,9 +332,6 @@ function renderOrders(orders) {
 
   orders.forEach((o, idx) => {
     const tr = document.createElement('tr');
-
-    const unauthorized = !!o?.unauthorized;
-    const reviewMsg = 'Approver is not marked as manager/admin (review)';
 
     const tdDate = document.createElement('td');
     tdDate.textContent = o.calendarDate || '--';
@@ -264,7 +358,9 @@ function renderOrders(orders) {
     meta.className = 'emp-meta';
     const nameEl = document.createElement('div');
     nameEl.className = 'name';
-    nameEl.textContent = beneficiary?.name || beneficiary?.email || '--';
+    const fullName = beneficiary?.name || beneficiary?.email || '--';
+    // Table row has more space: show full name.
+    nameEl.textContent = fullName;
     const emailEl = document.createElement('div');
     emailEl.className = 'email';
     emailEl.textContent = beneficiary?.email || '';
@@ -272,32 +368,6 @@ function renderOrders(orders) {
     if (beneficiary?.email) meta.appendChild(emailEl);
     empWrap.appendChild(meta);
     tdEmp.appendChild(empWrap);
-
-    const tdApprover = document.createElement('td');
-    const approver = o?.approver || {};
-    const approverName = approver?.name || approver?.email || '--';
-    const approverEmail = approver?.email || '';
-    const approverWrap = document.createElement('div');
-    approverWrap.style.display = 'flex';
-    approverWrap.style.gap = '8px';
-    approverWrap.style.alignItems = 'center';
-    approverWrap.style.flexWrap = 'wrap';
-    const approverNameEl = document.createElement('span');
-    approverNameEl.textContent = approverName;
-    approverWrap.appendChild(approverNameEl);
-    if (approverEmail) {
-      const emailPill = document.createElement('span');
-      emailPill.className = 'pill';
-      emailPill.textContent = approverEmail;
-      approverWrap.appendChild(emailPill);
-    }
-    const isManager = !!(approver?.isManager || approver?.isAdmin);
-    const statusPill = document.createElement('span');
-    statusPill.className = `pill ${isManager ? 'success' : 'warn'}`;
-    statusPill.textContent = isManager ? 'Manager' : '(!) Approver';
-    statusPill.title = isManager ? 'Approved by a manager/admin' : reviewMsg;
-    approverWrap.appendChild(statusPill);
-    tdApprover.appendChild(approverWrap);
 
     const tdReason = document.createElement('td');
     const pill = document.createElement('span');
@@ -339,14 +409,11 @@ function renderOrders(orders) {
 
     tr.appendChild(tdDate);
     tr.appendChild(tdEmp);
-    tr.appendChild(tdApprover);
     tr.appendChild(tdReason);
     tr.appendChild(tdRetail);
     tr.appendChild(tdDiscount);
     tr.appendChild(tdOrder);
     tr.appendChild(tdAction);
-
-    if (unauthorized) tr.title = reviewMsg;
 
     tbody.appendChild(tr);
   });
@@ -436,14 +503,11 @@ async function showOrderDetailModal(order) {
       ? `https://ussbp.omni.manh.com/customerengagementfacade/app/orderstatus?orderId=${encodeURIComponent(orderId)}&selectedOrg=SUIT-US`
       : '';
     const beneficiary = order?.beneficiary || {};
-    const approver = order?.approver || {};
-    const unauthorized = !!order?.unauthorized;
     content.innerHTML = `
       <h3>Order Details</h3>
       <div><b>Date:</b> ${order.calendarDate || '--'}</div>
       <div><b>Order ID:</b> ${orderUrl ? `<a class="mono order-link" href="${orderUrl}" target="_blank" rel="noopener noreferrer">${orderId}</a>` : `<span class="mono">--</span>`}</div>
       <div><b>Employee:</b> ${escapeHtml(beneficiary?.name || beneficiary?.email || '--')}</div>
-      <div><b>Approver:</b> ${escapeHtml(approver?.name || approver?.email || '--')} <span class="pill ${approver?.isManager || approver?.isAdmin ? 'success' : 'warn'}" style="margin-left:8px;">${approver?.isManager || approver?.isAdmin ? 'Manager' : '(!) Approver'}</span></div>
       <div><b>Reason:</b> ${order.discountReason || '--'}</div>
       <div><b>Retail Value (USD):</b> ${toMoney(order?.amounts?.lc?.fullPrice)}</div>
       <div><b>Discount (USD):</b> ${toMoney(order?.amounts?.lc?.discount)}</div>
@@ -515,45 +579,6 @@ async function loadPage() {
 
   const config = await fetchJson('/api/expenses/config');
   const status = await fetchJson('/api/expenses/status');
-
-  // Admin: configure global limits
-  const isAdmin = !!SharedHeader?.currentUser?.isAdmin;
-  const adminCard = document.getElementById('adminLimitsCard');
-  if (adminCard) adminCard.style.display = isAdmin ? 'block' : 'none';
-  if (isAdmin) {
-    try {
-      const adminCfg = await fetchJson('/api/admin/work-expenses-config');
-      const yEl = document.getElementById('adminYearlyLimit');
-      if (yEl) yEl.value = adminCfg.globalYearlyLimit ?? '';
-      const savedBy = document.getElementById('adminLimitsSavedBy');
-      if (savedBy) {
-        const who = adminCfg.updatedBy ? `by ${adminCfg.updatedBy}` : '';
-        const when = adminCfg.updatedAt ? new Date(adminCfg.updatedAt).toLocaleString() : '';
-        const txt = [when, who].filter(Boolean).join(' ');
-        if (txt) {
-          savedBy.textContent = `Last saved ${txt}`;
-          savedBy.style.display = 'inline-flex';
-        } else {
-          savedBy.style.display = 'none';
-        }
-      }
-
-      document.getElementById('adminSaveLimitsBtn')?.addEventListener('click', async () => {
-        const yearly = document.getElementById('adminYearlyLimit')?.value;
-        await fetch('/api/admin/work-expenses-config', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            globalYearlyLimit: yearly === '' ? null : Number(yearly)
-          })
-        });
-        window.location.reload();
-      });
-    } catch (e) {
-      // If admin endpoint fails, keep UI quiet.
-    }
-  }
 
   const myLimitValue = Number.isFinite(config?.limits?.yearlyLimit) ? toMoney(config.limits.yearlyLimit) : 'Not set';
   const myLimitEl = document.getElementById('myLimit');

@@ -2402,14 +2402,18 @@ function renderWorkRelatedExpensesSummary() {
   const mgrBanner = document.getElementById('mgrOverLimitBanner');
   if (mgrBanner && Array.isArray(exp.employees)) {
     const overLimitEmployees = exp.employees.filter(e => {
-      return !!(e?.overLimit?.monthly || e?.overLimit?.yearly);
+      return !!(e?.overLimit?.yearly);
     });
     if (overLimitEmployees.length > 0) {
       mgrBanner.style.display = '';
-      mgrBanner.textContent = `⚠️ Over yearly limit ($2,500): ${overLimitEmployees.map(e => e.employee.name || e.employee.email || 'Unknown').join(', ')}`;
+      mgrBanner.textContent = `Over yearly limit ($2,500): ${overLimitEmployees.length} employee${overLimitEmployees.length === 1 ? '' : 's'} · Click to view`;
+      mgrBanner.style.cursor = 'pointer';
+      mgrBanner.onclick = () => { window.location.href = '/expenses'; };
     } else {
       mgrBanner.style.display = 'none';
       mgrBanner.textContent = '';
+      mgrBanner.onclick = null;
+      mgrBanner.style.cursor = '';
     }
   }
 }

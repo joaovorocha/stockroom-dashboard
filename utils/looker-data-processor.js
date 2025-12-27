@@ -732,6 +732,22 @@ class LookerDataProcessor {
     const normalizeNameKey = (value) =>
       (value || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
 
+    const suggestWorkEmailFromName = (name) => {
+      const raw = (name || '').toString().trim();
+      if (!raw) return null;
+      const cleaned = raw
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .replace(/[^a-zA-Z\s-]+/g, ' ')
+        .trim();
+      const parts = cleaned.split(/\s+/).filter(Boolean);
+      if (parts.length < 2) return null;
+      const first = parts[0];
+      const last = parts[parts.length - 1].replace(/[^a-zA-Z]/g, '');
+      if (!first || !last) return null;
+      return `${first[0].toLowerCase()}${last.toLowerCase()}@suitsupply.com`;
+    };
+
     const orders = rows
       .map(row => {
         const orderId = (row['Order ID'] || '').toString().trim();
@@ -759,8 +775,10 @@ class LookerDataProcessor {
           (approverEmail ? userByEmail.get(approverEmail.toLowerCase()) : null) ||
           (approverNumber ? userByEmployeeId.get(approverNumber) : null);
 
+        const beneficiarySuggestedEmail = beneficiaryName ? suggestWorkEmailFromName(beneficiaryName) : null;
         const beneficiaryUser =
           (beneficiaryName ? userByName.get(normalizeNameKey(beneficiaryName)) : null) ||
+          (beneficiarySuggestedEmail ? userByEmail.get(beneficiarySuggestedEmail.toLowerCase()) : null) ||
           null;
 
         const approverRole = (approverUser?.role || '').toString().trim().toUpperCase();
