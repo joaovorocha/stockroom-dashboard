@@ -102,10 +102,11 @@ function filterOrders(orders, { start, end, employeeEmail } = {}) {
   const endDate = parseIsoDate(end);
   const raw = (employeeEmail || '').toString().trim();
   const email = raw.includes('@') ? normalizeEmail(raw) : '';
-  const rawKey = !email ? normalizeNameKey(raw) : '';
+  const rawLower = !email ? raw.toLowerCase() : '';
+  const rawNameKey = !email ? normalizeNameKey(raw) : '';
 
   return (orders || []).filter(o => {
-    if (email || rawKey) {
+    if (email || rawLower || rawNameKey) {
       const b = o?.beneficiary || {};
       const rowEmail = normalizeEmail(b?.email);
       const rowNameKey = normalizeNameKey(b?.name) || normalizeNameKey(o?.customerName);
@@ -113,11 +114,11 @@ function filterOrders(orders, { start, end, employeeEmail } = {}) {
       const rowKey = (b?.key || '').toString().trim().toLowerCase();
 
       if (email && rowEmail !== email) return false;
-      if (!email && rawKey) {
+      if (!email) {
         const matches =
-          (rowEmpId && rowEmpId === rawKey) ||
-          (rowNameKey && rowNameKey === rawKey) ||
-          (rowKey && rowKey === rawKey);
+          (rawLower && rowEmpId && rowEmpId === rawLower) ||
+          (rawNameKey && rowNameKey && rowNameKey === rawNameKey) ||
+          (rawLower && rowKey && rowKey === rawLower);
         if (!matches) return false;
       }
     }
