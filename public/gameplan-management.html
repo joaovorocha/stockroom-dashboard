@@ -36,6 +36,7 @@
       <a href="/dashboard" class="active" id="navGamePlan">Game Plan</a>
       <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
       <a href="/awards" id="navAwards">Awards</a>
+      <a href="/expenses" id="navExpenses">Expenses</a>
       <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
       <a href="/scanner" id="navScanner">Scanner</a>
       <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
@@ -287,15 +288,16 @@
           </div>
 
           <div style="margin-top: 14px;">
-            <div style="font-weight: 600; margin-bottom: 8px;">💳 Work-Related Expenses (Employee Discounts)</div>
+            <div style="font-weight: 600; margin-bottom: 8px;">💳 Employee Discount Policy Tracking</div>
+            <div id="mgrOverLimitBanner" style="display:none; background:rgba(220,38,38,0.08); border:1px solid rgba(220,38,38,0.3); color:#b91c1c; padding:10px 12px; border-radius:10px; margin-bottom:10px; font-weight:600;"></div>
             <div class="metrics-row">
               <div class="metric-card" id="mgrExpDiscountYtdCard">
-                <span class="metric-label">Discount (YTD)</span>
+                <span class="metric-label">Retail Value (YTD)</span>
                 <span class="metric-value" id="mgrExpDiscountYtd">--</span>
                 <span class="metric-change neutral" id="mgrExpDiscountYtdHint">--</span>
               </div>
               <div class="metric-card" id="mgrExpDiscountMonthCard">
-                <span class="metric-label">Discount (This Month)</span>
+                <span class="metric-label">Retail Value (This Month)</span>
                 <span class="metric-value" id="mgrExpDiscountMonth">--</span>
                 <span class="metric-change neutral" id="mgrExpDiscountMonthHint">--</span>
               </div>

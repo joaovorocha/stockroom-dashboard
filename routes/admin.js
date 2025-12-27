@@ -56,8 +56,10 @@ function readJson(filePath, fallback) {
 function readWorkExpensesConfig() {
   const cfg = readJson(WORK_EXPENSES_CONFIG_FILE, null) || {};
   return {
+    // Policy default: €2,500 max retail value per calendar year (or local currency equivalent).
+    // We store limits in local currency (LC) numbers (USD for SF).
     globalMonthlyLimit: Number.isFinite(Number(cfg.globalMonthlyLimit)) ? Number(cfg.globalMonthlyLimit) : null,
-    globalYearlyLimit: Number.isFinite(Number(cfg.globalYearlyLimit)) ? Number(cfg.globalYearlyLimit) : null,
+    globalYearlyLimit: Number.isFinite(Number(cfg.globalYearlyLimit)) ? Number(cfg.globalYearlyLimit) : 2500,
     overrides: cfg.overrides && typeof cfg.overrides === 'object' ? cfg.overrides : {},
     updatedAt: cfg.updatedAt || null,
     updatedBy: cfg.updatedBy || null

@@ -1,0 +1,67 @@
+{
+  "date": "2025-12-27",
+  "savedAt": "2025-12-27T01:45:02.175Z",
+  "source": "scheduler",
+  "summary": {
+    "avgAccuracy": 99.7,
+    "totalCounts": 7
+  },
+  "employees": [
+    {
+      "name": "Daniel iraheta",
+      "location": "San Francisco",
+      "accuracy": 99.9,
+      "missedReserved": 0,
+      "countsDone": 1,
+      "rankAccuracy": 1,
+      "rankCounts": 4,
+      "rankMissing": 1,
+      "employeeId": "daniel",
+      "id": "boh-003",
+      "type": "BOH",
+      "imageUrl": null
+    },
+    {
+      "name": "Ivan Ramos",
+      "location": "San Francisco",
+      "accuracy": 99.8,
+      "missedReserved": 0,
+      "countsDone": 2,
+      "rankAccuracy": 2,
+      "rankCounts": 1,
+      "rankMissing": 1,
+      "employeeId": "ivannn1234",
+      "id": "boh-002",
+      "type": "BOH",
+      "imageUrl": "/user-uploads/user-017_1766531566613.jpeg"
+    },
+    {
+      "name": "Victor Rocha",
+      "location": "San Francisco",
+      "accuracy": 99.7,
+      "missedReserved": 0,
+      "countsDone": 2,
+      "rankAccuracy": 3,
+      "rankCounts": 1,
+      "rankMissing": 1,
+      "employeeId": "30744",
+      "id": "management-1765923482984",
+      "type": "MANAGEMENT",
+      "imageUrl": "/user-uploads/user-003_1766531812136.jpeg"
+    },
+    {
+      "name": "Daniel Valdez",
+      "location": "San Francisco",
+      "accuracy": 99.3,
+      "missedReserved": 22,
+      "countsDone": 2,
+      "rankAccuracy": 4,
+      "rankCounts": 1,
+      "rankMissing": 4,
+      "employeeId": "danielv",
+      "id": "boh-004",
+      "type": "BOH",
+      "imageUrl": null
+    }
+  ]
+}

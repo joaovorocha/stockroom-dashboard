@@ -436,6 +436,27 @@
                 </div>
                 <button class="btn btn-outline btn-sm" id="resetTomatoAwardsBtn">Reset Tomato Awards</button>
               </div>
+
+              <hr style="margin:16px 0; border:0; border-top:1px solid #eee;">
+              <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+                <div>
+                  <div style="font-weight:600;">Employee Discount Policy</div>
+                  <div style="font-size:13px; color:#666; margin-top:4px;">
+                    40% discount up to <strong>$2,500</strong> retail value per calendar year (local currency equivalent).
+                  </div>
+                </div>
+              </div>
+              <div class="form-row form-row-3" style="margin-top:12px;">
+                <div class="form-group">
+                  <label for="employeeDiscountYearlyLimit">Yearly retail limit (USD)</label>
+                  <input id="employeeDiscountYearlyLimit" type="number" min="0" step="1" placeholder="2500">
+                </div>
+                <div class="form-group"></div>
+                <div class="form-group">
+                  <label>&nbsp;</label>
+                  <div style="font-size:12px; color:#888;" id="employeeDiscountMeta"></div>
+                </div>
+              </div>
 	          </div>
 	        </div>
 	      </div>
@@ -805,13 +826,33 @@
 		        if (!response.ok) throw new Error(`Failed to load store config (HTTP ${response.status})`);
 		        storeConfig = await response.json();
 		        renderStoreConfig();
+            await loadEmployeeDiscountConfig();
 	          await loadTomatoConfig();
 	      } catch (e) {
 	        alert(e?.message || 'Failed to load store settings');
 	      }
 	    }
 
-	      async function loadTomatoConfig() {
+        async function loadEmployeeDiscountConfig() {
+          try {
+            const resp = await fetch('/api/admin/work-expenses-config', { credentials: 'include' });
+            if (!resp.ok) throw new Error(`Failed to load employee discount config (HTTP ${resp.status})`);
+            const cfg = await resp.json();
+            const yearly = document.getElementById('employeeDiscountYearlyLimit');
+            const meta = document.getElementById('employeeDiscountMeta');
+            if (yearly) yearly.value = cfg.globalYearlyLimit ?? 2500;
+            if (meta) {
+              const updatedAt = cfg?.updatedAt ? new Date(cfg.updatedAt).toLocaleString() : '';
+              const updatedBy = cfg?.updatedBy || '';
+              meta.textContent = updatedAt || updatedBy ? `Last updated ${updatedAt}${updatedBy ? ` by ${updatedBy}` : ''}` : '';
+            }
+          } catch (_) {
+            const yearly = document.getElementById('employeeDiscountYearlyLimit');
+            if (yearly && !yearly.value) yearly.value = 2500;
+          }
+        }
+
+	    async function loadTomatoConfig() {
 	        try {
 	          const resp = await fetch('/api/admin/tomato-awards', { credentials: 'include' });
 	          if (!resp.ok) throw new Error(`Failed to load tomato awards (HTTP ${resp.status})`);
@@ -846,15 +887,16 @@
 
 	    async function saveStoreConfig() {
 	      const tz = (document.getElementById('storeTimeZone')?.value || '').toString().trim();
-	      const currency = (document.getElementById('storeCurrency')?.value || '').toString().trim();
-	      const dayStart = (document.getElementById('storeDayStart')?.value || '').toString().trim();
-	      const requireSaShift = !!document.getElementById('storeRequireSaShift')?.checked;
-	      const payload = {
-	        timeZone: tz || 'America/Los_Angeles',
-	        currency: currency || 'USD',
-	        dayStart: dayStart || '00:00',
-	        requireSaShift
-	      };
+        const currency = (document.getElementById('storeCurrency')?.value || '').toString().trim();
+        const dayStart = (document.getElementById('storeDayStart')?.value || '').toString().trim();
+        const requireSaShift = !!document.getElementById('storeRequireSaShift')?.checked;
+        const yearlyLimitRaw = (document.getElementById('employeeDiscountYearlyLimit')?.value || '').toString().trim();
+        const payload = {
+          timeZone: tz || 'America/Los_Angeles',
+          currency: currency || 'USD',
+          dayStart: dayStart || '00:00',
+          requireSaShift
+        };
 
 	      const btn = document.getElementById('saveStoreConfigBtn');
 	      if (btn) btn.disabled = true;
@@ -868,6 +910,24 @@
 	        if (!resp.ok) throw new Error(`Save failed (HTTP ${resp.status})`);
 	        storeConfig = await resp.json();
 	        renderStoreConfig();
+
+          // Save employee discount limits (local currency / USD)
+          try {
+            const limitsPayload = {
+              globalYearlyLimit: yearlyLimitRaw === '' ? 2500 : Number(yearlyLimitRaw)
+            };
+            const limitsResp = await fetch('/api/admin/work-expenses-config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(limitsPayload),
+              credentials: 'include'
+            });
+            if (!limitsResp.ok) throw new Error(`Employee discount limits save failed (HTTP ${limitsResp.status})`);
+            await loadEmployeeDiscountConfig();
+          } catch (e) {
+            showToast(e?.message || 'Saved store settings, but failed to save employee discount limits');
+          }
+
           showToast('Store settings saved');
 	      } catch (e) {
 	        alert(e?.message || 'Failed to save store settings');

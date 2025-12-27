@@ -1060,6 +1060,53 @@ function setupWelcomeSection() {
 
   // Lunch timeline should show for everyone (not only SA).
   setupLunchTimeline(userEmployee || null);
+
+  // Employee discount policy tracking (remaining retail value).
+  setupEmployeeDiscountStatus();
+}
+
+async function setupEmployeeDiscountStatus() {
+  if (!currentUser) return;
+  const detailsEl = document.getElementById('welcomeDetails');
+  if (!detailsEl) return;
+
+  try {
+    const resp = await fetch('/api/expenses/status', { credentials: 'include' });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (!data?.available) return;
+
+    const yearly = data?.status?.yearly || {};
+    if (!Number.isFinite(Number(yearly.limit))) return;
+
+    const used = Number(yearly.used || 0);
+    const remaining = Number(yearly.remaining || 0);
+    const percent = Number.isFinite(Number(yearly.percentUsed)) ? Number(yearly.percentUsed) : null;
+    const over = !!yearly.over;
+
+    const existing = document.getElementById('welcomeDiscountStatus');
+    const row = existing || document.createElement('div');
+    row.id = 'welcomeDiscountStatus';
+    row.className = 'welcome-assignments';
+
+    const cls = over ? 'negative' : remaining <= 250 ? 'warning' : 'positive';
+    const pctText = percent !== null ? `${percent}% used` : '';
+    const line = `
+      <div class="assignment-item">
+        <span class="label">Employee Discount:</span>
+        <span class="value ${cls}">$${Math.round(remaining)} remaining</span>
+        <span class="value muted" style="margin-left:8px;">(of $${Math.round(yearly.limit)} · ${pctText})</span>
+      </div>
+    `;
+
+    row.innerHTML = line;
+    if (!existing) {
+      // Put at the top of the details box for visibility.
+      detailsEl.prepend(row);
+    }
+  } catch (_) {
+    // Quiet fail
+  }
 }
 
 function parseTimeToMinutes(timeStr) {
@@ -2341,15 +2388,30 @@ function renderWorkRelatedExpensesSummary() {
     if (el) el.textContent = txt;
   };
 
-  set('expDiscountYtd', formatUsdCompact(ytd.discountLc));
+  set('expDiscountYtd', formatUsdCompact(ytd.fullPriceLc));
   set('expDiscountYtdHint', `${Number(ytd.orders || 0)} orders`);
-  set('expDiscountMonth', formatUsdCompact(month.discountLc));
+  set('expDiscountMonth', formatUsdCompact(month.fullPriceLc));
   set('expDiscountMonthHint', `${Number(month.orders || 0)} orders`);
 
-  set('mgrExpDiscountYtd', formatUsdCompact(ytd.discountLc));
+  set('mgrExpDiscountYtd', formatUsdCompact(ytd.fullPriceLc));
   set('mgrExpDiscountYtdHint', `${Number(ytd.orders || 0)} orders`);
-  set('mgrExpDiscountMonth', formatUsdCompact(month.discountLc));
+  set('mgrExpDiscountMonth', formatUsdCompact(month.fullPriceLc));
   set('mgrExpDiscountMonthHint', `${Number(month.orders || 0)} orders`);
+
+  // Manager over-limit banner
+  const mgrBanner = document.getElementById('mgrOverLimitBanner');
+  if (mgrBanner && Array.isArray(exp.employees)) {
+    const overLimitEmployees = exp.employees.filter(e => {
+      return !!(e?.overLimit?.monthly || e?.overLimit?.yearly);
+    });
+    if (overLimitEmployees.length > 0) {
+      mgrBanner.style.display = '';
+      mgrBanner.textContent = `⚠️ Over yearly limit ($2,500): ${overLimitEmployees.map(e => e.employee.name || e.employee.email || 'Unknown').join(', ')}`;
+    } else {
+      mgrBanner.style.display = 'none';
+      mgrBanner.textContent = '';
+    }
+  }
 }
 
 // Inventory Issues Section

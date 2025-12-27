@@ -110,6 +110,35 @@ function execPm2(args) {
   });
 }
 
+function readServiceState() {
+  try {
+    if (!fs.existsSync(SERVICE_PATH)) return null;
+    return JSON.parse(fs.readFileSync(SERVICE_PATH, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeServiceState(state) {
+  try {
+    ensureDir(SERVICE_PATH);
+    fs.writeFileSync(SERVICE_PATH, JSON.stringify(state || {}, null, 2));
+  } catch {
+    // ignore
+  }
+}
+
+function isProcessRunning(pid) {
+  const n = Number(pid);
+  if (!Number.isFinite(n) || n <= 0) return false;
+  try {
+    process.kill(n, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function pm2List() {
   const res = await execPm2(['jlist']);
   if (res.code !== 0) return [];

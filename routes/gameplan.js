@@ -14,9 +14,59 @@ const PRODUCT_IMAGE_CACHE_FILE = dal.paths.productImagesCacheFile;
 const SCAN_PERFORMANCE_HISTORY_DIR = dal.paths.scanPerformanceHistoryDir;
 const WEEKLY_GOAL_DISTRIBUTIONS_FILE = dal.paths.weeklyGoalDistributionsFile;
 const NOTES_TEMPLATES_FILE = dal.paths.notesTemplatesFile;
+const WORK_EXPENSES_CONFIG_FILE = path.join(DATA_DIR, 'work-expenses-config.json');
 
 // Initialize Looker data processor
 const lookerProcessor = new LookerDataProcessor();
+
+function readWorkExpensesConfig() {
+  try {
+    const cfg = dal.readJson(WORK_EXPENSES_CONFIG_FILE, null) || {};
+    return {
+      globalMonthlyLimit: Number.isFinite(Number(cfg.globalMonthlyLimit)) ? Number(cfg.globalMonthlyLimit) : null,
+      globalYearlyLimit: Number.isFinite(Number(cfg.globalYearlyLimit)) ? Number(cfg.globalYearlyLimit) : 2500,
+      overrides: cfg.overrides && typeof cfg.overrides === 'object' ? cfg.overrides : {}
+    };
+  } catch {
+    return { globalMonthlyLimit: null, globalYearlyLimit: 2500, overrides: {} };
+  }
+}
+
+function normalizeEmail(value) {
+  return (value || '').toString().trim().toLowerCase();
+}
+
+function attachExpenseLimits(exp) {
+  if (!exp || !Array.isArray(exp.employees)) return exp;
+
+  const cfg = readWorkExpensesConfig();
+  const overrides = cfg?.overrides && typeof cfg.overrides === 'object' ? cfg.overrides : {};
+
+  const withLimits = exp.employees.map(e => {
+    const email = normalizeEmail(e?.employee?.email);
+    const override = email && overrides[email] ? overrides[email] : null;
+    const monthlyLimit = override && Number.isFinite(Number(override.monthlyLimit))
+      ? Number(override.monthlyLimit)
+      : (cfg.globalMonthlyLimit ?? null);
+    const yearlyLimit = override && Number.isFinite(Number(override.yearlyLimit))
+      ? Number(override.yearlyLimit)
+      : (cfg.globalYearlyLimit ?? 2500);
+
+    const totals = e.totals || {};
+    const monthRetail = Number(totals?.currentMonth?.fullPriceLc || 0);
+    const yearRetail = Number(totals?.currentYear?.fullPriceLc || 0);
+    const overMonthly = Number.isFinite(monthlyLimit) ? monthRetail > monthlyLimit : false;
+    const overYearly = Number.isFinite(yearlyLimit) ? yearRetail > yearlyLimit : false;
+
+    return {
+      ...e,
+      limits: { monthlyLimit, yearlyLimit },
+      overLimit: { monthly: overMonthly, yearly: overYearly }
+    };
+  });
+
+  return { ...exp, employees: withLimits };
+}
 
 function requireManager(req, res, next) {
   const user = req.user;
@@ -559,6 +609,10 @@ router.get('/metrics', (req, res) => {
       tailorBenchmarkTimes: 'files/dashboard-stores_performance/benchmark_times_in_minutes.csv'
     };
 
+    // Work-related expenses source files (Looker/email exports)
+    dataSources.workRelatedExpenses = 'files/dashboard-work_related_expenses/full_dump.csv';
+    dataSources.workRelatedExpensesAlt = 'files/dashboard-work_related_expenses/work_related_expenses.csv';
+
     // First try to get saved dashboard data
     const savedData = LookerDataProcessor.getSavedDashboardData();
     
@@ -568,7 +622,7 @@ router.get('/metrics', (req, res) => {
         ...savedData.metrics,
         source: 'saved',
         dataSources,
-        workRelatedExpenses: savedData.workRelatedExpenses || null,
+        workRelatedExpenses: attachExpenseLimits(savedData.workRelatedExpenses || null),
         lastSyncTime: savedData.lastSyncTime,
         lastSyncBy: savedData.lastSyncBy,
         lastEmailReceived: savedData.lastEmailReceived, // When the email was actually received
@@ -654,7 +708,7 @@ router.get('/metrics', (req, res) => {
       ...storeMetrics,
       source: 'live',
       dataSources,
-      workRelatedExpenses,
+      workRelatedExpenses: attachExpenseLimits(workRelatedExpenses),
       importedAt: new Date().toISOString(),
       appointments: appointments,
       operationsHealth: operations.operationsHealth || {},

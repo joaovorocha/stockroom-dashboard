@@ -503,7 +503,7 @@ const SharedHeader = {
         return;
       }
       const data = await resp.json();
-      const over = !!(data?.overLimit?.monthly || data?.overLimit?.yearly);
+      const over = !!(data?.overLimit?.yearly);
       if (!data?.available || !over) {
         badge.style.display = 'none';
         return;

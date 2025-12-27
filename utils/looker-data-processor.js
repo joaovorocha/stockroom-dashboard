@@ -686,20 +686,63 @@ class LookerDataProcessor {
   }
 
   processWorkRelatedExpenses() {
-    const filePath = path.join(WORK_EXPENSES_DIR, 'full_dump.csv');
-    if (!fs.existsSync(filePath)) return null;
+    // Support multiple possible filenames from Looker/email imports
+    const candidates = [
+      'full_dump.csv',
+      'work_related_expenses.csv',
+      'work_related_expenses (copy).csv'
+    ];
+
+    let filePath = null;
+    let sourceFile = null;
+    for (const fname of candidates) {
+      const p = path.join(WORK_EXPENSES_DIR, fname);
+      if (fs.existsSync(p)) {
+        filePath = p;
+        sourceFile = fname;
+        break;
+      }
+    }
+
+    if (!filePath) return null;
 
     const rows = this.readCSV(filePath);
     if (!rows.length) return null;
+
+    // Enrich with employee photos from users.json (matched by work email / employee id / name).
+    const userByEmail = new Map();
+    const userByEmployeeId = new Map();
+    const userByName = new Map();
+    try {
+      const usersFile = path.join(DATA_DIR, 'users.json');
+      if (fs.existsSync(usersFile)) {
+        const raw = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
+        const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.users) ? raw.users : []);
+        list.forEach(u => {
+          const email = (u?.email || '').toString().trim().toLowerCase();
+          if (email) userByEmail.set(email, u);
+          const empId = (u?.employeeId || '').toString().trim();
+          if (empId) userByEmployeeId.set(empId, u);
+          const nameKey = (u?.name || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+          if (nameKey) userByName.set(nameKey, u);
+        });
+      }
+    } catch (_) {}
+
+    const normalizeNameKey = (value) =>
+      (value || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
 
     const orders = rows
       .map(row => {
         const orderId = (row['Order ID'] || '').toString().trim();
         const date = (row['Calendar Date'] || '').toString().trim();
-        const employeeEmail = (row['Employee Work Email'] || '').toString().trim();
-        const employeeName = (row['Employee Full Name'] || '').toString().trim();
-        const employeeNumber = (row['Employee Number'] || '').toString().trim();
-        const customerName = (row['Customer Full Name'] || '').toString().trim();
+        const approverEmail = (row['Employee Work Email'] || '').toString().trim();
+        const approverName = (row['Employee Full Name'] || '').toString().trim();
+        const approverNumber = (row['Employee Number'] || '').toString().trim();
+
+        // In this Looker export, "Customer Full Name" is the employee who BENEFITED from the discount.
+        // The "Employee" fields represent the manager/approver who applied it.
+        const beneficiaryName = (row['Customer Full Name'] || '').toString().trim();
         const reason = (row['Discount Reason'] || '').toString().trim();
         const contractLocationCode = (row['Contract Location Code'] || '').toString().trim();
 
@@ -712,17 +755,50 @@ class LookerDataProcessor {
         const euroDiscount = this.parseLooseNumber(row['€ Total Discount Amount']);
 
         const pct = this.parsePercent(row['% Discounted Full Price (Euro)']);
+        const approverUser =
+          (approverEmail ? userByEmail.get(approverEmail.toLowerCase()) : null) ||
+          (approverNumber ? userByEmployeeId.get(approverNumber) : null);
+
+        const beneficiaryUser =
+          (beneficiaryName ? userByName.get(normalizeNameKey(beneficiaryName)) : null) ||
+          null;
+
+        const approverRole = (approverUser?.role || '').toString().trim().toUpperCase();
+        const approverRoleIsManager = approverRole === 'MANAGEMENT' || approverRole === 'ADMIN';
+        const approverRoleIsAdmin = approverRole === 'ADMIN';
+
+        const approverAuthorized = !!(approverUser?.isAdmin || approverUser?.isManager || approverRoleIsManager);
+        const unauthorized = !approverAuthorized;
 
         return {
           orderId: orderId || null,
           calendarDate: date || null,
           discountReason: reason || null,
-          customerName: customerName || null,
+          // Backward compatible (older UI used employee/customerName):
+          // - employee = approver (manager)
+          // - customerName = beneficiary (employee who used the discount)
+          customerName: beneficiaryName || null,
           employee: {
-            number: employeeNumber || null,
-            name: employeeName || null,
-            email: employeeEmail || null
+            number: approverNumber || null,
+            name: approverName || null,
+            email: approverEmail || null,
+            imageUrl: approverUser?.imageUrl || null
           },
+          beneficiary: {
+            name: beneficiaryName || null,
+            email: beneficiaryUser?.email || null,
+            employeeId: beneficiaryUser?.employeeId || null,
+            imageUrl: beneficiaryUser?.imageUrl || null
+          },
+          approver: {
+            number: approverNumber || null,
+            name: approverName || null,
+            email: approverEmail || null,
+            imageUrl: approverUser?.imageUrl || null,
+            isManager: !!approverUser?.isManager || approverRoleIsManager,
+            isAdmin: !!approverUser?.isAdmin || approverRoleIsAdmin
+          },
+          unauthorized,
           location: {
             contractLocationCode: contractLocationCode || null,
             country: (row['Location Country'] || '').toString().trim() || null,
@@ -735,7 +811,7 @@ class LookerDataProcessor {
           }
         };
       })
-      .filter(o => o.orderId || o.calendarDate || o.employee.email);
+      .filter(o => o.orderId || o.calendarDate || o?.approver?.email || o?.beneficiary?.name);
 
     const today = new Date();
     const year = today.getFullYear();
@@ -748,13 +824,14 @@ class LookerDataProcessor {
     };
 
     for (const o of orders) {
-      const key = (o.employee.email || o.employee.number || o.employee.name || '').toString().trim().toLowerCase();
+      // Aggregate limits by beneficiary (who used the discount), not the manager who approved it.
+      const key = (o?.beneficiary?.email || o?.beneficiary?.employeeId || o?.beneficiary?.name || '').toString().trim().toLowerCase();
       if (!key) continue;
 
       if (!byEmployee.has(key)) {
         byEmployee.set(key, {
           key,
-          employee: o.employee,
+          employee: o.beneficiary,
           location: o.location,
           totals: {
             currentYear: { orders: 0, discountLc: 0, fullPriceLc: 0, netRevenueLc: 0 },
@@ -764,7 +841,7 @@ class LookerDataProcessor {
       }
 
       const entry = byEmployee.get(key);
-      entry.employee = entry.employee?.email ? entry.employee : o.employee;
+      entry.employee = entry.employee?.email ? entry.employee : o.beneficiary;
       entry.location = entry.location?.contractLocationCode ? entry.location : o.location;
 
       const d = o.calendarDate ? new Date(`${o.calendarDate}T00:00:00Z`) : null;
@@ -804,7 +881,7 @@ class LookerDataProcessor {
     return {
       type: 'employee-discounts',
       importedAt: new Date().toISOString(),
-      sourceFile: path.basename(filePath),
+      sourceFile: sourceFile || path.basename(filePath),
       monthKey,
       year,
       orders,
