@@ -50,8 +50,8 @@ router.post('/', (req, res) => {
     lunchOutTime,
     lunchInTime,
     clockOutTime,
-    missedTime, // legacy
-    punchType // legacy
+    missedTime, // LEGACY SUPPORT: legacy field
+    punchType // LEGACY SUPPORT: legacy field
   } = req.body;
 
   const employeeName = user.name || '';
@@ -68,7 +68,7 @@ router.post('/', (req, res) => {
     clockOutTime: clockOutTime || ''
   };
 
-  // Backward compatibility: map legacy fields if new fields not provided
+  // LEGACY SUPPORT: Backward compatibility - map legacy fields if new fields not provided
   if (!normalized.clockInTime && !normalized.lunchOutTime && !normalized.lunchInTime && !normalized.clockOutTime) {
     if (missedTime && punchType) {
       if (punchType === 'clock-in') normalized.clockInTime = missedTime;
@@ -182,7 +182,7 @@ router.post('/batch', (req, res) => {
   res.json({ success: true, updated });
 });
 
-// GET /api/lost-punch/my-entries - Get logged-in user's entries (legacy support)
+// LEGACY SUPPORT: GET /api/lost-punch/my-entries - legacy support for old clients
 router.get('/my-entries', (req, res) => {
   const user = req.user || null;
   if (!user) return res.status(401).json({ success: false, error: 'Not authenticated', entries: [] });
@@ -194,7 +194,7 @@ router.get('/my-entries', (req, res) => {
   res.json({ success: true, entries: userEntries });
 });
 
-// POST /api/lost-punch/submit - Submit punch (legacy support)
+// LEGACY SUPPORT: POST /api/lost-punch/submit - legacy support for old clients
 router.post('/submit', (req, res) => {
   const {
     employeeId,

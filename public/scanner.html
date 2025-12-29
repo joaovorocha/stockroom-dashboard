@@ -94,27 +94,29 @@
 <body>
   <header class="header">
     <div class="header-brand">
-      <a href="/app" class="logo-link">
+      <a href="/home" class="logo-link">
         <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\'logo-text\'>SUITSUPPLY</span>'">
       </a>
       <div class="header-title">
-        <h1>Daily Game Plan</h1>
+        <h1>GamePlan</h1>
         <span class="location">San Francisco</span>
       </div>
     </div>
+
     <nav class="header-nav">
       <a href="/dashboard" id="navGamePlan">Game Plan</a>
       <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
       <a href="/awards" id="navAwards">Awards</a>
-      <a href="/shipments" id="navShipments">Shipments</a>
-      <a href="/scanner" class="active" id="navScanner">Scanner</a>
+      <a href="/expenses" id="navExpenses">Expenses</a>
+      <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
+      <a href="/scanner" id="navScanner">Scanner</a>
       <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
       <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
       <a href="/time-off" id="navTimeOff">Time Off</a>
       <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
-      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
       <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
     </nav>
+
     <div class="header-actions">
       <div class="header-date">
         <span id="currentDate"></span>

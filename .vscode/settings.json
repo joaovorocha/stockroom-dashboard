@@ -1,0 +1,7 @@
+{
+    "builder.serverUrl": "https://ssussf-server.tail39e95f.ts.net",
+    "builder.command": "npm run start",
+    "builder.runDevServer": false,
+    "builder.autoDetectDevServer": true,
+    "builder.launchType": "desktop"
+}

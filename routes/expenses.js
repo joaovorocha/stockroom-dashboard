@@ -203,7 +203,7 @@ function normalizeOrder(order, usersIndex) {
   return {
     ...o,
     beneficiary,
-    // Keep legacy field around for older UI bits.
+    // LEGACY SUPPORT: Keep legacy field around for older UI bits.
     customerName: beneficiary.name || null
   };
 }

@@ -108,7 +108,7 @@ function normalizeStoredStatus(status) {
   const s = (status || '').toString().trim().toLowerCase();
   if (!s) return 'requested';
   if (s === 'pending') return 'requested';
-  if (s === 'shipped') return 'label-created'; // legacy status
+  if (s === 'shipped') return 'label-created'; // LEGACY SUPPORT: map old 'shipped' status to new 'label-created'
   return s;
 }
 
@@ -310,7 +310,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/shipments/add - Legacy endpoint used by older UI + Chrome extension
+// LEGACY SUPPORT: POST /api/shipments/add - endpoint used by older UI + Chrome extension
 router.post('/add', async (req, res) => {
   try {
     const body = req.body || {};

@@ -214,10 +214,7 @@ function renderEmployeePanel(employees) {
 
     const name = e?.employee?.name || e?.employee?.email || 'Unknown';
     const displayName = firstNameOnly(name) || name;
-    const email = e?.employee?.email || '';
     const imgUrl = e?.employee?.imageUrl || null;
-    const isUnknown = e?.known === false || !email;
-    const suggested = isUnknown ? suggestWorkEmailFromName(name) : null;
     const used = Number(e?.status?.yearly?.used || 0);
     const limit = Number(e?.status?.yearly?.limit || 0);
     const remainingRaw = e?.status?.yearly?.remaining;
@@ -229,31 +226,27 @@ function renderEmployeePanel(employees) {
       ? `<img class="emp-avatar" src="${imgUrl}" alt="" onerror="this.remove()">`
       : `<div class="emp-initials">${getInitials(name)}</div>`;
 
-    const ignoreBtn = isUnknown
-      ? `<button class="btn-sm js-ignore-btn" style="padding:4px 8px; border-radius:999px;">Ignore</button>`
-      : '';
-    const unignoreBtn = currentEmployeeTab === 'ignored'
-      ? `<button class="btn-sm js-unignore-btn" style="padding:4px 8px; border-radius:999px;">Unignore</button>`
-      : '';
+    const ignoreBtn = '';
+    const unignoreBtn = '';
 
+    // Only show the amount, no 'left' or 'over' text
     const remainingText = remaining === null
       ? '--'
-      : remaining >= 0
-        ? `${toMoney(remaining)} left`
-        : `${toMoney(Math.abs(remaining))} over`;
+      : toMoney(Math.abs(remaining));
+
+    // Add faint green/red background to the pill
+    const pillClass = remaining === null ? '' : (remaining >= 0 ? 'pill-green' : 'pill-red');
 
     card.innerHTML = `
       <div class="top">
         <div class="meta">
           ${avatar}
           <div class="text">
-            <div class="title" title="${name}">${displayName}</div>
-            <div class="sub">${email || (suggested ? `${suggested} (suggested)` : 'Not in user list')}</div>
+            <div class="title user-link" title="${name}">${displayName}</div>
           </div>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
-          ${unignoreBtn || ignoreBtn}
-          <span class="pill">${remainingText}</span>
+          <span class="pill ${pillClass}">${remainingText}</span>
         </div>
       </div>
       <div class="bar"><div style="width:${pctWidth}%;"></div></div>
@@ -262,6 +255,29 @@ function renderEmployeePanel(employees) {
         <span>Limit ${toMoney(limit || 2500)}</span>
       </div>
     `;
+    // Add click-to-filter on name
+    const nameEl = card.querySelector('.user-link');
+    if (nameEl) {
+      nameEl.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+        const select = document.getElementById('employeeSelect');
+        if (select) {
+          const val = e?.key || e?.employee?.email || e?.employee?.employeeId || e?.employee?.name || '';
+          try {
+            const target = (val || '').toString();
+            const targetLower = target.toLowerCase();
+            const opts = Array.from(select.options || []);
+            const match = opts.find(o => (o.value || '').toString().toLowerCase() === targetLower);
+            if (match) select.value = match.value;
+          } catch (_) {}
+          window.__expensesSelectedEmployee = val;
+        }
+        // Always filter to the selected employee
+        document.getElementById('applyBtn')?.click();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
 
     const ignoreEl = card.querySelector('.js-ignore-btn');
     if (ignoreEl) {
@@ -566,6 +582,22 @@ async function showOrderDetailModal(order) {
 }
 
 async function loadPage() {
+  // Set year balloon
+  const yearBalloon = document.getElementById('yearBalloon');
+  const currentYear = new Date().getFullYear();
+  if (yearBalloon) {
+    yearBalloon.textContent = currentYear;
+    // Example: grey out if no yearly limit (adjust logic as needed)
+    const config = await fetchJson('/api/expenses/config');
+    if (!config?.limits?.yearlyLimit) {
+      yearBalloon.classList.add('greyed');
+      yearBalloon.title = 'Yearly limit not available';
+    } else {
+      yearBalloon.classList.remove('greyed');
+      yearBalloon.title = '';
+    }
+  }
+
   // Shared header
   const headerMount = document.getElementById('sharedHeader');
   if (headerMount) headerMount.innerHTML = SharedHeader.render({ showRefresh: false });
@@ -584,13 +616,9 @@ async function loadPage() {
   const myLimitEl = document.getElementById('myLimit');
   if (myLimitEl) myLimitEl.textContent = myLimitValue;
 
-  if (status?.overLimit?.yearly) {
-    setBanner('You are over your yearly retail value limit. Please review your employee discount orders.');
-  } else {
-    setBanner('');
-  }
+  // Remove over-limit banner, handled visually in summary card now
 
-  const update = async () => {
+  async function update() {
     const { start, end } = getRangeFilters();
     const employeeSelect = document.getElementById('employeeSelect');
     let employeeEmail = employeeSelect ? (employeeSelect.value || '') : '';
@@ -622,18 +650,35 @@ async function loadPage() {
       if (meName && bName && meName === bName) return true;
       return false;
     });
-    const myTotal = myOrders.reduce((acc, o) => acc + Number(o?.amounts?.lc?.fullPrice || 0), 0);
-    const storeTotal = orders.reduce((acc, o) => acc + Number(o?.amounts?.lc?.fullPrice || 0), 0);
+    const myTotalValue = myOrders.reduce((acc, o) => acc + Number(o?.amounts?.lc?.fullPrice || 0), 0);
+    const storeTotalValue = orders.reduce((acc, o) => acc + Number(o?.amounts?.lc?.fullPrice || 0), 0);
 
     const myTotalEl = document.getElementById('myTotal');
     const storeTotalEl = document.getElementById('storeTotal');
     const myHintEl = document.getElementById('myTotalHint');
     const storeHintEl = document.getElementById('storeTotalHint');
-    if (myTotalEl) myTotalEl.textContent = toMoney(myTotal);
-    if (storeTotalEl) storeTotalEl.textContent = toMoney(storeTotal);
+    if (myTotalEl) myTotalEl.textContent = toMoney(myTotalValue);
+    if (storeTotalEl) storeTotalEl.textContent = toMoney(storeTotalValue);
     if (myHintEl) myHintEl.textContent = `${myOrders.length} orders`;
     if (storeHintEl) storeHintEl.textContent = `${orders.length} orders`;
-  };
+    // Add color to myTotal based on percent used
+    if (myTotalEl) {
+      let percent = 0;
+      if (myLimitEl && myLimitEl.textContent && myTotalEl.textContent) {
+        const lim = Number((myLimitEl.textContent || '').replace(/[^\d.]/g, ''));
+        const tot = Number((myTotalEl.textContent || '').replace(/[^\d.]/g, ''));
+        if (lim > 0) percent = (tot / lim) * 100;
+      }
+      myTotalEl.classList.remove('retail-green', 'retail-yellow', 'retail-red');
+      if (percent >= 100) {
+        myTotalEl.classList.add('retail-red');
+      } else if (percent >= 85) {
+        myTotalEl.classList.add('retail-yellow');
+      } else {
+        myTotalEl.classList.add('retail-green');
+      }
+    }
+  }
 
   document.getElementById('applyBtn')?.addEventListener('click', update);
   document.getElementById('rangeSelect')?.addEventListener('change', () => {

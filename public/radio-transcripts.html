@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radio Transcripts</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/shared-header.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    .transcript-list { max-width: 800px; margin: 30px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 24px; }
+    .transcript-item { border-bottom: 1px solid #eee; padding: 12px 0; }
+    .transcript-item:last-child { border-bottom: none; }
+    .transcript-meta { color: #888; font-size: 13px; margin-bottom: 4px; }
+    .transcript-text { font-size: 16px; color: #222; }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-brand">
+      <a href="/home" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img">
+      </a>
+      <div class="header-title">
+        <h1>Radio Transcripts</h1>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="/dashboard">Dashboard</a>
+      <a href="/expenses.html">Expenses</a>
+      <a href="/radio.html">Radio</a>
+      <a href="/radio-transcripts.html" class="active">Radio Transcripts</a>
+      <a href="/admin">Admin</a>
+    </nav>
+  </header>
+  <div class="transcript-list" id="transcriptList">
+    <h2>Recent Radio Transcripts</h2>
+    <div id="transcripts"></div>
+  </div>
+  <script>
+    async function loadTranscripts() {
+      const res = await fetch('/api/radio/transcripts');
+      const lines = await res.text();
+      const transcripts = lines.trim().split('\n').map(l => l ? JSON.parse(l) : null).filter(Boolean);
+      const container = document.getElementById('transcripts');
+      if (!transcripts.length) {
+        container.innerHTML = '<div>No transcripts found.</div>';
+        return;
+      }
+      container.innerHTML = transcripts.reverse().map(t => `
+        <div class="transcript-item">
+          <div class="transcript-meta">${t.timestamp ? new Date(t.timestamp).toLocaleString() : ''}</div>
+          <div class="transcript-text">${t.text || ''}</div>
+        </div>
+      `).join('');
+    }
+    loadTranscripts();
+  </script>
+</body>
+</html>

@@ -41,9 +41,10 @@ All of these are served from `public/*.html` and require auth unless stated othe
 - `GET /forgot-password` → `public/forgot-password.html` (no auth)
 - `GET /reset-password` → `public/reset-password.html` (no auth)
 
-- `GET /` → redirect to `/app` if authed, else `/login`
-- `GET /home` → redirect to `/dashboard`
-- `GET /app` → `public/app.html`
+- `GET /` → redirect to `/home` if authed, else `/login`
+- `GET /index.html` → same as `/` (bookmark-friendly)
+- `GET /home` → `public/app.html`
+- `GET /app` → redirect to `/home` (backwards compatibility)
 
 - `GET /dashboard` → redirects to:
   - Admins: `/gameplan-management`
@@ -60,6 +61,8 @@ All of these are served from `public/*.html` and require auth unless stated othe
 - `GET /shipments` → `public/shipments.html`
 - `GET /scanner` → `public/scanner.html`
 - `GET /radio` → `public/radio.html`
+- `GET /radio-transcripts` → `public/radio-transcripts.html`
+- `GET /radio-admin` → `public/radio-admin.html` (**admin only**)
 - `GET /lost-punch` → `public/lost-punch.html`
 - `GET /closing-duties` → `public/closing-duties.html`
 - `GET /time-off` → `public/time-off.html`
@@ -253,4 +256,3 @@ The JSON DAL defines canonical paths in `utils/dal/json.js`:
   - `UPS_CLIENT_SECRET` / `UPS_OAUTH_CLIENT_SECRET`
   - `UPS_MERCHANT_ID` / `UPS_ACCOUNT_NUMBER`
   - `UPS_ENV`
-

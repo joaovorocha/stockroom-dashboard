@@ -76,7 +76,7 @@ function normalizeEntry(raw) {
 function loadTimeOff() {
   const data = readJsonFile(TIMEOFF_FILE, { entries: [] });
 
-  // Legacy formats supported:
+  // LEGACY SUPPORT: Legacy formats supported:
   // 1) { entries: [...] }
   // 2) { requests: [], approved: [], denied: [] }
   const entries = [];
@@ -88,7 +88,7 @@ function loadTimeOff() {
     for (const e of (data?.denied || [])) entries.push(normalizeEntry({ ...e, status: 'published' }));
   }
 
-  // Backfill employeeUserId/imageUrl for legacy entries (best-effort) so history links correctly.
+  // LEGACY SUPPORT: Backfill employeeUserId/imageUrl for legacy entries (best-effort) so history links correctly.
   let changed = false;
   const usersData = readJsonFile(USERS_FILE, { users: [] });
   const users = Array.isArray(usersData?.users) ? usersData.users : [];

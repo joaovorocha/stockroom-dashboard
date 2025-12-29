@@ -1,3 +1,10 @@
+    <div class="filters" style="margin-bottom: 10px;">
+      <div class="field" id="employeeFilterField">
+        <label for="employeeSelect">Filter by employee</label>
+        <select id="employeeSelect"></select>
+      </div>
+      <button id="applyBtn" class="btn-sm" style="margin-top: 22px;">Apply</button>
+    </div>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -71,51 +78,72 @@
   </style>
 </head>
 <body>
-  <div id="sharedHeader"></div>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <a href="/home" class="logo-link">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\'logo-text\'>SUITSUPPLY</span>'">
+      </a>
+      <div class="header-title">
+        <h1>GamePlan</h1>
+        <span class="location">San Francisco</span>
+      </div>
+    </div>
+
+    <nav class="header-nav">
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
+      <a href="/awards" id="navAwards">Awards</a>
+      <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
+    </nav>
+
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="logoutBtn">Logout</a>
+        </div>
+      </div>
+    </div>
+  </header>
 
   <div class="page-wrap">
-    <div class="banner" style="background:rgba(220,38,38,0.08); border:1px solid rgba(220,38,38,0.3); color:#b91c1c; padding:10px 12px; border-radius:10px; margin-bottom:14px;">
-      <strong>Employee Discount Policy:</strong> 40% discount, max retail value €2,500 per calendar year (or local equivalent). Employees are responsible for not exceeding this threshold. Discount must be applied in-store by manager using employee’s Suitsupply email. Manual discounts, remote authorizations, and freelance/contractor discounts are not allowed. Unauthorized or unassigned transactions will be flagged for investigation.
-    </div>
     <div class="subheader">
-      <h2>Employee Discount Orders (Policy Tracking)</h2>
-      <div class="filters">
-        <div class="field">
-          <label for="rangeSelect">Range</label>
-          <select id="rangeSelect">
-            <option value="ytd">Year to date</option>
-            <option value="month">This month</option>
-            <option value="custom">Custom</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="startDate">Start</label>
-          <input type="date" id="startDate">
-        </div>
-        <div class="field">
-          <label for="endDate">End</label>
-          <input type="date" id="endDate">
-        </div>
-        <div class="field" id="employeeFilterField" style="display:none;">
-          <label for="employeeSelect">Employee</label>
-          <select id="employeeSelect"></select>
-        </div>
-        <button class="btn-sm" id="applyBtn">Apply</button>
+      <h2>Employee Discount Orders</h2>
+      <div class="year-subheader">
+        <span class="year-balloon">2025</span>
+        <span class="year-grey">2026</span>
       </div>
+      <script>
+        // Add View All click handler to reset employee filter
+        document.addEventListener('DOMContentLoaded', function() {
+          var viewAll = document.getElementById('viewAllEmployees');
+          if (viewAll) {
+            viewAll.addEventListener('click', function(ev) {
+              ev.preventDefault();
+              var select = document.getElementById('employeeSelect');
+              if (select) select.value = '';
+              window.__expensesSelectedEmployee = '';
+              var applyBtn = document.getElementById('applyBtn');
+              if (applyBtn) applyBtn.click();
+            });
+          }
+        });
+      </script>
     </div>
 
-    <details style="margin: 0 0 14px 0;">
-      <summary style="cursor:pointer; user-select:none;">Employee Discount Policy (2025)</summary>
-      <div class="summary-card" style="margin-top: 10px;">
-        <div class="label">Summary</div>
-        <div class="hint" style="margin-top: 8px; line-height: 1.6;">
-          - 40% employee discount up to a maximum retail value of <strong>$2,500</strong> per calendar year (local currency equivalent).<br>
-          - Employee must be physically present; manager on duty applies the discount.<br>
-          - Discount must be assigned to the employee’s Suitsupply work email; unassigned discounts are unauthorized.<br>
-          - Manual discounts are not permitted; freelancers/contractors are not eligible.
-        </div>
-      </div>
-    </details>
+
 
     <div class="banner" id="limitBanner"></div>
 
@@ -135,11 +163,20 @@
         <div class="value" id="storeTotal">--</div>
         <div class="hint" id="storeTotalHint">--</div>
       </div>
+      <div class="policy-wide-reminder">
+        <span class="policy-icon">📋</span>
+        <span class="policy-reminders">
+          40% employee discount, <b>$3,000/yr max</b>. Must be present, manager applies. Work email only. No manual discounts. No contractors.
+        </span>
+      </div>
     </div>
 
     <div class="employee-panel" id="employeePanel">
       <div class="employee-panel-header">
-        <h3>Employees (YTD retail value vs limit)</h3>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:space-between; width:100%;">
+          <h3 style="margin:0; font-size:14px;">Employees (YTD retail value vs limit)</h3>
+          <a href="#" id="viewAllEmployees" style="font-size:13px;font-weight:500;text-decoration:underline;color:#2563eb;">View All</a>
+        </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">
           <div id="employeeTabs" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;"></div>
           <span class="pill" id="employeePanelHint">All users</span>

@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // In standalone mode, make the logo take you back to the app home.
   if (isStandalone()) {
     const logoLink = document.querySelector('.logo-link');
-    if (logoLink) logoLink.href = '/app';
+    if (logoLink) logoLink.href = '/home';
   }
 
   // Show admin tile if user is admin.

@@ -5,12 +5,71 @@ const SharedHeader = {
   currentUser: null,
   shipmentsBadgeTimer: null,
 
+  // Desktop: hide the wide link row and use the hamburger sheet (same as mobile).
+  hamburgerNavOnDesktop: true,
+
   // Pages that show refresh button
   refreshPages: ['/dashboard', '/shipments'],
+
+  // Page title mapping
+  pageTitles: {
+    '/home': 'GamePlan',
+    '/app': 'GamePlan',
+    '/dashboard': 'Daily Game Plan',
+    '/operations-metrics': 'Operations Metrics',
+    '/awards': 'Team Awards',
+    '/expenses': 'Work-Related Expenses',
+    '/shipments': 'Shipments',
+    '/scanner': 'Scanner',
+    '/radio': 'Radio Transcription',
+    '/radio-transcripts': 'Radio Transcripts',
+    '/radio-admin': 'Radio Admin',
+    '/lost-punch': 'Lost Punch',
+    '/closing-duties': 'Closing Duties',
+    '/time-off': 'Time Off',
+    '/ops-dashboard': 'Looker Dashboards',
+    '/admin': 'Admin Console',
+    '/feedback': 'Feedback'
+  },
+
+  menuIcons: {
+    '/home': '🏠',
+    '/dashboard': '📋',
+    '/operations-metrics': '🛠️',
+    '/awards': '🏆',
+    '/expenses': '💳',
+    '/shipments': '📦',
+    '/scanner': '📷',
+    '/radio': '🎙️',
+    '/radio-transcripts': '📝',
+    '/radio-admin': '🎛️',
+    '/lost-punch': '🕒',
+    '/closing-duties': '✅',
+    '/time-off': '🗓️',
+    '/ops-dashboard': '📈',
+    '/admin': '🔐'
+  },
 
   // Get current page path
   getCurrentPage() {
     return window.location.pathname;
+  },
+
+  // Get page title based on current path
+  getPageTitle() {
+    const path = this.getCurrentPage();
+    // Check exact match first
+    if (this.pageTitles[path]) {
+      return this.pageTitles[path];
+    }
+    // Check if path includes any of the known paths
+    for (const [route, title] of Object.entries(this.pageTitles)) {
+      if (path.includes(route)) {
+        return title;
+      }
+    }
+    // Default title
+    return 'GamePlan';
   },
 
   // Check if current page should show refresh
@@ -23,18 +82,21 @@ const SharedHeader = {
   render(options = {}) {
     const currentPage = this.getCurrentPage();
     const showRefresh = options.showRefresh ?? this.shouldShowRefresh();
+    const pageTitle = this.getPageTitle();
 
     const navItems = [
       { href: '/dashboard', label: 'Game Plan', id: 'navGamePlan' },
       { href: '/operations-metrics', label: 'Operations', id: 'navOperationsMetrics' },
       { href: '/awards', label: 'Awards', id: 'navAwards' },
       { href: '/expenses', label: 'Expenses', id: 'navExpenses', badge: 'expensesBadge' },
+      { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' },
       { href: '/shipments', label: 'Shipments', id: 'navShipments', badge: 'shipmentsBadge' },
       { href: '/scanner', label: 'Scanner', id: 'navScanner' },
       { href: '/lost-punch', label: 'Lost Punch', id: 'navLostPunch' },
       { href: '/closing-duties', label: 'Closing Duties', id: 'navClosingDuties' },
       { href: '/time-off', label: 'Time Off', id: 'navTimeOff' },
       { href: '/ops-dashboard', label: 'Looker Dashboards', id: 'navOpsDashboard' },
+      { href: '/radio-admin', label: 'Radio Admin', id: 'navRadioAdmin', adminOnly: true },
       { href: '/admin', label: 'Admin', id: 'navAdmin', adminOnly: true }
     ];
 
@@ -64,11 +126,11 @@ const SharedHeader = {
     return `${refreshBar}
   <header class="header">
     <div class="header-brand">
-      <a href="/app" class="logo-link">
+      <a href="/home" class="logo-link">
         <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
       </a>
       <div class="header-title">
-        <h1>Daily Game Plan</h1>
+        <h1>${pageTitle}</h1>
         <span class="location">San Francisco</span>
       </div>
     </div>
@@ -96,6 +158,7 @@ const SharedHeader = {
   async init() {
     this.registerServiceWorker();
     this.applyHomeBehavior();
+    this.ensureCoreNavLinks();
     this.ensureMobileMenu();
     this.bindResponsiveHandlers();
     this.mountBottomScannerLink();
@@ -140,6 +203,7 @@ const SharedHeader = {
       clearTimeout(t);
       t = setTimeout(() => {
         this.applyHomeBehavior();
+        this.ensureCoreNavLinks();
         this.ensureMobileMenu();
         this.mountBottomScannerLink();
       }, 120);
@@ -176,15 +240,18 @@ const SharedHeader = {
     const isMobile = this.isMobileViewport();
     if (isStandalone) document.body.classList.add('is-standalone');
     if (isMobile) document.body.classList.add('is-mobile-nav');
+    else document.body.classList.remove('is-mobile-nav');
+    if (this.hamburgerNavOnDesktop && !isMobile) document.body.classList.add('is-hamburger-nav');
+    else document.body.classList.remove('is-hamburger-nav');
     if (this.isPhoneViewport()) document.body.classList.add('is-phone');
     else document.body.classList.remove('is-phone');
 
     const logoLink = document.querySelector('.logo-link');
     // The logo is the Home screen everywhere.
-    if (logoLink) logoLink.href = '/app';
+    if (logoLink) logoLink.href = '/home';
 
     const homeBtn = document.getElementById('homeBtn');
-    if (homeBtn) homeBtn.href = '/app';
+    if (homeBtn) homeBtn.href = '/home';
 
     // Phones: hide heavy pages that don't work well on small devices.
     const isPhone = this.isPhoneViewport();
@@ -193,11 +260,8 @@ const SharedHeader = {
   },
 
   ensureMobileMenu() {
-    // Only needed on mobile; safe to no-op.
-    if (!this.isMobileViewport()) {
-      document.body.classList.remove('is-mobile-nav');
-      return;
-    }
+    const wantsHamburger = this.isMobileViewport() || document.body.classList.contains('is-hamburger-nav');
+    if (!wantsHamburger) return;
 
     const header = document.querySelector('header.header');
     const brand = document.querySelector('.header-brand');
@@ -250,12 +314,140 @@ const SharedHeader = {
     this.refreshMobileMenuItems();
   },
 
+  ensureCoreNavLinks() {
+    const nav = document.querySelector('.header-nav');
+    if (!nav) return;
+
+    const desired = [
+      { href: '/expenses', label: 'Expenses', id: 'navExpenses', badge: 'expensesBadge' },
+      { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' },
+      { href: '/radio-admin', label: 'Radio Admin', id: 'navRadioAdmin', adminOnly: true }
+    ];
+
+    const normalizePath = (href) => {
+      try {
+        return new URL(href, window.location.origin).pathname;
+      } catch (_) {
+        return href;
+      }
+    };
+
+    const findAnchorFor = (targetPath) => {
+      const anchors = Array.from(nav.querySelectorAll('a[href]'));
+      for (const a of anchors) {
+        const path = normalizePath(a.getAttribute('href') || a.href);
+        if (path === targetPath) return a;
+
+        // Backward-compat for older hardcoded links.
+        if (targetPath === '/expenses' && path === '/expenses.html') return a;
+        if (targetPath === '/radio' && path === '/radio.html') return a;
+        if (targetPath === '/radio-transcripts' && path === '/radio-transcripts.html') return a;
+        if (targetPath === '/radio-admin' && path === '/radio-admin.html') return a;
+      }
+      return null;
+    };
+
+    const ensureBadge = (a, badgeId) => {
+      if (!badgeId) return;
+      let badge = a.querySelector(`#${badgeId}`);
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'nav-badge';
+        badge.id = badgeId;
+        badge.style.display = 'none';
+        badge.textContent = '0';
+        a.appendChild(document.createTextNode(' '));
+        a.appendChild(badge);
+      }
+    };
+
+    // Ensure canonical links exist; if a legacy link exists, normalize it and add ids/badges.
+    desired.forEach((item) => {
+      const existing = findAnchorFor(item.href);
+      if (existing) {
+        const existingPath = normalizePath(existing.getAttribute('href') || existing.href);
+        // Normalize legacy `.html` links to canonical routes.
+        if (existingPath === `${item.href}.html`) existing.setAttribute('href', item.href);
+        if (item.href === '/expenses' && existingPath === '/expenses.html') existing.setAttribute('href', item.href);
+        if (item.href === '/radio' && existingPath === '/radio.html') existing.setAttribute('href', item.href);
+        if (item.href === '/radio-transcripts' && existingPath === '/radio-transcripts.html') existing.setAttribute('href', item.href);
+        if (item.href === '/radio-admin' && existingPath === '/radio-admin.html') existing.setAttribute('href', item.href);
+
+        if (item.id && !existing.id) existing.id = item.id;
+        if (item.adminOnly) existing.style.display = 'none';
+        if (item.badge) ensureBadge(existing, item.badge);
+        return;
+      }
+
+      const a = document.createElement('a');
+      a.href = item.href;
+      if (item.id) a.id = item.id;
+      a.textContent = item.label;
+      if (item.badge) ensureBadge(a, item.badge);
+      if (item.adminOnly) a.style.display = 'none';
+
+      const anchors = Array.from(nav.querySelectorAll('a[href]'));
+      const insertAfter = (afterEl) => {
+        if (!afterEl || afterEl.parentElement !== nav) return false;
+        if (afterEl.nextSibling) nav.insertBefore(a, afterEl.nextSibling);
+        else nav.appendChild(a);
+        return true;
+      };
+
+      let inserted = false;
+      if (item.href === '/expenses') {
+        inserted =
+          insertAfter(document.getElementById('navAwards')) ||
+          insertAfter(document.getElementById('navOperationsMetrics')) ||
+          insertAfter(document.getElementById('navGamePlan'));
+      } else if (item.href === '/radio-transcripts') {
+        inserted =
+          insertAfter(document.getElementById('navExpenses')) ||
+          insertAfter(anchors.find(x => normalizePath(x.getAttribute('href') || x.href) === '/radio')) ||
+          insertAfter(anchors.find(x => normalizePath(x.getAttribute('href') || x.href) === '/radio.html'));
+      } else if (item.href === '/radio-admin') {
+        inserted =
+          insertAfter(document.getElementById('navRadioTranscripts')) ||
+          insertAfter(anchors.find(x => normalizePath(x.getAttribute('href') || x.href) === '/admin')) ||
+          insertAfter(anchors.find(x => normalizePath(x.getAttribute('href') || x.href) === '/admin.html')) ||
+          insertAfter(document.getElementById('navExpenses'));
+      }
+      if (!inserted) nav.appendChild(a);
+    });
+
+    // Keep hamburger menu in sync with injected links.
+    this.refreshMobileMenuItems();
+  },
+
   refreshMobileMenuItems() {
     const items = document.getElementById('mobileMenuItems');
     if (!items) return;
 
     const currentPath = window.location.pathname || '/';
     const isPhone = this.isPhoneViewport();
+
+    const buildMenuItem = ({ href, path, label, active }) => {
+      const a = document.createElement('a');
+      a.href = href;
+      a.className = 'mobile-menu-item';
+      if (active) a.classList.add('active');
+
+      const left = document.createElement('span');
+      left.className = 'mobile-menu-item-left';
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'mobile-menu-icon';
+      iconSpan.textContent = this.menuIcons[path] || '•';
+
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'mobile-menu-label';
+      labelSpan.textContent = label;
+
+      left.appendChild(iconSpan);
+      left.appendChild(labelSpan);
+      a.appendChild(left);
+      return a;
+    };
 
     const getAnchorLabel = (a) => {
       // Use only text nodes (ignores badge counts).
@@ -279,12 +471,14 @@ const SharedHeader = {
         const href = a.getAttribute('href') || a.href;
         try {
           const path = new URL(href, window.location.origin).pathname;
-          // We'll always inject Home (/app) ourselves.
-          if (path === '/app') return false;
+          // We'll always inject Home (/home) ourselves.
+          if (path === '/home' || path === '/app') return false;
           // Scanner is a floating button on phones.
           if (isPhone && path === '/scanner') return false;
           // Hide Admin portal on phones (available on iPad/desktop only).
           if (isPhone && path === '/admin') return false;
+          // Hide Radio Admin on phones (available on iPad/desktop only).
+          if (isPhone && path === '/radio-admin') return false;
           // Hide Looker dashboards on phones (iPad/desktop only).
           if (isPhone && path === '/ops-dashboard') return false;
         } catch (_) {}
@@ -294,30 +488,36 @@ const SharedHeader = {
       });
 
     // Home first
-    const home = document.createElement('a');
-    home.href = '/app';
-    home.className = 'mobile-menu-item';
-    home.textContent = 'Home';
-    if (currentPath === '/app') home.classList.add('active');
     items.innerHTML = '';
-    items.appendChild(home);
+    items.appendChild(buildMenuItem({
+      href: '/home',
+      path: '/home',
+      label: 'Home',
+      active: currentPath === '/home' || currentPath === '/app'
+    }));
 
-    const seen = new Set(['/app']);
+    const seen = new Set(['/home', '/app']);
     links.forEach(a => {
-      const clone = document.createElement('a');
       const href = a.getAttribute('href') || a.href;
-      clone.href = href;
-      clone.className = 'mobile-menu-item';
-      clone.textContent = getAnchorLabel(a);
+      const label = getAnchorLabel(a);
       try {
         const path = new URL(href, window.location.origin).pathname;
         if (seen.has(path)) return;
         seen.add(path);
-        if (path === currentPath) clone.classList.add('active');
+        items.appendChild(buildMenuItem({
+          href,
+          path,
+          label,
+          active: path === currentPath
+        }));
       } catch (_) {
-        if (a.classList.contains('active')) clone.classList.add('active');
+        items.appendChild(buildMenuItem({
+          href,
+          path: href,
+          label,
+          active: a.classList.contains('active')
+        }));
       }
-      items.appendChild(clone);
     });
 
     // Close menu on navigation
@@ -366,6 +566,7 @@ const SharedHeader = {
     const userName = document.getElementById('userName');
     const userAvatar = document.getElementById('userAvatar');
     const adminLink = document.getElementById('navAdmin');
+    const radioAdminLink = document.getElementById('navRadioAdmin');
     const feedbackLink = document.getElementById('navFeedback');
     const opsLink = document.getElementById('navOpsDashboard');
 
@@ -380,6 +581,10 @@ const SharedHeader = {
     if (adminLink) {
       if (user.isAdmin && !this.isPhoneViewport()) adminLink.style.display = 'inline';
       else adminLink.style.display = 'none';
+    }
+    if (radioAdminLink) {
+      if (user.isAdmin && !this.isPhoneViewport()) radioAdminLink.style.display = 'inline';
+      else radioAdminLink.style.display = 'none';
     }
     if (opsLink) {
       opsLink.style.display = this.isPhoneViewport() ? 'none' : '';
@@ -538,7 +743,9 @@ const SharedHeader = {
     }
 
     let logoutBtn = document.getElementById('logoutBtn');
+    console.log('[SharedHeader] Looking for #logoutBtn:', logoutBtn);
     if (!logoutBtn) {
+      console.warn('[SharedHeader] #logoutBtn not found, attempting to create or convert.');
       // Convert any existing single-action link (e.g., "Switch User") to Logout.
       const candidate = dropdown.querySelector('a');
       if (candidate) {
@@ -554,6 +761,7 @@ const SharedHeader = {
 
     logoutBtn.textContent = 'Logout';
     logoutBtn.href = '#';
+    console.log('[SharedHeader] #logoutBtn ready:', logoutBtn);
 
     // Keep dropdown clean: logout only.
     dropdown.querySelectorAll('a').forEach((a) => {
@@ -562,6 +770,7 @@ const SharedHeader = {
 
     // Avoid double-binding if some page also re-initializes.
     if (!logoutBtn.dataset.bound) {
+      console.log('[SharedHeader] Attaching logout event to #logoutBtn');
       // Replace node to drop any previously-attached handlers from page-specific scripts.
       const clean = logoutBtn.cloneNode(true);
       clean.dataset.bound = 'true';
@@ -569,11 +778,15 @@ const SharedHeader = {
       logoutBtn = clean;
 
       logoutBtn.addEventListener('click', async (e) => {
+        console.log('[SharedHeader] Logout button clicked');
         e.preventDefault();
         e.stopPropagation();
         try {
-          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-        } catch (_) {}
+          const resp = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+          console.log('[SharedHeader] Logout request sent, response:', resp);
+        } catch (err) {
+          console.error('[SharedHeader] Logout request failed:', err);
+        }
         dropdown.classList.remove('active');
         window.location.href = '/login';
       });
@@ -594,6 +807,7 @@ const SharedHeader = {
 // Apply mobile/home behavior as early as possible to avoid a flash of the desktop nav on phones.
 try {
   SharedHeader.applyHomeBehavior();
+  SharedHeader.ensureCoreNavLinks();
   SharedHeader.ensureMobileMenu();
 } catch (_) {}
 

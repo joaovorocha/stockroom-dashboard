@@ -70,12 +70,30 @@ function verifyPassword(plain, stored) {
     return crypto.timingSafeEqual(expected, derived);
   }
 
-  // Legacy plaintext passwords
+  // LEGACY SUPPORT: plaintext passwords for old users
   return storedStr === password;
 }
 
 function isHashedPassword(value) {
   return (value || '').toString().startsWith('scrypt$');
+}
+
+function isRequestSecure(req) {
+  if (req?.secure) return true;
+  const xfProto = (req?.get?.('x-forwarded-proto') || '').toString().toLowerCase();
+  return xfProto.split(',')[0].trim() === 'https';
+}
+
+function getUserSessionCookieOptions(req, { maxAge } = {}) {
+  const secure = isRequestSecure(req);
+  return {
+    httpOnly: true,
+    path: '/',
+    maxAge,
+    // Builder.io (iframe) requires SameSite=None + Secure; fall back to Lax for plain HTTP local dev.
+    sameSite: secure ? 'none' : 'lax',
+    secure
+  };
 }
 
 function normalizeUserDefaults(user) {
@@ -276,7 +294,7 @@ router.post('/login', (req, res) => {
 
   try {
     const usersData = readJsonFile(USERS_FILE, { users: [] });
-    // Ensure legacy users are normalized (role flags + missing fields).
+    // LEGACY SUPPORT: Ensure legacy users are normalized (role flags + missing fields).
     const normalized = normalizeUsersData(usersData);
     const user = findUserByLogin(usersData.users, employeeId);
 
@@ -321,12 +339,7 @@ router.post('/login', (req, res) => {
 
     // Set cookie
     const maxAge = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 30 days or 1 day
-    res.cookie('userSession', JSON.stringify(sessionData), {
-      httpOnly: true,
-      maxAge,
-      sameSite: 'lax',
-      secure: false
-    });
+    res.cookie('userSession', JSON.stringify(sessionData), getUserSessionCookieOptions(req, { maxAge }));
 
     logActivity('LOGIN_SUCCESS', user.id, user.name, { role: user.role });
 
@@ -470,15 +483,10 @@ router.post('/password-reset/confirm', (req, res) => {
     };
 
     const maxAge = rememberDevice ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-    res.cookie('userSession', JSON.stringify(sessionData), {
-      httpOnly: true,
-      maxAge,
-      sameSite: 'lax',
-      secure: false
-    });
+    res.cookie('userSession', JSON.stringify(sessionData), getUserSessionCookieOptions(req, { maxAge }));
 
     logActivity('PASSWORD_RESET', user.id, user.name, { via: 'email' });
-    return res.json({ success: true, user: sessionData, redirectTo: getAppBaseUrl() + '/app' });
+    return res.json({ success: true, user: sessionData, redirectTo: getAppBaseUrl() + '/home' });
   } catch (error) {
     console.error('Password reset confirm error:', error);
     return res.status(500).json({ success: false, error: 'Server error during password reset' });
@@ -494,7 +502,7 @@ router.post('/logout', (req, res) => {
       logActivity('LOGOUT', userData.userId, userData.name, {});
     } catch (e) {}
   }
-  res.clearCookie('userSession');
+  res.clearCookie('userSession', getUserSessionCookieOptions(req));
   return res.json({ success: true });
 });
 
@@ -511,7 +519,7 @@ router.get('/check', (req, res) => {
     const usersData = readJsonFile(USERS_FILE, { users: [] });
     const currentUser = usersData.users.find(u => u.employeeId === session.employeeId || u.id === session.userId);
     if (!currentUser) {
-      res.clearCookie('userSession');
+      res.clearCookie('userSession', getUserSessionCookieOptions(req));
       return res.json({ authenticated: false });
     }
 
@@ -536,7 +544,7 @@ router.get('/check', (req, res) => {
       user: userData
     });
   } catch (error) {
-    res.clearCookie('userSession');
+    res.clearCookie('userSession', getUserSessionCookieOptions(req));
     return res.json({ authenticated: false });
   }
 });
@@ -547,7 +555,7 @@ router.post('/switch', (req, res) => {
   if (currentUser) {
     logActivity('SWITCH_USER_DISABLED_LOGOUT', currentUser.userId, currentUser.name, {});
   }
-  res.clearCookie('userSession');
+  res.clearCookie('userSession', getUserSessionCookieOptions(req));
   return res.status(200).json({
     success: true,
     action: 'login',
@@ -789,12 +797,7 @@ router.post('/profile/complete', (req, res) => {
     };
 
     const maxAge = rememberDevice ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-    res.cookie('userSession', JSON.stringify(sessionData), {
-      httpOnly: true,
-      maxAge,
-      sameSite: 'lax',
-      secure: false
-    });
+    res.cookie('userSession', JSON.stringify(sessionData), getUserSessionCookieOptions(req, { maxAge }));
 
     logActivity('PROFILE_COMPLETED', user.id, user.name, {});
     return res.json({ success: true, user: sessionData });

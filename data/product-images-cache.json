@@ -59,7 +59,43 @@
     "B7335": {
       "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_300px_solid_rgb:efefef,c_pad,w_2600/b_rgb:efefef,c_pad,dpr_1,w_1440,h_1728,f_auto,q_auto,fl_progressive/products/trousers/default/winter/b7335_1",
       "fetchedAt": "2025-12-22T04:11:00.087Z"
+    },
+    "P6848": {
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_300px_solid_rgb:efefef,c_pad,w_2600/b_rgb:efefef,c_pad,dpr_1,w_1440,h_1728,f_auto,q_auto,fl_progressive/products/suits/default/summer/p6848_51",
+      "fetchedAt": "2025-12-28T17:55:05.807Z"
+    },
+    "C5505": {
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_300px_solid_rgb:efefef,c_pad,w_2600/b_rgb:efefef,c_pad,dpr_1,w_1440,h_1728,f_auto,q_auto,fl_progressive/products/jackets/default/winter/c5505_1",
+      "fetchedAt": "2025-12-28T17:55:05.841Z"
+    },
+    "C7777": {
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_300px_solid_rgb:efefef,c_pad,w_2600/b_rgb:efefef,c_pad,dpr_1,w_1440,h_1728,f_auto,q_auto,fl_progressive/products/jackets/default/summer/c7777_1",
+      "fetchedAt": "2025-12-28T17:55:05.888Z"
+    },
+    "C4499": {
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_300px_solid_rgb:efefef,c_pad,w_2600/b_rgb:efefef,c_pad,dpr_1,w_1440,h_1728,f_auto,q_auto,fl_progressive/products/jackets/default/winter/c4499_1",
+      "fetchedAt": "2025-12-28T17:55:05.903Z"
+    },
+    "P6931": {
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_300px_solid_rgb:efefef,c_pad,w_2600/b_rgb:efefef,c_pad,dpr_1,w_1440,h_1728,f_auto,q_auto,fl_progressive/products/suits/default/winter/p6931_51",
+      "fetchedAt": "2025-12-28T17:55:05.916Z"
+    },
+    "C7506": {
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_300px_solid_rgb:efefef,c_pad,w_2600/b_rgb:efefef,c_pad,dpr_1,w_1440,h_1728,f_auto,q_auto,fl_progressive/products/jackets/default/summer/c7506_1",
+      "fetchedAt": "2025-12-28T17:55:05.947Z"
+    },
+    "B9565": {
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_300px_solid_rgb:efefef,c_pad,w_2600/b_rgb:efefef,c_pad,dpr_1,w_1440,h_1728,f_auto,q_auto,fl_progressive/products/trousers/default/winter/b9565_1",
+      "fetchedAt": "2025-12-28T18:33:03.017Z"
+    },
+    "B9559": {
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_300px_solid_rgb:efefef,c_pad,w_2600/b_rgb:efefef,c_pad,dpr_1,w_1440,h_1728,f_auto,q_auto,fl_progressive/products/trousers/default/winter/b9559_1",
+      "fetchedAt": "2025-12-28T18:33:03.087Z"
+    },
+    "A24106": {
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb:efefef,bo_600px_solid_rgb:efefef,c_pad,g_center,w_2600/b_rgb:efefef,c_lpad,dpr_1,w_1440,h_1728,f_auto,q_auto,g_center,fl_progressive/products/belts/default/a24106_1",
+      "fetchedAt": "2025-12-28T18:33:03.245Z"
     }
   },
-  "updatedAt": "2025-12-22T04:11:00.087Z"
+  "updatedAt": "2025-12-28T18:33:03.245Z"
 }

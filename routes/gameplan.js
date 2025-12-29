@@ -274,7 +274,7 @@ function pruneEmployeesFile() {
       const employeeIdLower = employeeIdRaw.toLowerCase();
       const nameKey = normalizeName(emp?.name);
 
-      // Clean up legacy placeholder users (ex: old "admin" login)
+      // LEGACY SUPPORT: Clean up legacy placeholder users (ex: old "admin" login)
       if (employeeIdLower === 'admin' || nameKey === 'admin') continue;
 
       const user = (employeeIdRaw && usersByEmployeeId.get(employeeIdRaw)) || (nameKey && usersByName.get(nameKey)) || null;
@@ -485,7 +485,7 @@ router.post('/save', requireManager, (req, res) => {
   const today = gameplan.date || getTodayDate();
   const gameplanFile = path.join(GAMEPLAN_DIR, `${today}.json`);
 
-  // Normalize assignments for backward compatibility:
+  // LEGACY SUPPORT: Normalize assignments for backward compatibility:
   // - zones: array (employees can have 1+ zones)
   // - zone: keep first zone for legacy UIs
   // - fittingRoom: always single value
@@ -641,7 +641,7 @@ router.get('/metrics', (req, res) => {
         loans: savedData.loans
       };
 
-      // Backfill operations health "Productivity" details in older saved payloads.
+      // LEGACY SUPPORT: Backfill operations health "Productivity" details in older saved payloads.
       if (!metrics.operationsHealth?.tailorsLastWeek?.length || metrics.operationsHealth?.workedHours === undefined || metrics.operationsHealth?.hoursOfAlterations === undefined) {
         try {
           const computedOps = lookerProcessor.processOperationsHealth();
@@ -668,7 +668,7 @@ router.get('/metrics', (req, res) => {
         }
       }
 
-      // Backfill retail week target info if missing in older saved payloads.
+      // LEGACY SUPPORT: Backfill retail week target info if missing in older saved payloads.
       // This is used for "Target / SA Today" calculations across the UI.
       // Also backfill KPI target fields (APC/CPC/IPC vs target) from the latest CSVs.
       if (!metrics.retailWeek || !metrics.retailWeek.target || !metrics?.metrics?.apcVsTarget || !metrics?.metrics?.cpcVsTarget || !metrics?.metrics?.ipcVsTarget) {

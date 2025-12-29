@@ -1,4 +1,8 @@
 const authMiddleware = (req, res, next) => {
+  const xfProto = (req.get('x-forwarded-proto') || '').toString().toLowerCase();
+  const isSecure = !!req.secure || xfProto.split(',')[0].trim() === 'https';
+  const clearCookieOptions = { path: '/', sameSite: isSecure ? 'none' : 'lax', secure: isSecure };
+
   const originalUrl = req.originalUrl || req.url || '';
   const baseUrl = req.baseUrl || '';
   const isApiRequest = originalUrl.startsWith('/api/') || baseUrl.startsWith('/api/');
@@ -38,7 +42,7 @@ const authMiddleware = (req, res, next) => {
     }
 
     if (!currentUser) {
-      res.clearCookie('userSession');
+      res.clearCookie('userSession', clearCookieOptions);
       if (isApiRequest) {
         return res.status(401).json({ error: 'Not authenticated' });
       }
@@ -79,7 +83,7 @@ const authMiddleware = (req, res, next) => {
     next();
   } catch (error) {
     // Invalid session data
-    res.clearCookie('userSession');
+    res.clearCookie('userSession', clearCookieOptions);
     if (isApiRequest) {
       return res.status(401).json({ error: 'Invalid session' });
     } else {

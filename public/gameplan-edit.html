@@ -762,7 +762,7 @@
   <!-- Header (No Refresh Bar on Edit page) -->
   <header class="header">
     <div class="header-brand">
-	      <a href="/app" class="logo-link">
+	      <a href="/home" class="logo-link">
 	        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\'logo-text\'>SUITSUPPLY</span>'">
 	      </a>
       <div class="header-title">
@@ -1424,7 +1424,7 @@
 	        // Only managers can access this page
 	        if (!currentUser.isManager && !currentUser.isAdmin) {
 	          alert('Access denied. Managers only.');
-	          window.location.href = '/app';
+	          window.location.href = '/home';
 	          return;
 	        }
 

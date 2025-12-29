@@ -22,6 +22,19 @@ const { getUPSScheduler } = require('./utils/ups-scheduler');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOME_PATH = '/home';
+const LEGACY_HOME_PATH = '/app';
+
+// Required when running behind a reverse proxy (e.g. Tailscale Serve) so `req.secure` and IPs are correct.
+app.set('trust proxy', true);
+
+function hasSession(req) {
+  return !!req.cookies?.userSession;
+}
+
+function redirectToHome(req, res) {
+  return res.redirect(HOME_PATH);
+}
 
 function managerOnly(req, res, next) {
   const user = req.user;
@@ -50,11 +63,27 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Basic security headers (keeps inline scripts working; CSP intentionally not set here)
+function upsertFrameAncestorsCsp(res, value) {
+  const existing = res.getHeader('Content-Security-Policy');
+  const existingStr = Array.isArray(existing) ? existing.join('; ') : (existing || '').toString();
+  if (!existingStr) {
+    res.setHeader('Content-Security-Policy', value);
+    return;
+  }
+  if (/(\s|;)frame-ancestors\s/i.test(existingStr)) {
+    const replaced = existingStr.replace(/(^|;)\s*frame-ancestors\s+[^;]*/i, `$1 ${value}`);
+    res.setHeader('Content-Security-Policy', replaced.trim());
+    return;
+  }
+  res.setHeader('Content-Security-Policy', `${existingStr.replace(/\s*;\s*$/, '')}; ${value}`);
+}
+
+// Basic security headers (keeps inline scripts working)
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'same-origin');
+  // Builder.io needs to iframe the app; allow only Builder + self.
+  upsertFrameAncestorsCsp(res, "frame-ancestors 'self' https://builder.io https://*.builder.io");
   next();
 });
 
@@ -89,6 +118,14 @@ app.use((req, res, next) => {
 
 // Serve static files from public directory (css/js/images)
 // Avoid stale assets when we deploy quick fixes.
+// Special-case: admin-only HTML pages should not be reachable via express.static.
+app.use((req, res, next) => {
+  if (req.path === '/radio-admin.html') {
+    return authMiddleware(req, res, () => adminOnly(req, res, () => res.redirect('/radio-admin')));
+  }
+  return next();
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
@@ -146,7 +183,9 @@ app.get('/dashboard.html', (req, res) => {
 });
 
 app.get('/index.html', (req, res) => {
-  res.redirect('/login');
+  // Match `/` behavior (handy when users bookmark /index.html).
+  if (hasSession(req)) return redirectToHome(req, res);
+  return res.redirect('/login');
 });
 
 // Serve HTML pages
@@ -200,8 +239,16 @@ app.get('/awards', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'awards.html'));
 });
 
-app.get('/app', authMiddleware, (req, res) => {
+// Canonical home
+app.get(HOME_PATH, authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
+});
+
+// Backwards compatibility
+app.get(LEGACY_HOME_PATH, authMiddleware, (req, res) => {
+  const url = req.originalUrl || req.url || '';
+  const suffix = url && url !== LEGACY_HOME_PATH ? url.slice(LEGACY_HOME_PATH.length) : '';
+  return res.redirect(`${HOME_PATH}${suffix}`);
 });
 
 // Profile completion / password change gate (auth required)
@@ -240,6 +287,14 @@ app.get('/radio', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'radio.html'));
 });
 
+app.get('/radio-transcripts', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'radio-transcripts.html'));
+});
+
+app.get('/radio-admin', authMiddleware, adminOnly, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'radio-admin.html'));
+});
+
 app.get('/closing-duties', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'closing-duties.html'));
 });
@@ -256,16 +311,10 @@ app.get('/feedback', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'feedback.html'));
 });
 
-app.get('/home', authMiddleware, (req, res) => {
-  const suffix = req.url && req.url !== '/home' ? req.url.slice('/home'.length) : '';
-  res.redirect(`/dashboard${suffix}`);
-});
-
 app.get('/', (req, res) => {
   // If already authenticated, go home; otherwise go to login
-  const userSession = req.cookies.userSession;
-  if (userSession) return res.redirect('/app');
-  res.redirect('/login');
+  if (hasSession(req)) return redirectToHome(req, res);
+  return res.redirect('/login');
 });
 
 // ===== Server-Sent Events (SSE) for Real-Time Updates =====
