@@ -79,6 +79,13 @@
     </main>
   </div>
 
-  <script src="/js/shared-header.js?v=21"></script>
+  <script src="/js/shared-header.js?v=22"></script>
+  <script>
+    try {
+      const mount = document.getElementById('sharedHeaderMount');
+      if (mount) mount.innerHTML = SharedHeader.render({ showRefresh: false });
+      SharedHeader.init();
+    } catch (_) {}
+  </script>
 </body>
 </html>

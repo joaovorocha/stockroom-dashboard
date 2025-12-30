@@ -96,7 +96,6 @@ const SharedHeader = {
       { href: '/closing-duties', label: 'Closing Duties', id: 'navClosingDuties' },
       { href: '/time-off', label: 'Time Off', id: 'navTimeOff' },
       { href: '/ops-dashboard', label: 'Looker Dashboards', id: 'navOpsDashboard' },
-      { href: '/radio-admin', label: 'Radio Admin', id: 'navRadioAdmin', adminOnly: true },
       { href: '/admin', label: 'Admin', id: 'navAdmin', adminOnly: true }
     ];
 
@@ -320,8 +319,7 @@ const SharedHeader = {
 
     const desired = [
       { href: '/expenses', label: 'Expenses', id: 'navExpenses', badge: 'expensesBadge' },
-      { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' },
-      { href: '/radio-admin', label: 'Radio Admin', id: 'navRadioAdmin', adminOnly: true }
+      { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' }
     ];
 
     const normalizePath = (href) => {
@@ -340,9 +338,7 @@ const SharedHeader = {
 
         // Backward-compat for older hardcoded links.
         if (targetPath === '/expenses' && path === '/expenses.html') return a;
-        if (targetPath === '/radio' && path === '/radio.html') return a;
         if (targetPath === '/radio-transcripts' && path === '/radio-transcripts.html') return a;
-        if (targetPath === '/radio-admin' && path === '/radio-admin.html') return a;
       }
       return null;
     };
@@ -369,12 +365,9 @@ const SharedHeader = {
         // Normalize legacy `.html` links to canonical routes.
         if (existingPath === `${item.href}.html`) existing.setAttribute('href', item.href);
         if (item.href === '/expenses' && existingPath === '/expenses.html') existing.setAttribute('href', item.href);
-        if (item.href === '/radio' && existingPath === '/radio.html') existing.setAttribute('href', item.href);
         if (item.href === '/radio-transcripts' && existingPath === '/radio-transcripts.html') existing.setAttribute('href', item.href);
-        if (item.href === '/radio-admin' && existingPath === '/radio-admin.html') existing.setAttribute('href', item.href);
 
         if (item.id && !existing.id) existing.id = item.id;
-        if (item.adminOnly) existing.style.display = 'none';
         if (item.badge) ensureBadge(existing, item.badge);
         return;
       }
@@ -384,7 +377,6 @@ const SharedHeader = {
       if (item.id) a.id = item.id;
       a.textContent = item.label;
       if (item.badge) ensureBadge(a, item.badge);
-      if (item.adminOnly) a.style.display = 'none';
 
       const anchors = Array.from(nav.querySelectorAll('a[href]'));
       const insertAfter = (afterEl) => {
@@ -401,16 +393,7 @@ const SharedHeader = {
           insertAfter(document.getElementById('navOperationsMetrics')) ||
           insertAfter(document.getElementById('navGamePlan'));
       } else if (item.href === '/radio-transcripts') {
-        inserted =
-          insertAfter(document.getElementById('navExpenses')) ||
-          insertAfter(anchors.find(x => normalizePath(x.getAttribute('href') || x.href) === '/radio')) ||
-          insertAfter(anchors.find(x => normalizePath(x.getAttribute('href') || x.href) === '/radio.html'));
-      } else if (item.href === '/radio-admin') {
-        inserted =
-          insertAfter(document.getElementById('navRadioTranscripts')) ||
-          insertAfter(anchors.find(x => normalizePath(x.getAttribute('href') || x.href) === '/admin')) ||
-          insertAfter(anchors.find(x => normalizePath(x.getAttribute('href') || x.href) === '/admin.html')) ||
-          insertAfter(document.getElementById('navExpenses'));
+        inserted = insertAfter(document.getElementById('navExpenses'));
       }
       if (!inserted) nav.appendChild(a);
     });
@@ -477,8 +460,6 @@ const SharedHeader = {
           if (isPhone && path === '/scanner') return false;
           // Hide Admin portal on phones (available on iPad/desktop only).
           if (isPhone && path === '/admin') return false;
-          // Hide Radio Admin on phones (available on iPad/desktop only).
-          if (isPhone && path === '/radio-admin') return false;
           // Hide Looker dashboards on phones (iPad/desktop only).
           if (isPhone && path === '/ops-dashboard') return false;
         } catch (_) {}
@@ -566,7 +547,6 @@ const SharedHeader = {
     const userName = document.getElementById('userName');
     const userAvatar = document.getElementById('userAvatar');
     const adminLink = document.getElementById('navAdmin');
-    const radioAdminLink = document.getElementById('navRadioAdmin');
     const feedbackLink = document.getElementById('navFeedback');
     const opsLink = document.getElementById('navOpsDashboard');
 
@@ -581,10 +561,6 @@ const SharedHeader = {
     if (adminLink) {
       if (user.isAdmin && !this.isPhoneViewport()) adminLink.style.display = 'inline';
       else adminLink.style.display = 'none';
-    }
-    if (radioAdminLink) {
-      if (user.isAdmin && !this.isPhoneViewport()) radioAdminLink.style.display = 'inline';
-      else radioAdminLink.style.display = 'none';
     }
     if (opsLink) {
       opsLink.style.display = this.isPhoneViewport() ? 'none' : '';

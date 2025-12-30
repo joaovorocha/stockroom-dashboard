@@ -52,6 +52,20 @@ function suggestWorkEmailFromName(name) {
 
 const IGNORED_EMPLOYEE_STORAGE_KEY = 'expensesIgnoredEmployees.v1';
 
+function getEmployeeFilterValue() {
+  try {
+    return (window.__expensesEmployeeFilter || '').toString();
+  } catch (_) {
+    return '';
+  }
+}
+
+function setEmployeeFilterValue(value) {
+  try {
+    window.__expensesEmployeeFilter = (value || '').toString();
+  } catch (_) {}
+}
+
 function loadIgnoredEmployees() {
   try {
     const raw = localStorage.getItem(IGNORED_EMPLOYEE_STORAGE_KEY);
@@ -261,20 +275,9 @@ function renderEmployeePanel(employees) {
       nameEl.addEventListener('click', (ev) => {
         ev.stopPropagation();
         ev.preventDefault();
-        const select = document.getElementById('employeeSelect');
-        if (select) {
-          const val = e?.key || e?.employee?.email || e?.employee?.employeeId || e?.employee?.name || '';
-          try {
-            const target = (val || '').toString();
-            const targetLower = target.toLowerCase();
-            const opts = Array.from(select.options || []);
-            const match = opts.find(o => (o.value || '').toString().toLowerCase() === targetLower);
-            if (match) select.value = match.value;
-          } catch (_) {}
-          window.__expensesSelectedEmployee = val;
-        }
-        // Always filter to the selected employee
-        document.getElementById('applyBtn')?.click();
+        const val = e?.key || e?.employee?.email || e?.employee?.employeeId || e?.employee?.name || '';
+        setEmployeeFilterValue(val);
+        window.__expensesUpdate?.();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       });
     }
@@ -308,22 +311,9 @@ function renderEmployeePanel(employees) {
     }
 
     card.addEventListener('click', () => {
-      const select = document.getElementById('employeeSelect');
-      if (select) {
-        // Prefer normalized key; fallback to name/email.
-        const val = e?.key || e?.employee?.email || e?.employee?.employeeId || e?.employee?.name || '';
-        // Try to set the <select> value, but also store a "forced" value for the next update
-        // (some browsers won't set select.value unless an option exists).
-        try {
-          const target = (val || '').toString();
-          const targetLower = target.toLowerCase();
-          const opts = Array.from(select.options || []);
-          const match = opts.find(o => (o.value || '').toString().toLowerCase() === targetLower);
-          if (match) select.value = match.value;
-        } catch (_) {}
-        window.__expensesSelectedEmployee = val;
-      }
-      document.getElementById('applyBtn')?.click();
+      const val = e?.key || e?.employee?.email || e?.employee?.employeeId || e?.employee?.name || '';
+      setEmployeeFilterValue(val);
+      window.__expensesUpdate?.();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
 
@@ -620,13 +610,7 @@ async function loadPage() {
 
   async function update() {
     const { start, end } = getRangeFilters();
-    const employeeSelect = document.getElementById('employeeSelect');
-    let employeeEmail = employeeSelect ? (employeeSelect.value || '') : '';
-    // Card clicks can force an employee filter even if the <select> can't represent it.
-    if (window.__expensesSelectedEmployee) {
-      employeeEmail = window.__expensesSelectedEmployee;
-      window.__expensesSelectedEmployee = null;
-    }
+    const employeeEmail = getEmployeeFilterValue();
 
     const qs = new URLSearchParams();
     if (start) qs.set('start', start);
@@ -634,7 +618,6 @@ async function loadPage() {
     if (employeeEmail) qs.set('employeeEmail', employeeEmail);
 
     const data = await fetchJson(`/api/expenses?${qs.toString()}`);
-    populateEmployeeSelect(data.employees);
     renderEmployeePanel(data.employees);
 
     const orders = Array.isArray(data.orders) ? data.orders : [];
@@ -680,7 +663,7 @@ async function loadPage() {
     }
   }
 
-  document.getElementById('applyBtn')?.addEventListener('click', update);
+  window.__expensesUpdate = update;
   document.getElementById('rangeSelect')?.addEventListener('change', () => {
     const { start, end } = getRangeFilters();
     if (startEl && start) startEl.value = start;

@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Radio Transcripts</title>
-  <link rel="stylesheet" href="/css/theme.css">
-  <link rel="stylesheet" href="/css/shared-header.css">
-  <link rel="stylesheet" href="/css/dashboard.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
+  <title>Radio Transcripts | Suitsupply</title>
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <style>
     .transcript-list { max-width: 800px; margin: 30px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 24px; }
     .transcript-item { border-bottom: 1px solid #eee; padding: 12px 0; }
@@ -19,42 +19,129 @@
   <header class="header">
     <div class="header-brand">
       <a href="/home" class="logo-link">
-        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img">
+        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
       </a>
       <div class="header-title">
         <h1>Radio Transcripts</h1>
+        <span class="location">San Francisco</span>
       </div>
     </div>
     <nav class="header-nav">
-      <a href="/dashboard">Dashboard</a>
-      <a href="/expenses.html">Expenses</a>
-      <a href="/radio.html">Radio</a>
-      <a href="/radio-transcripts.html" class="active">Radio Transcripts</a>
-      <a href="/admin">Admin</a>
+      <a href="/dashboard" id="navGamePlan">Game Plan</a>
+      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
+      <a href="/awards" id="navAwards">Awards</a>
+      <a href="/expenses" id="navExpenses">Expenses <span class="nav-badge" id="expensesBadge" style="display:none;">0</span></a>
+      <a href="/radio-transcripts" class="active" id="navRadioTranscripts">Radio Transcripts</a>
+      <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
+      <a href="/scanner" id="navScanner">Scanner</a>
+      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
+      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
+      <a href="/time-off" id="navTimeOff">Time Off</a>
+      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
+      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
     </nav>
+    <div class="header-actions">
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="logoutBtn">Logout</a>
+        </div>
+      </div>
+    </div>
   </header>
   <div class="transcript-list" id="transcriptList">
     <h2>Recent Radio Transcripts</h2>
     <div id="transcripts"></div>
   </div>
   <script>
-    async function loadTranscripts() {
-      const res = await fetch('/api/radio/transcripts');
-      const lines = await res.text();
-      const transcripts = lines.trim().split('\n').map(l => l ? JSON.parse(l) : null).filter(Boolean);
+    let lastId = 0;
+
+    function escapeText(v) {
+      return (v ?? '').toString();
+    }
+
+    function formatTs(item) {
+      const ts = item?.timestamp || item?.ts || item?.time || item?.createdAt || null;
+      if (!ts) return '';
+      const d = new Date(ts);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleString();
+    }
+
+    function appendTranscripts(items, { replace = false } = {}) {
       const container = document.getElementById('transcripts');
-      if (!transcripts.length) {
-        container.innerHTML = '<div>No transcripts found.</div>';
+      if (!container) return;
+      const list = Array.isArray(items) ? items : [];
+
+      if (replace) container.innerHTML = '';
+
+      if (!list.length && replace) {
+        const empty = document.createElement('div');
+        empty.textContent = 'No transcripts found.';
+        container.appendChild(empty);
         return;
       }
-      container.innerHTML = transcripts.reverse().map(t => `
-        <div class="transcript-item">
-          <div class="transcript-meta">${t.timestamp ? new Date(t.timestamp).toLocaleString() : ''}</div>
-          <div class="transcript-text">${t.text || ''}</div>
-        </div>
-      `).join('');
+
+      list.forEach((t) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'transcript-item';
+
+        const meta = document.createElement('div');
+        meta.className = 'transcript-meta';
+        meta.textContent = formatTs(t);
+
+        const text = document.createElement('div');
+        text.className = 'transcript-text';
+        text.textContent = escapeText(t?.text || t?.transcript || '');
+
+        wrapper.appendChild(meta);
+        wrapper.appendChild(text);
+        container.appendChild(wrapper);
+      });
     }
-    loadTranscripts();
+
+    async function fetchTranscripts({ afterId = 0, limit = 200 } = {}) {
+      const qs = new URLSearchParams();
+      if (afterId) qs.set('afterId', String(afterId));
+      if (limit) qs.set('limit', String(limit));
+      const url = `/api/radio/transcripts?${qs.toString()}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || `Failed to load transcripts (${res.status})`);
+      }
+      const data = await res.json();
+      return Array.isArray(data?.items) ? data.items : [];
+    }
+
+    async function loadInitial() {
+      try {
+        const items = await fetchTranscripts({ afterId: 0, limit: 200 });
+        if (items.length) lastId = Number(items[items.length - 1]?.id || 0) || 0;
+        appendTranscripts(items.slice().reverse(), { replace: true });
+      } catch (e) {
+        const container = document.getElementById('transcripts');
+        if (container) container.textContent = e?.message || 'Failed to load transcripts';
+      }
+    }
+
+    async function poll() {
+      try {
+        const newer = await fetchTranscripts({ afterId: lastId, limit: 200 });
+        if (newer.length) {
+          lastId = Number(newer[newer.length - 1]?.id || lastId) || lastId;
+          appendTranscripts(newer, { replace: false });
+        }
+      } catch (_) {}
+    }
+
+    loadInitial();
+    setInterval(poll, 5000);
   </script>
+  <script src="/js/shared-header.js?v=22"></script>
 </body>
 </html>

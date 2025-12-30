@@ -115,47 +115,45 @@
       <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
     </nav>
     <div class="header-actions">
-        <!-- Header -->
-        <header class="header">
-          <div class="header-brand">
-            <a href="/home" class="logo-link">
-              <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
-            </a>
-            <div class="header-title">
-              <h1>GamePlan</h1>
-              <span class="location">San Francisco</span>
-            </div>
-          </div>
+      <div class="header-date">
+        <span id="currentDate"></span>
+      </div>
+      <div class="header-user" id="userMenu">
+        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
+        <span id="userName">Guest</span>
+        <div class="user-dropdown" id="userDropdown">
+          <a href="#" id="logoutBtn">Logout</a>
+        </div>
+      </div>
+    </div>
+  </header>
 
-          <nav class="header-nav">
-            <a href="/dashboard" id="navGamePlan">Game Plan</a>
-            <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
-            <a href="/awards" id="navAwards">Awards</a>
-            <a href="/expenses" id="navExpenses">Expenses</a>
-            <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
-            <a href="/scanner" id="navScanner">Scanner</a>
-            <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
-            <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
-            <a href="/time-off" id="navTimeOff">Time Off</a>
-            <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
-            <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
-          </nav>
+  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
+    <main class="main-content">
+      <section class="section">
+        <div class="section-header">
+          <h2>Lost Punch Form</h2>
+        </div>
 
-          <div class="header-actions">
-            <div class="header-date">
-              <span id="currentDate"></span>
-            </div>
-            <div class="header-user" id="userMenu">
-              <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
-              <span id="userName">Guest</span>
-              <div class="user-dropdown" id="userDropdown">
-                <a href="#" id="logoutBtn">Logout</a>
+        <div class="punch-tabs">
+          <button class="tab active" data-tab="submit">Submit Lost Punch</button>
+          <button class="tab" data-tab="history">My History</button>
+          <button class="tab" data-tab="review" id="reviewTab" style="display:none;">Review Requests</button>
+        </div>
+
+        <!-- Submit Tab -->
+        <div id="submitTab" class="tab-content">
+          <div class="punch-form">
+            <h3 style="margin-bottom: 20px;">Report a Missed Punch</h3>
+            <form id="punchForm">
+              <input type="hidden" id="employeeName">
+              <input type="hidden" id="employeeId">
+
+              <div class="form-group">
+                <label>Date of Missed Punch *</label>
+                <input type="date" class="form-control" id="missedDate" required>
               </div>
-            </div>
-          </div>
-        </header>
-                </div>
-              </div>
+
               <div class="grid grid-2">
                 <div class="form-group">
                   <label>Clock In (optional)</label>
@@ -174,10 +172,12 @@
                   <input type="time" class="form-control" id="clockOutTime">
                 </div>
               </div>
+
               <div class="form-group">
                 <label>Reason *</label>
                 <textarea class="form-control" id="reason" rows="3" required placeholder="Explain why you missed your punch..."></textarea>
               </div>
+
               <button type="submit" class="btn btn-primary">Submit Lost Punch</button>
             </form>
           </div>
@@ -517,6 +517,6 @@
       });
     }
   </script>
-  <script src="/js/shared-header.js?v=21"></script>
+  <script src="/js/shared-header.js?v=22"></script>
 </body>
 </html>
