@@ -193,82 +193,11 @@
   </style>
 </head>
 <body>
-  <header class="header">
-    <div class="header-brand">
-      <a href="/home" class="logo-link">
-        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
-      </a>
-      <div class="header-title">
-        <h1>Feedback</h1>
-        <span class="location">San Francisco</span>
-      </div>
-    </div>
-    <nav class="header-nav">
-      <a href="/dashboard" id="navGamePlan">Game Plan</a>
-      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
-      <a href="/awards" id="navAwards">Awards</a>
-      <a href="/shipments" id="navShipments">Shipments</a>
-      <a href="/scanner" id="navScanner">Scanner</a>
-      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
-      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
-      <a href="/time-off" id="navTimeOff">Time Off</a>
-      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
-      <a href="/feedback" class="active" id="navFeedback" style="display:none;">Feedback</a>
-      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
-    </nav>
-    <div class="header-actions">
-      <div class="header-date">
-        <span id="currentDate"></span>
-      </div>
-      <div class="header-user" id="userMenu">
-        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
-        <span id="userName">Guest</span>
-        <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="logoutBtn">Logout</a>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
-    <main class="main-content">
-      <section class="section">
-        <div class="section-header">
-          <h2>Feedback</h2>
-        </div>
-
-        <div class="feedback-tabs">
-          <button class="tab active" data-tab="submit">Submit Feedback</button>
-          <button class="tab" data-tab="my">My Feedback</button>
-          <button class="tab" data-tab="all" id="allTab" style="display:none;">All Feedback</button>
-        </div>
-
-        <!-- Submit Tab -->
-        <div id="submitTab" class="tab-content">
-          <div class="feedback-form">
-            <h3 style="margin-bottom: 20px;">Share Your Feedback</h3>
-            <form id="feedbackForm">
-              <input type="hidden" id="employeeName">
-              <div class="form-group" style="margin-bottom: 16px;">
-                <label>Category</label>
-                  <select class="form-control" id="category">
-                    <option value="general">General</option>
-                    <option value="operations">Operations</option>
-                    <option value="customer-service">Customer Service</option>
-                    <option value="product">Product</option>
-                    <option value="suggestion">Suggestion</option>
-                    <option value="issue">Issue/Problem</option>
-                  </select>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Your Feedback *</label>
-                <textarea class="form-control" id="feedbackText" rows="4" required placeholder="Share your thoughts, suggestions, or report an issue..."></textarea>
-              </div>
-              <div class="form-group">
-                <label>Attach Images (Optional)</label>
-                <div class="drop-zone" id="dropZone">
-                  <input type="file" id="imageInput" accept="image/*" multiple>
+  <!-- Shared Header Mount -->
+  <div id="shared-header-mount"></div>
+<div class="dashboard-layout" style="grid-template-columns: 1fr;">
+  <main class="main-content">
+<input type="file" id="imageInput" accept="image/*" multiple>
                   <p style="margin: 0; color: var(--text-muted);">Click or drag images here (max 5 images, 5MB each)</p>
                 </div>
                 <div class="image-preview-container" id="previewContainer"></div>
@@ -614,6 +543,6 @@
       }
     }
   </script>
-  <script src="/js/shared-header.js?v=21"></script>
+  <script src="/js/shared-header.js?v=22"></script>
 </body>
 </html>

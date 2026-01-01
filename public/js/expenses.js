@@ -572,13 +572,67 @@ async function showOrderDetailModal(order) {
 }
 
 async function loadPage() {
+  let cachedConfig = null;
+  let latestStatus = null;
+
+  function applyStatusToSummary(statusData) {
+    const myLimitEl = document.getElementById('myLimit');
+    const myTotalEl = document.getElementById('myTotal');
+    const myHintEl = document.getElementById('myTotalHint');
+
+    const overrideLimit = Number.isFinite(Number(statusData?.limits?.yearlyLimit))
+      ? Number(statusData.limits.yearlyLimit)
+      : null;
+    const fallbackLimit = Number.isFinite(Number(cachedConfig?.limits?.yearlyLimit))
+      ? Number(cachedConfig.limits.yearlyLimit)
+      : null;
+    const limitValue = overrideLimit !== null ? overrideLimit : fallbackLimit;
+    const hasLimit = Number.isFinite(limitValue);
+
+    if (myLimitEl) myLimitEl.textContent = hasLimit ? toMoney(limitValue) : 'Not set';
+
+    const usedValue = Number(statusData?.totals?.currentYearRetailLc);
+    const hasUsedValue = Number.isFinite(usedValue);
+    if (myTotalEl) myTotalEl.textContent = hasUsedValue ? toMoney(usedValue) : '--';
+
+    if (myHintEl) {
+      if (statusData?.available) {
+        const orderCountRaw = Number(statusData?.totals?.yearOrders);
+        const orderCount = Number.isFinite(orderCountRaw) ? orderCountRaw : 0;
+        const label = orderCount === 1 ? 'order' : 'orders';
+        myHintEl.textContent = `${orderCount} YTD ${label}`;
+      } else {
+        myHintEl.textContent = 'No YTD data';
+      }
+    }
+
+    if (myTotalEl) {
+      myTotalEl.classList.remove('retail-green', 'retail-yellow', 'retail-red');
+      let percent = Number(statusData?.status?.yearly?.percentUsed);
+      if (!Number.isFinite(percent)) percent = null;
+      if (percent === null && hasLimit && limitValue > 0 && hasUsedValue) {
+        percent = (usedValue / limitValue) * 100;
+      }
+      if (percent !== null) {
+        if (percent >= 100) {
+          myTotalEl.classList.add('retail-red');
+        } else if (percent >= 85) {
+          myTotalEl.classList.add('retail-yellow');
+        } else {
+          myTotalEl.classList.add('retail-green');
+        }
+      }
+    }
+  }
+
+  const config = await fetchJson('/api/expenses/config');
+  cachedConfig = config;
+
   // Set year balloon
   const yearBalloon = document.getElementById('yearBalloon');
   const currentYear = new Date().getFullYear();
   if (yearBalloon) {
     yearBalloon.textContent = currentYear;
-    // Example: grey out if no yearly limit (adjust logic as needed)
-    const config = await fetchJson('/api/expenses/config');
     if (!config?.limits?.yearlyLimit) {
       yearBalloon.classList.add('greyed');
       yearBalloon.title = 'Yearly limit not available';
@@ -589,8 +643,7 @@ async function loadPage() {
   }
 
   // Shared header
-  const headerMount = document.getElementById('sharedHeader');
-  if (headerMount) headerMount.innerHTML = SharedHeader.render({ showRefresh: false });
+  SharedHeader.mountHeader({ showRefresh: false });
   await SharedHeader.init();
 
   // Initialize date inputs
@@ -599,12 +652,7 @@ async function loadPage() {
   if (startEl && !startEl.value) startEl.value = isoStartOfYear();
   if (endEl && !endEl.value) endEl.value = isoToday();
 
-  const config = await fetchJson('/api/expenses/config');
-  const status = await fetchJson('/api/expenses/status');
-
-  const myLimitValue = Number.isFinite(config?.limits?.yearlyLimit) ? toMoney(config.limits.yearlyLimit) : 'Not set';
-  const myLimitEl = document.getElementById('myLimit');
-  if (myLimitEl) myLimitEl.textContent = myLimitValue;
+  applyStatusToSummary(null);
 
   // Remove over-limit banner, handled visually in summary card now
 
@@ -617,50 +665,33 @@ async function loadPage() {
     if (end) qs.set('end', end);
     if (employeeEmail) qs.set('employeeEmail', employeeEmail);
 
-    const data = await fetchJson(`/api/expenses?${qs.toString()}`);
+    const qsString = qs.toString();
+    const expensesUrl = qsString ? `/api/expenses?${qsString}` : '/api/expenses';
+    const [data, statusData] = await Promise.all([
+      fetchJson(expensesUrl),
+      fetchJson('/api/expenses/status').catch(() => null)
+    ]);
+
+    if (statusData) {
+      latestStatus = statusData;
+      applyStatusToSummary(statusData);
+    } else if (latestStatus) {
+      applyStatusToSummary(latestStatus);
+    } else {
+      applyStatusToSummary(null);
+    }
+
     renderEmployeePanel(data.employees);
 
     const orders = Array.isArray(data.orders) ? data.orders : [];
     renderOrders(orders);
 
-    const meEmail = normalizeEmail(SharedHeader?.currentUser?.email);
-    const meName = (SharedHeader?.currentUser?.name || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-    const myOrders = orders.filter(o => {
-      const b = o?.beneficiary || {};
-      const bEmail = normalizeEmail(b?.email);
-      const bName = (b?.name || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-      if (meEmail && bEmail && meEmail === bEmail) return true;
-      if (meName && bName && meName === bName) return true;
-      return false;
-    });
-    const myTotalValue = myOrders.reduce((acc, o) => acc + Number(o?.amounts?.lc?.fullPrice || 0), 0);
     const storeTotalValue = orders.reduce((acc, o) => acc + Number(o?.amounts?.lc?.fullPrice || 0), 0);
 
-    const myTotalEl = document.getElementById('myTotal');
     const storeTotalEl = document.getElementById('storeTotal');
-    const myHintEl = document.getElementById('myTotalHint');
     const storeHintEl = document.getElementById('storeTotalHint');
-    if (myTotalEl) myTotalEl.textContent = toMoney(myTotalValue);
     if (storeTotalEl) storeTotalEl.textContent = toMoney(storeTotalValue);
-    if (myHintEl) myHintEl.textContent = `${myOrders.length} orders`;
     if (storeHintEl) storeHintEl.textContent = `${orders.length} orders`;
-    // Add color to myTotal based on percent used
-    if (myTotalEl) {
-      let percent = 0;
-      if (myLimitEl && myLimitEl.textContent && myTotalEl.textContent) {
-        const lim = Number((myLimitEl.textContent || '').replace(/[^\d.]/g, ''));
-        const tot = Number((myTotalEl.textContent || '').replace(/[^\d.]/g, ''));
-        if (lim > 0) percent = (tot / lim) * 100;
-      }
-      myTotalEl.classList.remove('retail-green', 'retail-yellow', 'retail-red');
-      if (percent >= 100) {
-        myTotalEl.classList.add('retail-red');
-      } else if (percent >= 85) {
-        myTotalEl.classList.add('retail-yellow');
-      } else {
-        myTotalEl.classList.add('retail-green');
-      }
-    }
   }
 
   window.__expensesUpdate = update;

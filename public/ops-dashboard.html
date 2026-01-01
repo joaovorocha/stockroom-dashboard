@@ -120,46 +120,9 @@
   </style>
 </head>
 <body>
-  <!-- Header (No Refresh Bar on Ops Dashboard) -->
-  <header class="header">
-    <div class="header-brand">
-      <a href="/home" class="logo-link">
-        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
-      </a>
-      <div class="header-title">
-        <h1>Daily Game Plan</h1>
-        <span class="location">San Francisco</span>
-      </div>
-    </div>
-    <nav class="header-nav">
-      <a href="/dashboard" id="navGamePlan">Game Plan</a>
-      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
-      <a href="/awards" id="navAwards">Awards</a>
-      <a href="/expenses" id="navExpenses">Expenses</a>
-      <a href="/shipments" id="navShipments">Shipments</a>
-      <a href="/scanner" id="navScanner">Scanner</a>
-      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
-      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
-      <a href="/time-off" id="navTimeOff">Time Off</a>
-      <a href="/ops-dashboard" class="active" id="navOpsDashboard">Looker Dashboards</a>
-      <a href="/feedback" id="navFeedback" style="display:none;">Feedback</a>
-      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
-    </nav>
-    <div class="header-actions">
-      <div class="header-date">
-        <span id="currentDate"></span>
-      </div>
-      <div class="header-user" id="userMenu">
-        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
-        <span id="userName">Guest</span>
-        <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="logoutBtn">Logout</a>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Looker Dashboards Sub-header -->
+  <!-- Shared Header Mount -->
+  <div id="shared-header-mount"></div>
+<!-- Looker Dashboards Sub-header -->
   <div class="ops-subheader" style="padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border);">
     <h2 style="font-size: 18px; margin: 0;">Looker Dashboards</h2>
   </div>

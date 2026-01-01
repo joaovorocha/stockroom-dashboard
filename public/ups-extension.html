@@ -30,7 +30,7 @@
   </style>
 </head>
 <body>
-  <div id="sharedHeaderMount"></div>
+  <div id="shared-header-mount"></div>
 
   <div class="dashboard-layout" style="grid-template-columns: 1fr;">
     <main class="main-content">
@@ -82,7 +82,7 @@
   <script src="/js/shared-header.js?v=22"></script>
   <script>
     try {
-      const mount = document.getElementById('sharedHeaderMount');
+      const mount = document.getElementById('shared-header-mount');
       if (mount) mount.innerHTML = SharedHeader.render({ showRefresh: false });
       SharedHeader.init();
     } catch (_) {}

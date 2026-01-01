@@ -153,8 +153,55 @@ const SharedHeader = {
   </header>`;
   },
 
+  // Locate the mount target (supporting legacy IDs)
+  getMountTarget() {
+    if (this._mountTarget && document.body && document.body.contains(this._mountTarget)) {
+      return this._mountTarget;
+    }
+
+    const selectors = ['#shared-header-mount', '#sharedHeaderMount', '[data-shared-header]'];
+    for (const selector of selectors) {
+      const el = document.querySelector(selector);
+      if (el) {
+        this._mountTarget = el;
+        return el;
+      }
+    }
+
+    this._mountTarget = null;
+    return null;
+  },
+
+  // Render the shared header into the mount placeholder
+  mountHeader(options = {}) {
+    if (typeof document === 'undefined') return null;
+
+    let mount = this.getMountTarget();
+    if (!mount) {
+      if (!document.body) return null;
+      mount = document.createElement('div');
+      mount.id = 'shared-header-mount';
+      document.body.insertBefore(mount, document.body.firstChild || null);
+      this._mountTarget = mount;
+    }
+
+    if (mount.dataset.rendered === 'true' && !options.force) {
+      return mount;
+    }
+
+    const derivedOptions = { ...options };
+    const showRefreshAttr = mount.dataset.showRefresh;
+    if (showRefreshAttr === 'false') derivedOptions.showRefresh = false;
+    else if (showRefreshAttr === 'true') derivedOptions.showRefresh = true;
+
+    mount.innerHTML = this.render(derivedOptions);
+    mount.dataset.rendered = 'true';
+    return mount;
+  },
+
   // Initialize header
   async init() {
+    this.mountHeader();
     this.registerServiceWorker();
     this.applyHomeBehavior();
     this.ensureCoreNavLinks();

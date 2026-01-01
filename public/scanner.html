@@ -92,83 +92,10 @@
   </style>
 </head>
 <body>
-  <header class="header">
-    <div class="header-brand">
-      <a href="/home" class="logo-link">
-        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\'logo-text\'>SUITSUPPLY</span>'">
-      </a>
-      <div class="header-title">
-        <h1>GamePlan</h1>
-        <span class="location">San Francisco</span>
-      </div>
-    </div>
-
-    <nav class="header-nav">
-      <a href="/dashboard" id="navGamePlan">Game Plan</a>
-      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
-      <a href="/awards" id="navAwards">Awards</a>
-      <a href="/expenses" id="navExpenses">Expenses</a>
-      <a href="/shipments" id="navShipments">Shipments <span class="nav-badge" id="shipmentsBadge" style="display:none;">0</span></a>
-      <a href="/scanner" id="navScanner">Scanner</a>
-      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
-      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
-      <a href="/time-off" id="navTimeOff">Time Off</a>
-      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
-      <a href="/admin" id="navAdmin" style="display:none;">Admin</a>
-    </nav>
-
-    <div class="header-actions">
-      <div class="header-date">
-        <span id="currentDate"></span>
-      </div>
-      <div class="header-user" id="userMenu">
-        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
-        <span id="userName">Guest</span>
-        <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="logoutBtn">Logout</a>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
-    <main class="main-content">
-      <section class="section">
-        <div class="section-header">
-          <h2>Barcode / QR Code Scanner</h2>
-        </div>
-
-        <div class="scanner-box">
-          <p style="color: var(--text-secondary); margin-bottom: 16px;">Scan with USB scanner or use camera</p>
-
-          <input type="text" id="scannerInput" class="scanner-input" placeholder="Scan barcode here..." autofocus autocomplete="off">
-
-          <div style="display: flex; gap: 12px; justify-content: center;">
-            <button class="btn btn-primary" id="cameraBtn">Open Camera</button>
-            <button class="btn btn-secondary" id="clearBtn">Clear</button>
-          </div>
-
-          <div class="camera-container" id="cameraContainer">
-            <video id="cameraVideo" autoplay playsinline></video>
-            <button class="btn btn-secondary" id="closeCameraBtn" style="margin-top: 12px;">Close Camera</button>
-          </div>
-
-          <div class="scanner-status" id="scannerStatus"></div>
-        </div>
-
-        <div class="instructions">
-          <h4>Scanner Behavior</h4>
-          <ul>
-            <li><strong>Data Matrix:</strong> Copies data to clipboard and opens Inventory System</li>
-            <li><strong>PSUS / Order QR Code:</strong> Opens Order Status (PSUS + 8 digits, or 8 digits starting with 04)</li>
-            <li>Ignores any data before "PSUS" and after the 8 digits</li>
-            <li>Press Enter or Tab after scanning to process</li>
-          </ul>
-        </div>
-      </section>
-    </main>
-  </div>
-
+  <!-- Shared Header Mount -->
+  <div id="shared-header-mount"></div>
+<div class="dashboard-layout" style="grid-template-columns: 1fr;">
+  <main class="main-content">
   <footer class="footer">
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
@@ -336,6 +263,6 @@
       document.getElementById('scannerInput').focus();
     }
   </script>
-  <script src="/js/shared-header.js?v=21"></script>
+  <script src="/js/shared-header.js?v=22"></script>
 </body>
 </html>

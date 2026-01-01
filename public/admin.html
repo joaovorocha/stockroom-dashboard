@@ -292,42 +292,7 @@
 </head>
 <body>
   <!-- Main Header -->
-  <header class="header">
-    <div class="header-brand">
-      <a href="/home" class="logo-link">
-        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
-      </a>
-      <div class="header-title">
-        <h1>Admin Console</h1>
-        <span class="location">San Francisco</span>
-      </div>
-    </div>
-    <nav class="header-nav">
-      <a href="/dashboard" id="navGamePlan">Game Plan</a>
-      <a href="/operations-metrics" id="navOperationsMetrics">Operations</a>
-      <a href="/awards" id="navAwards">Awards</a>
-      <a href="/shipments" id="navShipments">Shipments</a>
-      <a href="/scanner" id="navScanner">Scanner</a>
-      <a href="/lost-punch" id="navLostPunch">Lost Punch</a>
-      <a href="/closing-duties" id="navClosingDuties">Closing Duties</a>
-      <a href="/time-off" id="navTimeOff">Time Off</a>
-      <a href="/ops-dashboard" id="navOpsDashboard">Looker Dashboards</a>
-      <a href="/feedback" id="navFeedback">Feedback</a>
-      <a href="/admin" class="active" id="navAdmin">Admin</a>
-    </nav>
-    <div class="header-actions">
-      <div class="header-date">
-        <span id="currentDate"></span>
-      </div>
-      <div class="header-user" id="userMenu">
-        <img src="data:," alt="" id="userAvatar" class="user-avatar-img" onerror="this.style.display='none'">
-        <span id="userName">Guest</span>
-        <div class="user-dropdown" id="userDropdown">
-          <a href="#" id="logoutBtn">Logout</a>
-        </div>
-      </div>
-    </div>
-  </header>
+  <div id="shared-header-mount"></div>
 
   <div class="admin-phone-block" id="adminPhoneBlock">
     <h2>Admin portal is not available on phones</h2>
@@ -1398,6 +1363,6 @@
 		    }
 		  </script>
     <div id="adminToast" class="admin-toast" style="display:none;"></div>
-  <script src="/js/shared-header.js?v=21"></script>
+  <script src="/js/shared-header.js?v=22"></script>
 </body>
 </html>
