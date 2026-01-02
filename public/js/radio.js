@@ -53,7 +53,8 @@
 
     const meta = document.createElement('div');
     meta.className = 'radio-item-meta';
-    meta.textContent = `${formatTs(item.ts)}\n#${item.id}`;
+    const channelLabel = item?.channelLabel ? String(item.channelLabel) : '';
+    meta.textContent = `${formatTs(item.ts)}${channelLabel ? `\n${channelLabel}` : ''}\n#${item.id}`;
 
     const text = document.createElement('div');
     text.className = 'radio-item-text';
@@ -61,6 +62,18 @@
 
     const actions = document.createElement('div');
     actions.className = 'radio-item-actions';
+
+    if (item?.clipUrl) {
+      const audio = document.createElement('audio');
+      audio.controls = true;
+      audio.preload = 'none';
+      audio.src = String(item.clipUrl);
+      audio.style.width = '220px';
+      audio.style.display = 'block';
+      audio.style.marginBottom = '8px';
+      actions.appendChild(audio);
+    }
+
     const btn = document.createElement('button');
     btn.textContent = 'Copy';
     btn.addEventListener('click', async () => {
@@ -253,9 +266,51 @@
   if (saveRestartBtn) saveRestartBtn.addEventListener('click', () => saveConfig({ restart: true }));
 
   loadConfig().then(loadServiceStatus);
+
+  // Prefer real-time SSE; fall back to polling if it fails.
+  let startedSse = false;
+  function startSse() {
+    if (startedSse) return;
+    if (typeof EventSource === 'undefined') return;
+    startedSse = true;
+    try {
+      const url = `/api/radio/events?afterId=${encodeURIComponent(lastId)}`;
+      const es = new EventSource(url);
+
+      es.addEventListener('transcript', (e) => {
+        try {
+          const item = JSON.parse(e.data);
+          lastId = Math.max(lastId, Number(item?.id || 0));
+          allTextCache.push(`[${formatTs(item?.ts)}] ${item?.text || ''}`.trim());
+          addItem(item);
+          emptyEl.style.display = 'none';
+        } catch {}
+      });
+
+      es.addEventListener('live', (e) => {
+        try {
+          const live = JSON.parse(e.data);
+          updateAudioMeter(live);
+        } catch {}
+      });
+
+      es.onerror = () => {
+        try { es.close(); } catch {}
+        startedSse = false;
+        // Fall back to polling.
+        poll();
+        setInterval(poll, 2000);
+        pollLive();
+        setInterval(pollLive, 500);
+      };
+    } catch {
+      startedSse = false;
+    }
+  }
+
+  // Initial load (fills empty state, grabs any backlog)
   poll();
-  setInterval(poll, 2000);
-  pollLive();
-  setInterval(pollLive, 500);
+  startSse();
+
   setInterval(loadServiceStatus, 5000);
 })();

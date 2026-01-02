@@ -153,9 +153,13 @@
       <div class="empty" id="emptyState" style="display:none;">No shipments match your filters.</div>
     </section>
   </div>
-<script>
+  <script src="/js/shared-header.js?v=22"></script>
+  <script>
     let allShipments = [];
     let currentUser = null;
+    let refreshTimer = null;
+    let lastRefreshAt = null;
+    const AUTO_REFRESH_INTERVAL = 60_000;
 
     function safeText(value) {
       return (value === undefined || value === null) ? '' : String(value);
@@ -318,49 +322,70 @@
 	      }).join('');
 	    }
 
-    async function loadShipments() {
+    function setAutoRefreshMessage(message) {
+      const el = document.getElementById('autoRefreshNote');
+      if (el) el.textContent = message;
+    }
+
+    function formatRefreshTime(date) {
+      if (!date) return '';
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function loadShipments({ showLoader = false } = {}) {
       const list = document.getElementById('shipmentsList');
-      list.innerHTML = '<div class="meta">Loading…</div>';
+      if (showLoader) list.innerHTML = '<div class="meta">Loading…</div>';
+      setAutoRefreshMessage('Refreshing…');
       try {
         const resp = await fetch('/api/shipments', { credentials: 'include' });
         if (!resp.ok) throw new Error('Failed to load shipments');
         allShipments = await resp.json();
+        lastRefreshAt = new Date();
+        setAutoRefreshMessage(`Updated ${formatRefreshTime(lastRefreshAt)} • Refreshes every 60s`);
       } catch (e) {
         console.error(e);
         allShipments = [];
+        setAutoRefreshMessage('Unable to refresh. Retrying shortly…');
       }
       renderShipments();
     }
 
+    function startAutoRefresh() {
+      if (refreshTimer) return;
+      refreshTimer = setInterval(() => loadShipments().catch(() => {}), AUTO_REFRESH_INTERVAL);
+    }
+
+    function stopAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+
     async function initPage() {
+      SharedHeader.mountHeader({ showRefresh: false });
+      await SharedHeader.init();
+      currentUser = SharedHeader.currentUser;
+      if (!currentUser) {
+        window.location.href = '/login';
+        return;
+      }
+
       document.getElementById('searchInput').addEventListener('input', renderShipments);
       document.getElementById('sourceFilter').addEventListener('change', renderShipments);
       document.getElementById('statusFilter').addEventListener('change', renderShipments);
 
-      await loadShipments();
+      await loadShipments({ showLoader: true });
 
-      // Auto refresh: update when returning to the tab and every 60s.
-      let refreshTimer = null;
-      const startTimer = () => {
-        if (refreshTimer) return;
-        refreshTimer = setInterval(() => loadShipments().catch(() => {}), 60_000);
-      };
-      const stopTimer = () => {
-        if (refreshTimer) clearInterval(refreshTimer);
-        refreshTimer = null;
-      };
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) stopTimer();
+        if (document.hidden) stopAutoRefresh();
         else {
           loadShipments().catch(() => {});
-          startTimer();
+          startAutoRefresh();
         }
       });
-      startTimer();
+      startAutoRefresh();
     }
 
     document.addEventListener('DOMContentLoaded', initPage);
   </script>
-  <script src="/js/shared-header.js?v=22"></script>
 </body>
 </html>

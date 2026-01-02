@@ -112,12 +112,12 @@
 .mobile-menu-btn {
   display: none;
   appearance: none;
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
   background: var(--surface);
   color: var(--text-primary);
   border-radius: 999px;
-  width: 40px;
-  height: 40px;
+  width: 46px;
+  height: 46px;
   padding: 0;
   align-items: center;
   justify-content: center;
@@ -259,8 +259,8 @@
 
 .is-hamburger-nav .mobile-menu-btn {
   display: inline-flex;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   font-size: calc(22px * var(--font-scale));
 }
 
@@ -488,6 +488,80 @@
 
 .user-dropdown a:hover {
   background: var(--surface);
+}
+
+/* ------------------------------------------------------------------
+   Hard override: keep header aligned on mobile across ALL pages.
+   Some pages load additional CSS (e.g. mobile.css/dashboard.css) that
+   also styles `.header` at small widths and can break alignment.
+   We scope to `body.is-mobile-nav` (set by shared-header.js) so this
+   only affects the shared header layout.
+   ------------------------------------------------------------------ */
+body.is-mobile-nav header.header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
+  flex-direction: row !important;
+  padding: 8px 12px !important;
+  gap: 10px !important;
+  min-height: 44px !important;
+}
+
+body.is-mobile-nav .header-brand {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: 72% !important;
+}
+
+body.is-mobile-nav .logo-link {
+  flex: 0 0 auto;
+}
+
+body.is-mobile-nav .logo-img {
+  height: 20px !important;
+}
+
+body.is-mobile-nav .mobile-menu-btn {
+  display: inline-flex !important;
+  width: 46px !important;
+  height: 46px !important;
+}
+
+body.is-mobile-nav .header-title,
+body.is-mobile-nav .header-nav,
+body.is-mobile-nav .header-date {
+  display: none !important;
+}
+
+body.is-mobile-nav .header-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex: 0 0 auto !important;
+  min-width: 0;
+}
+
+body.is-mobile-nav .header-user {
+  padding: 0 !important;
+  gap: 8px !important;
+}
+
+body.is-mobile-nav #userName {
+  font-size: calc(12px * var(--font-scale)) !important;
+  max-width: 140px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+body.is-mobile-nav .user-avatar-img {
+  width: 28px !important;
+  height: 28px !important;
 }
 
 /* User Switch Modal */

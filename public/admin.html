@@ -325,7 +325,7 @@
       <div class="admin-header">
         <h1 id="pageTitle">Users</h1>
         <div style="display: flex; align-items: center; gap: 16px;">
-          <a href="/login" class="btn btn-outline btn-sm">Log out</a>
+          <button class="btn btn-outline btn-sm" id="logoutBtn">Log out</button>
         </div>
       </div>
 
@@ -685,23 +685,33 @@
         }, 2200);
       }
 
-	    // Check auth
-		    async function checkAuth() {
-		      const response = await fetch('/api/auth/check', { credentials: 'include' });
-		      const data = await response.json();
-	      if (!data.authenticated || !data.user.isAdmin) {
-	        window.location.href = '/dashboard';
-	        return;
-	      }
-	      currentUser = data.user;
-	      const nameEl = document.getElementById('userName');
-	      if (nameEl) nameEl.textContent = data.user.name || 'User';
-	      const avatarEl = document.getElementById('userAvatar');
-	      if (avatarEl && data.user.imageUrl) {
-	        avatarEl.src = data.user.imageUrl;
-	        avatarEl.style.display = 'block';
-	      }
-	    }
+      // Check auth
+  	    async function checkAuth() {
+  	      const response = await fetch('/api/auth/check', { credentials: 'include' });
+  	      const data = await response.json();
+        if (!data.authenticated || !data.user.isAdmin) {
+          window.location.href = '/dashboard';
+          return;
+        }
+        currentUser = data.user;
+        const nameEl = document.getElementById('userName');
+        if (nameEl) nameEl.textContent = data.user.name || 'User';
+        const avatarEl = document.getElementById('userAvatar');
+        if (avatarEl && data.user.imageUrl) {
+          avatarEl.src = data.user.imageUrl;
+          avatarEl.style.display = 'block';
+        }
+
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+          logoutBtn.addEventListener('click', async () => {
+            try {
+              await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+            } catch (_) {}
+            window.location.href = '/login';
+          });
+        }
+      }
 
 	    // Load data
 		    async function loadSettings() {

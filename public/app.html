@@ -18,6 +18,8 @@
   <link rel="stylesheet" href="/css/theme.css?v=14">
   <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/app-home.css?v=1">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
+  <link rel="stylesheet" href="/css/mobile.css?v=3">
 </head>
 <body>
   <!-- Shared Header Mount -->
@@ -53,11 +55,11 @@
         </div>
       </a>
 
-      <a class="app-tile" href="/expenses">
+      <a class="app-tile" href="/employee-discount">
         <div class="app-tile-icon">💳</div>
         <div class="app-tile-text">
-          <div class="app-tile-title">Expenses</div>
-          <div class="app-tile-subtitle">Work-related</div>
+          <div class="app-tile-title">Employee Discount</div>
+          <div class="app-tile-subtitle">Orders</div>
         </div>
       </a>
 
@@ -125,8 +127,149 @@
         </div>
       </a>
     </div>
+
+    <section class="section" id="homeTodaySection" style="margin-top: 14px;">
+      <div class="section-header">
+        <h2>Today</h2>
+      </div>
+      <div class="metrics-content">
+        <div class="metrics-row">
+          <div class="metric-card">
+            <span class="metric-label">Shift</span>
+            <span class="metric-value" id="homeShift">--</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Lunch</span>
+            <span class="metric-value" id="homeLunch">--</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Fitting Room</span>
+            <span class="metric-value" id="homeFittingRoom">--</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Closing Duties</span>
+            <span class="metric-value" id="homeClosingSummary">--</span>
+            <span class="metric-change neutral" id="homeClosingList">--</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section metrics-section" id="metricsSection" style="margin-top: 14px;">
+      <div class="section-header">
+        <h2>Week to Date Store Overview</h2>
+      </div>
+      <div class="metrics-content" id="metricsContent">
+        <div class="metrics-row">
+          <div class="metric-card highlight">
+            <span class="metric-label">WTD Sales</span>
+            <span class="metric-value" id="wtdSales">--</span>
+            <span class="metric-change" id="wtdChange">--</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Target</span>
+            <span class="metric-value" id="targetAmount">--</span>
+            <span class="metric-change" id="vsTarget">--</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">SPH</span>
+            <span class="metric-value" id="sph">--</span>
+            <span class="metric-change" id="sphChange">--</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">IPC</span>
+            <span class="metric-value" id="ipc">--</span>
+            <span class="metric-change" id="ipcChange">--</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Drop-offs</span>
+            <span class="metric-value" id="dropoffs">--</span>
+          </div>
+          <div class="metric-card warning clickable" id="loansCard" onclick="showLoansModal()">
+            <span class="metric-label">Loans Overdue</span>
+            <span class="metric-value" id="loansOverdueTotal">0</span>
+            <span class="metric-change" id="loansOverdueNames">--</span>
+            <span class="metric-hint">Click for details</span>
+          </div>
+        </div>
+
+        <div class="product-mix-row">
+          <span class="mix-label">Last Week Mix:</span>
+          <span class="mix-item formal"><span id="formalPct">--</span> Formal</span>
+          <span class="mix-item casual"><span id="casualPct">--</span> Casual</span>
+          <span class="mix-item tuxedo"><span id="tuxedoPct">--</span> Tuxedo</span>
+          <span class="mix-total">= 100%</span>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">🧵 Tailor Productivity (Last Complete Week)</div>
+          <div class="metrics-row">
+            <div class="metric-card" id="mgrTailorTeamProdCard">
+              <span class="metric-label">Team Productivity</span>
+              <span class="metric-value" id="mgrTailorTeamProductivityPct">--</span>
+              <span class="metric-change neutral">Last complete week</span>
+            </div>
+            <div class="metric-card" id="mgrTailorUtilCard">
+              <span class="metric-label">Utilization</span>
+              <span class="metric-value" id="mgrTailorUtilizationPct">--</span>
+              <span class="metric-change neutral">Alterations / Worked</span>
+            </div>
+            <div class="metric-card" id="mgrTailorWorkedCard">
+              <span class="metric-label">Worked Hours</span>
+              <span class="metric-value" id="mgrTailorWorkedHours">--</span>
+              <span class="metric-change neutral">Total</span>
+            </div>
+            <div class="metric-card" id="mgrTailorAltHoursCard">
+              <span class="metric-label">Hours of Alterations</span>
+              <span class="metric-value" id="mgrTailorAlterationsHours">--</span>
+              <span class="metric-change neutral">Total</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">💳 Employee Discount Policy Tracking</div>
+          <div id="mgrOverLimitBanner" style="display:none; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:10px 12px; border-radius:10px; margin-bottom:10px;"></div>
+          <div class="metrics-row">
+            <div class="metric-card" id="mgrExpDiscountYtdCard">
+              <span class="metric-label">Retail Value (YTD)</span>
+              <span class="metric-value" id="mgrExpDiscountYtd">--</span>
+              <span class="metric-change neutral" id="mgrExpDiscountYtdHint">--</span>
+            </div>
+            <div class="metric-card" id="mgrExpDiscountMonthCard">
+              <span class="metric-label">Retail Value (This Month)</span>
+              <span class="metric-value" id="mgrExpDiscountMonth">--</span>
+              <span class="metric-change neutral" id="mgrExpDiscountMonthHint">--</span>
+            </div>
+            <div class="metric-card clickable" onclick="window.location.href='/employee-discount'">
+              <span class="metric-label">View Orders</span>
+              <span class="metric-value">Open</span>
+              <span class="metric-hint">See employee totals + order list</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 <script src="/js/app-home.js?v=1"></script>
+  <script src="/js/dashboard.js?v=21"></script>
+  <script src="/js/home-hub.js?v=1"></script>
   <script src="/js/shared-header.js?v=22"></script>
+
+  <!-- Loans Detail Modal (used by the WTD section) -->
+  <div class="modal-overlay" id="loansModal">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>Loans Overdue Details</h3>
+        <button class="modal-close" id="closeLoans">&times;</button>
+      </div>
+      <div class="modal-body" id="loansModalBody">
+        <p style="color: var(--text-muted);">No overdue loans.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="document.getElementById('loansModal').classList.remove('active')">Close</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

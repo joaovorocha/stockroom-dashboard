@@ -74,9 +74,17 @@ function requirePrivileged(req, res) {
 
 function defaultConfig() {
   return {
+    // Backward-compat: keep top-level freq/ppm/gain in sync with the active channel.
     freq: '446.01875M',
     ppm: 0,
     gain: 0,
+
+    // New: multi-channel support
+    channels: [
+      { id: 'default', label: 'Default', freq: '446.01875M', ppm: 0, gain: 0 },
+    ],
+    activeChannelId: 'default',
+
     squelch: 0,
     squelchDelay: 1,
     vadThreshold: 0.03,
@@ -87,16 +95,75 @@ function defaultConfig() {
   };
 }
 
+function normalizeChannels(channels) {
+  const list = Array.isArray(channels) ? channels : [];
+  const normalized = list
+    .map((c, idx) => {
+      const id = String(c?.id || `ch${idx + 1}`).trim();
+      const label = String(c?.label || id).trim();
+      const freq = String(c?.freq || '').trim();
+      if (!freq) return null;
+      return {
+        id,
+        label,
+        freq,
+        ppm: safeInt(c?.ppm, 0),
+        gain: safeInt(c?.gain, 0),
+      };
+    })
+    .filter(Boolean);
+
+  if (normalized.length === 0) {
+    return [{ id: 'default', label: 'Default', freq: '446.01875M', ppm: 0, gain: 0 }];
+  }
+  return normalized;
+}
+
+function normalizeConfig(raw) {
+  const base = { ...defaultConfig(), ...(raw && typeof raw === 'object' ? raw : {}) };
+
+  // Migrate legacy single-channel config.
+  const hasChannels = Array.isArray(raw?.channels) && raw.channels.length > 0;
+  const channels = hasChannels
+    ? normalizeChannels(raw.channels)
+    : normalizeChannels([
+        {
+          id: 'default',
+          label: String(raw?.channelLabel || 'Default'),
+          freq: String(raw?.freq || base.freq || '446.01875M'),
+          ppm: safeInt(raw?.ppm ?? base.ppm, 0),
+          gain: safeInt(raw?.gain ?? base.gain, 0),
+        },
+      ]);
+
+  let activeChannelId = String(raw?.activeChannelId || base.activeChannelId || channels[0].id || 'default');
+  if (!channels.some(c => c.id === activeChannelId)) activeChannelId = channels[0].id;
+
+  const active = channels.find(c => c.id === activeChannelId) || channels[0];
+  return {
+    ...base,
+    channels,
+    activeChannelId,
+    // Keep legacy fields aligned with active channel.
+    freq: active?.freq || base.freq,
+    ppm: safeInt(active?.ppm, safeInt(base.ppm, 0)),
+    gain: safeInt(active?.gain, safeInt(base.gain, 0)),
+  };
+}
+
 function loadConfig() {
   try {
-    if (fs.existsSync(CONFIG_PATH)) return JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    if (fs.existsSync(CONFIG_PATH)) {
+      const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+      return normalizeConfig(raw);
+    }
   } catch {}
-  return defaultConfig();
+  return normalizeConfig(null);
 }
 
 function saveConfig(cfg) {
   ensureDir(CONFIG_PATH);
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(normalizeConfig(cfg), null, 2));
 }
 
 function execPm2(args) {
@@ -219,6 +286,16 @@ router.get('/live', (req, res) => {
   }
 });
 
+// Near-real-time listen buffer (rolling WAV)
+router.get('/live-audio', (req, res) => {
+  const wavPath = path.join(__dirname, '..', 'data', 'radio', 'live-audio.wav');
+  if (!fs.existsSync(wavPath)) return res.status(404).json({ ok: false, error: 'Live audio not available' });
+  res.setHeader('Content-Type', 'audio/wav');
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Accept-Ranges', 'bytes');
+  return res.sendFile(wavPath);
+});
+
 router.get('/config', (req, res) => {
   const cfg = loadConfig();
   const privileged = isPrivileged(req);
@@ -230,21 +307,47 @@ router.post('/config', (req, res) => {
 
   const body = req.body || {};
   const prev = loadConfig();
-  const cfg = {
-    ...prev,
-    freq: String(body.freq ?? prev.freq),
-    ppm: safeInt(body.ppm ?? prev.ppm, prev.ppm),
-    gain: safeInt(body.gain ?? prev.gain, prev.gain),
+
+  // Start with previous normalized config.
+  const next = { ...prev };
+
+  // Channel updates (preferred)
+  if (Array.isArray(body.channels)) {
+    next.channels = normalizeChannels(body.channels);
+  }
+  if (body.activeChannelId != null) {
+    next.activeChannelId = String(body.activeChannelId);
+  }
+
+  // Legacy single-channel updates apply to the active channel.
+  const legacyFreq = body.freq != null ? String(body.freq) : null;
+  const legacyPpm = body.ppm != null ? safeInt(body.ppm, prev.ppm) : null;
+  const legacyGain = body.gain != null ? safeInt(body.gain, prev.gain) : null;
+  const legacyLabel = body.channelLabel != null ? String(body.channelLabel) : null;
+
+  const activeId = String(next.activeChannelId || (next.channels?.[0]?.id ?? 'default'));
+  next.channels = normalizeChannels(next.channels);
+  next.activeChannelId = next.channels.some(c => c.id === activeId) ? activeId : next.channels[0].id;
+  const activeIdx = next.channels.findIndex(c => c.id === next.activeChannelId);
+  if (activeIdx >= 0) {
+    if (legacyFreq) next.channels[activeIdx].freq = legacyFreq;
+    if (legacyLabel) next.channels[activeIdx].label = legacyLabel;
+    if (legacyPpm != null) next.channels[activeIdx].ppm = legacyPpm;
+    if (legacyGain != null) next.channels[activeIdx].gain = legacyGain;
+  }
+
+  const cfg = normalizeConfig({
+    ...next,
     // rtl_fm squelch tends to stop PCM output entirely, which breaks live metering and VAD.
     // Keep squelch at 0 and do "squelch-like" behavior via VAD threshold instead.
     squelch: 0,
     squelchDelay: 1,
-    vadThreshold: safeFloat(body.vadThreshold ?? prev.vadThreshold, prev.vadThreshold),
-    hangoverMs: safeInt(body.hangoverMs ?? prev.hangoverMs, prev.hangoverMs),
-    model: String(body.model ?? prev.model),
-    device: String(body.device ?? prev.device),
-    computeType: String(body.computeType ?? prev.computeType),
-  };
+    vadThreshold: safeFloat(body.vadThreshold ?? next.vadThreshold, next.vadThreshold),
+    hangoverMs: safeInt(body.hangoverMs ?? next.hangoverMs, next.hangoverMs),
+    model: String(body.model ?? next.model),
+    device: String(body.device ?? next.device),
+    computeType: String(body.computeType ?? next.computeType),
+  });
 
   saveConfig(cfg);
 
@@ -347,6 +450,85 @@ router.get('/transcripts', (req, res) => {
   const limit = Math.min(500, Math.max(1, safeInt(req.query.limit, 200)));
   const items = loadTranscripts({ afterId, limit });
   return res.json({ ok: true, items });
+});
+
+// Listen: serve recorded WAV clips (written by the transcriber)
+router.get('/clips/:file', (req, res) => {
+  const raw = String(req.params.file || '');
+  const safe = path.basename(raw);
+  if (!safe || safe.includes('..') || !safe.toLowerCase().endsWith('.wav')) {
+    return res.status(400).json({ ok: false, error: 'Bad clip filename' });
+  }
+  const clipPath = path.join(__dirname, '..', 'data', 'radio', 'clips', safe);
+  if (!fs.existsSync(clipPath)) return res.status(404).json({ ok: false, error: 'Clip not found' });
+  res.setHeader('Content-Type', 'audio/wav');
+  // Accept range requests (browser seeking)
+  res.setHeader('Accept-Ranges', 'bytes');
+  return res.sendFile(clipPath);
+});
+
+// Real-time updates (SSE)
+// Sends: event: transcript {item}
+//        event: live {live}
+router.get('/events', (req, res) => {
+  // Must be authenticated (router is mounted under /api with auth-by-default)
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+
+  const flush = () => {
+    try { res.flushHeaders?.(); } catch {}
+  };
+  flush();
+
+  let afterId = safeInt(req.query.afterId, 0);
+  let lastLiveMtime = 0;
+  const livePath = path.join(__dirname, '..', 'data', 'radio', 'live.json');
+
+  const writeEvent = (eventName, data) => {
+    try {
+      res.write(`event: ${eventName}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch {
+      // ignore
+    }
+  };
+
+  // Initial ping
+  writeEvent('ready', { ok: true, ts: new Date().toISOString(), afterId });
+
+  const timer = setInterval(() => {
+    // Transcripts
+    try {
+      const items = loadTranscripts({ afterId, limit: 200 });
+      for (const item of items) {
+        const id = safeInt(item?.id, 0);
+        if (id > afterId) afterId = id;
+        writeEvent('transcript', item);
+      }
+    } catch {
+      // ignore
+    }
+
+    // Live meter
+    try {
+      if (fs.existsSync(livePath)) {
+        const st = fs.statSync(livePath);
+        const m = st.mtimeMs || 0;
+        if (m > lastLiveMtime) {
+          lastLiveMtime = m;
+          const obj = JSON.parse(fs.readFileSync(livePath, 'utf8'));
+          writeEvent('live', obj);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }, 400);
+
+  req.on('close', () => {
+    clearInterval(timer);
+  });
 });
 
 module.exports = router;

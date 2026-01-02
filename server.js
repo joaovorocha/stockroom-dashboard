@@ -25,6 +25,8 @@ const PORT = process.env.PORT || 3000;
 const HOME_PATH = '/home';
 const LEGACY_HOME_PATH = '/app';
 
+const FORCE_HTTPS = process.env.FORCE_HTTPS === 'true';
+
 // Required when running behind a reverse proxy (e.g. Tailscale Serve) so `req.secure` and IPs are correct.
 app.set('trust proxy', true);
 
@@ -63,6 +65,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+function isRequestSecure(req) {
+  const xfProto = (req.get('x-forwarded-proto') || '').toString().toLowerCase();
+  return !!req.secure || xfProto.split(',')[0].trim() === 'https';
+}
+
+// Optional HTTPS enforcement (recommended in production behind a TLS proxy)
+app.use((req, res, next) => {
+  if (!FORCE_HTTPS) return next();
+  if (isRequestSecure(req)) return next();
+
+  const host = req.get('host');
+  const target = `https://${host}${req.originalUrl || req.url || ''}`;
+  if (req.method === 'GET' || req.method === 'HEAD') return res.redirect(301, target);
+  return res.status(400).send('HTTPS required');
+});
+
 function upsertFrameAncestorsCsp(res, value) {
   const existing = res.getHeader('Content-Security-Policy');
   const existingStr = Array.isArray(existing) ? existing.join('; ') : (existing || '').toString();
@@ -82,9 +100,74 @@ function upsertFrameAncestorsCsp(res, value) {
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
+  if (isRequestSecure(req)) {
+    res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  }
   // Builder.io needs to iframe the app; allow only Builder + self.
   upsertFrameAncestorsCsp(res, "frame-ancestors 'self' https://builder.io https://*.builder.io");
   next();
+});
+
+// Basic CSRF mitigation for API write requests (cookie auth uses SameSite=None in secure mode).
+// Require same-origin Origin/Referer for non-GET API calls.
+app.use((req, res, next) => {
+  const path = (req.path || '').toString();
+  if (!path.startsWith('/api/')) return next();
+  const method = (req.method || 'GET').toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
+
+  const host = req.get('host');
+  const origin = (req.get('origin') || '').toString();
+  const referer = (req.get('referer') || '').toString();
+  const expected = `${isRequestSecure(req) ? 'https' : 'http'}://${host}`;
+
+  // Prefer Origin when present.
+  if (origin) {
+    if (origin !== expected) return res.status(403).json({ error: 'Invalid origin' });
+    return next();
+  }
+
+  // Fall back to Referer if Origin is absent.
+  if (referer) {
+    if (!referer.startsWith(`${expected}/`)) return res.status(403).json({ error: 'Invalid referer' });
+  }
+  return next();
+});
+
+// Auth-by-default: everything except explicit public routes/assets requires a valid session.
+app.use((req, res, next) => {
+  const p = (req.path || '').toString();
+  const method = (req.method || 'GET').toUpperCase();
+  if (method === 'OPTIONS') return next();
+
+  const publicExact = new Set([
+    '/',
+    '/login',
+    '/login-v2',
+    '/forgot-password',
+    '/reset-password',
+    '/manifest.webmanifest',
+    '/sw.js'
+  ]);
+
+  // Auth routes are public (they handle their own checks).
+  if (p.startsWith('/api/auth')) return next();
+
+  // Public static assets.
+  const publicPrefixes = [
+    '/css/',
+    '/js/',
+    '/images/',
+    '/icons/',
+    '/vendor/',
+    '/downloads/'
+  ];
+
+  if (publicExact.has(p)) return next();
+  if (publicPrefixes.some(prefix => p.startsWith(prefix))) return next();
+
+  // Otherwise require auth.
+  return authMiddleware(req, res, next);
 });
 
 // Normalize common copy/paste dash characters in URLs (e.g. Safari/Docs en-dash/em-dash)
@@ -108,12 +191,6 @@ app.use((req, res, next) => {
       .replace(/%EF%B9%A3/gi, '-') // U+FE63
       .replace(/%EF%BC%8D/gi, '-') // U+FF0D
   );
-});
-
-// Require auth for direct HTML file access (prevents bypassing app routes via express.static)
-app.use((req, res, next) => {
-  if (req.path.endsWith('.html')) return authMiddleware(req, res, next);
-  return next();
 });
 
 // Serve static files from public directory (css/js/images)
@@ -266,6 +343,13 @@ app.get('/operations-metrics', authMiddleware, (req, res) => {
 });
 
 app.get('/expenses', authMiddleware, (req, res) => {
+  const url = req.originalUrl || req.url || '';
+  const qsIndex = url.indexOf('?');
+  const qs = qsIndex >= 0 ? url.slice(qsIndex) : '';
+  res.redirect(`/employee-discount${qs}`);
+});
+
+app.get('/employee-discount', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'expenses.html'));
 });
 
@@ -291,7 +375,7 @@ app.get('/radio-transcripts', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'radio-transcripts.html'));
 });
 
-app.get('/radio-admin', authMiddleware, adminOnly, (req, res) => {
+app.get('/radio-admin', authMiddleware, managerOnly, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'radio-admin.html'));
 });
 

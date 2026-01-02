@@ -24,6 +24,7 @@
       margin-bottom: 24px;
       border-bottom: 2px solid var(--border);
       padding-bottom: 12px;
+      flex-wrap: wrap;
     }
     .punch-tabs .tab {
       padding: 10px 20px;
@@ -51,75 +52,145 @@
       padding: 16px;
       margin-bottom: 12px;
     }
-    .punch-card.approved {
-      border-color: var(--success);
-    }
-    .punch-card.pending {
-      border-color: #ffc107;
-    }
-    .punch-card.denied {
-      border-color: var(--danger);
-    }
+    .punch-card.approved { border-color: var(--success); }
+    .punch-card.pending { border-color: #ffc107; }
+    .punch-card.denied { border-color: var(--danger); }
     .punch-header {
       display: flex;
       justify-content: space-between;
       margin-bottom: 12px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
-    .punch-date {
-      font-weight: 600;
-    }
+    .punch-date { font-weight: 600; }
     .punch-status {
       padding: 4px 10px;
       border-radius: 12px;
       font-size: 11px;
       font-weight: 500;
+      text-transform: capitalize;
     }
     .punch-status.approved { background: var(--success); color: #fff; }
     .punch-status.pending { background: #ffc107; color: #000; }
     .punch-status.denied { background: var(--danger); color: #fff; }
     .punch-details {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 8px;
       font-size: 13px;
     }
     .punch-details label {
       color: var(--text-muted);
       font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .eyebrow {
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin: 0;
+    }
+    .request-guidelines {
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      background: var(--surface);
+    }
+    .section-subheader h3 { margin: 0; }
+    .section-subheader p {
+      margin: 4px 0 0;
+      color: var(--text-secondary);
+      font-size: 13px;
     }
   </style>
 </head>
 <body>
   <!-- Shared Header Mount -->
   <div id="shared-header-mount"></div>
-<div class="dashboard-layout" style="grid-template-columns: 1fr;">
-  <main class="main-content">
-                <div class="form-group">
-                  <label>Clock Out (optional)</label>
-                  <input type="time" class="form-control" id="clockOutTime">
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label>Reason *</label>
-                <textarea class="form-control" id="reason" rows="3" required placeholder="Explain why you missed your punch..."></textarea>
-              </div>
-
-              <button type="submit" class="btn btn-primary">Submit Lost Punch</button>
-            </form>
+  <div class="dashboard-layout" style="grid-template-columns: minmax(0, 1fr);">
+    <main class="main-content">
+      <section class="section">
+        <div class="punch-form" style="padding:0; border:none;">
+          <div class="punch-tabs" style="margin:0 24px; padding-top:16px;">
+            <button class="tab active" data-tab="submit">Submit Request</button>
+            <button class="tab" data-tab="history">My History</button>
+            <button class="tab" id="reviewTabButton" data-tab="review" style="display:none;">Manager Review</button>
           </div>
-        </div>
 
-        <!-- History Tab -->
-        <div id="historyTab" class="tab-content" style="display:none;">
-          <h3 style="margin-bottom: 16px;">Your Lost Punch Requests</h3>
-          <div id="historyList"></div>
-        </div>
+          <div id="submitTab" class="tab-content" style="display:block; padding:24px;">
+            <div class="punch-form" style="margin:0;">
+              <div style="margin-bottom:18px;">
+                <h3 style="margin:0 0 6px;">Report a missed punch</h3>
+                <p style="color:var(--text-secondary); margin:0;">Share the date and any times you need corrected. Managers get notified immediately.</p>
+              </div>
+              <form id="punchForm" style="display:flex; flex-direction:column; gap:16px;">
+                <input type="hidden" id="employeeName">
+                <input type="hidden" id="employeeId">
 
-        <!-- Review Tab (Managers Only) -->
-        <div id="reviewTabContent" class="tab-content" style="display:none;">
-          <h3 style="margin-bottom: 16px;">Pending Requests for Review</h3>
-          <div id="reviewList"></div>
+                <div class="grid grid-2" style="gap:16px;">
+                  <div class="form-group">
+                    <label>Date of missed punch *</label>
+                    <input type="date" class="form-control" id="missedDate" required>
+                  </div>
+                  <div class="form-group">
+                    <label>Store</label>
+                    <input type="text" class="form-control" value="San Francisco" disabled>
+                  </div>
+                </div>
+
+                <div class="grid grid-2" style="gap:16px;">
+                  <div class="form-group">
+                    <label>Clock In (optional)</label>
+                    <input type="time" class="form-control" id="clockInTime">
+                  </div>
+                  <div class="form-group">
+                    <label>Lunch Out (optional)</label>
+                    <input type="time" class="form-control" id="lunchOutTime">
+                  </div>
+                  <div class="form-group">
+                    <label>Lunch In (optional)</label>
+                    <input type="time" class="form-control" id="lunchInTime">
+                  </div>
+                  <div class="form-group">
+                    <label>Clock Out (optional)</label>
+                    <input type="time" class="form-control" id="clockOutTime">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Reason *</label>
+                  <textarea class="form-control" id="reason" rows="3" required placeholder="Explain what happened so your manager can approve quickly."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Submit Lost Punch</button>
+                <div class="request-guidelines">Include at least one time entry so payroll knows what to fix. You can resubmit if you need to add more context.</div>
+              </form>
+            </div>
+          </div>
+
+          <div id="historyTab" class="tab-content" style="display:none; padding:24px;">
+            <div class="punch-form" style="margin:0;">
+              <div class="section-subheader" style="margin-bottom:16px;">
+                <h3>Your Lost Punch Requests</h3>
+                <p>Track approvals and see submitted times at a glance.</p>
+              </div>
+              <div id="historyList"></div>
+            </div>
+          </div>
+
+          <div id="reviewTabContent" class="tab-content" style="display:none; padding:24px;">
+            <div class="punch-form" style="margin:0;">
+              <div class="section-subheader" style="margin-bottom:16px;">
+                <h3>Pending Requests for Review</h3>
+                <p>Managers can batch approve/deny and leave notes after reviewing entries.</p>
+              </div>
+              <div id="reviewList"></div>
+            </div>
+          </div>
         </div>
       </section>
     </main>
@@ -129,70 +200,58 @@
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
 
- <script>
+  <script src="/js/shared-header.js?v=22"></script>
+  <script>
     let currentUser = null;
     let punches = [];
+
     function canManageClient(user) {
       const role = (user?.role || '').toString().toUpperCase();
       return !!(user?.isAdmin || user?.isManager || role === 'MANAGEMENT');
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
-      await checkAuth();
+      SharedHeader.mountHeader({ showRefresh: false });
+      await SharedHeader.init();
+
+      currentUser = SharedHeader.currentUser;
+      if (!currentUser) {
+        window.location.href = '/login';
+        return;
+      }
+
+      hydrateFormUserDetails();
+      toggleReviewTab();
+
       await loadPunches();
       setupEventListeners();
     });
 
-	    async function checkAuth() {
-	      try {
-	        const response = await fetch('/api/auth/check', { credentials: 'include' });
-	        const data = await response.json();
-	        if (data.authenticated) {
-	          currentUser = data.user;
-	          document.getElementById('userName').textContent = currentUser.name || 'User';
-	          if (currentUser.imageUrl) {
-	            const img = document.getElementById('userAvatar');
-	            if (img) {
-	              img.src = currentUser.imageUrl;
-	              img.style.display = 'block';
-	            }
-	          }
-	          document.getElementById('employeeName').value = currentUser.name || '';
-	          document.getElementById('employeeId').value = currentUser.employeeId || '';
-
-	          // Toggle review tab for managers/admins
-	          if (currentUser.isManager || currentUser.isAdmin || (currentUser.role || '').toString().toUpperCase() === 'MANAGEMENT') {
-	            const reviewTabBtn = document.getElementById('reviewTab');
-	            if (reviewTabBtn) reviewTabBtn.style.display = 'inline-block';
-	          }
-
-	          // Toggle admin nav
-	          if (currentUser.isAdmin) {
-	            const adminNav = document.getElementById('navAdmin');
-	            if (adminNav) adminNav.style.display = 'inline';
-	          }
-	        } else {
-	          window.location.href = '/login';
-	        }
-	      } catch (e) {}
-	    }
-
-    async function logout() {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/login';
+    function hydrateFormUserDetails() {
+      const nameField = document.getElementById('employeeName');
+      const idField = document.getElementById('employeeId');
+      if (nameField) nameField.value = currentUser?.name || '';
+      if (idField) idField.value = currentUser?.employeeId || '';
     }
 
-	    async function loadPunches() {
-	      try {
-	        const response = await fetch('/api/lost-punch', { credentials: 'include' });
-	        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-	        punches = await response.json();
-	        renderHistory();
-	        renderReview();
-	      } catch (e) {
-	        punches = [];
-	      }
-	    }
+    function toggleReviewTab() {
+      const reviewTabBtn = document.getElementById('reviewTabButton');
+      if (!reviewTabBtn) return;
+      reviewTabBtn.style.display = canManageClient(currentUser) ? 'inline-block' : 'none';
+    }
+
+    async function loadPunches() {
+      try {
+        const response = await fetch('/api/lost-punch', { credentials: 'include' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        punches = await response.json();
+      } catch (e) {
+        console.error('Failed to load lost punches', e);
+        punches = [];
+      }
+      renderHistory();
+      renderReview();
+    }
 
     function renderTimesHtml(p) {
       const timeRows = [
@@ -371,34 +430,36 @@
       await updatePunchStatus(id, 'denied');
     }
 
-	    async function updatePunchStatus(id, status) {
-	      try {
-	        await fetch(`/api/lost-punch/${id}`, {
-	          method: 'PATCH',
-	          headers: { 'Content-Type': 'application/json' },
-	          credentials: 'include',
-	          body: JSON.stringify({ status, reviewedBy: currentUser?.name })
-	        });
-	        await loadPunches();
-	      } catch (e) {
-	        alert('Error updating status');
-	      }
-	    }
+    async function updatePunchStatus(id, status) {
+      try {
+        await fetch(`/api/lost-punch/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ status, reviewedBy: currentUser?.name })
+        });
+        await loadPunches();
+      } catch (e) {
+        console.error('Error updating status', e);
+        alert('Error updating status');
+      }
+    }
 
     function setupEventListeners() {
-      // Tabs
       document.querySelectorAll('.punch-tabs .tab').forEach(tab => {
         tab.addEventListener('click', () => {
           document.querySelectorAll('.punch-tabs .tab').forEach(t => t.classList.remove('active'));
           tab.classList.add('active');
           document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-          const tabId = tab.dataset.tab === 'review' ? 'reviewTabContent' : tab.dataset.tab + 'Tab';
-          document.getElementById(tabId).style.display = 'block';
+          const tabId = tab.dataset.tab === 'review' ? 'reviewTabContent' : `${tab.dataset.tab}Tab`;
+          const panel = document.getElementById(tabId);
+          if (panel) panel.style.display = 'block';
         });
       });
 
-      // Form submit
-      document.getElementById('punchForm').addEventListener('submit', async (e) => {
+      const form = document.getElementById('punchForm');
+      if (!form) return;
+      form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const clockInTime = document.getElementById('clockInTime').value;
         const lunchOutTime = document.getElementById('lunchOutTime').value;
@@ -424,26 +485,23 @@
           submittedAt: new Date().toISOString()
         };
 
-	        try {
-	          await fetch('/api/lost-punch', {
-	            method: 'POST',
-	            headers: { 'Content-Type': 'application/json' },
-	            credentials: 'include',
-	            body: JSON.stringify(punch)
-	          });
-	          alert('Lost punch submitted successfully!');
-          document.getElementById('punchForm').reset();
-          if (currentUser) {
-            document.getElementById('employeeName').value = currentUser.name;
-            document.getElementById('employeeId').value = currentUser.employeeId;
-          }
+        try {
+          await fetch('/api/lost-punch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(punch)
+          });
+          alert('Lost punch submitted successfully!');
+          form.reset();
+          hydrateFormUserDetails();
           await loadPunches();
         } catch (e) {
+          console.error('Error submitting lost punch', e);
           alert('Error submitting lost punch');
         }
       });
     }
   </script>
-  <script src="/js/shared-header.js?v=22"></script>
 </body>
 </html>

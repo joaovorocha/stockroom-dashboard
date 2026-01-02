@@ -1205,6 +1205,13 @@
   border-top: 1px solid var(--border);
 }
 
+.expandable-controls {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .expandable-box {
   flex: 1;
   min-width: 200px;
@@ -1304,6 +1311,85 @@
 .expandable-list-item.available .item-assignee {
   color: #16a34a;
   font-style: italic;
+}
+
+/* SA: Assignment status below lunch schedule */
+.sa-assignment-status {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.sa-assignment-status__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.sa-assignment-status__header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sa-assignment-status__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.sa-assignment-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.sa-assignment-panel__title {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
+.status-pill--pending {
+  background: color-mix(in srgb, var(--warning) 18%, var(--background));
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+  color: color-mix(in srgb, var(--warning) 60%, var(--text-primary));
+}
+
+.status-pill--complete {
+  background: color-mix(in srgb, var(--success) 18%, var(--background));
+  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+  color: color-mix(in srgb, var(--success) 60%, var(--text-primary));
+}
+
+.status-pill__who {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .sa-assignment-status__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Welcome KPIs */
@@ -2417,6 +2503,16 @@ body[data-page-type="sa"] #managementQuickSection {
   top: 92px;
   width: 280px;
   padding: 12px;
+}
+
+/* Desktop: let On Duty sit in flow to avoid overlapping content */
+@media (min-width: 900px) {
+  body[data-page-type="sa"] #managementQuickSection {
+    position: static;
+    top: auto;
+    width: 100%;
+    padding: 20px;
+  }
 }
 
 body[data-page-type="sa"] #managementQuickSection .section-header {

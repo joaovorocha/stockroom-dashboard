@@ -94,40 +94,72 @@
 <body>
   <!-- Shared Header Mount -->
   <div id="shared-header-mount"></div>
-<div class="dashboard-layout" style="grid-template-columns: 1fr;">
-  <main class="main-content">
+
+  <div class="dashboard-layout" style="grid-template-columns: 1fr;">
+    <main class="main-content">
+      <section class="section">
+        <div class="section-header" style="align-items:flex-start; gap:10px;">
+          <div>
+            <p class="eyebrow" style="margin:0; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-secondary);">Tools</p>
+            <h2 style="margin:4px 0 6px;">Scanner</h2>
+            <p style="color:var(--text-secondary); max-width:640px; margin:0;">Scan PSUS orders or data-matrix labels. We’ll auto-open the right system and copy raw data for you.</p>
+          </div>
+        </div>
+
+        <div class="punch-form" style="border:none; padding:0;">
+          <div class="scanner-box">
+            <input id="scannerInput" class="scanner-input" type="text" placeholder="Scan here" autocomplete="off" autofocus>
+            <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:8px;">
+              <button class="btn btn-primary" id="cameraBtn" type="button">Use Camera</button>
+              <button class="btn" id="clearBtn" type="button">Clear</button>
+            </div>
+            <div id="scannerStatus" class="scanner-status"></div>
+            <div id="cameraContainer" class="camera-container">
+              <video id="cameraVideo" autoplay muted playsinline></video>
+              <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+                <button class="btn" id="closeCameraBtn" type="button">Close Camera</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="instructions">
+            <h4>How it works</h4>
+            <ul>
+              <li>PSUS codes open the order in MAO.</li>
+              <li>Data-matrix scans copy raw data, then open the inventory system.</li>
+              <li>Use camera mode when a hardware scanner isn’t available.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
   <footer class="footer">
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
 
+  <script src="/js/shared-header.js?v=22"></script>
   <script src="/js/utils.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
-      await checkAuth();
+      SharedHeader.mountHeader({ showRefresh: false });
+      await SharedHeader.init();
+      if (!SharedHeader.currentUser) {
+        window.location.href = '/login';
+        return;
+      }
+
       setupScanner();
+      const input = document.getElementById('scannerInput');
+      if (input) input.focus();
     });
-
-    async function checkAuth() {
-      try {
-        const response = await fetch('/api/auth/check');
-        const data = await response.json();
-        if (data.authenticated) {
-          const userNameEl = document.getElementById('userName');
-          if (userNameEl) userNameEl.textContent = data.user.name;
-
-          const navAdmin = document.getElementById('navAdmin');
-          if (navAdmin) navAdmin.style.display = data.user.isAdmin ? 'inline' : 'none';
-
-          const navFeedback = document.getElementById('navFeedback');
-          // Feedback link is shown at the bottom of the page (shared-header.js).
-          if (navFeedback) navFeedback.style.display = 'none';
-        }
-      } catch (e) {}
-    }
 
     function setupScanner() {
       const input = document.getElementById('scannerInput');
       const status = document.getElementById('scannerStatus');
+
+      if (!input || !status) return;
 
       input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === 'Tab') {
@@ -136,19 +168,24 @@
         }
       });
 
-      document.getElementById('clearBtn').addEventListener('click', () => {
-        input.value = '';
-        status.className = 'scanner-status';
-        input.focus();
-      });
+      const clearBtn = document.getElementById('clearBtn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          input.value = '';
+          status.className = 'scanner-status';
+          status.textContent = '';
+          input.focus();
+        });
+      }
 
-      document.getElementById('cameraBtn').addEventListener('click', openCamera);
-      document.getElementById('closeCameraBtn').addEventListener('click', closeCamera);
+      document.getElementById('cameraBtn')?.addEventListener('click', openCamera);
+      document.getElementById('closeCameraBtn')?.addEventListener('click', closeCamera);
     }
 
     function processScan(data) {
       const status = document.getElementById('scannerStatus');
       const input = document.getElementById('scannerInput');
+      if (!status || !input) return;
 
       if (!data.trim()) {
         status.className = 'scanner-status error';
@@ -168,7 +205,6 @@
         return;
       }
 
-      // Data Matrix - copy to clipboard and open inventory system
       copyToClipboard(data).then((ok) => {
         if (!ok) {
           status.className = 'scanner-status error';
@@ -177,7 +213,7 @@
         }
 
         status.className = 'scanner-status success';
-        status.textContent = `Data copied - Opening Inventory System`;
+        status.textContent = 'Data copied - Opening Inventory System';
 
         openInNewTab(getInventoryURL());
         input.value = '';
@@ -191,6 +227,7 @@
 
     async function openCamera() {
       const status = document.getElementById('scannerStatus');
+      if (!status) return;
       const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
       if (location.protocol !== 'https:' && !isLocalhost) {
         status.className = 'scanner-status error';
@@ -209,10 +246,10 @@
         videoStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' }
         });
-        video.srcObject = videoStream;
-        document.getElementById('cameraContainer').classList.add('active');
+        if (video) video.srcObject = videoStream;
+        const container = document.getElementById('cameraContainer');
+        if (container) container.classList.add('active');
 
-        // Start decoding frames using the built-in BarcodeDetector (no external libs).
         if (!('BarcodeDetector' in window)) {
           status.className = 'scanner-status error';
           status.textContent = 'Barcode scanning is not supported in this browser. Use the text field scanner.';
@@ -228,8 +265,7 @@
         const tick = async () => {
           if (!scanLoopRunning) return;
           try {
-            // Wait until the video has dimensions.
-            if (video.readyState >= 2) {
+            if (video && video.readyState >= 2) {
               const codes = await barcodeDetector.detect(video);
               if (codes && codes.length) {
                 const raw = (codes[0].rawValue || '').toString();
@@ -241,9 +277,7 @@
                 }
               }
             }
-          } catch (_) {
-            // Ignore decode errors and keep scanning.
-          }
+          } catch (_) {}
           requestAnimationFrame(tick);
         };
         requestAnimationFrame(tick);
@@ -259,10 +293,11 @@
         videoStream.getTracks().forEach(track => track.stop());
         videoStream = null;
       }
-      document.getElementById('cameraContainer').classList.remove('active');
-      document.getElementById('scannerInput').focus();
+      const container = document.getElementById('cameraContainer');
+      if (container) container.classList.remove('active');
+      const input = document.getElementById('scannerInput');
+      if (input) input.focus();
     }
   </script>
-  <script src="/js/shared-header.js?v=22"></script>
 </body>
 </html>

@@ -10,6 +10,7 @@ import signal
 import subprocess
 import sys
 import time
+import wave
 from pathlib import Path
 
 import numpy as np
@@ -124,14 +125,36 @@ def main() -> int:
     parser.add_argument("--meta", default="data/radio/_last_id.txt", help="Internal last-id path")
     parser.add_argument("--rtl-fm", default="radio/run-rtl-fm.sh", help="Path to rtl_fm wrapper script")
     parser.add_argument("--ppm", type=int, default=0, help="Frequency correction (ppm)")
+    parser.add_argument("--clips-dir", default="data/radio/clips", help="Directory to write WAV clips")
+    parser.add_argument("--live-audio", default="data/radio/live-audio.wav", help="Rolling WAV buffer for live listening")
+    parser.add_argument("--live-audio-window-s", type=float, default=3.0, help="How many seconds of audio to keep in the live buffer")
     args = parser.parse_args()
 
     # Load persisted config (UI writes this file); CLI args still have defaults, so config overrides.
     cfg = load_json(Path(args.config))
+    channel_label = ""
     if cfg:
-        args.freq = str(cfg.get("freq", args.freq))
-        args.ppm = int(cfg.get("ppm", args.ppm) or 0)
-        args.gain = int(cfg.get("gain", args.gain) or 0)
+        # Prefer multi-channel config (channels[] + activeChannelId). Fall back to legacy fields.
+        channels = cfg.get("channels") if isinstance(cfg.get("channels"), list) else []
+        active_id = str(cfg.get("activeChannelId") or "").strip()
+        active = None
+        if channels and active_id:
+            for c in channels:
+                if str(c.get("id") or "").strip() == active_id:
+                    active = c
+                    break
+        if not active and channels:
+            active = channels[0]
+
+        if isinstance(active, dict):
+            channel_label = str(active.get("label") or "").strip()
+            args.freq = str(active.get("freq", cfg.get("freq", args.freq)))
+            args.ppm = int(active.get("ppm", cfg.get("ppm", args.ppm)) or 0)
+            args.gain = int(active.get("gain", cfg.get("gain", args.gain)) or 0)
+        else:
+            args.freq = str(cfg.get("freq", args.freq))
+            args.ppm = int(cfg.get("ppm", args.ppm) or 0)
+            args.gain = int(cfg.get("gain", args.gain) or 0)
         # Important: rtl_fm squelch can stop PCM output entirely. We keep it off and rely on VAD threshold instead,
         # otherwise the web "live audio" meter cannot show anything.
         args.squelch = 0
@@ -149,6 +172,9 @@ def main() -> int:
     meta_path = Path(args.meta)
     rtl_fm_path = Path(args.rtl_fm)
     live_path = Path(args.live)
+    clips_dir = Path(args.clips_dir)
+    live_audio_path = Path(args.live_audio)
+    live_audio_window_s = max(0.5, float(args.live_audio_window_s or 3.0))
 
     if not rtl_fm_path.exists():
         print(f"Missing rtl_fm wrapper: {rtl_fm_path}", file=sys.stderr)
@@ -232,7 +258,26 @@ def main() -> int:
     chunks: list[np.ndarray] = []
     debug_count = 0
     last_live_write = 0.0
+        last_live_audio_write = 0.0
     pcm_buf = bytearray()
+
+        # Rolling buffer for "listen live" (last N seconds). This is independent from VAD.
+        live_audio_buf = np.zeros((0,), dtype=np.int16)
+        live_audio_keep = int(args.rtl_sample_rate * live_audio_window_s)
+
+        def write_live_audio() -> None:
+            nonlocal live_audio_buf
+            try:
+                ensure_parent(live_audio_path)
+                tmp = live_audio_path.with_suffix(live_audio_path.suffix + ".tmp")
+                with wave.open(str(tmp), "wb") as wf:
+                    wf.setnchannels(1)
+                    wf.setsampwidth(2)
+                    wf.setframerate(int(args.rtl_sample_rate))
+                    wf.writeframes(live_audio_buf.tobytes())
+                tmp.replace(live_audio_path)
+            except Exception:
+                pass
 
     def stop_proc() -> None:
         if proc.poll() is not None:
@@ -272,6 +317,22 @@ def main() -> int:
         if args.no_asr:
             return
 
+        new_id = next_id(meta_path)
+
+        # Save audio clip for playback (browser-friendly PCM WAV)
+        try:
+            ensure_parent(clips_dir / "x")
+            clip_path = clips_dir / f"{new_id}.wav"
+            tmp = clip_path.with_suffix(".wav.tmp")
+            with wave.open(str(tmp), "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(int(args.rtl_sample_rate))
+                wf.writeframes(audio_int16.tobytes())
+            tmp.replace(clip_path)
+        except Exception:
+            clip_path = None
+
         audio_float32 = resample_to_whisper(audio_int16).flatten()
         start = time.time()
         segments, _info = model.transcribe(audio_float32, vad_filter=False, beam_size=1)
@@ -280,11 +341,15 @@ def main() -> int:
             return
 
         obj = {
-            "id": next_id(meta_path),
+            "id": new_id,
             "ts": utc_now_iso(),
             "text": text,
             "seconds": round(time.time() - start, 3),
+            "freq": str(args.freq),
+            "channelLabel": channel_label,
         }
+        if clip_path is not None:
+            obj["clipUrl"] = f"/api/radio/clips/{new_id}.wav"
         append_jsonl(out_path, obj)
         print(f"[radio] {obj['ts']} #{obj['id']}: {text}", flush=True)
 
@@ -335,6 +400,19 @@ def main() -> int:
             del pcm_buf[:byte_count]
             chunk = np.frombuffer(chunk_bytes, dtype=np.int16)
 
+            # Update rolling "listen live" buffer and write periodically.
+            try:
+                if live_audio_keep > 0:
+                    live_audio_buf = np.concatenate([live_audio_buf, chunk]).astype(np.int16)
+                    if live_audio_buf.size > live_audio_keep:
+                        live_audio_buf = live_audio_buf[-live_audio_keep:]
+                    now_audio = time.time()
+                    if now_audio - last_live_audio_write >= 0.75:
+                        write_live_audio()
+                        last_live_audio_write = now_audio
+            except Exception:
+                pass
+
             energy = rms_energy(chunk)
             if args.debug_energy:
                 debug_count += 1
@@ -379,6 +457,12 @@ def main() -> int:
         stop_proc()
         try:
             proc.wait(timeout=2)
+        except Exception:
+            pass
+
+        # Final write for live audio buffer
+        try:
+            write_live_audio()
         except Exception:
             pass
 

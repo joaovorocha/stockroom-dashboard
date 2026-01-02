@@ -98,48 +98,6 @@
             <!-- Populated by JS based on employee type -->
           </div>
 
-          <!-- Expandable Assignment Boxes -->
-          <div class="expandable-assignments" id="expandableAssignments" style="display:none;">
-            <!-- Fitting Room Box -->
-            <div class="expandable-box" id="fittingRoomBox">
-              <div class="expandable-header" onclick="toggleExpandable('fittingRoom')">
-                <span class="expandable-icon">🚪</span>
-                <span class="expandable-title">Fitting Room</span>
-                <span class="expandable-value" id="myFittingRoom">--</span>
-                <span class="expandable-arrow" id="fittingRoomArrow">▼</span>
-              </div>
-              <div class="expandable-content" id="fittingRoomContent" style="display:none;">
-                <div class="expandable-list" id="fittingRoomList"></div>
-              </div>
-            </div>
-
-            <!-- Zone Box -->
-            <div class="expandable-box" id="zoneBox">
-              <div class="expandable-header" onclick="toggleExpandable('zone')">
-                <span class="expandable-icon">📍</span>
-                <span class="expandable-title">Zone</span>
-                <span class="expandable-value" id="myZone">--</span>
-                <span class="expandable-arrow" id="zoneArrow">▼</span>
-              </div>
-              <div class="expandable-content" id="zoneContent" style="display:none;">
-                <div class="expandable-list" id="zoneList"></div>
-              </div>
-            </div>
-
-            <!-- Closing Duties Box -->
-            <div class="expandable-box" id="closingDutiesBox">
-              <div class="expandable-header" onclick="toggleExpandable('closingDuties')">
-                <span class="expandable-icon">🧹</span>
-                <span class="expandable-title">Closing Duties</span>
-                <span class="expandable-value" id="myClosingDuties">--</span>
-                <span class="expandable-arrow" id="closingDutiesArrow">▼</span>
-              </div>
-              <div class="expandable-content" id="closingDutiesContent" style="display:none;">
-                <div class="expandable-list" id="closingDutiesList"></div>
-              </div>
-            </div>
-          </div>
-
           <!-- Lunch Timeline Section -->
           <div class="lunch-timeline-section" id="lunchTimelineSection" style="display:none;">
             <div class="timeline-header">
@@ -149,6 +107,24 @@
             </div>
             <div class="lunch-timeline" id="lunchTimeline">
               <!-- Timeline populated by JS -->
+            </div>
+          </div>
+
+          <!-- Team Assignment Status (below lunch schedule) -->
+          <div class="sa-assignment-status" id="saAssignmentStatus" style="display:none;">
+            <div class="sa-assignment-status__header">
+              <h3>Assignments & Status</h3>
+              <a class="btn btn-sm btn-outline" href="/closing-duties">Open Closing Duties</a>
+            </div>
+            <div class="sa-assignment-status__grid">
+              <div class="sa-assignment-panel">
+                <div class="sa-assignment-panel__title">Fitting Room Assignments</div>
+                <div class="expandable-list" id="saFittingRoomAssignmentsList"></div>
+              </div>
+              <div class="sa-assignment-panel">
+                <div class="sa-assignment-panel__title">Closing Duties Status</div>
+                <div class="expandable-list" id="saClosingDutiesStatusList"></div>
+              </div>
             </div>
           </div>
 
@@ -244,18 +220,6 @@
           </div>
         </div>
         <div class="employee-grid" id="bohGrid"></div>
-      </section>
-
-      <!-- Management (Detailed - hidden by default, shown when clicking quick section) -->
-      <section class="section collapsible collapsed" id="managementSection" style="display:none;">
-        <div class="section-header">
-          <h2>Management Details</h2>
-          <div class="section-actions">
-            <span class="section-count" id="mgmtCount">0</span>
-            <button class="btn btn-sm btn-outline collapse-btn" id="collapseMgmt">▼</button>
-          </div>
-        </div>
-        <div class="employee-grid collapsible-content" id="mgmtGrid"></div>
       </section>
 
       <!-- Tailors -->
@@ -592,6 +556,15 @@
     </div>
   </div>
 <script src="/js/dashboard.js?v=21"></script>
-	  <script src="/js/shared-header.js?v=22"></script>
+    <script src="/js/shared-header.js?v=22"></script>
+    <script>
+      (async () => {
+        try {
+          await SharedHeader.init();
+        } catch (e) {
+          console.warn('[Gameplan] SharedHeader.init failed', e);
+        }
+      })();
+    </script>
 </body>
 	</html>

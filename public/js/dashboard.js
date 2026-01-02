@@ -14,10 +14,29 @@ let currentPageType = 'SA'; // Default to SA, will be determined by URL
 let sseReconnectTimer = null;
 let sseRetryDelayMs = 1000;
 let lastFocusedElement = null;
+let expandableControlsBound = false;
+let closingDutiesToday = [];
+let closingDutiesPollTimer = null;
 const DEBUG = false;
 let storeDayInfo = null;
 let weeklyGoalDistribution = null;
 let weeklyGoalWeekKey = null;
+
+function isDesktopViewport() {
+  try {
+    return window.matchMedia && window.matchMedia('(min-width: 900px)').matches;
+  } catch (_) {
+    return false;
+  }
+}
+
+function applyDesktopExpandDefaults() {
+  if (!isDesktopViewport()) return;
+  showAllEmployees.SA = true;
+  showAllEmployees.BOH = true;
+  showAllEmployees.MANAGEMENT = true;
+  showAllEmployees.TAILOR = true;
+}
 
 function debugLog(...args) {
   if (DEBUG) console.log(...args);
@@ -256,6 +275,7 @@ function applyUnpublishedVisibility() {
     'welcomeStoreInfo', // notes/briefing
     'expandableAssignments',
     'lunchTimelineSection',
+    'saAssignmentStatus',
     'managementQuickSection',
     'saSection',
     'bohSection',
@@ -266,7 +286,13 @@ function applyUnpublishedVisibility() {
   idsToHide.forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    if (el.dataset.origDisplay === undefined) el.dataset.origDisplay = el.style.display || '';
+    // Many sections are intentionally initialized as display:none and then shown
+    // dynamically by JS (e.g., lunch timeline, assignment status). If we cache
+    // origDisplay as 'none', then restoring after publish will keep them hidden.
+    if (el.dataset.origDisplay === undefined) {
+      const orig = (el.style.display || '').toString();
+      el.dataset.origDisplay = orig === 'none' ? '' : orig;
+    }
     el.style.display = shouldHide ? 'none' : el.dataset.origDisplay;
   });
 
@@ -328,14 +354,81 @@ function renderRetailWeekStoreInfo() {
   `;
 }
 
+function renderRetailWeekWelcomeInfo() {
+  const detailsEl = document.getElementById('welcomeDetails');
+  if (!detailsEl) return;
+
+  const retailWeek = metrics?.retailWeek;
+  if (!retailWeek || !retailWeek.weekNumber) return;
+
+  let box = document.getElementById('retailWeekWelcomeInfo');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'retailWeekWelcomeInfo';
+    box.style.marginTop = '10px';
+    box.style.padding = '10px 12px';
+    box.style.background = 'var(--surface)';
+    box.style.border = '1px solid var(--border)';
+    box.style.borderRadius = '8px';
+    box.style.fontSize = '13px';
+    // Insert directly below the Role/Shift/Lunch details.
+    detailsEl.insertAdjacentElement('afterend', box);
+  }
+
+  const perPerson = getRetailWeekTargetPerPerson();
+  const saLine = perPerson
+    ? `<span><strong>Target / SA Today:</strong> ${formatCurrencyOrDash(perPerson)}</span>
+       <span style="color:var(--text-muted);">(${getWorkingSACount()} SA working)</span>`
+    : `<span><strong>Target / SA Today:</strong> --</span>
+       <span style="color:var(--text-muted);">(assign shifts to calculate)</span>`;
+
+  const weekSalesText = formatCurrencyFieldOrDash(retailWeek, 'salesAmount');
+  const weekTargetText = formatCurrencyFieldOrDash(retailWeek, 'target');
+  const dailyTarget = getDailyTargetValue();
+  const dailyTargetText = Number.isFinite(Number(dailyTarget)) ? formatCurrencyOrDash(dailyTarget) : '--';
+
+  // Always show sources in the duplicated welcome box.
+  const sources = metrics?.dataSources || {
+    wtdSales: 'files/dashboard-stores_performance/sales.csv',
+    retailWeek: 'files/dashboard-stores_performance/sales_by_retail_weeks.csv'
+  };
+  const sourcesHint = `<span style="color:var(--text-muted);">Sources: WTD cards = ${sources.wtdSales}; Retail week = ${sources.retailWeek}</span>`;
+
+  box.innerHTML = `
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+      <strong>Retail Week ${retailWeek.weekNumber}</strong>
+      <span style="color:var(--text-secondary);">${retailWeek.weekStart} → ${retailWeek.weekEnd}</span>
+      <span><strong>Retail Week Sales:</strong> ${weekSalesText}</span>
+      <span><strong>Retail Week Target:</strong> ${weekTargetText}</span>
+      <span><strong>Daily Target (Today):</strong> ${dailyTargetText}</span>
+      ${saLine}
+      ${sourcesHint}
+    </div>
+  `;
+}
+
 function formatZones(emp) {
   const zones = getEmployeeZones(emp);
   return zones.length ? zones.join(', ') : '-';
 }
 
+function shouldAutoInitDashboard() {
+  const path = (window.location.pathname || '').toString();
+  return (
+    path.includes('/gameplan-sa') ||
+    path.includes('/gameplan-tailors') ||
+    path.includes('/gameplan-boh') ||
+    path.includes('/gameplan-management') ||
+    path.includes('/operations-metrics') ||
+    path.includes('/gameplan-edit')
+  );
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+  if (!shouldAutoInitDashboard()) return;
   determinePageType();
+  applyDesktopExpandDefaults();
   await checkAuth();
   setCurrentDate();
   await Promise.all([
@@ -348,6 +441,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadLoansData(),
     loadPendingShipments()
   ]);
+  if (['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].includes(currentPageType)) {
+    await loadClosingDutiesForToday();
+    startClosingDutiesPolling();
+  }
   renderAll();
   setupWelcomeSection();
   setupNotesPermissions();
@@ -444,12 +541,12 @@ function handleSSEUpdate(update) {
       break;
     
     case 'gameplan_updated':
-      // Only reload if another user made changes
+      // Always reload gameplan so the page doesn't get stuck showing stale assignments.
+      // If someone else edited, show a notification; if it was the current user, reload quietly.
       if (update.data?.lastEditedBy && update.data.lastEditedBy !== currentUser?.name) {
         showNotification(`Game Plan updated by ${update.data.lastEditedBy}`);
-        // Reload gameplan data
-        loadGameplan().then(() => renderAll());
       }
+      loadGameplan().then(() => renderAll());
       break;
     
     case 'metrics_updated':
@@ -661,6 +758,28 @@ async function loadGameplan() {
 	    console.error('Error loading gameplan:', error);
 	  }
 		}
+
+async function loadClosingDutiesForToday() {
+  try {
+    const today = await getStoreDayInfo();
+    const clientDate = today?.date || getLocalISODate();
+    const res = await fetch(`/api/closing-duties/${clientDate}`, { credentials: 'include' });
+    const data = await res.json().catch(() => ({}));
+    closingDutiesToday = Array.isArray(data?.submissions) ? data.submissions : [];
+  } catch (_) {
+    closingDutiesToday = [];
+  }
+}
+
+function startClosingDutiesPolling() {
+  if (closingDutiesPollTimer) return;
+  // This endpoint doesn't emit SSE updates; poll on the pages that show the status block.
+  if (!['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].includes(currentPageType)) return;
+  closingDutiesPollTimer = setInterval(async () => {
+    await loadClosingDutiesForToday();
+    renderSAAssignmentStatus();
+  }, 30000);
+}
 
 function clearDailyAssignmentFields(emp) {
   if (!emp) return;
@@ -939,8 +1058,10 @@ function setupWelcomeSection() {
   const welcomeRoleEl = document.getElementById('welcomeRole');
   if (!welcomeNameEl || !welcomeRoleEl) return; // Not all pages have the welcome box
 
-  welcomeNameEl.textContent = currentUser.name.split(' ')[0];
-  welcomeRoleEl.textContent = getRoleName(currentUser.role);
+  const rawName = currentUser?.name || '';
+  const displayName = rawName.trim() ? rawName.trim().split(' ')[0] : (currentUser?.email?.split('@')[0] || 'there');
+  welcomeNameEl.textContent = displayName;
+  welcomeRoleEl.textContent = getRoleName(currentUser?.role) || 'Team Member';
 
   // Find current user's employee data first (to get their photo)
   let userEmployee = null;
@@ -1047,16 +1168,17 @@ function setupWelcomeSection() {
       detailsEl.innerHTML = '';
     }
 
-    // Setup expandable boxes for SA
-    if (userEmployee && userEmployee.type === 'SA') {
-      setupExpandableBoxes(userEmployee);
-    }
+    // Personal expandable assignment boxes removed (Zones/Fitting Room/Closing Duties)
+    // in favor of the single Assignments & Status block below the lunch schedule.
   } else {
     detailsEl.innerHTML = '<p class="no-assignments">No assignments for today yet.</p>';
   }
 
   // Ensure game plan is hidden for employees if not published
   applyUnpublishedVisibility();
+
+  // Duplicated Retail Week box directly below Role/Shift/Lunch row
+  renderRetailWeekWelcomeInfo();
 
   // Lunch timeline should show for everyone (not only SA).
   setupLunchTimeline(userEmployee || null);
@@ -1218,6 +1340,7 @@ function setupExpandableBoxes(userEmployee) {
   if (!expandableEl) return;
 
   expandableEl.style.display = 'flex';
+  bindExpandableControls();
 
   // My values
   document.getElementById('myFittingRoom').textContent = userEmployee.fittingRoom || 'Not assigned';
@@ -1351,6 +1474,96 @@ function buildClosingDutiesList(userEmployee) {
   listEl.innerHTML = html;
 }
 
+function renderSAAssignmentStatus() {
+  if (!['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].includes(currentPageType)) return;
+
+  const sectionEl = document.getElementById('saAssignmentStatus');
+  const frListEl = document.getElementById('saFittingRoomAssignmentsList');
+  const dutiesListEl = document.getElementById('saClosingDutiesStatusList');
+  if (!sectionEl || !frListEl || !dutiesListEl) return;
+
+  // Show container (publish gating handled elsewhere).
+  sectionEl.style.display = 'block';
+
+  // Fitting room assignments (room -> assignee)
+  const allFittingRooms = settings.fittingRooms || [];
+  const allSAs = employees.SA || [];
+  const userEmployee = findCurrentUserEmployee('SA');
+  const frAssignments = {};
+  allSAs.forEach(sa => {
+    if (sa?.fittingRoom) frAssignments[sa.fittingRoom] = sa.name;
+  });
+
+  if (!Array.isArray(allFittingRooms) || allFittingRooms.length === 0) {
+    frListEl.innerHTML = '<div class="expandable-list-item">No fitting rooms configured</div>';
+  } else {
+    frListEl.innerHTML = allFittingRooms.map(fr => {
+      const roomName = fr?.name || fr;
+      const assignee = frAssignments[roomName] || '';
+      const isMine = !!(userEmployee?.fittingRoom && roomName === userEmployee.fittingRoom);
+      const isAvailable = !assignee;
+      let cls = 'expandable-list-item';
+      if (isMine) cls += ' mine';
+      else if (isAvailable) cls += ' available';
+
+      const displayAssignee = isMine ? 'You' : (assignee ? assignee.split(' ')[0] : 'Available');
+      return `
+        <div class="${cls}">
+          <span class="item-name">${roomName}</span>
+          <span class="item-assignee">
+            ${isAvailable ? '<span class="status-pill status-pill--pending">Available</span>' : ''}
+            ${displayAssignee}
+          </span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Closing duties status (section -> assignee + completed/pending)
+  const allSections = (settings.closingSections || []).map(s => s?.name).filter(Boolean);
+  const sectionToAssignee = {};
+  (employees.SA || []).forEach(sa => {
+    const list = Array.isArray(sa?.closingSections) ? sa.closingSections : [];
+    list.forEach(sectionName => {
+      if (sectionName) sectionToAssignee[sectionName] = { name: sa?.name || '', id: sa?.id };
+    });
+  });
+
+  const submitted = new Set(
+    (closingDutiesToday || []).map(s => (s?.section || '').toString()).filter(Boolean)
+  );
+
+  if (!Array.isArray(allSections) || allSections.length === 0) {
+    dutiesListEl.innerHTML = '<div class="expandable-list-item">No closing duties configured</div>';
+  } else {
+    dutiesListEl.innerHTML = allSections.map(sectionName => {
+      const assigneeObj = sectionToAssignee[sectionName] || {};
+      const assigneeName = assigneeObj?.name || '';
+      const isComplete = submitted.has(sectionName);
+      const left = sectionName;
+      const statusPill = isComplete
+        ? '<span class="status-pill status-pill--complete">Completed</span>'
+        : '<span class="status-pill status-pill--pending">Pending</span>';
+
+      const isMine = !!(
+        (userEmployee?.id && assigneeObj?.id && userEmployee.id === assigneeObj.id) ||
+        (assigneeName && currentUser?.name && assigneeName.trim().toLowerCase() === currentUser.name.trim().toLowerCase())
+      );
+
+      const who = isMine ? 'You' : (assigneeName ? assigneeName.split(' ')[0] : 'Open');
+      let cls = 'expandable-list-item';
+      if (isMine) cls += ' mine';
+
+      return `
+        <div class="${cls}">
+          <span class="item-name">${left}</span>
+          <span class="item-assignee">${statusPill}<span class="status-pill__who">${who}</span></span>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
 // Toggle expandable box
 function toggleExpandable(type) {
   const contentEl = document.getElementById(`${type}Content`);
@@ -1368,6 +1581,19 @@ function setExpandableOpen(type, open) {
 
   contentEl.style.display = open ? 'block' : 'none';
   arrowEl.classList.toggle('expanded', open);
+}
+
+function setAllExpandableOpen(open) {
+  ['fittingRoom', 'zone', 'closingDuties'].forEach(type => setExpandableOpen(type, open));
+}
+
+function bindExpandableControls() {
+  if (expandableControlsBound) return;
+  const expandBtn = document.getElementById('expandAllAssignments');
+  const collapseBtn = document.getElementById('collapseAllAssignments');
+  if (expandBtn) expandBtn.addEventListener('click', () => setAllExpandableOpen(true));
+  if (collapseBtn) collapseBtn.addEventListener('click', () => setAllExpandableOpen(false));
+  if (expandBtn || collapseBtn) expandableControlsBound = true;
 }
 
 function getRoleName(role) {
@@ -1495,6 +1721,9 @@ function renderAll() {
   updateNotesPreview();
   updateLastSyncTime(); // Update sidebar sync time
 
+  // Keep the welcome-level Retail Week box up to date.
+  renderRetailWeekWelcomeInfo();
+
   const setDisplay = (id, value) => {
     const el = document.getElementById(id);
     if (el) el.style.display = value;
@@ -1505,6 +1734,7 @@ function renderAll() {
     case 'SA':
       updateMetricsDisplay();
       renderManagementQuickSection();
+      renderSAAssignmentStatus();
       renderSASection();
       // Hide other sections not relevant to SA
       setDisplay('bohSection', 'none');
@@ -1515,8 +1745,9 @@ function renderAll() {
       break;
     case 'TAILOR':
       renderTailorsSection();
+      renderSAAssignmentStatus();
       // Hide other sections
-      setDisplay('welcomeSection', 'none');
+      // Keep welcome visible so lunch + status blocks can show
       setDisplay('managementQuickSection', 'none');
       setDisplay('metricsSection', 'none');
       setDisplay('operationsSection', 'none');
@@ -1527,10 +1758,11 @@ function renderAll() {
       break;
     case 'BOH':
       renderBOHSection();
+      renderSAAssignmentStatus();
       // Ops dashboard moved to /operations-metrics
       setDisplay('operationsSection', 'none');
       // Hide other sections
-      setDisplay('welcomeSection', 'none');
+      // Keep welcome visible so lunch + status blocks can show
       setDisplay('managementQuickSection', 'none');
       setDisplay('metricsSection', 'none');
       setDisplay('saSection', 'none');
@@ -1564,6 +1796,7 @@ function renderAll() {
       updateMetricsDisplay();
       updateWorkingToday();
       renderManagementQuickSection();
+      renderSAAssignmentStatus();
       renderTailorProductivityLastWeek();
       renderWorkRelatedExpensesSummary();
       renderSASection();
@@ -1719,8 +1952,8 @@ function renderSASection() {
   if (count) count.textContent = saEmployees.length;
 
   const getCollapsedList = () => {
-    // SA page: always show a compact list (1 card) until expanded.
-    if (currentPageType === 'SA') return orderedAll.slice(0, 1);
+    // SA page: show more cards by default so other associates are visible.
+    if (currentPageType === 'SA') return orderedAll.slice(0, Math.min(4, orderedAll.length));
 
     // Non-privileged users: show only themselves until expanded.
     if (!isPrivileged) return currentUserEmp ? [currentUserEmp] : [];
@@ -1965,6 +2198,7 @@ function renderManagementSection() {
   const grid = document.getElementById('mgmtGrid');
   const count = document.getElementById('mgmtCount');
   const expandBtn = document.getElementById('expandMgmt');
+  if (!grid || !count) return;
   grid.innerHTML = '';
 
   // Working vs day off (driven by Game Plan Edit toggle)
@@ -1978,11 +2212,17 @@ function renderManagementSection() {
   // Collapse if >3 and not expanded
   if (!showAllEmployees.MANAGEMENT && scheduledMgmt.length > 3) {
     displayedEmployees = scheduledMgmt.slice(0, 3);
-    expandBtn.style.display = 'inline-block';
-    expandBtn.textContent = `Show All (${scheduledMgmt.length})`;
+    if (expandBtn) {
+      expandBtn.style.display = 'inline-block';
+      expandBtn.textContent = `Show All (${scheduledMgmt.length})`;
+    }
   } else if (showAllEmployees.MANAGEMENT && scheduledMgmt.length > 3) {
-    expandBtn.style.display = 'inline-block';
-    expandBtn.textContent = 'Show Less';
+    if (expandBtn) {
+      expandBtn.style.display = 'inline-block';
+      expandBtn.textContent = 'Show Less';
+    }
+  } else if (expandBtn) {
+    expandBtn.style.display = 'none';
   }
 
   // Render scheduled managers
@@ -2408,7 +2648,7 @@ function renderWorkRelatedExpensesSummary() {
       mgrBanner.style.display = '';
       mgrBanner.textContent = `Over yearly limit ($2,500): ${overLimitEmployees.length} employee${overLimitEmployees.length === 1 ? '' : 's'} · Click to view`;
       mgrBanner.style.cursor = 'pointer';
-      mgrBanner.onclick = () => { window.location.href = '/expenses'; };
+      mgrBanner.onclick = () => { window.location.href = '/employee-discount'; };
     } else {
       mgrBanner.style.display = 'none';
       mgrBanner.textContent = '';

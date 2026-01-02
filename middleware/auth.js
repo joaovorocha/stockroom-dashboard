@@ -52,6 +52,13 @@ const authMiddleware = (req, res, next) => {
     // Attach normalized user data to request
     const needsProfileCompletion = !String(currentUser.email || '').trim() || !String(currentUser.phone || '').trim();
     const mustChangePassword = !!currentUser.mustChangePassword;
+
+    const roleStr = String(currentUser.role || userData.role || '').trim().toLowerCase();
+    const inferredIsAdmin = roleStr === 'admin' || roleStr.includes('admin');
+    const inferredIsManager = roleStr.includes('manager') || roleStr.includes('management');
+    const isAdmin = !!(currentUser.isAdmin || inferredIsAdmin);
+    const isManager = !!(currentUser.isManager || inferredIsManager || isAdmin);
+
     req.user = {
       userId: currentUser.id || userData.userId,
       employeeId: currentUser.employeeId || userData.employeeId,
@@ -60,15 +67,15 @@ const authMiddleware = (req, res, next) => {
       imageUrl: currentUser.imageUrl || userData.imageUrl,
       email: currentUser.email || '',
       phone: currentUser.phone || '',
-      isAdmin: !!currentUser.isAdmin,
-      isManager: !!(currentUser.isManager || currentUser.isAdmin),
+      isAdmin,
+      isManager,
       canEditGameplan: !!(
         currentUser.canEditGameplan ||
-        currentUser.isManager ||
-        currentUser.isAdmin
+        isManager ||
+        isAdmin
       ),
-      canConfigRadio: !!(currentUser.canConfigRadio || currentUser.isManager || currentUser.isAdmin),
-      canManageLostPunch: !!(currentUser.canManageLostPunch || currentUser.isManager || currentUser.isAdmin),
+      canConfigRadio: !!(currentUser.canConfigRadio || isManager || isAdmin),
+      canManageLostPunch: !!(currentUser.canManageLostPunch || isManager || isAdmin),
       needsProfileCompletion,
       mustChangePassword
     };

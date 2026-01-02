@@ -4,12 +4,11 @@
 const SharedHeader = {
   currentUser: null,
   shipmentsBadgeTimer: null,
+  _initPromise: null,
 
   // Desktop: hide the wide link row and use the hamburger sheet (same as mobile).
   hamburgerNavOnDesktop: true,
 
-  // Pages that show refresh button
-  refreshPages: ['/dashboard', '/shipments'],
 
   // Page title mapping
   pageTitles: {
@@ -18,7 +17,8 @@ const SharedHeader = {
     '/dashboard': 'Daily Game Plan',
     '/operations-metrics': 'Operations Metrics',
     '/awards': 'Team Awards',
-    '/expenses': 'Work-Related Expenses',
+    '/expenses': 'Employee Discount',
+    '/employee-discount': 'Employee Discount',
     '/shipments': 'Shipments',
     '/scanner': 'Scanner',
     '/radio': 'Radio Transcription',
@@ -38,6 +38,7 @@ const SharedHeader = {
     '/operations-metrics': '🛠️',
     '/awards': '🏆',
     '/expenses': '💳',
+    '/employee-discount': '💳',
     '/shipments': '📦',
     '/scanner': '📷',
     '/radio': '🎙️',
@@ -72,24 +73,18 @@ const SharedHeader = {
     return 'GamePlan';
   },
 
-  // Check if current page should show refresh
-  shouldShowRefresh() {
-    const path = this.getCurrentPage();
-    return this.refreshPages.some(p => path.includes(p) || path === p);
-  },
-
   // Generate header HTML
   render(options = {}) {
     const currentPage = this.getCurrentPage();
-    const showRefresh = options.showRefresh ?? this.shouldShowRefresh();
     const pageTitle = this.getPageTitle();
 
     const navItems = [
       { href: '/dashboard', label: 'Game Plan', id: 'navGamePlan' },
       { href: '/operations-metrics', label: 'Operations', id: 'navOperationsMetrics' },
       { href: '/awards', label: 'Awards', id: 'navAwards' },
-      { href: '/expenses', label: 'Expenses', id: 'navExpenses', badge: 'expensesBadge' },
+      { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' },
       { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' },
+      { href: '/radio-admin', label: 'Radio Admin', id: 'navRadioAdmin', managerOnly: true },
       { href: '/shipments', label: 'Shipments', id: 'navShipments', badge: 'shipmentsBadge' },
       { href: '/scanner', label: 'Scanner', id: 'navScanner' },
       { href: '/lost-punch', label: 'Lost Punch', id: 'navLostPunch' },
@@ -102,27 +97,12 @@ const SharedHeader = {
     const navHtml = navItems.map(item => {
       const isActive = currentPage.includes(item.href) ? 'class="active"' : '';
       const style = (item.managerOnly || item.adminOnly) ? 'style="display:none;"' : '';
+      const dataAttrs = `${item.managerOnly ? ' data-manager-only="true"' : ''}${item.adminOnly ? ' data-admin-only="true"' : ''}`;
       const badge = item.badge ? `<span class="nav-badge" id="${item.badge}" style="display:none;">0</span>` : '';
-      return `<a href="${item.href}" ${isActive} id="${item.id}" ${style}>${item.label}${badge}</a>`;
+      return `<a href="${item.href}" ${isActive} id="${item.id}" ${style}${dataAttrs}>${item.label}${badge}</a>`;
     }).join('\n      ');
 
-    let refreshBar = '';
-    if (showRefresh) {
-      refreshBar = `
-  <div class="refresh-bar" id="refreshBar">
-    <div class="refresh-left">
-      <span class="refresh-day" id="refreshDay"></span>
-    </div>
-    <div class="refresh-right">
-      <button class="btn btn-sm btn-outline" id="refreshDataBtn" title="Refresh all data">
-        &#8635; Refresh
-      </button>
-      <span class="last-sync" id="lastSync"></span>
-    </div>
-  </div>`;
-    }
-
-    return `${refreshBar}
+    return `
   <header class="header">
     <div class="header-brand">
       <a href="/home" class="logo-link">
@@ -201,44 +181,53 @@ const SharedHeader = {
 
   // Initialize header
   async init() {
-    this.mountHeader();
-    this.registerServiceWorker();
-    this.applyHomeBehavior();
-    this.ensureCoreNavLinks();
-    this.ensureMobileMenu();
-    this.bindResponsiveHandlers();
-    this.mountBottomScannerLink();
+    if (this._initPromise) return this._initPromise;
+    const self = this;
+    this._initPromise = (async () => {
+      try {
+        self.mountHeader();
+        self.registerServiceWorker();
+        self.applyHomeBehavior();
+        self.ensureCoreNavLinks();
+        self.ensureMobileMenu();
+        self.bindResponsiveHandlers();
+        self.mountBottomScannerLink();
 
-    // Set current date
-    const dateEl = document.getElementById('currentDate');
-    if (dateEl) {
-      const today = new Date();
-      dateEl.textContent = today.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    }
+        // Setup user switching early so Logout works even if auth check fails.
+        self.setupUserSwitching();
 
-    // Set day in refresh bar
-    const refreshDay = document.getElementById('refreshDay');
-    if (refreshDay) {
-      const today = new Date();
-      refreshDay.textContent = today.toLocaleDateString('en-US', { weekday: 'long' });
-    }
+        // Set current date
+        const dateEl = document.getElementById('currentDate');
+        if (dateEl) {
+          const today = new Date();
+          dateEl.textContent = today.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        }
 
-    // Check auth and update UI
-    await this.checkAuth();
+        // Set day in refresh bar
+        const refreshDay = document.getElementById('refreshDay');
+        if (refreshDay) {
+          const today = new Date();
+          refreshDay.textContent = today.toLocaleDateString('en-US', { weekday: 'long' });
+        }
 
-    // Setup user switching
-    this.setupUserSwitching();
+        // Check auth and update UI
+        await self.checkAuth();
 
-    // Shipments badge
-    this.setupShipmentsBadge();
+        // Shipments badge
+        self.setupShipmentsBadge();
 
-    // Expenses badge
-    this.setupExpensesBadge();
+        // Expenses badge
+        self.setupExpensesBadge();
+      } catch (e) {
+        console.warn('[SharedHeader] init failed (continuing):', e);
+      }
+    })();
+    return this._initPromise;
   },
 
   bindResponsiveHandlers() {
@@ -365,7 +354,7 @@ const SharedHeader = {
     if (!nav) return;
 
     const desired = [
-      { href: '/expenses', label: 'Expenses', id: 'navExpenses', badge: 'expensesBadge' },
+      { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' },
       { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' }
     ];
 
@@ -384,7 +373,7 @@ const SharedHeader = {
         if (path === targetPath) return a;
 
         // Backward-compat for older hardcoded links.
-        if (targetPath === '/expenses' && path === '/expenses.html') return a;
+        if (targetPath === '/employee-discount' && (path === '/expenses' || path === '/expenses.html')) return a;
         if (targetPath === '/radio-transcripts' && path === '/radio-transcripts.html') return a;
       }
       return null;
@@ -411,7 +400,7 @@ const SharedHeader = {
         const existingPath = normalizePath(existing.getAttribute('href') || existing.href);
         // Normalize legacy `.html` links to canonical routes.
         if (existingPath === `${item.href}.html`) existing.setAttribute('href', item.href);
-        if (item.href === '/expenses' && existingPath === '/expenses.html') existing.setAttribute('href', item.href);
+        if (item.href === '/employee-discount' && (existingPath === '/expenses' || existingPath === '/expenses.html')) existing.setAttribute('href', item.href);
         if (item.href === '/radio-transcripts' && existingPath === '/radio-transcripts.html') existing.setAttribute('href', item.href);
 
         if (item.id && !existing.id) existing.id = item.id;
@@ -612,6 +601,12 @@ const SharedHeader = {
     if (opsLink) {
       opsLink.style.display = this.isPhoneViewport() ? 'none' : '';
     }
+
+    // Show manager-only links for managers/admins (and explicit radio config permission).
+    const canSeeManagerLinks = !!(user?.isManager || user?.isAdmin || user?.canConfigRadio);
+    document.querySelectorAll('.header-nav a[data-manager-only="true"]').forEach((a) => {
+      a.style.display = canSeeManagerLinks ? '' : 'none';
+    });
 
     // Keep the mobile menu in sync with permission-based nav visibility.
     this.refreshMobileMenuItems();
@@ -834,6 +829,10 @@ try {
   SharedHeader.ensureMobileMenu();
 } catch (_) {}
 
-document.addEventListener('DOMContentLoaded', () => {
-  SharedHeader.init();
-});
+try {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => SharedHeader.init());
+  } else {
+    SharedHeader.init();
+  }
+} catch (_) {}

@@ -19,6 +19,7 @@
   font-size: calc(14px * var(--font-scale));
 }
 
+
 .app-tiles {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

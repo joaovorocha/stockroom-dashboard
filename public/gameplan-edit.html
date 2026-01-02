@@ -939,22 +939,29 @@
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
 
+  <script src="/js/shared-header.js?v=22"></script>
   <script>
-			    let currentUser = null;
-			    let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
-				    let settings = {};
-				    let storeConfig = { requireSaShift: false, currency: 'USD' };
-					    let gameplanData = { notes: '', assignments: {} };
-			    let storeMetrics = {};
-					    let currentStoreDayInfo = null;
-					    let weeklyGoalDistribution = { weekKey: null, enabled: false, percents: [15, 15, 14, 14, 14, 14, 14], updatedAt: null, updatedBy: null };
+        let currentUser = null;
+        let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
+          let settings = {};
+          let storeConfig = { requireSaShift: false, currency: 'USD' };
+            let gameplanData = { notes: '', assignments: {} };
+        let storeMetrics = {};
+            let currentStoreDayInfo = null;
+            let weeklyGoalDistribution = { weekKey: null, enabled: false, percents: [15, 15, 14, 14, 14, 14, 14], updatedAt: null, updatedBy: null };
               const MAX_WEEKLY_DAY_PERCENT = 40;
               let notesTemplates = [];
 					    let hasUnsavedChanges = false;
 					    let currentEditorDate = null;
 				    const EDIT_DEBUG = false;
-				    function editLog(...args) { if (EDIT_DEBUG) console.log(...args); }
-				    function editWarn(...args) { if (EDIT_DEBUG) console.warn(...args); }
+            function editLog(...args) { if (EDIT_DEBUG) console.log(...args); }
+            function editWarn(...args) { if (EDIT_DEBUG) console.warn(...args); }
+
+            function authFetch(url, options = {}) {
+              const merged = { credentials: 'include', ...options };
+              if (options && options.headers) merged.headers = options.headers;
+              return fetch(url, merged);
+            }
 
 				    function getLocalISODate() {
 				      const d = new Date();
@@ -962,14 +969,14 @@
 				      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 				    }
 
-				    async function getStoreDayInfo() {
-				      try {
-				        const resp = await fetch('/api/gameplan/today');
-				        return resp.ok ? await resp.json() : null;
-				      } catch (_) {
-				        return null;
-				      }
-				    }
+            async function getStoreDayInfo() {
+              try {
+                const resp = await authFetch('/api/gameplan/today');
+                return resp.ok ? await resp.json() : null;
+              } catch (_) {
+                return null;
+              }
+            }
 
 				    function resetEditorForNewDay() {
 				      ['SA', 'MANAGEMENT', 'BOH', 'TAILOR'].forEach(role => {
@@ -1128,12 +1135,12 @@
 			      return Number.isFinite(weekly) && weekly > 0 ? weekly : null;
 			    }
 
-			    async function loadWeeklyGoalDistribution() {
+          async function loadWeeklyGoalDistribution() {
 			      const weekKey = getWeekKeyFromMetrics();
 			      weeklyGoalDistribution.weekKey = weekKey;
 			      if (!weekKey) return;
 			      try {
-			        const resp = await fetch(`/api/gameplan/weekly-goal-distribution/${encodeURIComponent(weekKey)}`);
+              const resp = await authFetch(`/api/gameplan/weekly-goal-distribution/${encodeURIComponent(weekKey)}`);
 			        if (!resp.ok) return;
 			        const data = await resp.json();
 			        if (data?.weekKey === weekKey && Array.isArray(data?.percents) && data.percents.length === 7) {
@@ -1237,7 +1244,7 @@
 
           async function loadNotesTemplates() {
             try {
-              const resp = await fetch('/api/gameplan/notes-templates');
+	            const resp = await authFetch('/api/gameplan/notes-templates');
               if (!resp.ok) return;
               const data = await resp.json();
               notesTemplates = Array.isArray(data?.templates) ? data.templates : [];
@@ -1270,7 +1277,7 @@
             if (delBtn) delBtn.disabled = !has;
           }
 
-			    async function saveWeeklyGoalDistribution() {
+          async function saveWeeklyGoalDistribution() {
 			      const weekKey = weeklyGoalDistribution?.weekKey;
 			      if (!weekKey) {
 			        alert('No retail week loaded yet.');
@@ -1282,12 +1289,12 @@
 			        alert(`Daily % must total 100%. Current total: ${total}%`);
 			        return;
 			      }
-			      try {
-			        const resp = await fetch(`/api/gameplan/weekly-goal-distribution/${encodeURIComponent(weekKey)}`, {
+            try {
+              const resp = await authFetch(`/api/gameplan/weekly-goal-distribution/${encodeURIComponent(weekKey)}`, {
 			          method: 'POST',
 			          headers: { 'Content-Type': 'application/json' },
 			          body: JSON.stringify({ enabled: !!weeklyGoalDistribution.enabled, percents })
-			        });
+              });
 			        if (!resp.ok) {
 			          let msg = `Save failed (HTTP ${resp.status})`;
 			          try {
@@ -1369,64 +1376,50 @@
 
     async function checkAuth() {
       try {
-        const response = await fetch('/api/auth/check');
-        const data = await response.json();
+        SharedHeader.mountHeader({ showRefresh: false });
+        await SharedHeader.init();
+        currentUser = SharedHeader.currentUser;
 
-        if (!data.authenticated) {
-          window.location.href = '/login';
-          return;
-        }
-
-        currentUser = data.user;
-        document.getElementById('userName').textContent = currentUser.name;
-        if (currentUser.imageUrl) {
-          const img = document.getElementById('userAvatar');
-          if (img) {
-            img.src = currentUser.imageUrl;
-            img.style.display = 'block';
+          if (!currentUser) {
+            window.location.href = '/login';
+            return;
           }
-        }
 
-	        // Only managers can access this page
-	        if (!currentUser.isManager && !currentUser.isAdmin) {
-	          alert('Access denied. Managers only.');
-	          window.location.href = '/home';
-	          return;
-	        }
+          if (!currentUser.isManager && !currentUser.isAdmin) {
+            alert('Access denied. Managers only.');
+            window.location.href = '/home';
+            return;
+          }
 
-        if (currentUser.isAdmin) {
-          document.getElementById('navAdmin').style.display = 'inline';
-        }
-        // Feedback link is shown at the bottom of the page (shared-header.js).
-        document.getElementById('navFeedback').style.display = 'none';
-
-	        // Set current date
-	        const now = new Date();
-	        document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', {
-	          weekday: 'long',
-	          year: 'numeric',
-	          month: 'long',
-	          day: 'numeric'
-	        });
-	      } catch (error) {
-	        console.error('Auth check failed:', error);
-	        window.location.href = '/login';
+          const now = new Date();
+          const dateEl = document.getElementById('currentDate');
+          if (dateEl) {
+            dateEl.textContent = now.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            });
+          }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        window.location.href = '/login';
       }
     }
 
-				    async function loadData() {
+            async function loadData() {
 					      editLog('[EDIT] loadData starting...');
 					      const storeDay = await getStoreDayInfo();
 					      const clientDate = storeDay?.date || getLocalISODate(); // YYYY-MM-DD (store day)
 					      currentStoreDayInfo = storeDay;
 					      currentEditorDate = clientDate;
-					      const [empRes, settingsRes, gpRes, metricsRes, storeCfgRes] = await Promise.all([
-					        fetch('/api/gameplan/employees'),
-					        fetch('/api/gameplan/settings'),
-					        fetch(`/api/gameplan/date/${clientDate}`),
-				        fetch('/api/gameplan/metrics'),
-				        fetch('/api/gameplan/store-config')
-			      ]);
+                const [empRes, settingsRes, gpRes, metricsRes, storeCfgRes] = await Promise.all([
+                  authFetch('/api/gameplan/employees'),
+                  authFetch('/api/gameplan/settings'),
+                  authFetch(`/api/gameplan/date/${clientDate}`),
+                authFetch('/api/gameplan/metrics'),
+                authFetch('/api/gameplan/store-config')
+              ]);
 
 			      const empData = await empRes.json();
 	      editLog('[EDIT] Raw employee response:', empData);
@@ -2186,8 +2179,8 @@
       gameplanData.lastEditedBy = currentUser.name;
       gameplanData.lastEditedAt = new Date().toISOString();
 
-      try {
-        const response = await fetch('/api/gameplan/save', {
+	      try {
+	        const response = await authFetch('/api/gameplan/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(gameplanData)
@@ -2372,8 +2365,8 @@
             targetId = selected.id;
           }
 
-          try {
-            const resp = await fetch(
+	          try {
+	            const resp = await authFetch(
               mode === 'update' ? `/api/gameplan/notes-templates/${encodeURIComponent(targetId)}` : '/api/gameplan/notes-templates',
               {
                 method: mode === 'update' ? 'PUT' : 'POST',
@@ -2405,8 +2398,8 @@
           const tmpl = notesTemplates.find(t => t?.id === id);
           if (!tmpl) return;
           if (!confirm(`Delete template "${tmpl.name}"?`)) return;
-          try {
-            const resp = await fetch(`/api/gameplan/notes-templates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            try {
+              const resp = await authFetch(`/api/gameplan/notes-templates/${encodeURIComponent(id)}`, { method: 'DELETE' });
             if (!resp.ok) {
               let msg = `Delete failed (HTTP ${resp.status})`;
               try {
@@ -2475,7 +2468,7 @@
 		          const url = copyDate ? `/api/gameplan/date/${copyDate}` : `/api/gameplan/date/${storeYesterday}`;
 
 			          editLog('[EDIT] Copy from date:', copyDate || storeYesterday, '->', url);
-			          const response = await fetch(url);
+                const response = await authFetch(url);
 			          if (!response.ok) {
 			            editWarn('[EDIT] Copy fetch failed', response.status);
 			            alert('No game plan found for yesterday.');
@@ -2682,6 +2675,5 @@
 
 	    }
   </script>
-  <script src="/js/shared-header.js?v=22"></script>
 </body>
 </html>
