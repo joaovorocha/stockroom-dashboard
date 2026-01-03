@@ -123,6 +123,7 @@ function createJsonDAL({ dataDir }) {
     lostPunchLogFile: path.join(dataDir, 'lost-punch-log.json'),
     closingDutiesDir: path.join(dataDir, 'closing-duties'),
     closingDutiesLogFile: path.join(dataDir, 'closing-duties-log.json'),
+    storeRecoveryScanLogFile: path.join(dataDir, 'store-recovery-scan-log.json'),
     dashboardDataFile: path.join(dataDir, 'dashboard-data.json'),
     settingsFile: path.join(dataDir, 'settings.json')
   };

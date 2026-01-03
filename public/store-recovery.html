@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Store Recovery</title>
+    <link rel="stylesheet" href="/css/theme.css" />
+    <link rel="stylesheet" href="/css/dashboard.css" />
+    <script src="/js/shared-header.js?v=22"></script>
+    <script src="/js/dashboard.js?v=21"></script>
+    <script>
+      (async () => {
+        try { await SharedHeader.init(); } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="shared-header-mount"></div>
+    <main class="container" style="max-width: 700px; margin: 0 auto;">
+      <h1>Store Recovery</h1>
+      <p>Scan RFID tags to check if items are in the correct spot. Filter by product type and size/model.</p>
+      <form id="filterForm" style="margin-bottom: 18px;">
+        <label>Product Type:
+          <select id="productType">
+            <option value="NOOS">NOOS</option>
+            <option value="Tux">Tux</option>
+            <option value="Casual">Casual</option>
+            <option value="Overcoat">Overcoat</option>
+            <option value="Other">Other</option>
+          </select>
+        </label>
+        <label>Size:
+          <input type="text" id="sizeInput" placeholder="e.g. 38R, M, L" />
+        </label>
+        <label>Model:
+          <input type="text" id="modelInput" placeholder="e.g. Havana, Lazio" />
+        </label>
+        <button type="submit">Apply Filter</button>
+      </form>
+      <div id="scanStatus" style="margin-bottom: 12px; color: var(--muted);"></div>
+      <div id="scanResults"></div>
+      <div id="rfidConnectOptions" style="margin-top: 24px;">
+        <h3>RFID Reader Connection</h3>
+        <p style="margin-top: 6px; color: var(--muted);">
+          Need the API URL from the Avery Dennison setup QR? Use <a href="/qr-decode">QR Decode</a>.
+        </p>
+        <button id="connectBluetooth">Connect via Bluetooth</button>
+        <button id="connectUSB">Connect via USB</button>
+        <div id="rfidStatus" style="margin-top: 8px; color: var(--muted);"></div>
+      </div>
+    </main>
+    <script src="/js/store-recovery.js?v=1"></script>
+  </body>
+</html>

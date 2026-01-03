@@ -17,6 +17,7 @@ const adminRoutes = require('./routes/admin');
 const awardsRoutes = require('./routes/awards');
 const radioRoutes = require('./routes/radio');
 const expensesRoutes = require('./routes/expenses');
+const storeRecoveryRoutes = require('./routes/storeRecovery');
 const authMiddleware = require('./middleware/auth');
 const { getUPSScheduler } = require('./utils/ups-scheduler');
 
@@ -226,6 +227,7 @@ app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
 app.use('/api/awards', authMiddleware, awardsRoutes);
 app.use('/api/radio', authMiddleware, radioRoutes);
 app.use('/api/expenses', authMiddleware, expensesRoutes);
+app.use('/api/store-recovery', authMiddleware, storeRecoveryRoutes);
 
 // Serve feedback uploads (auth required)
 app.use('/feedback-uploads', authMiddleware, express.static(path.join(__dirname, 'data/feedback-uploads')));
@@ -359,6 +361,14 @@ app.get('/shipments-processing', authMiddleware, (req, res) => {
 
 app.get('/ups-extension', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'ups-extension.html'));
+});
+
+app.get('/store-recovery', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'store-recovery.html'));
+});
+
+app.get('/qr-decode', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'qr-decode.html'));
 });
 
 // CampusShip import page removed (shipments are captured from UPS emails now).

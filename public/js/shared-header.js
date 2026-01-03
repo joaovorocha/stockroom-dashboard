@@ -14,6 +14,8 @@ const SharedHeader = {
   pageTitles: {
     '/home': 'GamePlan',
     '/app': 'GamePlan',
+    '/store-recovery': 'Store Recovery',
+    '/qr-decode': 'QR Decode',
     '/dashboard': 'Daily Game Plan',
     '/operations-metrics': 'Operations Metrics',
     '/awards': 'Team Awards',
@@ -35,6 +37,8 @@ const SharedHeader = {
   menuIcons: {
     '/home': '🏠',
     '/dashboard': '📋',
+    '/store-recovery': '📦',
+    '/qr-decode': '🔎',
     '/operations-metrics': '🛠️',
     '/awards': '🏆',
     '/expenses': '💳',
