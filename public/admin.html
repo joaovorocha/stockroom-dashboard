@@ -425,6 +425,113 @@
               </div>
 	          </div>
 	        </div>
+
+          <div class="admin-card">
+            <div class="admin-card-header">
+              <h3>Store Recovery API</h3>
+              <button class="btn btn-primary btn-sm" id="saveStoreRecoveryConfigBtn">Save</button>
+            </div>
+            <div class="admin-card-body">
+              <p style="margin:0 0 10px; font-size:13px; color:#666;">
+                Upload the Avery Dennison setup QR image or paste the decoded text. Then save it so Store Recovery can resolve EPC → product info.
+              </p>
+
+              <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+                <div style="flex:1; min-width:260px;">
+                  <label for="srQrFile" style="display:block; font-size:12px; color:#666; margin-bottom:6px;">QR/DataMatrix image</label>
+                  <input id="srQrFile" type="file" accept="image/*" style="width:100%;" />
+                </div>
+                <button class="btn btn-outline btn-sm" id="srDecodeBtn" type="button">Decode</button>
+              </div>
+              <div id="srDecodeStatus" style="margin-top:8px; font-size:12px; color:#888;"></div>
+
+              <div style="margin-top:10px;">
+                <label for="srDecodedText" style="display:block; font-size:12px; color:#666; margin-bottom:6px;">Decoded / pasted text</label>
+                <textarea id="srDecodedText" rows="5" style="width:100%;"></textarea>
+              </div>
+
+              <div class="form-row form-row-3" style="margin-top:12px;">
+                <div class="form-group">
+                  <label for="srApiBaseUrl">API Base URL</label>
+                  <input id="srApiBaseUrl" type="text" placeholder="https://... (can include {epc} or ?epc=)" />
+                </div>
+                <div class="form-group">
+                  <label for="srAuthType">Auth Type</label>
+                  <select id="srAuthType" style="width:100%;">
+                    <option value="apiKey">API Key</option>
+                    <option value="oauth2">OAuth2 (client_credentials)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="srApiKeyHeader">API Key Header</label>
+                  <input id="srApiKeyHeader" type="text" value="x-api-key" />
+                </div>
+              </div>
+
+              <div id="srApiKeyWrap" class="form-row form-row-3" style="margin-top:12px;">
+                <div class="form-group">
+                  <label for="srApiKey">API Key (optional)</label>
+                  <input id="srApiKey" type="password" placeholder="Leave blank to keep existing" />
+                </div>
+                <div class="form-group"></div>
+                <div class="form-group"></div>
+              </div>
+
+              <div id="srOauthWrap" style="display:none; margin-top:12px;">
+                <div class="form-row form-row-3">
+                  <div class="form-group">
+                    <label for="srOauthDomain">OAuth Domain (used for {domain}/oauth2/token)</label>
+                    <input id="srOauthDomain" type="text" placeholder="suitsupply.com or https://..." />
+                  </div>
+                  <div class="form-group">
+                    <label for="srOauthTokenUrl">OAuth Token URL (optional override)</label>
+                    <input id="srOauthTokenUrl" type="text" placeholder="https://.../oauth2/token" />
+                  </div>
+                  <div class="form-group">
+                    <label for="srOauthGrantType">Grant Type</label>
+                    <input id="srOauthGrantType" type="text" placeholder="client_credentials" />
+                  </div>
+                </div>
+                <div class="form-row form-row-3" style="margin-top:12px;">
+                  <div class="form-group">
+                    <label for="srOauthClientId">Client ID</label>
+                    <input id="srOauthClientId" type="text" placeholder="..." />
+                  </div>
+                  <div class="form-group">
+                    <label for="srOauthClientSecret">Client Secret (optional)</label>
+                    <input id="srOauthClientSecret" type="password" placeholder="Leave blank to keep existing" />
+                  </div>
+                  <div class="form-group">
+                    <label for="srOauthCountryCode">Country Code (optional)</label>
+                    <input id="srOauthCountryCode" type="text" placeholder="" />
+                  </div>
+                </div>
+                <div class="form-row form-row-3" style="margin-top:12px;">
+                  <div class="form-group">
+                    <label for="srOauthResource">Resource (optional)</label>
+                    <input id="srOauthResource" type="text" placeholder="https://..." />
+                  </div>
+                  <div class="form-group">
+                    <label for="srOauthScope">Scope (optional)</label>
+                    <input id="srOauthScope" type="text" placeholder="" />
+                  </div>
+                  <div class="form-group"></div>
+                </div>
+              </div>
+              <div id="srConfigMeta" style="margin-top:8px; font-size:12px; color:#888;"></div>
+
+              <hr style="margin:16px 0; border:0; border-top:1px solid #eee;">
+              <div style="font-weight:600;">Test lookup</div>
+              <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-top:8px;">
+                <div style="flex:1; min-width:260px;">
+                  <label for="srTestEpc" style="display:block; font-size:12px; color:#666; margin-bottom:6px;">Paste EPC / code</label>
+                  <input id="srTestEpc" type="text" placeholder="EPC..." />
+                </div>
+                <button class="btn btn-outline btn-sm" id="srTestLookupBtn" type="button">Lookup</button>
+              </div>
+              <pre id="srTestResult" style="margin-top:10px; background:#f8f8f8; border:1px solid #e0e0e0; padding:10px; border-radius:6px; white-space:pre-wrap; word-break:break-word;"></pre>
+            </div>
+          </div>
 	      </div>
 
 	      <!-- Zones Tab -->
@@ -1348,17 +1455,394 @@
 	        document.getElementById('pageTitle').textContent = link.textContent.trim();
 
 	        if (tab === 'activity') loadActivity();
-	        if (tab === 'store') loadStoreConfig();
+	        if (tab === 'store') {
+          loadStoreConfig();
+          loadStoreRecoveryConfig();
+        }
 	      });
 	    });
 
-		    // Init
+      async function loadStoreRecoveryConfig() {
+        const metaEl = document.getElementById('srConfigMeta');
+        if (metaEl) metaEl.textContent = 'Loading Store Recovery API config...';
+        try {
+          const resp = await fetch('/api/admin/store-recovery-config', { credentials: 'include' });
+          if (!resp.ok) {
+            const t = await resp.text();
+            if (metaEl) metaEl.textContent = `Failed to load config (${resp.status}): ${t}`;
+            return;
+          }
+          const cfg = await resp.json();
+          document.getElementById('srApiBaseUrl').value = cfg.baseUrl || '';
+          document.getElementById('srAuthType').value = cfg.authType || 'apiKey';
+          document.getElementById('srApiKeyHeader').value = cfg.headerName || 'x-api-key';
+          document.getElementById('srDecodedText').value = cfg.decodedText || '';
+
+          document.getElementById('srOauthDomain').value = cfg.oauthDomain || '';
+          document.getElementById('srOauthTokenUrl').value = cfg.oauthTokenUrl || '';
+          document.getElementById('srOauthGrantType').value = cfg.oauthGrantType || '';
+          document.getElementById('srOauthClientId').value = cfg.oauthClientId || '';
+          document.getElementById('srOauthResource').value = cfg.oauthResource || '';
+          document.getElementById('srOauthScope').value = cfg.oauthScope || '';
+          document.getElementById('srOauthCountryCode').value = cfg.oauthCountryCode || '';
+
+          // Never prefill secrets.
+          document.getElementById('srOauthClientSecret').value = '';
+
+          updateSrAuthUi();
+
+          const parts = [];
+          parts.push(`Auth: ${cfg.authType || 'apiKey'}`);
+          if ((cfg.authType || 'apiKey') === 'oauth2') {
+            parts.push(cfg.hasOauthClientSecret ? `Client secret: ${cfg.oauthClientSecretMasked || '(set)'}` : 'Client secret: (not set)');
+          } else {
+            parts.push(cfg.hasApiKey ? `API key: ${cfg.apiKeyMasked || '(set)'}` : 'API key: (not set)');
+          }
+          if (cfg.updatedAt) parts.push(`Updated: ${cfg.updatedAt}`);
+          if (cfg.updatedBy) parts.push(`By: ${cfg.updatedBy}`);
+          if (metaEl) metaEl.textContent = parts.join(' • ');
+        } catch (e) {
+          if (metaEl) metaEl.textContent = `Failed to load config: ${e?.message || e}`;
+        }
+      }
+
+      function setSrDecodeStatus(text) {
+        const el = document.getElementById('srDecodeStatus');
+        if (el) el.textContent = text || '';
+      }
+
+      function setIfEmpty(id, value) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const cur = (el.value || '').toString().trim();
+        const next = (value || '').toString().trim();
+        if (!cur && next) el.value = next;
+      }
+
+      function setValue(id, value) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const next = (value || '').toString().trim();
+        if (next) el.value = next;
+      }
+
+      function looksLikeGzipBase64(s) {
+        const v = (s || '').toString().trim();
+        if (!v) return false;
+        // Common gzip+base64 prefix for many QR payloads.
+        if (!v.startsWith('H4sI')) return false;
+        // Base64-ish (allow whitespace/newlines).
+        const compact = v.replace(/\s+/g, '');
+        return /^[A-Za-z0-9+/=]+$/.test(compact);
+      }
+
+      function base64FromBytes(bytes) {
+        const chunk = 0x8000;
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += chunk) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+        }
+        return btoa(binary);
+      }
+
+      function bytesLookPrintableAscii(bytes) {
+        if (!bytes || !bytes.length) return true;
+        let printable = 0;
+        for (const b of bytes) {
+          if (b === 9 || b === 10 || b === 13) { printable++; continue; }
+          if (b >= 32 && b <= 126) { printable++; continue; }
+        }
+        return printable / bytes.length >= 0.9;
+      }
+
+      async function gunzipBase64ToBytes(b64) {
+        const compact = (b64 || '').toString().replace(/\s+/g, '');
+        const bin = atob(compact);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+
+        // Modern Chromium supports DecompressionStream (gzip).
+        if (!('DecompressionStream' in window)) {
+          throw new Error('This browser cannot decompress gzip QR payloads. Use Chrome/Edge on desktop.');
+        }
+        const ds = new DecompressionStream('gzip');
+        const stream = new Blob([bytes]).stream().pipeThrough(ds);
+        const ab = await new Response(stream).arrayBuffer();
+        return new Uint8Array(ab);
+      }
+
+      async function applyStoreRecoveryDecodedText(decodedText) {
+        let txt = (decodedText || '').toString().trim();
+        if (!txt) return;
+
+        // Some QR payloads are gzip-compressed + base64 encoded.
+        // If so, expand it first and continue parsing on the expanded text.
+        if (looksLikeGzipBase64(txt)) {
+          try {
+            const expandedBytes = await gunzipBase64ToBytes(txt);
+
+            // 0) Special Suit payload format: "@S2Ckey=@<bytes>" (binary values)
+            // We parse at the byte level to avoid losing data via UTF-8 decoding.
+            const latin = new TextDecoder('latin1').decode(expandedBytes);
+            const matches = Array.from(latin.matchAll(/@S\dC([A-Za-z0-9_./-]+)=@/g));
+            if (matches && matches.length) {
+              let kvBin = {};
+              for (let i = 0; i < matches.length; i++) {
+                const m = matches[i];
+                const key = (m[1] || '').trim();
+                if (!key) continue;
+                const start = (m.index || 0) + m[0].length;
+                const end = (i + 1 < matches.length) ? (matches[i + 1].index || expandedBytes.length) : expandedBytes.length;
+                const valBytes = expandedBytes.slice(start, end);
+                if (!valBytes.length) continue;
+
+                if (bytesLookPrintableAscii(valBytes)) {
+                  const valText = new TextDecoder('latin1').decode(valBytes).toString().trim();
+                  if (valText) kvBin[key] = valText;
+                } else {
+                  kvBin[key] = base64FromBytes(valBytes);
+                }
+              }
+
+              // Merge into txt for later parsing (and into kv via JSON parsing below)
+              // by converting to line-based key=value where binary values are base64.
+              const synthetic = Object.entries(kvBin).map(([k, v]) => `${k}=${v}`).join('\n');
+              if (synthetic) txt = synthetic;
+            } else {
+              const expandedText = new TextDecoder('utf-8', { fatal: false }).decode(expandedBytes).toString().trim();
+              if (expandedText) txt = expandedText;
+            }
+          } catch (e) {
+            // Keep original text if we can't expand.
+            console.warn('Failed to expand gzip/base64 QR payload:', e);
+          }
+        }
+
+        // 1) Best-effort: if there's a URL, use it.
+        const urlMatch = txt.match(/https?:\/\/[^\s"'<>]+/ig) || [];
+        if (urlMatch.length) {
+          // Prefer suitapi/printlabel URLs if present.
+          const preferred = urlMatch.find(u => /suitapi\.com/i.test(u)) || urlMatch[0];
+          setValue('srApiBaseUrl', preferred);
+        }
+
+        // 2) Extract suitsApi_* key-values from common formats.
+        // Examples we support:
+        //   suitsApi_baseUrl=https://...
+        //   suitsApi_clientId: aaaa-bbbb
+        //   {"suitsApi_baseUrl":"..."}
+        let kv = {};
+        try {
+          if ((txt.startsWith('{') && txt.endsWith('}')) || (txt.startsWith('[') && txt.endsWith(']'))) {
+            const obj = JSON.parse(txt);
+            if (obj && typeof obj === 'object') {
+              kv = obj;
+            }
+          }
+        } catch (_) {}
+
+        if (!kv || typeof kv !== 'object' || Array.isArray(kv)) kv = {};
+
+        if (Object.keys(kv).length === 0) {
+          const parts = txt
+            .split(/[\r\n&;]+/)
+            .map(s => s.trim())
+            .filter(Boolean);
+          for (const line of parts) {
+            const m = line.match(/^\s*([A-Za-z0-9_./-]+)\s*[:=]\s*(.+?)\s*$/);
+            if (!m) continue;
+            const key = (m[1] || '').trim();
+            const val = (m[2] || '').trim();
+            if (!key || !val) continue;
+            kv[key] = val;
+          }
+        }
+
+        const baseUrl = kv.suitsApi_baseUrl || kv.baseUrl || kv.apiBaseUrl || '';
+        const domain = kv.suitsApi_domain || kv.domain || '';
+        const clientId = kv.suitsApi_clientId || kv.clientId || '';
+        const clientSecret = kv.suitsApi_clientSecret || kv.clientSecret || '';
+        const resource = kv.suitsApi_resource || kv.resource || '';
+        const scope = kv.suitsApi_scope || kv.scope || '';
+        const grantType = kv.suitsApi_grantType || kv.grantType || '';
+        const countryCode = kv.suitsApi_countryCode || kv.countryCode || '';
+
+        if (baseUrl) setValue('srApiBaseUrl', baseUrl);
+        if (domain) setValue('srOauthDomain', domain);
+        if (clientId) setValue('srOauthClientId', clientId);
+        if (clientSecret) setValue('srOauthClientSecret', clientSecret);
+        if (resource) setValue('srOauthResource', resource);
+        if (scope) setValue('srOauthScope', scope);
+        if (grantType) setValue('srOauthGrantType', grantType);
+        if (countryCode) setValue('srOauthCountryCode', countryCode);
+
+        // If it smells like suitsApi config, switch to OAuth2 automatically.
+        const looksLikeSuitsApi = /suitsApi_/i.test(txt) || /suitapi\.com/i.test(txt) || !!clientId || !!clientSecret;
+        if (looksLikeSuitsApi) {
+          const authEl = document.getElementById('srAuthType');
+          if (authEl) authEl.value = 'oauth2';
+          updateSrAuthUi();
+        }
+      }
+
+      async function decodeBarcodeFromFile(file) {
+        if (!file) throw new Error('Choose an image first.');
+        if (!('BarcodeDetector' in window)) {
+          throw new Error('BarcodeDetector not supported in this browser. Use Chrome/Edge on desktop.');
+        }
+        const detector = new BarcodeDetector({ formats: ['qr_code', 'data_matrix'] });
+        const bmp = await createImageBitmap(file);
+        try {
+          const codes = await detector.detect(bmp);
+          if (!codes || !codes.length) return null;
+          return codes[0].rawValue || '';
+        } finally {
+          try { bmp.close && bmp.close(); } catch (e) {}
+        }
+      }
+
+      async function onSrDecode() {
+        setSrDecodeStatus('Decoding...');
+        try {
+          const file = document.getElementById('srQrFile')?.files?.[0];
+          const txt = await decodeBarcodeFromFile(file);
+          if (!txt) {
+            setSrDecodeStatus('No QR/DataMatrix found in that image.');
+            return;
+          }
+          document.getElementById('srDecodedText').value = txt;
+          await applyStoreRecoveryDecodedText(txt);
+
+          // One-step flow: save immediately after decoding.
+          // The server will apply defaults if the QR does not contain a baseUrl.
+          const ok = await onSaveStoreRecoveryConfig();
+          if (ok && (document.getElementById('srTestEpc')?.value || '').toString().trim()) {
+            try { await onSrTestLookup(); } catch (_) {}
+          }
+          setSrDecodeStatus(ok ? 'Decoded and saved. Ready to use Store Recovery.' : 'Decoded, but save failed.');
+        } catch (e) {
+          setSrDecodeStatus(e?.message || String(e));
+        }
+      }
+
+      async function onSaveStoreRecoveryConfig() {
+        const metaEl = document.getElementById('srConfigMeta');
+        if (metaEl) metaEl.textContent = 'Saving...';
+
+        const payload = {
+          decodedText: document.getElementById('srDecodedText').value || '',
+          baseUrl: document.getElementById('srApiBaseUrl').value || '',
+          authType: document.getElementById('srAuthType').value || 'apiKey',
+          headerName: document.getElementById('srApiKeyHeader').value || 'x-api-key',
+          apiKey: document.getElementById('srApiKey').value || '',
+
+          oauthDomain: document.getElementById('srOauthDomain').value || '',
+          oauthTokenUrl: document.getElementById('srOauthTokenUrl').value || '',
+          oauthGrantType: document.getElementById('srOauthGrantType').value || '',
+          oauthClientId: document.getElementById('srOauthClientId').value || '',
+          oauthClientSecret: document.getElementById('srOauthClientSecret').value || '',
+          oauthResource: document.getElementById('srOauthResource').value || '',
+          oauthScope: document.getElementById('srOauthScope').value || '',
+          oauthCountryCode: document.getElementById('srOauthCountryCode').value || ''
+        };
+
+        try {
+          const resp = await fetch('/api/admin/store-recovery-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+          });
+          const data = await resp.json().catch(() => null);
+          if (!resp.ok) {
+            if (metaEl) metaEl.textContent = (data && data.error) ? data.error : `Save failed (${resp.status})`;
+            return false;
+          }
+          // Clear the password input after saving.
+          document.getElementById('srApiKey').value = '';
+          document.getElementById('srOauthClientSecret').value = '';
+          if (metaEl) {
+            const parts = [];
+            parts.push(`Auth: ${data.authType || 'apiKey'}`);
+            if ((data.authType || 'apiKey') === 'oauth2') {
+              parts.push(data.hasOauthClientSecret ? `Client secret: ${data.oauthClientSecretMasked || '(set)'}` : 'Client secret: (not set)');
+            } else {
+              parts.push(data.hasApiKey ? `API key: ${data.apiKeyMasked || '(set)'}` : 'API key: (not set)');
+            }
+            if (data.updatedAt) parts.push(`Updated: ${data.updatedAt}`);
+            if (data.updatedBy) parts.push(`By: ${data.updatedBy}`);
+            metaEl.textContent = parts.join(' • ');
+          }
+          return true;
+        } catch (e) {
+          if (metaEl) metaEl.textContent = e?.message || String(e);
+          return false;
+        }
+      }
+
+      function looksLikeHexEpc(s) {
+        const v = (s || '').toString().trim();
+        return /^[0-9a-fA-F]{16,64}$/.test(v);
+      }
+
+      function looksLikeEanOrGtin(s) {
+        const v = (s || '').toString().trim();
+        return /^\d{13,14}$/.test(v);
+      }
+
+      function updateSrAuthUi() {
+        const type = document.getElementById('srAuthType')?.value || 'apiKey';
+        const keyWrap = document.getElementById('srApiKeyWrap');
+        const oauthWrap = document.getElementById('srOauthWrap');
+        if (keyWrap) keyWrap.style.display = (type === 'apiKey') ? '' : 'none';
+        if (oauthWrap) oauthWrap.style.display = (type === 'oauth2') ? 'block' : 'none';
+      }
+
+      async function onSrTestLookup() {
+        const outEl = document.getElementById('srTestResult');
+        if (outEl) outEl.textContent = 'Loading...';
+        const raw = (document.getElementById('srTestEpc').value || '').toString().trim();
+        if (!raw) {
+          if (outEl) outEl.textContent = 'Paste an EPC/code first.';
+          return;
+        }
+        try {
+          let url = '';
+          if (looksLikeHexEpc(raw)) url = `/api/store-recovery/lookup?epc=${encodeURIComponent(raw)}`;
+          else if (looksLikeEanOrGtin(raw)) url = `/api/store-recovery/lookup?ean=${encodeURIComponent(raw)}`;
+          else url = `/api/store-recovery/lookup?sku=${encodeURIComponent(raw)}`;
+          const resp = await fetch(url, { credentials: 'include' });
+          const data = await resp.json().catch(() => null);
+          if (!resp.ok) {
+            if (outEl) outEl.textContent = JSON.stringify(data || { error: `Lookup failed (${resp.status})` }, null, 2);
+            return;
+          }
+          if (outEl) outEl.textContent = JSON.stringify(data, null, 2);
+        } catch (e) {
+          if (outEl) outEl.textContent = e?.message || String(e);
+        }
+      }
+
+        // Init
 		    initUsersSortUI();
 		    checkAuth();
 		    loadSettings();
 		    loadUsers();
 		    document.getElementById('saveStoreConfigBtn')?.addEventListener('click', saveStoreConfig);
 		    document.getElementById('resetTomatoAwardsBtn')?.addEventListener('click', resetTomatoAwards);
+        document.getElementById('srDecodeBtn')?.addEventListener('click', onSrDecode);
+        document.getElementById('srQrFile')?.addEventListener('change', () => {
+          const f = document.getElementById('srQrFile')?.files?.[0];
+          if (f) onSrDecode();
+        });
+        document.getElementById('saveStoreRecoveryConfigBtn')?.addEventListener('click', onSaveStoreRecoveryConfig);
+        document.getElementById('srTestLookupBtn')?.addEventListener('click', onSrTestLookup);
+        document.getElementById('srAuthType')?.addEventListener('change', updateSrAuthUi);
+        document.getElementById('srDecodedText')?.addEventListener('blur', () => {
+          try {
+            Promise.resolve(applyStoreRecoveryDecodedText(document.getElementById('srDecodedText').value || '')).catch(() => {});
+          } catch (_) {}
+        });
 
       // Expose handlers used by inline HTML attributes (onclick/onchange).
       window.openAddUserModal = openAddUserModal;
@@ -1373,6 +1857,6 @@
 		    }
 		  </script>
     <div id="adminToast" class="admin-toast" style="display:none;"></div>
-  <script src="/js/shared-header.js?v=22"></script>
+  <script src="/js/shared-header.js?v=23"></script>
 </body>
 </html>

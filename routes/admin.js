@@ -13,6 +13,64 @@ const SHIPMENTS_FILE = dal.paths.shipmentsFile;
 const USERS_FILE = dal.paths.usersFile;
 const AWARDS_CONFIG_FILE = path.join(DATA_DIR, 'awards-config.json');
 const WORK_EXPENSES_CONFIG_FILE = path.join(DATA_DIR, 'work-expenses-config.json');
+const STORE_RECOVERY_CONFIG_FILE = dal.paths.storeRecoveryConfigFile || path.join(DATA_DIR, 'store-recovery-config.json');
+
+// Default suitsApi host root (used when admin doesn't have/scan a base URL).
+const DEFAULT_STORE_RECOVERY_BASE_URL = 'https://printlabel.tst.suitapi.com/';
+
+function maskSecret(value) {
+  const s = (value || '').toString();
+  if (!s) return '';
+  if (s.length <= 8) return '*'.repeat(s.length);
+  return `${s.slice(0, 3)}***${s.slice(-3)}`;
+}
+
+function extractFirstUrl(text) {
+  const s = (text || '').toString();
+  const m = s.match(/https?:\/\/[^\s"'<>]+/i);
+  return m ? m[0] : '';
+}
+
+function readStoreRecoveryConfig() {
+  const raw = dal.readJson(STORE_RECOVERY_CONFIG_FILE, null) || {};
+  const baseUrl = (raw.baseUrl || raw.apiBaseUrl || '').toString().trim();
+  const authType = (raw.authType || raw.lookupAuthType || raw.productAuthType || 'apiKey').toString().trim() || 'apiKey';
+
+  const headerName = (raw.headerName || raw.apiKeyHeader || raw.apiKeyHeaderName || 'x-api-key').toString().trim() || 'x-api-key';
+  const apiKey = (raw.apiKey || raw.key || '').toString();
+
+  const oauthDomain = (raw.oauthDomain || raw.domain || '').toString().trim();
+  const oauthTokenUrl = (raw.oauthTokenUrl || raw.tokenUrl || '').toString().trim();
+  const oauthClientId = (raw.oauthClientId || raw.clientId || '').toString().trim();
+  const oauthClientSecret = (raw.oauthClientSecret || raw.clientSecret || '').toString();
+  const oauthResource = (raw.oauthResource || raw.resource || '').toString().trim();
+  const oauthScope = (raw.oauthScope || raw.scope || '').toString().trim();
+  const oauthGrantType = (raw.oauthGrantType || raw.grantType || '').toString().trim();
+  const oauthCountryCode = (raw.oauthCountryCode || raw.countryCode || '').toString().trim();
+
+  const decodedText = (raw.decodedText || raw.raw || '').toString();
+  return {
+    baseUrl,
+    authType,
+    headerName,
+    apiKey,
+    oauthDomain,
+    oauthTokenUrl,
+    oauthClientId,
+    oauthClientSecret,
+    oauthResource,
+    oauthScope,
+    oauthGrantType,
+    oauthCountryCode,
+    decodedText,
+    updatedAt: raw.updatedAt || null,
+    updatedBy: raw.updatedBy || null
+  };
+}
+
+function writeStoreRecoveryConfig(next) {
+  dal.writeJsonAtomic(STORE_RECOVERY_CONFIG_FILE, next, { pretty: true });
+}
 
 function getTomatoConfigDefaults() {
   const today = dal.getBusinessDate();
@@ -87,6 +145,103 @@ router.post('/store-config', express.json(), (req, res) => {
     return res.json(next);
   } catch (e) {
     return res.status(400).json({ error: e?.message || 'Invalid store config' });
+  }
+});
+
+// GET /api/admin/store-recovery-config - Store Recovery product lookup config (admin only)
+router.get('/store-recovery-config', (req, res) => {
+  const cfg = readStoreRecoveryConfig();
+  return res.json({
+    baseUrl: cfg.baseUrl,
+    authType: cfg.authType || 'apiKey',
+    headerName: cfg.headerName,
+    decodedText: cfg.decodedText,
+    apiKeyMasked: maskSecret(cfg.apiKey),
+    hasApiKey: !!cfg.apiKey,
+    oauthDomain: cfg.oauthDomain,
+    oauthTokenUrl: cfg.oauthTokenUrl,
+    oauthClientId: cfg.oauthClientId,
+    oauthClientSecretMasked: maskSecret(cfg.oauthClientSecret),
+    hasOauthClientSecret: !!cfg.oauthClientSecret,
+    oauthResource: cfg.oauthResource,
+    oauthScope: cfg.oauthScope,
+    oauthGrantType: cfg.oauthGrantType,
+    oauthCountryCode: cfg.oauthCountryCode,
+    updatedAt: cfg.updatedAt,
+    updatedBy: cfg.updatedBy
+  });
+});
+
+// POST /api/admin/store-recovery-config - Update Store Recovery product lookup config (admin only)
+router.post('/store-recovery-config', express.json(), (req, res) => {
+  try {
+    const body = req.body || {};
+
+    const decodedText = (body.decodedText || body.raw || '').toString();
+    let baseUrl = (body.baseUrl || body.apiBaseUrl || '').toString().trim();
+
+    const authType = (body.authType || body.lookupAuthType || '').toString().trim() || 'apiKey';
+    const headerName = (body.headerName || body.apiKeyHeader || body.apiKeyHeaderName || 'x-api-key').toString().trim() || 'x-api-key';
+    const apiKey = (body.apiKey || '').toString();
+
+    const oauthDomain = (body.oauthDomain || '').toString().trim();
+    const oauthTokenUrl = (body.oauthTokenUrl || '').toString().trim();
+    const oauthClientId = (body.oauthClientId || '').toString().trim();
+    const oauthClientSecret = (body.oauthClientSecret || '').toString();
+    const oauthResource = (body.oauthResource || '').toString().trim();
+    const oauthScope = (body.oauthScope || '').toString().trim();
+    const oauthGrantType = (body.oauthGrantType || '').toString().trim();
+    const oauthCountryCode = (body.oauthCountryCode || '').toString().trim();
+
+    // If admin only uploads/pastes the QR decoded payload, try to pull a URL out.
+    if (!baseUrl && decodedText) baseUrl = extractFirstUrl(decodedText);
+    // If there's still no baseUrl, use a safe default suitsApi host root.
+    if (!baseUrl) baseUrl = DEFAULT_STORE_RECOVERY_BASE_URL;
+
+    const current = readStoreRecoveryConfig();
+    const next = {
+      baseUrl,
+      authType,
+      headerName,
+      // Allow leaving apiKey blank to keep existing.
+      apiKey: apiKey ? apiKey : current.apiKey,
+      oauthDomain: oauthDomain || current.oauthDomain,
+      oauthTokenUrl: oauthTokenUrl || current.oauthTokenUrl,
+      oauthClientId: oauthClientId || current.oauthClientId,
+      // Allow leaving client secret blank to keep existing.
+      oauthClientSecret: oauthClientSecret ? oauthClientSecret : current.oauthClientSecret,
+      oauthResource: oauthResource || current.oauthResource,
+      oauthScope: oauthScope || current.oauthScope,
+      oauthGrantType: oauthGrantType || current.oauthGrantType,
+      oauthCountryCode: oauthCountryCode || current.oauthCountryCode,
+      decodedText,
+      updatedAt: new Date().toISOString(),
+      updatedBy: req.user?.name || null
+    };
+    writeStoreRecoveryConfig(next);
+
+    return res.json({
+      success: true,
+      baseUrl: next.baseUrl,
+      authType: next.authType || 'apiKey',
+      headerName: next.headerName,
+      decodedText: next.decodedText,
+      apiKeyMasked: maskSecret(next.apiKey),
+      hasApiKey: !!next.apiKey,
+      oauthDomain: next.oauthDomain || '',
+      oauthTokenUrl: next.oauthTokenUrl || '',
+      oauthClientId: next.oauthClientId || '',
+      oauthClientSecretMasked: maskSecret(next.oauthClientSecret),
+      hasOauthClientSecret: !!next.oauthClientSecret,
+      oauthResource: next.oauthResource || '',
+      oauthScope: next.oauthScope || '',
+      oauthGrantType: next.oauthGrantType || '',
+      oauthCountryCode: next.oauthCountryCode || '',
+      updatedAt: next.updatedAt,
+      updatedBy: next.updatedBy
+    });
+  } catch (e) {
+    return res.status(400).json({ error: e?.message || 'Invalid store recovery config' });
   }
 });
 

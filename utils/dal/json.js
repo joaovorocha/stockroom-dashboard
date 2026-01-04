@@ -124,6 +124,7 @@ function createJsonDAL({ dataDir }) {
     closingDutiesDir: path.join(dataDir, 'closing-duties'),
     closingDutiesLogFile: path.join(dataDir, 'closing-duties-log.json'),
     storeRecoveryScanLogFile: path.join(dataDir, 'store-recovery-scan-log.json'),
+    storeRecoveryConfigFile: path.join(dataDir, 'store-recovery-config.json'),
     dashboardDataFile: path.join(dataDir, 'dashboard-data.json'),
     settingsFile: path.join(dataDir, 'settings.json')
   };

@@ -84,6 +84,7 @@ const SharedHeader = {
 
     const navItems = [
       { href: '/dashboard', label: 'Game Plan', id: 'navGamePlan' },
+      { href: '/store-recovery', label: 'Store Recovery', id: 'navStoreRecovery' },
       { href: '/operations-metrics', label: 'Operations', id: 'navOperationsMetrics' },
       { href: '/awards', label: 'Awards', id: 'navAwards' },
       { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' },

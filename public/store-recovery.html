@@ -6,7 +6,7 @@
     <title>Store Recovery</title>
     <link rel="stylesheet" href="/css/theme.css" />
     <link rel="stylesheet" href="/css/dashboard.css" />
-    <script src="/js/shared-header.js?v=22"></script>
+    <script src="/js/shared-header.js?v=23"></script>
     <script src="/js/dashboard.js?v=21"></script>
     <script>
       (async () => {
@@ -19,6 +19,42 @@
     <main class="container" style="max-width: 700px; margin: 0 auto;">
       <h1>Store Recovery</h1>
       <p>Scan RFID tags to check if items are in the correct spot. Filter by product type and size/model.</p>
+
+      <div class="card" style="padding: 14px; margin: 14px 0 18px;">
+        <h3 style="margin: 0 0 8px;">Identify Product (EPC / DataMatrix / SKU)</h3>
+        <p style="margin: 0 0 10px; color: var(--muted);">
+          Paste an EPC/SKU, upload a barcode image, or scan live with the camera (DataMatrix/QR). Uses the configured Store Recovery API.
+        </p>
+
+        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
+          <label style="flex:1; min-width:260px;">
+            Code (EPC or SKU):
+            <input type="text" id="srLookupInput" placeholder="Paste EPC or SKU" style="width:100%;" />
+          </label>
+          <button type="button" id="srLookupBtn">Lookup</button>
+        </div>
+
+        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-top: 10px;">
+          <label style="flex:1; min-width:260px;">
+            Barcode image:
+            <input type="file" id="srLookupImage" accept="image/*" style="width:100%;" />
+          </label>
+          <button type="button" id="srDecodeImageBtn">Decode Image</button>
+        </div>
+
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top: 10px;">
+          <button type="button" id="srStartCameraBtn">Start Camera</button>
+          <button type="button" id="srStopCameraBtn" disabled>Stop Camera</button>
+          <div id="srLookupStatus" style="color: var(--muted);"></div>
+        </div>
+
+        <div id="srCameraWrap" style="margin-top: 10px; display:none;">
+          <video id="srCameraVideo" playsinline autoplay muted style="width:100%; border-radius: 10px; border: 1px solid var(--border);"></video>
+        </div>
+
+        <pre id="srLookupResult" style="margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); white-space: pre-wrap; word-break: break-word;"></pre>
+      </div>
+
       <form id="filterForm" style="margin-bottom: 18px;">
         <label>Product Type:
           <select id="productType">

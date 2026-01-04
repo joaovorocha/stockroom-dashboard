@@ -27,6 +27,7 @@
         </label>
         <button id="decodeBtn" type="button">Decode QR</button>
         <div id="status" style="margin-top: 10px; color: var(--muted);"></div>
+        <div id="supported" style="margin-top: 8px; color: var(--muted); font-size: 13px;"></div>
       </div>
 
       <div style="margin-top: 14px;">
@@ -34,6 +35,17 @@
         <textarea id="decoded" rows="8" style="width:100%;"></textarea>
         <div style="margin-top: 8px; color: var(--muted); font-size: 13px;">
           If this page says QR decoding is not supported, open it in Chrome/Edge on desktop.
+        </div>
+      </div>
+
+      <div style="margin-top: 14px;">
+        <label style="display:block; margin-bottom: 6px;">Paste EPC / Barcode Text</label>
+        <div style="display:flex; gap:8px; align-items:flex-start; flex-wrap:wrap;">
+          <textarea id="pasted" rows="3" style="flex:1; min-width:260px;"></textarea>
+          <button id="usePasteBtn" type="button">Use Pasted</button>
+        </div>
+        <div style="margin-top: 6px; color: var(--muted); font-size: 13px;">
+          You can paste an EPC string or the decoded text from a DataMatrix.
         </div>
       </div>
     </main>

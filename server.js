@@ -117,20 +117,36 @@ app.use((req, res, next) => {
   const method = (req.method || 'GET').toUpperCase();
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return next();
 
-  const host = req.get('host');
+  // IMPORTANT: When running behind a TLS-terminating proxy, Express may see the request as HTTP
+  // while the browser sends Origin/Referer as HTTPS. Validate by host instead of scheme.
+  const expectedHost = ((req.get('x-forwarded-host') || req.get('host') || '').toString().split(',')[0] || '').trim();
   const origin = (req.get('origin') || '').toString();
   const referer = (req.get('referer') || '').toString();
-  const expected = `${isRequestSecure(req) ? 'https' : 'http'}://${host}`;
+
+  function getHostFromUrl(urlStr) {
+    try {
+      const u = new URL(urlStr);
+      return (u.host || '').toString();
+    } catch (_) {
+      return '';
+    }
+  }
 
   // Prefer Origin when present.
   if (origin) {
-    if (origin !== expected) return res.status(403).json({ error: 'Invalid origin' });
+    const originHost = getHostFromUrl(origin);
+    if (!originHost || originHost !== expectedHost) {
+      return res.status(403).json({ error: 'Invalid origin' });
+    }
     return next();
   }
 
   // Fall back to Referer if Origin is absent.
   if (referer) {
-    if (!referer.startsWith(`${expected}/`)) return res.status(403).json({ error: 'Invalid referer' });
+    const refererHost = getHostFromUrl(referer);
+    if (!refererHost || refererHost !== expectedHost) {
+      return res.status(403).json({ error: 'Invalid referer' });
+    }
   }
   return next();
 });

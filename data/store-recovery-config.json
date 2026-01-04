@@ -1,0 +1,17 @@
+{
+  "baseUrl": "https://printlabel.tst.suitapi.com/",
+  "authType": "apiKey",
+  "headerName": "x-api-key",
+  "apiKey": "",
+  "oauthDomain": "",
+  "oauthTokenUrl": "",
+  "oauthClientId": "",
+  "oauthClientSecret": "",
+  "oauthResource": "",
+  "oauthScope": "",
+  "oauthGrantType": "",
+  "oauthCountryCode": "",
+  "decodedText": "H4sIAAAAAAAEAAFpAJb/QFMyQ3N1aXRzQXBpX2NsaWVudFNlY3JldD1AJMKbwr7CicKqVsKPwqvDlsK6w4XDsW7DosKvwrjDicOlwpfDisKmw4bChsKVwpvDlsOWw6J2w5trd2nCsMOawqXCvsOAw6bCg8Oaw5Y2lyu/RmkAAAA=",
+  "updatedAt": "2026-01-04T01:28:07.355Z",
+  "updatedBy": "Victor Rocha"
+}
