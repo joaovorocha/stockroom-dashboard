@@ -87,8 +87,10 @@ function defaultConfig() {
 
     squelch: 0,
     squelchDelay: 1,
-    vadThreshold: 0.03,
-    hangoverMs: 800,
+    // Slightly higher threshold reduces false triggers/CPU on noisy inputs.
+    vadThreshold: 0.04,
+    // Slightly shorter hangover reduces segment length and ASR work.
+    hangoverMs: 600,
     model: 'tiny',
     device: 'cpu',
     computeType: 'int8',

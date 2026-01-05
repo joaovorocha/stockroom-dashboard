@@ -1,6 +1,6 @@
 {
   "date": "2026-01-04",
-  "savedAt": "2026-01-04T01:59:02.032Z",
+  "savedAt": "2026-01-04T23:59:05.147Z",
   "source": "scheduler",
   "summary": {
     "avgAccuracy": 99.7,
@@ -8,26 +8,12 @@
   },
   "employees": [
     {
-      "name": "Ivan Ramos",
-      "location": "San Francisco",
-      "accuracy": 99.8,
-      "missedReserved": 0,
-      "countsDone": 1,
-      "rankAccuracy": 1,
-      "rankCounts": 3,
-      "rankMissing": 1,
-      "employeeId": "ivannn1234",
-      "id": "boh-002",
-      "type": "BOH",
-      "imageUrl": "/user-uploads/user-017_1766531566613.jpeg"
-    },
-    {
       "name": "Daniel iraheta",
       "location": "San Francisco",
       "accuracy": 99.8,
-      "missedReserved": 6,
+      "missedReserved": 1,
       "countsDone": 3,
-      "rankAccuracy": 2,
+      "rankAccuracy": 1,
       "rankCounts": 1,
       "rankMissing": 3,
       "employeeId": "daniel",
@@ -36,13 +22,27 @@
       "imageUrl": null
     },
     {
-      "name": "Daniel Valdez",
+      "name": "Ivan Ramos",
       "location": "San Francisco",
-      "accuracy": 99.5,
+      "accuracy": 99.8,
       "missedReserved": 0,
       "countsDone": 2,
-      "rankAccuracy": 3,
+      "rankAccuracy": 2,
       "rankCounts": 2,
+      "rankMissing": 1,
+      "employeeId": "ivannn1234",
+      "id": "boh-002",
+      "type": "BOH",
+      "imageUrl": "/user-uploads/user-017_1766531566613.jpeg"
+    },
+    {
+      "name": "Daniel Valdez",
+      "location": "San Francisco",
+      "accuracy": 99.6,
+      "missedReserved": 0,
+      "countsDone": 1,
+      "rankAccuracy": 3,
+      "rankCounts": 3,
       "rankMissing": 1,
       "employeeId": "danielv",
       "id": "boh-004",

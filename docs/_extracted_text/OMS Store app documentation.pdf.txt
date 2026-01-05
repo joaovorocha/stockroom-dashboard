@@ -1,0 +1,2066 @@
+•  Home 
+
+• 
+
+• 
+
+• 
+
+• 
+
+• 
+
+››Manhattan Active® Omni 
+
+››Store 
+
+››Process & Configuration Guides 
+
+››Store Common 
+
+››Store RFID 
+
+Store RFID 
+
+Last updated:  06/30/2025 
+
+•  Overview 
+
+•  Handheld 
+
+•  Overhead 
+
+•  Enablement 
+
+•  Tagged and Non-Tagged Items 
+
+•  Multiple Organization 
+
+•  Cross Organization 
+
+•  Handheld 
+
+•  RFID Reader Settings 
+
+•  Bluetooth RFID Reader Management 
+
+•  RFID Reader Trigger Behavior 
+
+•  Pickup Orders 
+
+•  Shipment Orders 
+
+•  Receiving 
+
+•  Store Count 
+
+•  Pullback/Transfer 
+
+•  Pullback/Transfer - Locate Item 
+
+  
+•  Store-Initiated Transfer 
+
+•  Adjust Inventory 
+
+•  Replenishment 
+
+•  Picking - Locate Item 
+
+•  View Inventory 
+
+•  View Inventory - Locate Item 
+
+• 
+
+Inventory Runner - Product Requests - Locate Item 
+
+•  Encode RFID Tags 
+
+•  Unit Inventory Outbound Events 
+
+•  Exceptions 
+
+•  Custom Update - Unit Inventory 
+
+•  Life Cycle of Unit Inventory 
+
+•  Unit Inventory UI 
+
+•  Overhead 
+
+•  Overhead Events 
+
+•  Overhead Receiving 
+
+•  Store Count 
+
+•  Pick Path Optimization 
+
+•  View on Map 
+
+•  Clustering 
+
+•  Phased RFID Enablement 
+
+•  Order Lookup to support RFID tag-based Returns 
+
+•  Decode Custom EPC Tags 
+
+•  Configuration 
+
+•  Handheld Configuration 
+
+•  Overhead Configuration 
+
+•  Order Lookup to support RFID tag-based Returns Config 
+
+•  Order Lookup to support orders shipped from DC with an EPC 
+
+•  RFID Reader Setting Configuration 
+
+•  Enable Outbound events 
+
+•  Tag Decode Configuration 
+
+•  Troubleshooting 
+
+•  Custom Screens 
+
+•  Custom Devices 
+
+•  Unit Inventory Events 
+
+•  UIs and Entities 
+
+Overview 
+
+Handheld 
+
+Through integration with handheld Radio Frequency Identification (RFID) readers, some 
+Store Inventory and Fulfillment operations can be performed using unit-level RFID tags 
+where item barcodes would traditionally be scanned. When a supported flow is enabled for 
+RFID and the reader is connected, a green RFID indicator appears at the top of the screen 
+to notify the user that the flow is operating in RFID mode. These unit-level RFID tags must 
+follow GS1's Serialized Global Trade Identification Number (SGTIN) standard and have 96-
+bits of memory. 
+
+Configuration determines whether a particular flow (i.e., receiving, packing, etc.) should 
+operate in RFID mode. The Store application supports three pre-defined antenna strengths 
+- short, medium and long. For flows that are enabled, a default antenna strength is 
+configured since for some flows a long read range is desired so the maximum number of 
+tags can be read whereas for other flows a shorter range is desired to prevent unwanted 
+tags from being read. Based on permissions, associates can temporarily change the 
+antenna strength within a flow. The temporary override is reset back to the default once 
+they log out of the application. The antenna strength associated with the short, medium 
+and long levels are defined as 5 dBm, 27 dBm and 30 dBm, respectively. If you wish to 
+adjust the out-of-the-box strengths to different values, contact Manhattan support. 
+
+Zebra handheld readers that are certified with Store Apple and Android devices are 
+connected through Bluetooth. Refer to the Certified Technology page for additional 
+information. Custom handheld readers are also supported. 
+
+When RFID is enabled, a record exists for each unit in the Unit Inventory table. 
+
+Note: For customers using Apple devices with handheld readers, the devices must be 
+running iOS / iPadOS 14 or greater. The Store application asks permission to communicate 
+with an RFID reader over Bluetooth when it is first launched for use 
+
+Note: Store RFID supports up to 50,000 units per store across 1000 stores in the network. 
+
+These are the statuses which an EPC can have in the Unit Inventory table: 
+
+• 
+
+InBound: When an item is shipped to a store as part of a shipment for a customer 
+order or as store stock but has not yet been received. 
+
+•  Pending Receipt: Designates a tag which has been read by an overhead reader and 
+matched to an inbound ASN. Applicable only for stores with overhead readers. 
+
+•  Available: The unit exists in the store and is not reserved for a customer order or 
+
+missing. 
+
+•  Reserved: The unit exists in the store but has been associated with a 
+
+customer, pullback or transfer order. 
+
+•  Missing: If an available item unit is found to be missing during a store count, the 
+
+status of the unit is updated to missing. InBound units are also updated to Missing 
+status if the package they belong to is marked as missing. 
+
+•  Departed: The unit status is updated to departed once the ship event occurs for 
+ship to address, pullback or transfer orders, after pickup has occurred for pickup 
+orders, or after Point of Sale records a sale. 
+
+•  Unexpected: This status is used to denote new tag reads from processes such as 
+
+Store Count or Overhead that do not already exist in the store. New tags read during 
+an initial store load are updated to "Available" status once the count is submitted. 
+New tags read by other processes such as store count or overhead remain in 
+"Unexpected" status until they are read during a functional process such as picking, 
+packing, point of sale, etc. 
+
+•  Removed: The unit status is updated to "Removed" when a unit is adjusted using 
+
+a subtraction adjustment type. 
+
+Purge 
+
+Unit Inventory records in "Missing" status, which are untouched for 30 days, are purged. 
+
+Unit Inventory records in "Departed" or "Removed" statuses, which are untouched for 
+7 days, are purged. 
+
+Overhead 
+
+In addition to the handheld-based RFID functionality described above, stores with 
+overhead RFID readers can leverage those readers to: 
+
+•  Store count - Automatically consider units which were recently detected by 
+
+overhead reader as counted 
+
+•  Receive inventory - Overhead readers can be used to "pre-receive" inventory for a 
+store associate to review, reducing the reliance handheld readers to get inventory 
+into the store. 
+
+•  View Inventory on Map - Display all units of an item on a map of the store based on 
+
+coordinates sent by the overhead reader. 
+
+•  Pick path optimization - Calculate the best pick path sequence for a picklist based 
+on unit coordinates sent by the overhead reader. The associate can view a map 
+which shows the travel sequence. 
+
+For more details on how the Store application can work with overhead RFID readers, please 
+refer to the Overhead RFID - Pick Path Optimization & View Inventory section. 
+
+Note: If overhead functionality is used, it must be used in conjunction with handheld flows 
+since not every flow is enabled for overhead readers. 
+
+Enablement 
+
+If the RFID configuration is enabled for a store function (see Configuration section below), 
+the store operates in RFID mode. If RFID is enabled for a flow (such as packing or 
+receiving), in most occassions store associates must capture unit-level uniqueness by 
+either reading the RFID tag, scanning the Electronic Product Code (EPC) barcode or 
+scanning the SGTIN barcode. Barcodes which only have item-level uniqueness (i.e., item 
+ID, UPC, EAN, GTIN-14) are not allowed in order to retain integrity in the Unit Inventory 
+database.  
+
+The GTIN-14 (Global Trade Identification Number) must also be defined in the Item Master 
+for each item. One GTIN-14 value should be defined for each unique UPC (or EAN) barcode 
+that is tied to the item. For example, 
+
+• 
+
+• 
+
+If item ID 123 has only one associated UPC barcode 012345678905 that is defined 
+in the Item Codes entity, then one GTIN-14 value should be defined in the Item 
+Codes entity and would have value 00012345678905 (UPC plus 2 preceding zeros to 
+convert to a 14-digit number.) 
+
+If item ID 456 has two associated EAN barcodes (5701234567899 and 
+5712234567899), then one GTIN-14 value must be defined for each EAN value in the 
+Item Codes entity (with values 05701234567899 and 05712234567899, 
+respectively, to convert the 13-digit EANs to 14-digit GTIN-14s.) 
+
+Tagged and Non-Tagged Items 
+
+Store functions which can be enabled for RFID such as (picking, packing, pullbacks, etc.) 
+expect that all items in the store are RFID tagged, unless the function is specifically 
+mentioned in the list below. The functions below reference the "Is RFID Tagged" attribute in 
+the Item Master. If the attribute is set to true and RFID is configured for the function, the 
+function operates in RFID mode for that item. Items which are marked as true must have a 
+GTIN-14 value defined in the Item Code or Manufacturing entity. 
+
+If the attribute is set to false or null, these functions treat the item as non-RFID tracked. 
+
+Note that if the attribute is set to true, all units of the item must be tagged. 
+
+•  Receiving - Supports receipt of both RFID tagged and non-tagged items. 
+
+See below for further information. 
+
+•  Store count - Supports stores with a mixture of tagged and non-tagged items. Store 
+Counts sends supply updates for all those units which have an RFID tag on and 
+whose item masters have the required GTIN14 configuration in place, irrespective of 
+whether they have the Is RFID Tagged attribute true or false. See below for further 
+information. 
+
+•  Adjust inventory - Supports both RFID tagged and non-tagged items. See below for 
+
+further information. 
+
+Note: When a unit's information is persisted in the unit inventory table, the characters in 
+the EPC are persisted in the same case as read. If the EPC contains lowercase, it is read as 
+lowercase and persisted as lowercase in the unit inventory table and vice versa. It is also 
+expected that the case should be the same between the physical tag and the record stored 
+in the unit. Any external feeds to unit inventory, if any, should also be in the same case.  
+
+Multiple Organization 
+
+•  Org Column in Unit Inventory table -  The Org that to use to populate an EPC’s record 
+in unit inventory table is either updated from the org in the user’s context or with the 
+parent org that is configured for location ID in the user’s context. 
+
+•  Unit Inventory MUP UI - If a superuser signs in at parent (brand)level, the EPC can be 
+
+seen by manually changing the org value in the MUP UI dropdown. 
+
+Cross Organization 
+
+Stores can ship the ship to store orders, Pullback orders, and Store-initiated transfer orders 
+from one organization's location to another organization's location.  
+
+Refer to the shipping process guide for additional information.  
+
+Refer to the process guide for additional information about the cross-organization feature. 
+
+Handheld 
+
+RFID Reader Settings 
+
+Manhattan Active® Omni allows retailers to pass certain RFID reader settings to the reader 
+during RFID flows. Below is the list of RFID settings that can be passed by the Store 
+application: 
+
+•  Link Profile Index 
+
+•  Session 
+
+•  Tag Population 
+
+• 
+
+Inventory State 
+
+•  SL Flag 
+
+•  Dynamic Power 
+
+Out of the box base values are provided as seed data which should work well in most RFID 
+environments. These settings can be configured at the device type (i.e., RFD8500, RFD40) 
+or RFID flow ID level (i.e., Packing, Adjust Inventory, Store Count, etc.) The base seed data 
+applies to all device types and flow IDs. 
+
+Refer to the configuration section for more details. 
+
+Bluetooth RFID Reader Management 
+
+Store associates can use the Store app to manage the Bluetooth RFID readers that they 
+use. They can view details of the connected RFID reader, connect to a reader and 
+
+disconnect from the currently connected reader. The Bluetooth readers must be previously 
+paired to the device to enable the Store app to connect to them. 
+
+View Connected Device Details 
+
+On accessing an RFID-enabled function, if a connection to a Bluetooth reader 
+is successfully established, a green RFID indicator is displayed at the top of the UI. When a 
+store associate taps on an active connection (green RFID indicator), the details of the 
+connected reader including the device name, model, current read range and battery 
+level are displayed. Users can adjust the currently configured reader range (antenna 
+strength) by tapping on the "ADJUST RANGE" button. Store associates can view the 
+connected device details even when the RFID reader is in the barcode mode. When the 
+reader is in barcode mode, the range cannot be adjusted. 
+
+Connect and Disconnect 
+
+Store associates can tap on the "AVAILABLE DEVICES" button to manage the Bluetooth 
+RFID readers. If a reader is already connected, it is displayed at the top of the list. Reader 
+names are displayed as the first seven characters of the device model, followed by the last 
+four characters of the device's serial number. Store associates can disconnect from the 
+currently connected reader or connect to a reader. If the device is connected to a reader 
+and the user wishes to switch to another reader, it is not necessary to disconnect from the 
+first reader. The user can directly connect to the second reader. 
+
+On Android devices, all previously paired RFID readers are listed in the "AVAILABLE 
+DEVICES" popup. If the store associate tries to connect to a reader which is currently 
+unavailable (i.e., out of range or powered off), an error message is displayed. On 
+iOS/iPadOS devices, only the readers which are currently connected to the OS and are 
+available to be connected are displayed in the list. 
+
+If the device's screen locks and the associate unlocks the device before the Store app 
+times out, when returning to the Store app the device automatically attempts to reconnect 
+as follows: 
+
+•  For Android, the device will attempt to reconnect to the same reader. 
+
+•  For Apple, the device will attempt to reconnect, but it may not be the same reader 
+that they were just connected to based on the way that the Apple OS prioritizes the 
+reader list. 
+
+If a reader is not actively connected, a red RFID (inactive) indicator is displayed. The store 
+device's Bluetooth needs to be on to enlist the available readers to the user. When a store 
+
+associate taps on an inactive connection (red RFID indicator), a message is displayed if the 
+device's Bluetooth is not enabled. 
+
+"ADJUST RANGE", "AVAILABLE DEVICES", "CONNECT", and "DISCONNECT" user actions are 
+protected by permission. Refer to the Store Common UI Resources for more information. 
+
+Sublocations 
+
+RFID-enabled stores can count and track their inventory by sublocation. Sublocation 
+examples are sales floor, back room and off-site storage. Each of the RFID functions can be 
+configured with a default sublocation that is automatically stamped on a unit when an RFID 
+function is executed. The default sublocation for each function is explained in the 
+respective sections below. Refer to the configuration section for details on how to 
+configure a default.  
+
+For stores that track inventory by sublocation, the View Inventory UI obtains some data 
+from the Unit Inventory table rather than Inventory Supply. Refer to the View Inventory 
+process guide for additional information. 
+
+RFID Reader Trigger Behavior 
+
+For all SIF handheld flows except Store Count, tags are read while the reader's RFID trigger 
+is pulled. Once the trigger is released, the reader stops reading and sends the tags it has 
+read to the Store application. 
+
+For Store Count, the user pulls and releases the trigger to begin reading tags. Tags are read 
+until the trigger is pulled again which stops the reader. While the reader is reading tags, 
+it sends those tags to the Store application. 
+
+Pickup Orders 
+
+Store associates can perform picking of pickup orders by reading tags with a handheld 
+RFID reader instead of by scanning item barcodes. Tags read during picking are decoded to 
+determine which item is being picked. However, EPC IDs are not captured during picking 
+but are instead captured as part of a separate capture EPC process. Refer to the Picking 
+Process and Capture RFID Tags guides for additional information, as well as 
+the Configuration section below. 
+
+Default Sublocation 
+
+If a default sublocation is configured for the Picking - Prepare Pickups flow, it is updated 
+for units processed via the RFID Capture Tags process. Refer to the configuration section 
+for additional information on setting up the default sublocation. 
+
+Shipment Orders 
+
+The picking and packing of shipment orders can be performed by reading tags with a 
+handheld RFID reader instead of by scanning item barcodes. Tags read during picking are 
+decoded to determine which item is being picked. However, EPC IDs are not captured 
+during picking but are instead captured during packing. Refer to the Picking 
+Process and Packing process guides for additional information, as well as 
+the Configuration section below. 
+
+Default Sublocation 
+
+If a default sublocation is configured for the Packing flow, it is updated for units processed 
+via RFID packing. Refer to the configuration section for additional information on setting up 
+the default sublocation. 
+
+Receiving 
+
+Store associates can receive packages for store inventory or customer ship to store orders 
+using a handheld RFID reader. Refer to the Receiving process guide for additional 
+information about RFID-based receiving as well as the Configuration section below. 
+
+Default Sublocation 
+
+If a default sublocation is configured for the receiving flow, it is updated for units processed 
+via RFID receiving. Note that a single default value exists for receipt of both customer 
+orders and store inventory. Refer to the configuration section for additional information on 
+setting up the default sublocation. 
+
+Store Count 
+
+Store associates can count inventory in the store using handheld RFID readers and can 
+also leverage overhead readers if the present in the store. Refer to the Store Count guide for 
+additional information about RFID-based store count as well as the Configuration section 
+below. 
+
+Counting By Sublocation 
+
+With this feature, inventory can be tracked and counted within predefined areas (or 
+sublocations) of the store. If sublocations are defined in the store, the Store count UI 
+displays a list of sublocations for the user to select where they are counting. Counting by 
+sublocation is used in conjunction with Replenishment functionality. 
+
+Refer to the configuration section for additional information. 
+
+Default Sublocation 
+
+The sublocation is updated based on the sublocation that the user is counting. A default 
+sublocation configuration does not exist for store count.  
+
+Pullback/Transfer 
+
+Store associates can pack pullback/transfer orders using a handheld RFID reader.  Refer to 
+the Pullback/Transfer process guide for additional information about RFID-based 
+pullback/transfer order packing as well as the Configuration section below. 
+
+Pullback/Transfer - Locate Item 
+
+Store associates can utilize a handheld RFID reader if they need assistance locating an 
+item during Pullback/Transfer order packing. Based on permissions, a Locate Item action in 
+Pullback/Transfer order details UI directs the user to the closest unit of an item based on 
+their current location. Visual and audible indicators increase or decrease depending 
+on whether the user is moving closer or farther from the unit. A permission-controlled "next 
+tag" action allows the associate to find another unit of the same item which directs them to 
+the next closest tag based on their current location. 
+
+The "Locate Item” feature offers two modes: single tag mode and multi-tag mode. 
+
+Once the user initiates the Locate item function, the reader first searches for eligible tags 
+within its range 
+
+  . This is referred to as multi-tag mode and is accompanied by a rapid beeping sound. Once 
+at least one tag is found, the reader locks onto the tag with the strongest signal and begins 
+showing the percentage from 0 to 100%. This is referred to as single tag mode and is 
+accompanied by a slower-paced beep that changes in frequency as the signal percentage 
+increases (faster) or decreases (slower.). 
+
+Note : Tags that exist in the Unit Inventory table in any other status other than "Departed" 
+are eligible for locate item. 
+
+ Refer to the Configuration section below for more information as well as the Pullbacks & 
+Transfers process guide and for grants refer to Store Inventory Management. 
+
+ page. 
+
+Default Sublocation 
+
+If a default sublocation is configured for the pullbacks/transfers flow, it is updated for units 
+processed via RFID pullbacks and transfers. Refer to the configuration section for 
+additional information on setting up the default sublocation. 
+
+ 
+Store-Initiated Transfer 
+
+Store associates can pack store-initiated orders using a handheld RFID reader. Refer to 
+the Store-Initiated Transfer process guide for additional information about RFID-based 
+store-initiated transfer order packing as well as the Configuration section below. 
+
+Default Sublocation 
+
+If a default sublocation is configured for the store-initiated transfer flow, it is updated 
+for units processed via RFID store-initiated transfers. Refer to the configuration section for 
+additional information on setting up the default sublocation. 
+
+Adjust Inventory 
+
+Store associates can adjust store inventory using a handheld RFID reader. Refer to 
+the Adjust Inventory process guide for additional information about RFID-based inventory 
+adjustment as well as the Configuration section below.  
+
+Default Sublocation 
+
+If a default sublocation is configured for the inventory adjustments flow, it is updated 
+for units processed via RFID Adjust Inventory. Refer to the configuration section for 
+additional information on setting up the default sublocation. 
+
+Replenishment 
+
+With Replenishment functionality, stores that track inventory at the sublocation level can 
+automatically generate activities to replenish the front selling area. Configuration defines 
+the minimum number of units which should be present for an item in the store's selling 
+area. If the inventory drops below this level and the item exists in the non-selling backroom 
+area, a replenishment activity is created. 
+
+Store associates use a UI to view the list of items and quantities to replenish to the selling 
+area. Movements are completed using a handheld RFID reader.  
+
+Note: The store must count and track inventory at the sublocation level in order to use 
+replenishment functionality. 
+
+Refer to the Replenishment guide as well as the Store Count by 
+Sublocation and configuration sections of this document for more information. 
+
+Default Sublocation 
+
+The sublocation is updated based on the to sublocation of the replenishment tasks. There 
+is no default sublocation configuration.  
+
+Picking - Locate Item 
+
+Store associates can utilize a handheld RFID reader if they need assistance locating an 
+item during customer order picking. Based on permissions, a Locate Item action in Prepare 
+Pickups and Prepare Shipments directs the user to the closest unit of an item based on 
+their current location. Visual and audible indicators increase or decrease depending 
+on whether the user is moving closer or farther from the unit. A permission-controlled "next 
+tag" action allows the associate to find another unit of the same item which directs them to 
+the next closest tag based on their current location. 
+
+The "Locate" feature offers two modes: single tag mode and multi-tag mode. 
+
+Once the user initiates the Locate item function, the reader first searches for eligible tags 
+within its range. This is referred to as multi-tag mode and is accompanied by a rapid 
+beeping sound. Once at least one tag is found, the reader locks into the tag with the 
+strongest signal and begins showing the percentage from 0 to 100%. This is referred to as 
+single tag mode and is accompanied by a slower paced beep that changes in frequency as 
+the signal percentage increases (faster) or decreases (slower.) 
+
+Note: Tags that exist in the Unit Inventory table in any status other than "Departed" are 
+eligible for Locate Item. 
+
+Refer to the Configuration section below for more information as well as the Picking 
+process guide. 
+
+View Inventory 
+
+Store associates can utilize a handheld RFID reader to select an item's inventory to view 
+instead of scanning a barcode. 
+
+Refer to the Configuration section below for more information as well as the View 
+Inventory process guide. 
+
+View Inventory - Locate Item 
+
+Store associates can utilize a handheld RFID reader if they need assistance locating an 
+item in the store. Based on permissions, a Locate Item action in View Inventory directs the 
+user to the closest unit of an item based on their current location. Visual and audible 
+indicators increase or decrease depending on whether the user is moving closer or farther 
+from the unit. A permission-controlled "next tag" action allows the associate to find 
+another unit of the same item which directs them to the next closest tag based on their 
+current location. 
+
+The "Locate" feature offers two modes: single tag mode and multi-tag mode. 
+
+When user selects the locate item to find the inventory of an item, reader searches for tags 
+in multi-tag mode with rapid beeping sound. Once it has locked the targeted item unit 
+(EPC), it enters into the single tag mode, accompanied by a slower pace beeping 
+sound. . The search progress indicator then increases from 0% to 100%. 
+
+Note: Up to 100 tags can be located for an item. Tags except in the "Departed" status are 
+eligible to be located. 
+
+Refer to the Configuration section below for more information as well as the View 
+Inventory process guide. 
+
+Refer to the permissions required to enable this feature for a user. 
+
+Inventory Runner - Product Requests - Locate Item 
+
+Store associates can utilize a handheld RFID reader if they need assistance locating an 
+item in the store. Based on permissions, a Locate Item action in the Product Requests list 
+and details UIs directs the user to the closest unit of an item based on their current 
+location. Visual and audible indicators increase or decrease depending on whether the 
+user is moving closer or farther from the unit. A permission-controlled "next tag" action 
+allows the associate to find another unit of the same item which directs them to the next 
+closest tag based on their current location. 
+
+The "Locate" feature offers two modes: single tag mode and multi-tag mode. 
+
+When the user selects the locate item to find the inventory of an item, the reader searches 
+for tags in multi-tag mode with a rapid beeping sound. Once it has locked the targeted 
+item unit (EPC), it enters into the single tag mode, accompanied by a slower-paced beeping 
+sound. The search progress indicator then increases from 0% to 100%. 
+
+Note: Up to 100 tags can be located for an item. Tags except the "Departed" status are 
+eligible to be located. 
+
+Refer to the configuration section below for more information as well as the Product 
+Requests guide.  
+
+Refer to the permissions required to enable this feature for a user. 
+
+Encode RFID Tags 
+
+For situations in which a unit for an item which is RFID tracked arrives at a store untagged 
+or the tag becomes lost or damaged, the “Encode RFID Tags” functionality can be used to 
+encode and apply a new RFID tag to such units. 
+
+Default Sublocation 
+
+There is no default sublocation updated during the encode RFID process. The user can 
+choose the sublocation from a dropdown in the encode RFID tags screen. Refer to 
+the Encode RFID Tags page for more details on the process, configuration and permissions. 
+
+Unit Inventory Outbound Events 
+
+Retailers can enable outbound events which are triggered when an update is made to the 
+Unit Inventory table for use by their own systems or custom requirements. A configurable 
+change detection template defines which columns trigger the outbound event. 
+
+Refer to the Enable Outbound Events section below for more information. 
+
+Exceptions 
+
+If a unit-level tag is damaged or missing or the RFID reader is not available, the EPC ID or 
+SGTIN can be scanned by the associate if the barcode is present on the RFID tag. 
+
+The unit inventory entity discards the events update if the event's last read date and time is 
+older than the current last read date and time on the unit status. For instance, the unit was 
+shipped at 11:30 AM after being packed at 11:01. While the ship event successfully 
+changed the unit status from "Available" to "Departed" and updated the last read date and 
+time to 11:30 AM, the pack event was stuck in the queue. The unit has already been 
+updated with the most recent event, thus the pack event updates are ignored. 
+
+Custom Update - Unit Inventory 
+
+Retailers can update the unit inventory records via a custom process. For example, if the 
+retailers are using a custom point of sale and need to update a record in the unit inventory 
+after a counter sale, they can do it by using a custom process. 
+
+In the custom process, send a request to the base Store-RFID component to 
+add/update unit inventory.  
+
+The Store application does not validate the status of the unit (EPC) when custom updates 
+are sent from an external system, For example, if an update is sent for a tag that is already 
+in the reserved or departed status, there wont be any errors thrown and the update will be 
+successful. 
+
+Mandatory fields when sending the custom request. 
+
+•  EPC ID/SGTIN ID: Either send EPC ID or SGTIN ID in the request. 
+
+•  Location ID: Store or Location ID where the unit is currently present. 
+
+• 
+
+Item ID: The name of the item that is associated with the EPC/SGTIN. 
+
+•  Event: The event that triggers to add/update records in the Unit Inventory. Such as 
+
+pack event, ship event, receive event, etc. 
+
+•  Event time: Last time when a Unit (RFID tag) was read. 
+
+Note: Custom events are not supported.  
+
+Refer to ProActive documentation to know more about the custom process. 
+
+Life Cycle of Unit Inventory 
+
+The table below shows how the status and location of a unit can change over time: 
+
+Scenarios 
+
+Unit ID 
+
+Status 
+
+Store replenishment ASN from DC created for Store 1 and includes the list of EPCs 
+
+EPC 1 
+
+InBound 
+
+Tag read by overhead reader and pre-matched to a pending ASN for store 1 (only 
+applicable for stores with overhead readers) 
+
+EPC 1 
+
+Pending Receipt 
+
+Receive in Store 1 
+
+Pack unit in a customer shipment order 
+
+Ship the customer shipment order 
+
+EPC 1  
+
+Available 
+
+EPC 1 
+
+Reserved 
+
+EPC 1 
+
+Departed 
+
+Customer returns the unit to the store (assume return is setup to go back to Available) 
+
+EPC 1 
+
+Available 
+
+Pack unit in a ship to store order to Store 2 
+
+EPC 1  
+
+Reserved 
+
+Ship the ship to store order 
+
+Package marked as missed during receiving 
+
+EPC 1  
+
+InBound 
+
+EPC 1  Missing 
+
+Package was found a few days later and received in Store 2 
+
+EPC 1 
+
+Available 
+
+Scenarios 
+
+Pack unit in a store-initiated transfer to Store 3 
+
+Ship the store-initiated transfer 
+
+Receive in Store 3 
+
+Unit ID 
+
+Status 
+
+EPC 1 
+
+Reserved 
+
+EPC 1 
+
+InBound 
+
+EPC 1 
+
+Available 
+
+Pack for a pullback order (Destination location is Warehouse) 
+
+EPC 1 
+
+Reserved 
+
+Ship the pullback order 
+
+Unit Inventory UI 
+
+EPC 1 
+
+Departed 
+
+Corporate users or admins with necessary permissions can view records in the Unit 
+Inventory UI for investigation or troubleshooting of a unit-level tag. Users can filter by EPC, 
+SGTIN, store, item ID and inventory status. Details including the status, fulfillment ID, 
+package Id, last store event, disposition, last read date/time and coordinates are shown. 
+
+This menu is controlled by a permission. Refer to the Store Common UI Resources page for 
+additional information. 
+
+Overhead 
+
+The Store application can integrate with third-party overhead RFID solution providers. This 
+integration can yield significant benefits to store operations. For more information on how 
+to enable the overhead RFID integration, refer to the Overhead Configuration section 
+below. 
+
+Overhead Events 
+
+The overhead RFID solution sends information about each unit’s latest location in the 
+store. This unit-level EPC information is regularly passed on to Manhattan Active Omni 
+where it is processed and stored.  
+
+Below are the key RFID Unit Inventory attributes related to overhead: 
+
+•  X Coordinate - X coordinate value of location of the unit 
+
+•  Y Coordinate - Y coordinate value of location of the unit 
+
+•  Zone ID - Reference Zone ID of the location where the unit currently resides. 
+
+Optional. 
+
+•  Confidence - Confidence in the overhead RFID read. The higher the confidence, 
+
+the higher the accuracy of the location coordinates captured by the read. Defaulted 
+to 100 if not supplied in the event. Optional. 
+
+Note: Movement updates for a unit should be sent from the overhead system only if the 
+unit has moved 1 meter or more, and inactivity updates for a unit should be sent no 
+more frequently than every 4 hours. Manhattan Active Omni supports receiving overhead 
+updates for up to 10 million units per hour across all stores in the network. 
+
+Note: Zone ID is optional and is used only for clustering. For plotting the View Inventory 
+Map and the Pick Path Sequence, Manhattan Active® Omni Store Order Fulfillment 
+leverages only the X and Y coordinates received as part of the overhead RFID events. If 
+Zone ID is supplied as part of the overhead RFID events, the retailer's overhead RFID 
+solution provider should ensure its accuracy for clustering to work as expected.  
+
+Overhead Receiving 
+
+As overhead events are received, MAO checks if the tag matches to an expected package 
+receipt for the store (regardless of whether a tag feed is in place.) Matched tags are 
+updated to "PendingReceipt" status and the corresponding package(s) are pre-loaded on 
+the Receiving UI for store associates to review and confirm receipt. Handheld RFID readers 
+can be used to capture any tags that were not detected by the overhead reader. 
+
+Similar to standard handheld receiving, associates have the option to discard any pre-
+loaded packages in the Receive Inventory UI. Any discarded overhead packages will 
+reappear the next time an associate enters the Receive Inventory UI, essentially deferring 
+the receipt until a later time. 
+
+Note: Once tags for the package are detected by overhead, it can take up to 5-10 minutes 
+for the package to appear on the Receiving UI. In the meantime, associates always have the 
+ability to load the package on the UI using a handheld reader. 
+
+Updates 
+
+When an overhead event is received, the tag is updated based on this logic: 
+
+• 
+
+• 
+
+If the tag does not exist in Unit Inventory and matches to an inbound receipt, the 
+record is created and updated to “PendingReceipt” status 
+
+If the tag exists in Unit Inventory in “InBound” status and matches to an inbound 
+receipt, the record is updated to “PendingReceipt” status. 
+
+• 
+
+If the tag does not exist in Unit Inventory and does not match to an inbound receipt, 
+the record is created and updated to “Unexpected” status. 
+
+Refer to the Receiving guide for more information on how the receiving process is 
+completed for tags that are read by overhead readers. 
+
+Store Count 
+
+Refer to the Store Count guide for information on how Store Count can leverage RFID 
+overhead readers. 
+
+Pick Path Optimization 
+
+With overhead data, picking efficiency can be significantly improved since the picklist is 
+generated based on the latest known location of ordered items. The picklist is created 
+with an optimized pick sequence and displays the travel path on a map to the associate. 
+The map contains all the pick locations to be traversed in relation to the starting point, 
+which is configurable. 
+
+Refer to the Picking process guide for more details on how Picking functionality works in the 
+Store application. 
+
+View on Map 
+
+The Picking, View Inventory, and Product Requests UIs allow an associate to view the latest 
+known location of item inventory on a store layout map. This can be used to find the 
+nearest unit of an item, or to locate a unit which isn't where it should be. 
+
+For more details on the View Inventory functionality, refer to its process guide. 
+
+For more details on the Product Requests functionality, refer to its guide.  
+
+Clustering 
+
+Clustering is an optional functionality which groups nearby points together on the map so 
+that they are represented as a single point. This can be helpful in improving readability of 
+the map, especially on handheld devices. When clustering is enabled, it applies to both 
+Picking (pick path optimization) and View Inventory.  
+
+See the clustering example below. Assume the configuration is set to 50 and zone ID is 
+passed in the overhead event. 
+
+Before Clustering 
+
+After Clustering 
+
+•  Point 1 (100, 100) in Zone 1 - 1 
+
+•  Point 1 (100,100) 
+
+unit of Item 1 
+
+•  2 units of Item 1 in Zone 
+
+•  Point 2 (105, 101) in Zone 1 - 1 
+
+1 
+
+unit of Item 1 
+
+•  Point 3 (120, 125) in Zone 1 - 1 
+
+unit of Item 2 
+
+•  Point 4 (135, 145) in Zone 2 - 1 
+
+unit of Item 3 
+
+•  1 unit of Item 2 in Zone 1 
+
+•  Point 2 (135,145) in Zone 2 - 1 
+
+unit of Item3 
+
+As a result of clustering, the number of distinct points on the map are reduced from 4 to 2, 
+which makes the map less cluttered for the store associates. Even though 1 unit of Item 3 
+also falls within the clustering range, it is not aggregated as it lies in a different zone. 
+
+Note: Clustering logic is based on the clustering range that is defined and the unit's zone. If 
+a zone is not passed in the overhead events, clustering can still occur but will cluster solely 
+based on proximity and will not honor zone boundaries. This may lead to items belonging to 
+different zones being clustered together. In the example above, if a zone is not supplied 
+as part of the overhead events, all four points will be clustered as one single point.  
+
+Assumptions 
+
+The following limitations apply to overhead RFID: 
+
+• 
+
+• 
+
+In the Picking UI, pause and resume is only supported on the same device. A 
+paused pick task must not be resumed on another device. 
+
+If a picklist is printed, items are not grouped by pick locations and appear under the 
+"Others" grouping. 
+
+•  The non-RFID Pick Path Optimization capability, detailed here, is not supported 
+
+along with overhead RFID. 
+
+•  Pick to Slot is not supported with overhead RFID. 
+
+•  Once a map is generated, it isn't refreshed. Consequently, it's possible that a unit 
+displayed on the map may not be found if it has been picked by another user or 
+moved by a customer. 
+
+Phased RFID Enablement 
+
+Store count using RFID can be enabled independently from enabling RFID in other store 
+inventory, store fulfillment and point of sale functions. This allows retailers to quickly 
+benefit from the improved accuracy of store counts while rolling out additional RFID-based 
+store functions in parallel in a phased manner as they are ready. Refer to the Store 
+Count guide for additional information. 
+
+In this mode, the expected quantities in store count are obtained from Inventory Supply 
+rather than the Unit Inventory table. In the Unit Inventory table, each unit's status is only 
+updated during store count and has either status "Available" or "Missing". The capture of 
+RFID tags during store operations such as picking, packing, receiving and POS 
+transactions is optional and only occurs once the store has enabled RFID for each of those 
+functions. 
+
+Refer to the configuration section for additional information. 
+
+Order Lookup to support RFID tag-based Returns 
+
+If a retailer intends to support RFID tag based returns, Store RFID has the capability to 
+make a note of the Order IDs when an RFID tagged unit is fulfilled by / sold at a store. When 
+this support is enabled, whenever a "Departed" event is generated for any Pickup at Store, 
+Ship to Store, Ship to Address, Same Day Delivery, or Store Sale orders, the departed 
+unit's RFID tag details are saved along with its Order ID.   
+
+Order lookup for orders fulfilled from DC is also supported. Orders that are shipped from 
+the DC have an EPC ID shared on the ship event. This information is then saved into the 
+fulfillment detail information on the order. Order can be looked up using EPC ID when the 
+order is shipped from the DC in the Order component by using the 
+/order/api/order/fulfillmentevent/receive API. This API allows you to receive fulfillment 
+events, such as the shipment of an order, and update the status of the order and its 
+fulfillment details accordingly. When you receive a shipment event, you can use the EPC ID 
+included in the event to look up (search) the order and its associated fulfillment details. 
+
+Note: Store RFID order lookup capability records only those units which are fulfilled by / 
+sold at an RFID-enabled store or are shipped from DCs. Orders fulfilled by third party 
+vendors are not recorded. 
+
+Tip: Currently, the Manhattan Active suite of Omni channel commerce solutions does not 
+support RFID tag based returns out of the box. Order Lookup capability is, however, 
+available for integration with external applications. 
+
+Additionally, an API is available for integration with external applications, which accepts 
+upto ten returned units' RFID tags' EPC or SGTIN IDs and returns their respective Order IDs. 
+
+The calling application must then integrate with the Order component to confirm if the 
+Order IDs returned by the API are eligible for return and proceed with the return order 
+creation process accordingly.  
+
+Tip: As with any other returns, Store Associates are advised to verify that the customer's 
+details match with those mentioned in the Order fetched using the returned items' RFID tag 
+details. 
+
+All records older than 365 days are purged and RFID tag-based returns cannot be 
+processed for such orders. If the retailer's policy permits returns beyond this period, such 
+returns should be processed using the customer or order details. 
+
+Refer to the configuration section for additional information. 
+
+Refer to configuration of Order Lookup for orders fulfilled from DC: Store RFID 
+(helpdocsonline.com) 
+
+Decode Custom EPC Tags 
+
+The Store application allows retailers to decode tags whose encoding does not follow GS1 
+standards. By defining a regEx pattern and an itemCode offset for decoding the custom 
+EPC/SGTIN, the Store RFID functions can decode the custom encoded tags. 
+
+If the custom decode fails during the decoding process, the system attempts to decode the 
+tag using the base decoding flow (based on GS1 standards.) 
+
+Refer to the Configuration section above to understand more about how the regEx and 
+offset values can be set. 
+
+Note: Encoding using custom encoded is not supported. Only custom tag decoding is 
+supported. 
+
+Note: The custom decode logic supports parsing tags that have a decimal format. Parsing 
+of tags encoded in hexadecimal is not supported. 
+
+Configuration 
+
+Ensure that the purposes listed below have been copied from the base profile to 
+your custom profile. 
+
+Profile purposes to copy from base to 
+custom profile 
+
+sto::storeConfig, srf::rfConfig, 
+dvc::rfidReaders 
+
+The RFID configuration below can be enabled to all stores in the organization, or can be 
+overridden at the store profile type or location level. Refer to this Config UI guide for 
+additional details, and the profile purposes which are listed at the bottom of this page. 
+
+Handheld Configuration 
+
+RFID for Packing 
+
+If this flag is enabled, store associates pack customer shipment orders using handheld 
+RFID readers. The default RFID antenna range for packing is set as "Short", but can be 
+changed if desired. Based on permissions, store associates can also change the default 
+range on the fly.  
+
+The default sublocation is set as null and can be changed to one of the configured 
+sublocations.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default. 
+
+Configuration Name: RFID enabled flows. Flow Name: Packing. The default value is set as 
+false. 
+
+The default Read Range is "Short". Change the read range if needed. 
+
+The default Sublocation is null. It must be configured with one of the configured 
+sublocation values, if subocation is configured. Else leave it blank. 
+
+RFID for Receiving 
+
+If this flag is enabled, store associates can receive using handheld RFID readers. The 
+default RFID antenna range for receiving is set as "Medium", but can be changed if desired. 
+Based on permissions, store associates can also change the default range on the fly.  
+
+The default sublocation is set as null and can be changed to one of the configured 
+sublocations.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default. 
+
+Configuration Name: RFID enabled flows. Flow Name: Receiving. The default value is set as 
+false. 
+
+The default Read Range is "Medium". Change the read range if needed. 
+
+The default Sublocation is null. It must be configured with one of the configured 
+sublocation values, if sublocation is configured. Else leave it blank. 
+
+RFID for Pickup Orders 
+
+If this flag is enabled, store associates can fulfill BOPIS and Same Day Delivery orders 
+using handheld RFID readers. The default RFID antenna range for capturing RFID tags of 
+units picked as part of BOPIS and Same Day Delivery orders is set as "Short", but can be 
+changed if desired. Based on permissions, store associates can also change the default 
+range on the fly.  
+
+The default sublocation is set as null and can be changed to one of the configured 
+sublocations.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default. 
+
+Configuration Name: RFID enabled flows. Flow Name: Picking - Prepare Pickups. The 
+default value is set as false. 
+
+The default Read Range is "Short". Change the read range if needed. 
+
+The default Sublocation is null. It must be configured with one of the configured 
+sublocation values, if sublocation is configured. Else leave it blank. 
+
+RFID for Shipment Orders 
+
+If this flag is enabled, store associates can fulfill shipment orders using handheld RFID 
+readers. The default RFID antenna range for capturing RFID tags of units picked as part 
+shipment orders is set as "Short", but can be changed if desired. Based on 
+permissions, store associates can also change the default range on the fly.  
+
+The default sublocation is set as null and can be changed to one of the configured 
+sublocations.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default. 
+
+Configuration Name: RFID enabled flows. Flow Name: Picking - Prepare Shipments. The 
+default value is set as false. 
+
+The default Read Range is "Short". Change the read range if needed. 
+
+The default Sublocation is null. It must be configured with one of the configured 
+sublocation values, if sublocation is configured. Else leave it blank. 
+
+RFID for Store Count 
+
+If this flag is enabled, store associates can count the store's inventory using handheld RFID 
+readers. The default RFID antenna range for store count is set as "Long", but can be 
+changed if desired. Based on permissions, store associates can also change the default 
+range on the fly.  
+
+The default sublocation is not used for this flow and can be kept as null.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default. 
+
+Configuration Name: RFID enabled flows. Flow Name: Store Count. The default value is set 
+as false. 
+
+The default Read Range is "Long". Change the read range if needed. 
+
+RFID for Pullback/Transfer 
+
+If this flag is enabled, store associates can pack pullback/transfer orders using handheld 
+RFID readers. The default RFID antenna range for pullback/transfer order packing is set as 
+"Short", but can be changed if desired. Based on permissions, store associates can also 
+change the default range on the fly.  
+
+The default sublocation is set as null and can be changed to one of the configured 
+sublocations.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default. 
+
+Configuration Name: RFID enabled flows. Flow Name: Pullback/Transfer. The default value 
+is set as false. 
+
+The default Read Range is "Short". Change the read range if needed. 
+
+The default Sublocation is null. It must be configured with one of the configured 
+sublocation values, if sublocation is configured. Else leave it blank. 
+
+RFID for Store-Initiated Transfers 
+
+If this flag is enabled, store associates can pack store-initiated transfer orders using 
+handheld RFID readers. The default RFID antenna range for store-initiated transfer order 
+packing is set as "Short", but can be changed if desired. Based on permissions, store 
+associates can also change the default range on the fly.  
+
+The default sublocation is set as null and can be changed to one of the configured 
+sublocations.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default. 
+
+Configuration Name: RFID enabled flows. Flow Name: Store Initiated Transfer. The default 
+value is set as false. 
+
+The default Read Range is "Short". Change the read range if needed. 
+
+The default sublocation is null. It must be configured with one of the configured 
+sublocation values, if sublocation is configured. Else leave it blank. 
+
+RFID for Adjust Inventory 
+
+If this flag is enabled, store associates can adjust store inventory using handheld RFID 
+readers. The default RFID antenna range for inventory adjustment is set as "Short", but can 
+be changed if desired. Store associates cannot change the range on the fly. 
+
+The default sublocation is set as null and can be changed to one of the configured 
+sublocations.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default.  
+
+Configuration Name: RFID enabled flows. Flow Name: Adjust Inventory. The default value is 
+set as false. 
+
+The default Read Range is "Short". Change the read range if needed. 
+
+The default sublocation is null. It must be configured with one of the configured 
+sublocation values, if sublocation is configured. Else leave it blank. 
+
+RFID for View Inventory 
+
+If this flag is enabled, store associates can view the item's inventory using handheld RFID 
+readers. The default RFID antenna range for inventory adjustment is set as "Short", but can 
+be changed if desired. Based on permissions, store associates can also change the default 
+range on the fly. 
+
+The default sublocation is not used for this flow and can be kept as null.   
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default.  
+
+Configuration Name: RFID enabled flows. Flow Name: View Inventory. The default value is 
+set as false. 
+
+The default Read Range is "Short". Change the read range if needed. 
+
+The default sublocation is null. It must be configured with one of the configured 
+sublocation values, if sublocation is configured. Else leave it blank. 
+
+Enable decoding of the item's unit barcode 
+
+If this flag is enabled, store associates can scan the Electronic Product Code (EPC ID) 
+or Serialized Global Trade Identification Number (SGTIN) in all SIF UIs which accept item ID 
+(regardless of whether RFID is enabled for the flow.) The Store application decodes the 
+
+inputed EPC or SGTIN value to determine the associated item ID. Enabling this flag can be 
+useful if the EPC ID or SGTIN barcode is printed on the RFID tag in lieu of a UPC barcode, or 
+if the retailer wishes that associates always scan one barcode throughout the application. 
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default.  
+
+Configuration Name: Enable decoding of unit barcode. 
+
+RFID Locate Item for Prepare Pickups 
+
+If this flag is enabled, store associates can use the handheld RFID reader to locate items 
+during picking of Pickup orders. Note that for the locate function, the range is automatically 
+set to the maximum allowed value by Zebra. So the range value for locate functions is not 
+used and can be ignored. 
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default.  
+
+Configuration Name: RFID Locate Item. Flow Name: Picking - Prepare Pickups. The default 
+value is set as false. 
+
+RFID Locate Item for Prepare Shipments 
+
+If this flag is enabled, store associates can use the handheld RFID reader to locate items 
+during picking of Shipment orders. Note that for the locate function, the range is 
+automatically set to the maximum allowed value by Zebra. So the range value for locate 
+functions is not used and can be ignored.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default.  
+
+Configuration Name: RFID Locate Item. Flow Name: Picking - Prepare Shipments. The 
+default value is set as false. 
+
+RFID Locate Item for View Inventory 
+
+If this flag is enabled, store associates can use the handheld RFID reader to locate items 
+requested as part of Inventory Runner - Product Requests. Note that for the locate 
+function, the range is automatically set to the maximum allowed value by Zebra. So the 
+range value for locate functions is not used and can be ignored. 
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default.  
+
+Configuration Name: RFID Locate Item. Flow Name: View Inventory. The default value is set 
+as false. 
+
+RFID Locate Item for Product Requests 
+
+If this flag is enabled, store associates can use the handheld RFID reader to locate items . 
+Note that for the locate function, the range is automatically set to the maximum allowed 
+value by Zebra. So the range value for locate functions is not used and can be ignored. 
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default.  
+
+Configuration Name: RFID Locate Item. Flow Name: Product Requests. The default value is 
+set as false. 
+
+RFID Locate Item for Pullbacks & Transfers 
+
+If this flag is enabled, store associates can use the handheld RFID reader to locate items 
+during packing of Pullbacks & Transfers. Note that for the locate function, the range is 
+automatically set to the maximum allowed value by Zebra. So the range value for locate 
+functions is not used and can be ignored.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default.  
+
+Configuration Name: RFID Locate Item. Flow Name: Pullbacks & Transfers . The default 
+value is set as false. 
+
+Phased RFID Enablement 
+
+This allows a retailer to begin perform RFID store counts before enabling RFID across their 
+other store functions. If this flag is enabled, the expected count for store count is obtained 
+from inventory supply rather than the Unit Inventory table. This flag is intended only for 
+customers who wish to begin using Store Count but do not have all of their store processes 
+enabled for RFID. Once all processes are enabled for RFID, this flag should be disabled so 
+that the typical store count from the Unit Inventory table occurs. 
+
+This configuration is available in the Store RFID Configuration UI and is disabled by default.  
+
+Configuration Name: Load Expected Value From Supply. The default value is set as false. 
+
+Replenishment 
+
+If this flag is enabled, store associates can use the handheld RFID reader to replenish 
+inventory from a non-selling area to a selling area. The default RFID antenna range for RFID 
+Replenishment is set as "Short", but it can be changed if desired. Based on 
+permissions, store associates can also change the default range on the fly.  
+
+The default sublocation is not used for this flow and can be kept as null.  
+
+This configuration is available in the Store RFID Parameters UI and is disabled by default. 
+
+Counting by Sublocation 
+
+If sublocations are defined for the store, Store Count operates in sublocation mode. 
+Sublocations can be created at organization, store or store profile level. When a 
+sublocation is created, a sublocation type ('Selling Area' and 'Non-Selling Area') must be 
+assigned.  
+
+This configuration is available in the sublocation  UI and is disabled by default. 
+
+Overhead Configuration 
+
+Use overhead RFID data to plot Store Inventory on map 
+
+This configuration controls whether the overhead RFID integration is enabled. This flag is 
+available in the Details tab of the Store Fulfillment Parameters and must be enabled to 
+leverage the pick path optimization or view on map functionalities. 
+
+Configuration Name: Use overhead RFID data to plot the Store Inventory on a map. The 
+default value is set as false. 
+
+Store Layout 
+
+To enable the pick path optimization and the view inventory map overhead RFID functions 
+in the Manhattan Active® Omni Store app, every store where these functions are to be 
+enabled should have its layout configured. As a pre-requisite, the store layout configured in 
+MA Omni should be in sync with the overhead reader so that the coordinates relayed by the 
+overhead are in alignment with the layout. There are two ways of defining a store layout in 
+MA Omni. 
+
+Option 1 - Coordinate-based store layout 
+
+A typical store layout consists of zones (sections within a store) where the inventory is 
+present. The shape of a store and its zones are defined by a collection of points indicated 
+by their coordinates. This section explains how a store layout can be configured by defining 
+its coordinates. 
+
+The following are the key attributes defined as part of a store layout: 
+
+•  LocationId - Location ID of the store for which the layout is being defined 
+
+•  StoreLayoutId - Unique identifier of the layout 
+
+•  Zone.ParentZoneId - Defines the nesting of zones which is used to place a zone 
+
+inside another one. A zone without a parent represents the outer layout of a store. 
+Only one zone without a parent is allowed per store. 
+
+•  Zone.Point.XCoordinate - The value of x coordinate which represents a point in the 
+
+zone 
+
+•  Zone.Point.YCoordinate - The value of y coordinate which represents a point in the 
+
+zone 
+
+•  Zone.Point.SequenceNumber - Define the sequence of the points of the zone in a 
+clockwise or counter-clockwise manner, and use the same consistent manner for 
+all zones in the layout. As an example, let's consider a Coats and Jackets zone which 
+extends from A (0, 0), B (200, 0), C (200, 200), and D (0, 200). If you choose to 
+sequence the points in a counter-clockwise direction, the sequence of the points A, 
+B, C, D should be 1, 2, 3, 4. If choosing the clockwise direction, the sequence 
+numbers of the points A, B, C, D should be 1, 4, 3, 2.  
+
+•  ZoneId - Name of the zone which is displayed to the associates on the store layout 
+
+map (i.e., Dressing Room 1, Men's Apparel, etc.) 
+
+Tip: Defining co-ordinate points in multiples of 100 for each unit, helps with better 
+rendering of the map. For example, a store can be setup as A(0,0), B(0,1000), C 
+(1000,1000), D (1000,0). Men's zone can be A (200,0), B (200,200), C (400, 200), D (400,0). A 
+shirt can be located at (250, 100) 
+
+There is no UI to enter Store Layout configuration. Use the POST API below to configure 
+store layouts. 
+
+{{url}}/storerfid/api/storerfid/rfStoreLayout/save 
+
+Refer to the "Set up store layout" page of the Store RFID integration guide in the Manhattan 
+Developer Hub for a sample payload which can be used to create a new Store Layout in the 
+Store application with the help of its coordinates. 
+
+Option 2 - Upload a store layout image 
+
+This section explains how a store layout file can be directly and seamlessly imported into 
+Manhattan Active® Omni. For this functionality to work, the file should adhere to the 
+following guidelines: 
+
+1.  It should be an SVG file with a recommended size of 500 KB and a maximum size of 
+
+1 MB. 
+
+2.  It should have a view box, comprising both maxima and minima, defined for both 
+
+the X and Y axes. 
+
+3.  It should be zipped 
+
+4.  It should be configured individually for each store. As a corollary, a zipped folder 
+
+should comprise only one SVG file. 
+
+Note: If a Mac machine is used to create the zip file, it must be ensured that the MACOSX 
+file is removed from the zipped folder before uploading it into Manhattan Active® Omni. 
+
+The following information is needed to upload a store layout. 
+
+•  LocationId - The unique identifier for a store that is configured in MA Omni 
+
+•  File - A zipped folder comprising the store layout file in the SVG format upto a 
+
+maximum of 1 MB in size 
+
+There is no UI to upload the store layout. Use the POST API below to upload the required 
+store layouts. 
+
+{{url}}/storerfid/api/storerfid/storeLayout/upload 
+
+Refer to the "Upload store layout image" page of the Store RFID integration guide in the 
+Manhattan Developer Hub for detailed information on how a store layout can be uploaded. 
+Additionally, refer to the Developer Hub to get to know about the APIs which can be used 
+to validate if an SVG store layout has been uploaded for a given location, to delete an 
+uploaded store layout file's association with its location, and to view the file uploaded for a 
+given location. 
+
+Note: Currently, only single floor stores are supported in both the above approaches. 
+Stores with multiple floors are not supported. 
+
+Overhead Read Expiry Threshold 
+
+Refer to the Store Count guide for configuration information. 
+
+Range to be used for clustering in the overhead RFID store layout 
+
+This configuration resides in the Store Overhead RFID Configuration subsection of the 
+Store RFID Configuration. A value > 0 directs the system to cluster all the locations that 
+fall within the specified range. To disable clustering, set the range to 0 or null. 
+
+Configuration Name: Range to be used for clustering in the overhead RFID store layout. The 
+default value is set as null, which implies that clustering is disabled. 
+
+Origin of Store Layout 
+
+The coordinate relationship that is used by the third-party overhead RFID system must be 
+mirrored in Manhattan Active® Store in order for the inventory data and store layout to 
+display properly on the UI. This configuration in the header of the Store RFID 
+
+Configuration defines the origin of the map used in the Store application. Supported 
+origins are Top Left and Bottom Left (default for coordinate-based store layouts). Based on 
+the value configured, the store UI manipulates the coordinates in such a way that the 
+orientation of the layout on the vendor's store layout creation UI and the MA Store UI are 
+the same. 
+
+Configuration Name: Origin of Store Layout. The default value is Bottom Left for 
+coordinate-based store layouts.  
+
+Note: This configuration applies to coordinate-based store layouts only. For SVG image 
+based store layouts, the only origin supported is Top Left. It is imperative to ensure that 
+both the retailer's overhead RFID solution provider and the MA Store app use the origin as 
+the top left corner of the uploaded store layout. 
+
+X and Y coordinates of the starting point in the overhead RFID store layout 
+
+A configurable location (such as a packing station or POS station) can be used as the 
+starting point of the picker by specifying its X and Y coordinates. This is the point from 
+where the picking is assumed to begin and is one of the critical factors considered in the 
+generation of the optimized pick path which is suggested to the store associate. If these 
+coordinate values are not specified, the values (0,0) are used. 
+
+This configuration resides in the Store Overhead RFID Configuration sub-section of the 
+Store RFID Configuration. 
+
+Configuration Name: X coordinate of the starting point in the overhead RFID store layout. 
+The default value is null, which is internally considered as 0. 
+
+Configuration Name: Y coordinate of the starting point in the overhead RFID store layout. 
+The default value is null, which is internally considered as 0. 
+
+Order Lookup to support RFID tag-based Returns Config 
+
+The following configuration, if enabled, ensures that the units fulfilled by / sold at an RFID 
+enabled store are noted down so that an external application can determine the Order ID(s) 
+associated with the RFID tag(s) fastened on the item(s) being returned. If this configuration 
+is disabled, the departed units aren't recorded and if the provided API is called, a 'feature 
+disabled' validation error is returned. In essence, enabling this configuration is a pre-
+requisite for facilitating RFID tag-based returns in stores. 
+
+This configuration is available in the Store RFID Configuration UI and is disabled by 
+default.  
+
+Configuration Name: Support Order lookup using RFID tag data 
+
+Note: Owing to the large amount of data which may end up getting recorded in the Store 
+RFID component, Manhattan Associates advises that this configuration is enabled only if 
+an external application intends to support RFID tag based returns.  
+
+Order Lookup to support orders shipped from DC with an EPC 
+
+The below configuration, is applicable for order lookup for the orders fulfilled from DC. If 
+enabled, it ensures that the units fulfilled from a DC are noted down so that an external 
+application can determine the Order ID(s) associated with the RFID tag(s) fastened on the 
+item(s) being shipped. If this configuration is disabled, the shipped units aren't recorded 
+and if the provided API is called, a 'feature disabled' validation error is returned. 
+
+Orders that are shipped from the DC have an EPC ID shared on the ship event. This 
+information is then saved into the fulfillment detail information on the order. Order can be 
+looked up using EPC ID when the order is shipped from the DC in the Order component by 
+using the /order/api/order/fulfillmentevent/receive API. This API allows you to receive 
+fulfillment events, such as the shipment of an order, and update the status of the order and 
+its fulfillment details accordingly. When you receive a shipment event, you can use the EPC 
+ID included in the event to look up (search) the order and its associated fulfillment details. 
+
+This configuration is available in the Store RFID Configuration UI and is disabled by 
+default.  
+
+RFID Reader Setting Configuration 
+
+This configuration is available in the RFID Reader Settings UI and is enabled by default 
+with base seed data.  
+
+1.  If the RFID reader performs well across the various RFID flows using the base 
+
+seeded RFID reader settings, no configuration is needed. 
+
+2.  If the RFID reader does not perform as expected using the base seed data, change 
+any of the base settings by editing the record and updating the key value in the UI. 
+
+3.  To create override configuration records so that a particular device type or flow ID 
+uses different settings than the wildcard records, create new override records with 
+the desired device type or flow ID override values. 
+
+•  For device type and flow ID, null represents a wildcard value. Device type is 
+free text and must be entered as "RFD8500" or "RFD40" for the respective 
+Zebra readers. Key values are also free text. Refer to Zebra's documentation 
+for these supported values for Android and iOS, respectively. 
+
+ 
+Note: All key values are case-insensitive. 
+
+Key 
+
+Key Value 
+
+Link Profile Index  0 
+
+Session 
+
+1 
+
+Tag Population 
+
+30 
+
+Inventory State 
+
+a 
+
+slFlag 
+
+all 
+
+Dynamic Power 
+
+enabled 
+
+Enable Outbound events 
+
+When the status or any fields on the Unit Inventory entity change, an outbound message 
+can be triggered. The outbound event generation is based on the following main 
+configuration: 
+
+{{url}}/storerfid/api/eventProducer/eventStrategy/save 
+
+{ "ProfileId": "base", "data": [ { "EntityStrategyId": "UnitInventoryStatusStrategy", 
+"IsRuleRequired": false, "EntityId": "UnitInventory", "Active": false, "IsOldValuesRequired": 
+true, "DetectionTemplateId": "UnitInventoryOutboundEventDetectionTemplate", 
+"Component": "com-manh-cp-storerfid", "TemplateId": 
+"UnitInventoryOutboundEventTemplate", "MessageType": 
+"UnitInventoryOutboundEventMSGType" } ] } 
+
+ Attributes of the eventStrategy.json are explained below. 
+
+IsRuleRequired 
+
+Default value is false 
+
+If the requirement is to send an event only when the status has a specific value, set this to true. 
+When true, this needs to be followed by multiple other configurations where you will specify rules that get 
+executed by the rule framework, etc., 
+
+Active 
+
+By default this is disabled. This value should be set to "True" to get the outbound event based on updates in the 
+unit inventory entity. 
+
+IsOldValuesRequired 
+
+This is currently enabled. If a change set with old values is not required, this can be disabled. 
+
+"EntityId": "UnitInventory" 
+
+The entity that is generating the events is specified here. 
+
+DetectionTemplateId 
+
+A template specified here with a set of fields will be used to determine what fields on the entity can generate 
+events. 
+
+The UnitInventoryOutboundEventDetectionTemplate template determines when to trigger 
+an event. The out of the box base template is listed below and is configured to generate 
+events only when the EPC's status changes. To generate an event based on updates to 
+other columns, add those columns to the detection template or create a separate event 
+strategy for that column as needed. 
+
+responseTemplate.json - {{url}}/storerfid/api/fwcore/responseTemplate/save 
+
+{ "TemplateId": "UnitInventoryOutboundEventDetectionTemplate", "BaseEntity": 
+"UnitInventory", "TemplateJson": { "UnitId": null, "Status": null } } 
+
+The UnitInventoryOutboundEventTemplate template is applied to the message sent to the 
+queue. Only the fields specified in this template will be posted to the queue. The base 
+response template UnitInventoryOutboundEventTemplate that is supplied out of the box is 
+as follows 
+
+responseTemplate.json - {{url}}/storerfid/api/fwcore/responseTemplate/save 
+
+{ "TemplateId": "UnitInventoryOutboundEventTemplate", "BaseEntity": "UnitInventory", 
+"TemplateJson": { "UnitId": null, "EpcId": null, "ItemId": null, "Sgtin": null, "Status": null, 
+"LocationId": null, "LastReadDateTime": null } } 
+
+This specifies the queue to which the message will be published. The base 
+messageType UnitInventoryEventOutboundMSGType is defined as follows 
+
+outboundMessageType.json - 
+{{url}}/storerfid/api/ServiceDefinition/outBoundMessageType/save 
+
+{ "MessageType": "UnitInventoryOutboundEventMSGType", "Description": "Unit Inventory 
+Outbound Event MSG Type", "Transactional": true, "PersistMessageToMsgStore": false, 
+"OutBoundQueues": [ { "QueueName": "UnitInventoryOutboundEventMSGType" } ] } 
+
+Tag Decode Configuration 
+
+The tag decode configuration is set false by default. If configured, then system expects 
+records for EPC and SGTIN with unique decode IDs. The tag decode configuration consists 
+of the following parameters: 
+
+•  Decode Id - Unique identifier of the tag. Examples : D001. 
+
+•  Tag Decode Configuration - Type of the tag, could be either EPC or SGTIN 
+
+•  RegEx Pattern - Custom tag decode regex pattern to validate the number. Examples 
+
+- ^[0-9A-Fa-f]+$ 
+
+• 
+
+Item Code Offset - Item Barcode offset values i.e. Start and End offsets of 
+RegexPattern of DecodeType. Examples: 2,16. The offset is defined starting 0. For 
+example, for this  
+
+Troubleshooting 
+
+Issue 
+
+Troubleshooting Tip 
+
+Ensure that the latest app is installed on the device on which 
+the issue is being encountered. 
+
+Overhead RFID 
+functionalities do 
+not work as expected 
+even after enabling 
+the required 
+configuration in the 
+Store Fulfillment 
+Parameters and 
+Store RFID 
+Configuration. 
+
+Incorrect EPC is 
+created in unit 
+inventory 
+
+Records in unit inventory can be deleted using this API: 
+
+Endpoint: 
+storerfid/api/storerfid/unitInventory/deleteUnitInventory 
+
+Copy to clipboardCopy to clipboardCopy to clipboardCopy to 
+clipboardCopy to clipboard 
+
+Payload:  
+
+Issue 
+
+Troubleshooting Tip 
+
+{ 
+
+    "EpcIds": [ 
+
+        "303401BF841E4282540BE42E" 
+
+    ] 
+
+}Copy to clipboardCopy to clipboardCopy to clipboardCopy to 
+clipboardCopy to clipboard 
+
+For more details, refer to Developer Portal  
+
+Resource: api::storerfid::unitinventory::deleteunitinventory  
+
+Please retry. Contact Manhattan Associates if the issue 
+persists. 
+
+Please retry. Contact Manhattan Associates if the issue 
+persists.  
+
+While the issue is being resolved, you may use the native OS 
+capabilities to connect to or disconnect from a device. 
+
+Ensure that the device that you are trying to connect to is 
+switched on and Bluetooth turned on. 
+
+"Unable to fetch 
+device details" error 
+in the Connected 
+Device panel while 
+trying to view the 
+connected RFID 
+reader details 
+
+"Couldn't fetch 
+available devices. 
+Please retry!" error in 
+the Available 
+Devices panel while 
+trying to manage the 
+available RFID 
+readers 
+
+"Couldn't connect to 
+the device. Ensure 
+the device is 
+powered on with 
+
+     
+Issue 
+
+Troubleshooting Tip 
+
+Bluetooth enabled." 
+error while trying to 
+connect to a reader 
+in the Available 
+Devices panel 
+
+"Couldn't 
+disconnect. You may 
+retry here or using 
+your OS native 
+capability." while 
+trying to disconnect 
+from the currently 
+connected device 
+
+"No available 
+devices found. You 
+must have at least 1 
+reader paired to your 
+device." while trying 
+to manage the 
+available RFID 
+readers 
+
+Custom Screens 
+
+Please retry. Contact Manhattan Associates if the issue 
+persists. 
+
+While the issue is being resolved, you may use the native OS 
+capabilities to disconnect from the currently connected device. 
+
+Ensure that the device that you want to connect to has been 
+successfully paired to your Store device and then try to connect 
+to it using the Store app. 
+
+Retailers can use the RFID reader on custom screens and base screens if the base screen 
+does not, by default, support it. Refer to the Store RFID - Custom screen guide for 
+additional information. 
+
+Custom Devices 
+
+Retailers can use other than base-certified RFID readers to read the RFID tags in the store 
+application. Refer to the Store RFID - Custom Devices guide for additional information. 
+
+Unit Inventory Events 
+
+Below is the list of events and the corresponding EPC status update that occurs. 
+
+Event Name 
+
+EPC Status updated to 
+
+ShippedToAddress 
+
+Departed 
+
+Picked 
+
+Packed 
+
+CancelPack 
+
+Reserved 
+
+Reserved 
+
+Available 
+
+ShippedToStore 
+
+InBound 
+
+ShipConfirmation 
+
+InBound 
+
+Received 
+
+Available 
+
+MissingDuringReceive 
+
+Missing 
+
+StoreSale 
+
+Adjustment 
+
+Removed 
+
+StoreReturn 
+
+StorePickup 
+
+Departed 
+
+Available 
+
+Removed 
+
+Available 
+
+Departed 
+
+Overhead 
+
+Pending Receipt/Unexpected 
+
+EncodeTag 
+
+Available 
+
+UIs and Entities 
+
+The configuration UIs mentioned in this document are listed in the following table. This 
+information can be used to navigate to API documentation and also specifies whether the 
+configuration can be overridden at the location level. 
+
+UI Name 
+
+Component Group 
+
+Store RFID 
+Parameters 
+
+Store 
+Facade 
+
+Store RFID 
+Configurati
+on 
+
+Store 
+RFID 
+
+Store 
+Fulfillment 
+Parameters 
+
+Fulfillme
+nt 
+
+Store 
+Config 
+Services 
+
+RF 
+Paramete
+rs 
+
+Fulfillmen
+t 
+Paramete
+rs 
+
+Seed 
+Data 
+Present
+? 
+
+Seed 
+Data 
+Profile 
+
+Yes 
+
+Yes 
+
+Bas
+e 
+
+Bas
+e 
+
+Profile Purpose 
+
+Is Profile 
+Purpose 
+Location 
+Overrideabl
+e? 
+
+sto::storeConfig 
+
+Yes 
+
+srf::rfConfig 
+
+Yes 
+
+Yes 
+
+Bas
+e 
+
+ful::fulfillmentCon
+fig 
+
+Yes 
+
+Device 
+
+Manage 
+Devices 
+
+Yes 
+
+Bas
+e 
+
+dvc::rfidReaders 
+
+Yes 
+
+RFID 
+Reader 
+Settings 
+MUP UI 
+
+ 
+

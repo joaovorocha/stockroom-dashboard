@@ -9,8 +9,17 @@ const CONFIG_FILE = dal.paths.storeRecoveryConfigFile || path.join(dal.paths.dat
 
 // Default suitsApi host root (used when no explicit baseUrl is configured).
 const DEFAULT_STORE_RECOVERY_BASE_URL = 'https://printlabel.tst.suitapi.com/';
+const DEFAULT_STORE_RECOVERY_OAUTH_TOKEN_URL = 'https://login.microsoftonline.com/suitsupply.com/oauth2/token';
+const DEFAULT_STORE_RECOVERY_OAUTH_DOMAIN = 'https://login.microsoftonline.com';
+const DEFAULT_STORE_RECOVERY_OAUTH_CLIENT_ID = 'a775bf49-2444-46e1-b8e2-dfa0e6564c51';
 
 let cachedOauthToken = { accessToken: null, expiresAtMs: 0 };
+
+function extractGuid(value) {
+  const s = (value || '').toString();
+  const m = s.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  return m ? m[0] : '';
+}
 
 function readLog() {
   return dal.readJson(SCAN_LOG_FILE, { scans: [] });
@@ -84,14 +93,30 @@ function getLookupConfig() {
   const apiKey = (envApiKey || saved.apiKey || saved.key || '').toString().trim();
   const headerName = (envHeaderName || saved.headerName || saved.apiKeyHeader || 'x-api-key').toString().trim() || 'x-api-key';
 
-  const oauthDomain = (envOauthDomain || saved.oauthDomain || saved.domain || '').toString().trim();
-  const oauthTokenUrl = (envOauthTokenUrl || saved.oauthTokenUrl || saved.tokenUrl || '').toString().trim();
-  const oauthClientId = (envOauthClientId || saved.oauthClientId || saved.clientId || '').toString().trim();
+  let oauthDomain = (envOauthDomain || saved.oauthDomain || saved.domain || '').toString().trim();
+  let oauthTokenUrl = (envOauthTokenUrl || saved.oauthTokenUrl || saved.tokenUrl || '').toString().trim();
+  let oauthClientId = (envOauthClientId || saved.oauthClientId || saved.clientId || '').toString().trim();
   const oauthClientSecret = (envOauthClientSecret || saved.oauthClientSecret || saved.clientSecret || '').toString().trim();
   const oauthResource = (envOauthResource || saved.oauthResource || saved.resource || '').toString().trim();
   const oauthScope = (envOauthScope || saved.oauthScope || saved.scope || '').toString().trim();
   const oauthGrantType = (envOauthGrantType || saved.oauthGrantType || saved.grantType || '').toString().trim();
   const oauthCountryCode = (envOauthCountryCode || saved.oauthCountryCode || saved.countryCode || '').toString().trim();
+
+  // Runtime migration / compatibility:
+  // - Older configs stored a GUID as part of oauthDomain like https://login.microsoftonline.com/<GUID>
+  // - CREATE RFID app defaults to tenant `suitsupply.com` and a fixed GUID clientId
+  const domainGuid = extractGuid(oauthDomain);
+  const looksLikeMsTenantUrl = /^https?:\/\/login\.microsoftonline\.com\/[0-9a-f-]{36}\/?$/i.test(oauthDomain);
+  if (!oauthClientId && domainGuid) oauthClientId = domainGuid;
+  if (!oauthClientId && /suitapi\.com/i.test(baseUrl) && oauthClientSecret) oauthClientId = DEFAULT_STORE_RECOVERY_OAUTH_CLIENT_ID;
+
+  if (!oauthTokenUrl && /suitapi\.com/i.test(baseUrl) && oauthClientSecret) {
+    oauthTokenUrl = DEFAULT_STORE_RECOVERY_OAUTH_TOKEN_URL;
+  }
+  if (looksLikeMsTenantUrl) {
+    // Prefer treating oauthDomain as a host root rather than a tenant URL.
+    oauthDomain = DEFAULT_STORE_RECOVERY_OAUTH_DOMAIN;
+  }
 
   return {
     baseUrl,
@@ -141,7 +166,12 @@ function decodeSgtin96EpcToGtin(epcHex) {
   const header = Number((n >> 88n) & 0xFFn);
   if (header !== 0x30) return null; // SGTIN-96
 
-  const partition = Number((n >> 80n) & 0x7n);
+  // SGTIN-96 layout:
+  // header (8) | filter (3) | partition (3) | company prefix (20-40) | item ref (24-4) | serial (38)
+  // partition bits are at positions 84..82 (from MSB), so shift by 82.
+  const partition = Number((n >> 82n) & 0x7n);
+  if (partition < 0 || partition > 6) return null;
+
   const companyPrefixBits = [40, 37, 34, 30, 27, 24, 20][partition];
   const itemReferenceBits = [4, 7, 10, 14, 17, 20, 24][partition];
   const companyPrefixDigits = [12, 11, 10, 9, 8, 7, 6][partition];
@@ -189,8 +219,13 @@ async function getBearerToken(cfg) {
   if (!tokenUrl) {
     const domain = (cfg.oauthDomain || '').toString().trim();
     if (domain) {
-      if (/^https?:\/\//i.test(domain)) tokenUrl = joinUrl(domain, '/oauth2/token');
-      else tokenUrl = `https://${domain.replace(/^\/+/, '')}/oauth2/token`;
+      const domainUrl = /^https?:\/\//i.test(domain) ? domain : `https://${domain.replace(/^\/+/, '')}`;
+      // If oauthDomain is the Microsoft host root, include the GUID tenant segment.
+      if (/^https?:\/\/login\.microsoftonline\.com\/?$/i.test(domainUrl) && extractGuid(cfg.oauthClientId)) {
+        tokenUrl = joinUrl(domainUrl, `/${cfg.oauthClientId}/oauth2/token`);
+      } else {
+        tokenUrl = joinUrl(domainUrl, '/oauth2/token');
+      }
     }
   }
 
@@ -198,30 +233,70 @@ async function getBearerToken(cfg) {
   if (!cfg.oauthClientId) throw new Error('Missing oauth client ID');
   if (!cfg.oauthClientSecret) throw new Error('Missing oauth client secret');
 
-  const params = new URLSearchParams();
-  params.set('grant_type', grantType);
-  params.set('client_id', cfg.oauthClientId);
-  params.set('client_secret', cfg.oauthClientSecret);
-  if (cfg.oauthScope) params.set('scope', cfg.oauthScope);
-  else if (cfg.oauthResource) params.set('resource', cfg.oauthResource);
+  // Some setups store a binary secret as base64. We'll try both the raw string
+  // and decoded variants of base64 bytes.
+  const secretCandidates = [];
+  const rawSecret = (cfg.oauthClientSecret || '').toString();
+  if (rawSecret) secretCandidates.push(rawSecret);
+  const compact = rawSecret.replace(/\s+/g, '');
+  const looksBase64 = compact.length >= 16 && /^[A-Za-z0-9+/=]+$/.test(compact);
+  if (looksBase64) {
+    try {
+      const bytes = Buffer.from(compact, 'base64');
+      if (bytes && bytes.length) {
+        // 1) Some apps embed raw bytes; treat them as latin1.
+        secretCandidates.push(bytes.toString('latin1'));
 
-  const resp = await axios.post(tokenUrl, params.toString(), {
-    timeout: 10000,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Accept': 'application/json'
-    },
-    validateStatus: () => true
-  });
+        // 2) Some QR payloads embed a UTF-8 string as bytes; decode as utf8.
+        // Strip nulls just in case.
+        const utf8 = bytes.toString('utf8').replace(/\0/g, '').trim();
+        if (utf8) secretCandidates.push(utf8);
 
-  if (resp.status < 200 || resp.status >= 300) {
-    throw new Error(`Token request failed (${resp.status})`);
+        // 3) Some payloads may use UTF-16LE.
+        const utf16le = bytes.toString('utf16le').replace(/\0/g, '').trim();
+        if (utf16le) secretCandidates.push(utf16le);
+      }
+    } catch (_) {}
   }
 
-  const token = resp.data?.access_token;
-  if (!token) throw new Error('Token response missing access_token');
+  let lastStatus = null;
+  let lastBody = null;
+  let token = null;
+  let expiresIn = null;
+  for (const candidateSecret of secretCandidates) {
+    const params = new URLSearchParams();
+    params.set('grant_type', grantType);
+    params.set('client_id', cfg.oauthClientId);
+    params.set('client_secret', candidateSecret);
+    if (cfg.oauthScope) params.set('scope', cfg.oauthScope);
+    else if (cfg.oauthResource) params.set('resource', cfg.oauthResource);
 
-  const expiresIn = Number(resp.data?.expires_in);
+    const resp = await axios.post(tokenUrl, params.toString(), {
+      timeout: 10000,
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json'
+      },
+      validateStatus: () => true
+    });
+
+    lastStatus = resp.status;
+    lastBody = resp.data;
+
+    if (resp.status >= 200 && resp.status < 300 && resp.data?.access_token) {
+      token = resp.data.access_token;
+      expiresIn = Number(resp.data?.expires_in);
+      break;
+    }
+  }
+
+  if (!token) {
+    const details = (lastBody && typeof lastBody === 'object')
+      ? (lastBody.error_description || lastBody.error || '')
+      : '';
+    throw new Error(`Token request failed (${lastStatus || 'unknown'})${details ? `: ${details}` : ''}`);
+  }
+
   const expiresAtMs = Number.isFinite(expiresIn) && expiresIn > 0 ? (now + expiresIn * 1000) : (now + 45 * 60 * 1000);
 
   cachedOauthToken = { accessToken: token, expiresAtMs };
@@ -286,7 +361,10 @@ router.get('/lookup', async (req, res) => {
     return res.status(501).json({ success: false, error: 'Product lookup is not configured on the server' });
   }
 
-  const effectiveAuthType = (cfg.authType || '').toString().trim() || (cfg.oauthClientSecret ? 'oauth2' : 'apiKey');
+  const hostLooksSuitsApi = /suitapi\.com/i.test(cfg.baseUrl);
+  let effectiveAuthType = (cfg.authType || '').toString().trim() || (cfg.oauthClientSecret ? 'oauth2' : 'apiKey');
+  // If this is clearly the Suit API host and no API key exists, prefer oauth2.
+  if (effectiveAuthType === 'apiKey' && !cfg.apiKey && hostLooksSuitsApi) effectiveAuthType = 'oauth2';
 
   // Backwards-compatible mode: baseUrl is a URL template including {epc}/{sku}/{ean}.
   if (isTemplateUrl(cfg.baseUrl)) {
@@ -370,6 +448,13 @@ router.get('/lookup', async (req, res) => {
     const product = normalizeProduct(raw);
     return res.json({ success: true, product, raw });
   } catch (e) {
+    const msg = (e?.message || '').toString();
+    if (/missing oauth/i.test(msg) || /token request failed/i.test(msg)) {
+      return res.status(501).json({
+        success: false,
+        error: `OAuth is not configured for product lookup (${msg}). Upload the setup QR in Admin → Store Recovery config.`
+      });
+    }
     return res.status(502).json({ success: false, error: 'Lookup request failed' });
   }
 });

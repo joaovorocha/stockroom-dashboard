@@ -258,26 +258,26 @@ def main() -> int:
     chunks: list[np.ndarray] = []
     debug_count = 0
     last_live_write = 0.0
-        last_live_audio_write = 0.0
+    last_live_audio_write = 0.0
     pcm_buf = bytearray()
 
-        # Rolling buffer for "listen live" (last N seconds). This is independent from VAD.
-        live_audio_buf = np.zeros((0,), dtype=np.int16)
-        live_audio_keep = int(args.rtl_sample_rate * live_audio_window_s)
+    # Rolling buffer for "listen live" (last N seconds). This is independent from VAD.
+    live_audio_buf = np.zeros((0,), dtype=np.int16)
+    live_audio_keep = int(args.rtl_sample_rate * live_audio_window_s)
 
-        def write_live_audio() -> None:
-            nonlocal live_audio_buf
-            try:
-                ensure_parent(live_audio_path)
-                tmp = live_audio_path.with_suffix(live_audio_path.suffix + ".tmp")
-                with wave.open(str(tmp), "wb") as wf:
-                    wf.setnchannels(1)
-                    wf.setsampwidth(2)
-                    wf.setframerate(int(args.rtl_sample_rate))
-                    wf.writeframes(live_audio_buf.tobytes())
-                tmp.replace(live_audio_path)
-            except Exception:
-                pass
+    def write_live_audio() -> None:
+        nonlocal live_audio_buf
+        try:
+            ensure_parent(live_audio_path)
+            tmp = live_audio_path.with_suffix(live_audio_path.suffix + ".tmp")
+            with wave.open(str(tmp), "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(int(args.rtl_sample_rate))
+                wf.writeframes(live_audio_buf.tobytes())
+            tmp.replace(live_audio_path)
+        except Exception:
+            pass
 
     def stop_proc() -> None:
         if proc.poll() is not None:

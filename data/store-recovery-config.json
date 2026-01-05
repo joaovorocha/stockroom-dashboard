@@ -1,17 +1,17 @@
 {
+  "decodedText": "",
   "baseUrl": "https://printlabel.tst.suitapi.com/",
-  "authType": "apiKey",
+  "authType": "oauth2",
   "headerName": "x-api-key",
   "apiKey": "",
-  "oauthDomain": "",
-  "oauthTokenUrl": "",
-  "oauthClientId": "",
+  "oauthDomain": "https://login.microsoftonline.com",
+  "oauthTokenUrl": "https://login.microsoftonline.com/suitsupply.com/oauth2/token",
+  "oauthGrantType": "client_credentials",
+  "oauthClientId": "a775bf49-2444-46e1-b8e2-dfa0e6564c51",
   "oauthClientSecret": "",
-  "oauthResource": "",
+  "oauthResource": "https://suitsupply.com/printlabel-tst-sp",
   "oauthScope": "",
-  "oauthGrantType": "",
   "oauthCountryCode": "",
-  "decodedText": "H4sIAAAAAAAEAAFpAJb/QFMyQ3N1aXRzQXBpX2NsaWVudFNlY3JldD1AJMKbwr7CicKqVsKPwqvDlsK6w4XDsW7DosKvwrjDicOlwpfDisKmw4bChsKVwpvDlsOWw6J2w5trd2nCsMOawqXCvsOAw6bCg8Oaw5Y2lyu/RmkAAAA=",
-  "updatedAt": "2026-01-04T01:28:07.355Z",
-  "updatedBy": "Victor Rocha"
+  "updatedAt": null,
+  "updatedBy": "seed-from-create-rfid-apk (secret removed: invalid)"
 }

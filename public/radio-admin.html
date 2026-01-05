@@ -14,6 +14,10 @@
     .radio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 16px 0 6px; }
     .radio-field { display: flex; flex-direction: column; gap: 6px; }
     .radio-field label { font-weight: 600; font-size: 13px; color: var(--text-secondary); }
+    .label-row { display: flex; align-items: center; gap: 8px; }
+    .help-btn { width: 18px; height: 18px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 12px; line-height: 16px; padding: 0; cursor: pointer; }
+    .help-text { display: none; margin: 2px 0 0; }
+    .help-text.show { display: block; }
     .radio-field input, .radio-field select { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
     .radio-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
     .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; }
@@ -94,31 +98,64 @@
 
       <div class="radio-grid">
         <div class="radio-field">
-          <label for="channelLabelInput">Channel Label</label>
+          <div class="label-row">
+            <label for="channelLabelInput">Channel Name</label>
+            <button class="help-btn" type="button" data-help-for="channelLabelHelp" aria-label="Channel name help">i</button>
+          </div>
+          <div class="muted help-text" id="channelLabelHelp">Shown next to transcriptions (e.g. “Stockroom (Ch 2)”).</div>
           <input id="channelLabelInput" type="text" placeholder="e.g. San Francisco (Ch 2)">
         </div>
         <div class="radio-field">
-          <label for="freqInput">Frequency</label>
+          <div class="label-row">
+            <label for="freqInput">Frequency</label>
+            <button class="help-btn" type="button" data-help-for="freqHelp" aria-label="Frequency help">i</button>
+          </div>
+          <div class="muted help-text" id="freqHelp">
+            Set the center frequency (example: 446.01875M). Common PMR446 (Motorola/Talkabout) channels are often:
+            Ch1 446.00625, Ch2 446.01875, Ch3 446.03125, Ch4 446.04375, Ch5 446.05625, Ch6 446.06875, Ch7 446.08125, Ch8 446.09375,
+            Ch9 446.10625, Ch10 446.11875, Ch11 446.13125, Ch12 446.14375, Ch13 446.15625, Ch14 446.16875, Ch15 446.18125, Ch16 446.19375.
+            (Your store radios may be programmed differently—use the exact frequency from the radio programming.)
+          </div>
           <input id="freqInput" type="text" placeholder="446.01875M">
         </div>
         <div class="radio-field">
-          <label for="ppmInput">PPM</label>
+          <div class="label-row">
+            <label for="ppmInput">PPM (Correction)</label>
+            <button class="help-btn" type="button" data-help-for="ppmHelp" aria-label="PPM help">i</button>
+          </div>
+          <div class="muted help-text" id="ppmHelp">Frequency correction for the RTL-SDR. If the audio sounds “off” or the signal is shifted, try small values like -10 to +10.</div>
           <input id="ppmInput" type="number" step="1" placeholder="0">
         </div>
         <div class="radio-field">
-          <label for="gainInput">Gain</label>
+          <div class="label-row">
+            <label for="gainInput">Gain</label>
+            <button class="help-btn" type="button" data-help-for="gainHelp" aria-label="Gain help">i</button>
+          </div>
+          <div class="muted help-text" id="gainHelp">Tuner gain. Use 0 for auto. Increase slowly if the signal is weak; too high can distort.</div>
           <input id="gainInput" type="number" step="1" placeholder="6">
         </div>
         <div class="radio-field">
-          <label for="vadInput">VAD Threshold</label>
+          <div class="label-row">
+            <label for="vadInput">Voice Threshold (VAD)</label>
+            <button class="help-btn" type="button" data-help-for="vadHelp" aria-label="VAD threshold help">i</button>
+          </div>
+          <div class="muted help-text" id="vadHelp">Higher = less noise triggers (fewer false transcriptions) but may miss quiet speech. Typical range: 0.02–0.06.</div>
           <input id="vadInput" type="number" step="0.01" placeholder="0.02">
         </div>
         <div class="radio-field">
-          <label for="hangoverInput">Hangover (ms)</label>
+          <div class="label-row">
+            <label for="hangoverInput">Hangover (ms)</label>
+            <button class="help-btn" type="button" data-help-for="hangoverHelp" aria-label="Hangover help">i</button>
+          </div>
+          <div class="muted help-text" id="hangoverHelp">How long to keep recording after speech drops below the threshold. Higher = fewer cut-offs, but longer segments (more CPU).</div>
           <input id="hangoverInput" type="number" step="10" placeholder="800">
         </div>
         <div class="radio-field">
-          <label for="modelSelect">Model</label>
+          <div class="label-row">
+            <label for="modelSelect">Whisper Model</label>
+            <button class="help-btn" type="button" data-help-for="modelHelp" aria-label="Model help">i</button>
+          </div>
+          <div class="muted help-text" id="modelHelp">Bigger models are more accurate but use more CPU. For lowest CPU, keep “tiny”.</div>
           <select id="modelSelect">
             <option value="tiny">tiny</option>
             <option value="base">base</option>
@@ -127,14 +164,22 @@
           </select>
         </div>
         <div class="radio-field">
-          <label for="deviceSelect">Device</label>
+          <div class="label-row">
+            <label for="deviceSelect">Device</label>
+            <button class="help-btn" type="button" data-help-for="deviceHelp" aria-label="Device help">i</button>
+          </div>
+          <div class="muted help-text" id="deviceHelp">CPU works everywhere. CUDA requires an NVIDIA GPU + drivers on the server.</div>
           <select id="deviceSelect">
             <option value="cpu">CPU</option>
             <option value="cuda">CUDA</option>
           </select>
         </div>
         <div class="radio-field">
-          <label for="computeSelect">Compute Type</label>
+          <div class="label-row">
+            <label for="computeSelect">Compute Type</label>
+            <button class="help-btn" type="button" data-help-for="computeHelp" aria-label="Compute type help">i</button>
+          </div>
+          <div class="muted help-text" id="computeHelp">For CPU, “int8” is typically the fastest and lowest-memory option.</div>
           <select id="computeSelect">
             <option value="int8">int8</option>
             <option value="int16">int16</option>
@@ -178,6 +223,16 @@
       $('stopBtn')?.addEventListener('click', stopService);
       $('saveBtn')?.addEventListener('click', () => saveConfig(false));
       $('saveRestartBtn')?.addEventListener('click', () => saveConfig(true));
+
+      document.querySelectorAll('button.help-btn[data-help-for]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.getAttribute('data-help-for');
+          if (!id) return;
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.classList.toggle('show');
+        });
+      });
     });
 
     function wireLiveListen() {

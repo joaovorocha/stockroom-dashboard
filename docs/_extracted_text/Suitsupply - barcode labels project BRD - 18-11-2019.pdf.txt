@@ -1,0 +1,3424 @@
+SUITSUPPLY BARCODE LABELS 
+PROJECT SCOPE 
+
+Date: Nov 18th, 2019 
+
+Table of Contents 
+Project Overview 
+
+Product Specifications 
+
+Program Details 
+
+Packing Instructions 
+
+Variable Field Mapping 
+
+JSON Data files 
+
+Workflow 
+
+API for JSON 
+
+3 Distinct Data Files 
+
+Purchase order file 
+
+Product file 
+
+Transfer file 
+
+Current XML file for RFID labels vs new JSON format 
+
+Business Rules 
+
+Price 
+
+Fit 
+
+Size 
+
+Pre-packed boxes 
+
+Reports 
+
+RFID and non-RFID labels 
+
+Non-RFID labels 
+
+Nexgen E-commerce Deployment Outline 
+
+3 
+
+3 
+
+9 
+
+9 
+
+10 
+
+11 
+
+12 
+
+12 
+
+13 
+
+13 
+
+13 
+
+16 
+
+17 
+
+17 
+
+19 
+
+22 
+
+24 
+
+26 
+
+27 
+
+27 
+
+28 
+
+31 
+
+ 
+ 
+ 
+Non-RFID labels 
+
+RFID labels 
+
+Nexgen RFID Encoding Schema 
+
+31 
+
+32 
+
+32 
+
+Page|2 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Project Overview 
+
+Nexgen  Packaging  will  provide  pressure  sensitive  RFID  labels  and  non-RFID  barcode  labels  from 
+Service Bureau out of the UK, China (Shenzhen) and Hong Kong production sites. 
+
+●  Summary of the Project 
+
+○  Existing customer that is changing their current XML data feed to a JSON Data feed 
+■  Will require HK IT support to ingest new JSON format directly through Boomi 
+into the existing Suitsupply Custom DB Structures (ie. Not edi-automation) 
+
+○  Currently  Suitsupply  only  has  RFID  items,  but  will  now  be  adding  new  NON-RFID 
+
+items 
+●  Summary of the Data files 
+
+○  Suitsupply  is  moving  away  from  their  current  XML  data  files.  Instead,  they  are 
+combining both RFID and NON-RFID Purchases orders into a JSON format (not edi 
+automation format) 
+
+○  There will be 3 distinct files: Products, Purchase Orders, Transfers 
+
+■ 
+
+■ 
+
+■ 
+
+“Products”  file:  will  be  Product  Master  data  that  will  need  to  be  stored 
+separately 
+“Purchase Orders” file: will be PO data that will need to be joined with the 
+Products data downstream 
+“Transfers” file: will be similar/identical to Purchase Orders file 
+
+●  UAT Test Scripts 
+
+○  SuitSupply UAT Test Scripts gsheet.  
+
+Product Specifications 
+
+NON-RFID BARCODE LABELS 
+
+1.  There are three different types of barcode labels that Nexgen will be supplying to Suitsupply 
+
+vendors: small and large stickers, and prepacked boxes labels. 
+
+a.  Small label 
+
+i.   PDM item ID: SUI-BARC-38X21MM 
+
+b.  Large label 
+
+i.  PDM item ID: SUI-BARC-50X30MM 
+
+Page|3 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+c.  Box label 
+
+ii.  PDM item ID: SUI-BARC-BOX 
+
+2.  Nexgen will produce one or two non-RFID labels, large or small, depending on the product 
+department  (Department  ID).  There  are  also  some  exceptions  for  some  at  Category  level 
+(Category ID) see lookup table link below: 
+
+Lookup Table: 20191017_BusinessRulesPerProductGroup 
+
+Division 
+
+Department  DepartmentId  Category Exceptions 
+
+CategoryId  #Labels (non-RFID) 
+
+Type of non-RFID labels 
+
+Default 
+
+Women Division  Suit Jackets 
+
+Women Division  Suit Trousers 
+
+Women Division  Jackets 
+
+Women Division  Trousers 
+
+Women Division  Coats 
+
+Women Division  Skirts 
+
+Women Division  Dresses 
+
+Women Division  Shirts 
+
+63   
+
+64   
+
+36   
+
+42   
+
+34   
+
+39   
+
+35   
+
+57   
+
+1 Small Label 
+
+2 Large Label 
+
+2 Large Label 
+
+2 Large Label 
+
+2 Large Label 
+
+2 Large Label 
+
+2 Large Label 
+
+2 Large Label 
+
+1 Large Label 
+
+Page|4 
+
+ 
+ 
+ 
+ 
+ 
+ 
+    
+ 
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+Women Division  Knitwear 
+
+Women Division  Tops 
+
+Women Division  Jumpsuits 
+
+Women Division  Accessories 
+
+Men Division 
+
+Suits 
+
+Men Division 
+
+Vests 
+
+Men Division 
+
+Coats 
+
+Men Division 
+
+Jackets 
+
+Men Division 
+
+Trousers 
+
+Men Division 
+
+Shoes 
+
+Men Division 
+
+Shirts 
+
+Men Division 
+
+Ties 
+
+Men Division 
+
+Knitwear 
+
+43   
+
+41   
+
+37   
+
+58   
+
+20   
+
+29   
+
+21   
+
+28   
+
+22   
+
+33   
+
+23   
+
+24   
+
+62   
+
+Men Division  MTM Shirts  16 
+
+Men Division  MTM Suits 
+
+17 
+
+Men Division 
+
+Accessories 
+
+Bags 
+
+Men Division 
+
+Accessories 
+
+Belts Basic 
+
+Men Division 
+
+Accessories 
+
+Socks Basic 
+
+Men Division 
+
+Accessories 
+
+Belts Fashion 
+
+Men Division 
+
+Accessories 
+
+Socks Fashion 
+
+Men Division 
+
+Accessories 
+
+Belts NOOS 
+
+Men Division 
+
+Accessories 
+
+Socks NOOS 
+
+Men Division 
+
+Accessories 
+
+Cufflinks 
+
+Men Division 
+
+Accessories 
+
+Suspenders 
+
+169 
+
+63 
+
+64 
+
+2188 
+
+2189 
+
+2321 
+
+2322 
+
+68 
+
+21 
+
+1 Large Label 
+
+1 Large Label 
+
+1 Large Label 
+
+1 Small Label 
+
+2 Large Label 
+
+2 Large Label 
+
+2 Large Label 
+
+2 Large Label 
+
+2 Large Label 
+
+2 1 Large Label & 1 Small label 
+
+2 Large Label 
+
+0   
+
+1 Small Label 
+
+0   
+
+0   
+
+1 Large Label 
+
+0   
+
+0   
+
+0   
+
+0   
+
+0   
+
+0   
+
+0   
+
+0   
+
+Page|5 
+
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+Men Division 
+
+Accessories 
+
+Pocket Squares Basic 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares Fashion 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares NOOS 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Gloves 
+
+Scarfs 
+
+170 
+
+2187 
+
+2248 
+
+172 
+
+65 
+
+0   
+
+0   
+
+0   
+
+1 Small Label 
+
+0   
+
+Notes 
+
+● 
+
+If  there  is  no  Department  ID  or  Category  ID,  one  small  non-RFID  labels  and  one 
+RFID Web M6 label will be populated by default  
+
+○ 
+
+○ 
+
+If there is no Department ID but the Category ID is included in this lookup 
+table with #labels=0 then none non-RFID label will be populated. 
+If there is new Department ID out of this list, we should populate the default 
+one small label and the Web M6 label. 
+
+●  The field ‘Division’ will not be considered for the item population, only Department 
+
+ID and Category.  
+
+○  Bags (categoryID=169) has no Department ID but will require 1 large label 
+
+as required by its category. 
+
+● 
+
+In those cases where #Labels is 0 we should not populate non-RFID items but check 
+the column ‘Has RFID label’ to know if RFID label is required. 
+
+●  Use  the  “Relevant  Sizes  and  Sequence”  column  in  the  lookup  table  to  determine 
+which sizes should be printed and use the “Fit Property” column to determine if the 
+Fit value should be printed on the labelled sequence. 
+
+RFID LABELS 
+
+1.  There are two different types of RFID barcode labels that Nexgen will be supplying to 
+
+Suitsupply vendors: the WEB and the SDP. 
+
+a.  The two inlays of choice being sourced from Smarttrac are the Web MR6-P 
+
+3006411 and Short Dipole MR6-P N3006981 to be used (removed exclusively) on 
+the approved items for Suitsupply.  
+‘Dummy’ labels with EPC and 2D code printed only are also provided to Suitsupply. 
+This is detailed in a separate section in this document.  
+
+b. 
+
+2.  Web 
+
+a.  PDM item ID: SUI-WEB 
+
+Page|6 
+
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+3.  Short dipole 
+
+a.  PDM item ID: SUI-SDP 
+
+4.  Inlay wind direction 
+
+3.  Nexgen  will  produce  the  Web  M6  or  the  SDP  RFID  labels,  depending  on  the  product 
+department  (Department  ID).  There  are  also  some  exceptions  for  some  at  Category  level 
+(Category ID) see lookup table link below: 
+
+Lookup Table: 20191017_BusinessRulesPerProductGroup 
+
+Division 
+
+Department 
+
+DepartmentId  Category Exceptions 
+
+CategoryId 
+
+Type of RFID label 
+
+Has RFID Label 
+
+Default 
+
+Women Division  Suit Jackets 
+
+Women Division  Suit Trousers 
+
+Women Division 
+
+Jackets 
+
+63   
+
+64   
+
+36   
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Page|7 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+  
+  
+Women Division  Trousers 
+
+Women Division  Coats 
+
+Women Division  Skirts 
+
+Women Division  Dresses 
+
+Women Division  Shirts 
+
+Women Division  Knitwear 
+
+Women Division  Tops 
+
+Women Division 
+
+Jumpsuits 
+
+Women Division  Accessories 
+
+Men Division 
+
+Suits 
+
+Men Division 
+
+Vests 
+
+Men Division 
+
+Coats 
+
+Men Division 
+
+Jackets 
+
+Men Division 
+
+Trousers 
+
+Men Division 
+
+Shoes 
+
+Men Division 
+
+Shirts 
+
+Men Division 
+
+Ties 
+
+Men Division 
+
+Knitwear 
+
+42   
+
+34   
+
+39   
+
+35   
+
+57   
+
+43   
+
+41   
+
+37   
+
+58   
+
+20   
+
+29   
+
+21   
+
+28   
+
+22   
+
+33   
+
+23   
+
+24   
+
+62   
+
+Men Division 
+
+MTM Shirts 
+
+16 
+
+Men Division 
+
+MTM Suits 
+
+17 
+
+Men Division 
+
+Accessories 
+
+Bags 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Belts Basic 
+
+Socks Basic 
+
+Belts Fashion 
+
+Socks Fashion 
+
+Belts NOOS 
+
+Socks NOOS 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+SDP 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+Web M6 
+
+169 Web M6 
+
+63 SDP 
+
+64 Web M6 
+
+2188 SDP 
+
+2189 Web M6 
+
+2321 SDP 
+
+2322 Web M6 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Page|8 
+
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Cufflinks 
+
+Suspenders 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares Basic 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares Fashion 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares NOOS 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Gloves 
+
+Scarfs 
+
+68 Web M6 
+
+21 Web M6 
+
+170 Web M6 
+
+2187 Web M6 
+
+2248 Web M6 
+
+172 Web M6 
+
+65 Web M6 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Program Details 
+
+1.  Nexgen to start production in the UK and Hong Kong simultaneously. 
+2.  TID and EPC to be captured, stored in the cloud, and published back to Suitsupply in a 
+weekly print report with additional data elements captured and encoded at print stage. 
+3.  Suitsupply and vendors to use Nexgen Ecom system to call out orders via the standard 
+
+Purchase Order call out process whereby Suitsupply will provide electronic JSON data files 
+via web service in batch daily and Nexgen will publish to the vendor/factory users to 
+execute in which all variable data will be provided direct from Suitsupply IT.  
+
+Packing Instructions 
+
+1.  Labels must be packed in their own poly bag – separated out by PO.  A dot will indicate the 
+
+start of a new PO: 
+
+2.  Packing lists should be included in each package as per normal. 
+3.  Larger order quantities of 250 labels+ should be wound onto rolls. 
+4.  Smaller quantities can simply be folded and packed neatly into a poly bag 
+5.  All Separate packages from the same order should then be combined and packed together 
+with paper or bubble wrap to protect the labels from damage during transit when shipping. 
+
+6.  Multiple orders should be shipped together. 
+
+Page|9 
+
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+  
+  
+ 
+ 
+ 
+ 
+ 
+Variable Field Mapping 
+
+1.  SUI-WEB 
+
+2.  SUI-SDP 
+
+Page|10 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+3.  Large label 
+
+4.  Small label 
+
+This is similar to the Large label but without the Fit printed on it. 
+
+5.  Box label 
+
+JSON Data files 
+
+1)  Suitsupply to provide revised JSON data mapping and sample data file to Nexgen. 
+
+a.  Sample files to include multiple product lines (Shirts, Suits, Ties, etc.) for variable 
+
+layout e-proof 
+
+2)  In the event that a duplicate PO is received, the latest data will overwrite the old PO record 
+
+in Ecom. 
+
+3)  If Nexgen receive a PO file and not the correspondent Product data file, Nexgen will reject 
+
+the PO. 
+
+4)  Nexgen to establish a web service call with Suitsupply to exchange the JSON data. 
+
+a.  Test and production environment to exchange data. 
+
+Page|11 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+b.  See API Section Below 
+
+5)  Nexgen will receive three different JSON files with data: 
+
+a.  Purchase order 
+b.  Product 
+c.  Transfer (second stage) 
+
+Workflow 
+
+- 
+
+Suitsupply will send the ‘Product’ data files  
+
+o  Nexgen will store the product data to be joined with the ‘Purchase Order’ data later 
+o 
+
+In case Suitsupply sends updated ‘Product’ details for an existing ‘SkuCode’, 
+Nexgen will update the ‘Product’ database overwriting the old data. 
+
+- 
+
+Suitsupply will send ‘Purchase order’ data file  
+
+o  Nexgen will go find the data associated with each ‘SkuCode’ in the ‘Product’ 
+
+database and retrieve the data to print the labels  
+
+▪ 
+
+‘Quantity’ field in the PO data file indicates the amount of that SKU 
+ordered. 
+
+▪  Nexgen will check the type of labels and how many of them are required 
+
+according to the product category. See point 2 of the ‘Product 
+Specifications’ section of this document. 
+
+●  Example: if ‘Quantity’ is 2 for a suit which requires 2 labels, 
+
+Nexgen will print 4 large labels. 
+
+- 
+
+Suitsupply will send a ‘Transfer’ data file 
+
+o  Nexgen will go find the data associated with each ‘SkuCode’ in the ‘Product’ 
+
+database and retrieve the data to print the labels  
+
+‘Quantity’ will be filed in the ODP interface. 
+
+▪ 
+▪  Nexgen will check the type of labels according to the product category. See 
+
+point 2 of the ‘Product Specifications’ section of this document. 
+
+o  More details about the Transfer files in page 13 of this document 
+
+API for JSON 
+Suit Supply currently utilizes an API webservice to pass an XML payload which is stored 
+as an XML file in their Nexgen FTP Folder. Pulse is designing a new API that can accept a 
+json payload, which will then be stored as a JSON file in the same Nexgen FTP Folder. 
+
+Page|12 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+3 Distinct Data Files 
+
+Purchase order file 
+
+{ 
+
+"PurchaseOrder":{ 
+"PurchaseOrderId": "12345", 
+"SupplierId": "277", 
+"FactoryId": "2", 
+"ExWarehouseDate": "2019-06-25T00:00:00", 
+"RegionId": "8", 
+"PurchaseOrderItems": { 
+
+"SkuCode": "P252501", 
+"Quantity": "2" 
+}, 
+"Boxes": { 
+
+"BoxCode": "12345" 
+} 
+
+} 
+
+} 
+
+Name 
+
+Description 
+
+PurchaseOrderId 
+
+SupplierId 
+
+FactoryId 
+
+PO Number 
+
+Supplier ID 
+
+Factory ID 
+
+ExWarehouseDate 
+
+Ex warehouse date 
+
+RegionId 
+
+SkuCode 
+
+Quantity 
+
+BoxCode 
+
+Region ID 
+SKU (reference for ‘Product’ 
+data file) 
+
+Quantity 
+
+Box code 
+
+Maximum number of 
+characters 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+Note: this should not happen, but if quantity is 0 Nexgen will process the order and put 0 in the 
+EDI quantity field. Suitsupply does not want any alert on this. 
+
+Product file 
+(example) 
+
+"Product": { 
+    "StyleCode": "FW1834", 
+    "ShortDescription": "Suede-Lace-Brown", 
+    "Division": { 
+      "Id": "5", 
+      "Name": "Men division" 
+    }, 
+    "Department": { 
+
+Page|13 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+      "Id": "33", 
+      "Name": "Shoes" 
+    }, 
+    "Category": { 
+      "Id": "33", 
+      "Name": "Seasonal" 
+    }, 
+    "Fit": "Regular Fit", 
+    "Prices": [ 
+      { 
+        "RegionId": "14", 
+        "RegionName": "Belarus", 
+        "Current": "199", 
+        "Future": "199" 
+      }, 
+      { 
+        "RegionId": "26", 
+        "RegionName": "Australia", 
+        "Current": "399", 
+        "Future": "399" 
+      }, 
+      { 
+        "RegionId": "2", 
+        "RegionName": "Belgium", 
+        "Current": "229", 
+        "Future": "229" 
+      } 
+], 
+    "Variants": [ 
+      { 
+        "SkuCode": "FW183405", 
+        "EanCode": "8719919306289", 
+        "LongDescription": "Suede-Lace-Brown 6 / 40 / 7", 
+        "Sizes": [ 
+          { 
+            "Type": "EU", 
+            "Value": "6" 
+          } 
+        ] 
+      }, 
+      { 
+        "SkuCode": "FW183407", 
+        "EanCode": "8719919306296", 
+        "LongDescription": "Suede-Lace-Brown 7 / 41 / 8", 
+        "Sizes": [ 
+          { 
+            "Type": "EU", 
+            "Value": "7" 
+          } 
+        ] 
+      }, 
+      { 
+
+Page|14 
+
+ 
+ 
+ 
+ 
+        "SkuCode": "FW183409", 
+        "EanCode": "8719919306302", 
+        "LongDescription": "Suede-Lace-Brown 8 / 42 / 9", 
+        "Sizes": [ 
+          { 
+            "Type": "EU", 
+            "Value": "8" 
+          } 
+        ] 
+      } 
+] 
+      } 
+    ] 
+  } 
+} 
+
+Name 
+
+Description 
+
+Maximum number of 
+characters 
+
+StyleCode 
+
+Style code 
+
+ShortDescription 
+
+Short description 
+
+Id (Division section) 
+
+Division ID 
+
+Name (Division section) 
+
+Division name 
+
+Id (Department section) 
+
+Department ID 
+
+Name (Department section) 
+
+Department name 
+
+Id (Category section) 
+
+Category ID 
+
+Name (Category section) 
+
+Category name 
+
+Fit 
+
+Fit description 
+
+RegionId (Price section) 
+
+Region ID 
+
+RegionName (Price section) 
+
+Region name 
+
+Current (Price section) 
+
+Price for future ODP dev. 
+
+Future (Price section) 
+
+Price to be printed 
+
+SkuCode 
+
+EanCode 
+
+SKU 
+
+EAN Code 
+
+LongDescription 
+
+Long description 
+
+Type (Size section) 
+
+Type of size (DE, IT, US, UK) 
+
+Value (Size section) 
+
+Size description 
+
+N/A 
+
+29 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+29 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+13 
+
+55 
+
+2 
+
+7 
+Combination of all the size types 
+and values in one label: 
+Small labels: it should be 32 
+characters in maximum (2 size 
+type + : + 7 size value) X 3 
+
+Page|15 
+
+ 
+ 
+ 
+ 
+ 
+sizes + 2 spacing = 32 
+characters 
+Large labels: 35 characters in 
+maximum 
+
+NOTE: Currently, for RFID labels, the item Description and Size are both contained in the 
+description field in the XML file. These two data points will need to be separated to support printing 
+of each on separate lines as indicated in the mapping. This will not be the case when using the new 
+JSON files. 
+
+Transfer file 
+
+{ 
+     "Transfer":{ 
+          "TransferId": "12345", 
+          "RegionId": "8", 
+          "TransferItems": { 
+               "SkuCode": "P252501", 
+               "Quantity": "2" 
+          } 
+     }, 
+     "Boxes": { 
+          "BoxCode": "12345" 
+      } 
+} 
+
+Name 
+
+Description 
+
+Maximum number of 
+characters 
+
+TransferId 
+
+RegionId 
+
+SkuCode 
+
+Quantity 
+
+BoxCode 
+
+Transfer ID 
+
+Region ID 
+
+SKU 
+
+Quantity 
+
+Box code 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+N/A 
+
+1)  The ‘Transfer’ data file will be necessary only for ODP.  
+2)  Suitsupply will not be sending transfer files from the beginning. Initial date TBA 
+3)  Nexgen will receive this Transfer data to be able to look up the data from the Product 
+
+database based on the SKU and Region in the ODP interface.  
+
+4)  Purchase orders require source printing and Transfers will only be used for distributed 
+
+printing 
+
+5)  For the ODP solution, Suitsupply will be able to retrieve the data from PO number or 
+
+Transfer number, selecting the option in a dropdown menu.  
+
+Page|16 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+6)  Nexgen will treat Transfers as Purchase Orders and use the Transfer ID as if were a 
+
+Purchase Order ID, and Transfers and Purchase orders can possibly have the same ID, we’ll 
+need to add a prefix or suffix of, PO- and TRN-, to the IDs to ensure they’re unique.   
+
+a.  The alternative to a prefix/suffix on the ID would likely mean adding custom logic, 
+
+which would require development, which we’d like to avoid.  
+
+i.  Example1: PurchaseOrderID:12345 would become PurchaseOrderID:PO-
+
+12345 or 12345-PO 
+
+ii.  Example2: TransferID:12345 would become TransferID:TRN-12345 or 
+
+12345-TRN. 
+
+Current XML file for RFID labels vs new JSON format 
+
+Business Rules 
+
+1)  PO’s assigned by Supplier (Vendor) and Factory ID. Company profiles to include ID security 
+
+for PO visibility. 
+
+2)  Suitsupply to define PO availability date from ‘ExWarehouseDate’ object in the ‘Purchase 
+
+order’ data file.  
+
+Page|17 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+3)  The amount and type of RFID and non-RFID labels required depend on Department and 
+Category. This is defined in the ‘Barcode label info’ Excel file and in section ‘Product 
+specifications’ point 2 of this document and detailed in the lookup table: 
+20191017_BusinessRulesPerProductGroup 
+
+4)  Contained within the Product data files are several fields which are required for an order to 
+
+be made available for call out in Ecom. If there is a scenario in which a PO contains a null 
+value for any of these data points, it should be held from call out. Those required fields 
+are: 
+
+a.  For non-RFID labels 
+
+i.  EAN Code 
+ii. 
+b.  For RFID labels 
+
+‘Future’ Price 
+
+i.  EAN Code 
+ii.  Description 
+iii.  Price* 
+
+*see exceptions for regions Russia, Belarus, Colombia, South Korea and Outside EU 
+
+This rule is based on RegionID. 
+For on hold orders we should keep the on-hold PO be searchable on MC PO list but cannot 
+be searched on Ecom V2. 
+
+5)  In case the data in the Product data file exceed the maximum characters limit defined in 
+section ‘JSON data files’ of this document, the complete PO will be put on hold. An 
+exception report will be sent to the corresponding recipient according to the Department 
+ID. This report is defined in section ‘Reports’ of this document. 
+
+a.  Size limits: we will set shrink-to-fit up to a limit, an exception report will be sent in 
+
+case the data exceed these limits: 
+
+i.  non-RFID Small labels: it should be 32 characters in maximum (2 size type 
+
++ : + 7 size value) X 3 sizes + 2 spacing = 32 characters 
+
+ii.  non-RFID Large labels and RFID labels: 35 characters in maximum 
+
+iii.  The size types to be checked are those listed in the lookup table: Lookup 
+
+Table: 20191017_BusinessRulesPerProductGroup 
+
+1.  Other size types found in the Product files like ‘Euro’ or ‘CN’ will be 
+
+ignored, no need to verify the length of their values. 
+
+6)  The 2D barcode that is printed on the RFID items will be encoded with the Hexadecimal 
+
+EPC value that is contained within the RFID string. Therefore, we will need to convert the 
+Hexadecimal EPC value and store in our DB to generate the 2D barcode.  
+
+Page|18 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+7)  There will be no overage applied to the JSON data. Nexgen to provide a text box in the size 
+breakdown template for the vendor/factory to provide a quantity if not matching the data 
+provided.  Vendor can place up to 50% of original PO quantity  
+
+8)  PO data can be called out multiple times by Suitsupply vendors. Once a PO has been called 
+out once, we should set the status to Ordered in the PO view but if the vendor searches for 
+this specific PO again, they can submit to production without issues. 
+
+9)  Any PO lines in the JSON data file marked with a quantity of 0 in the Quantity field can be 
+
+omitted from the Ecom record 
+
+Price 
+
+10) Suitsupply will provide merchandise to multiple regions globally and the currencies on the 
+printed stickers should be specific to the region (indicated in the Region section in the 
+‘Purchase order’ data file) of sale. Below are the countries and corresponding currencies 
+and symbols.  
+
+Region/ID 
+
+Australia/26 
+
+Belarus/14 
+
+Belgium/2 
+
+Canada/19 
+
+China/12 
+
+Currency  Layout 
+
+AUD 
+
+EUR 
+
+EUR 
+
+CAD 
+
+CNY 
+
+AUD 119.00 
+
+NULL 
+
+59.00 
+
+$ 79.00  
+
+¥ 580 
+
+China Converted/29 
+
+CNX 
+
+OMIT 
+
+Colombia/47 
+
+Denmark/25 
+
+Estonia/36 
+
+Germany/13 
+
+Helsinki/289 
+
+Hong Kong/35 
+
+Italy/9 
+
+Japan/17 
+
+Latvija/11 
+
+Lithuania/10 
+
+NULL 
+
+DKK 2999 
+
+59.99 
+
+59.00 
+
+59.00 
+
+HK$ 599 
+
+59.00 
+
+10900.00 
+
+59.00 
+
+59.00 
+
+DKK 
+
+EUR 
+
+EUR 
+
+EUR 
+
+HKD 
+
+EUR 
+
+JPY 
+
+EUR 
+
+EUR 
+
+Luxembourg/28 
+
+Mexico/15 
+
+EUR 
+
+MXN 
+
+59.00 
+
+1839.00 
+
+Mexico Franchise/18 
+
+MXN 
+
+OMIT 
+
+Netherlands/1 
+
+Norway/27 
+
+Outside EU/6 
+
+Panama/33 
+
+Poland/31 
+
+EUR 
+
+EUR 
+
+USD 
+
+USD 
+
+EUR 
+
+59.00 
+
+59.00 
+
+NULL 
+
+$ 79.00  
+
+59.00 
+
+Production/5 
+
+EUR 
+
+59.00 
+
+Russia/16 
+
+Singapore/20 
+
+South Africa/21 
+
+RUB 
+
+SGD 
+
+ZAR 
+
+NULL 
+
+129.00 
+
+1079.00 
+
+South Korea/24 
+
+KRW 
+
+₩ 99000 
+
+Spain/32 
+
+Sweden/23 
+
+Switzerland/22 
+
+Transport/4 
+
+Turkey/30 
+
+EUR 
+
+EUR 
+
+CHF 
+
+EUR 
+
+TRY 
+
+59.00 
+
+59.00 
+
+CHF 199.00 
+
+OMIT 
+
+OMIT 
+
+Page|19 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+United Arab Emirates/34 
+
+AED 
+
+AED 299 
+
+United Kingdom/3 
+
+USA/8 
+
+GBP 
+
+USD 
+
+59.00 
+
+$ 79.00  
+
+Page|20 
+
+ 
+ 
+ 
+ 
+11) Those Region/ID combinations marked with OMIT in the layout column are to be ignored in 
+
+Ecom and immediately cancelled upon receipt.  
+
+12) Blue highlighted Region allow call out the PO but no need show currency into layout. If 
+
+Price is “0” or “BLANK” we still allow call out the PO. 
+
+13) Price will appear in the ‘Product’ data file: ‘Value’ in ‘Price’ section: 
+
+a.  Current price: this value will be used in the future ODP interface. 
+b.  Future price: the price to print on the labels. 
+
+14) Region will be in the ‘Purchase order’ data file: ‘RegionID’ and ‘RegionName’. 
+
+a.  Nexgen will use the Region ID to look up the currencies, but Region Name will also 
+
+be included in the data file to make possible analysis easier. 
+
+15) If region is ‘USA’ (regionID=8 in the PO data file) or ‘Canada’ (regionID=19 in the PO data 
+
+file) Nexgen will print both prices on the label only in case Division=Men: 
+
+a.  In both RFID and non-RFID labels Nexgen will print both US and CAD prices 
+
+together with some space in between always printing currency symbols in this 
+case. 
+
+b.  Both USA and Canada prices will appear in the ‘Product’ data file in the ‘Price’ 
+
+section in two different blocks. 
+
+16) If region is ‘Hong Kong’ (regionID=35 in the PO data file) or ‘China’ (regionID=12 in the PO 
+
+data file) Nexgen will print both prices on the label only in case Division=Men: 
+
+a.  In both RFID and non-RFID labels Nexgen will print both HK and CN prices 
+
+together with some space in between always printing currency symbols in this 
+case. Following the example above (US/CAD rule) 
+
+b.  Both HK and CN prices will appear in the ‘Product’ data file in the ‘Price’ section in 
+
+two different blocks. 
+Note: The reason why Suitsupply don’t need the double prices for CA and HK for 
+Suistudio, is that they don’t have stores there. 
+17) Decimals ‘.00’ will not be printed for prices with currency symbol.  
+
+a.  Decimals ‘.00’ will be printed if the currency symbol is missing. 
+
+18) Price will always be printed in non-RFID barcode labels by default. 
+
+a.  But there are some exceptions depending on the region ID. See the next business 
+
+rule. 
+
+19) Price will be printed or omitted on RFID labels depending on the Department ID and 
+
+Category ID as indicated in the lookup table: 
+20191017_BusinessRulesPerProductGroup 
+
+There are some exceptions depending on the region ID: 
+
+Page|21 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Region 
+
+Pricing on RFID 
+
+Pricing on barcode 
+sticker 
+
+Russia/16 
+
+Singapore/20 
+
+Panama/33 
+
+Colombia/47 
+
+No 
+
+No 
+
+No 
+
+No 
+
+Outside EU/6 
+
+ No 
+
+South Korea/24 
+
+No 
+
+Belarus/14 
+
+No 
+
+No 
+
+Yes 
+
+Yes 
+
+No 
+
+No 
+
+No 
+
+No 
+
+20) The Region rules will overwrite the DepartmentID/CategoryID price printing rules. 
+21) No need to hold the PO if price is “0” or “BLANK” for regions Russia, Colombia, Outside EU, 
+
+South Korea & Belarus. 
+
+Fit 
+
+22) Fit will be printed or omitted depending on the Department ID and Category ID as 
+
+indicated in the lookup table: 
+20191017_BusinessRulesPerProductGroup 
+
+Division 
+
+Department 
+
+DepartmentId 
+
+Category Exceptions 
+
+CategoryId 
+
+Fit property 
+
+Default 
+
+Women Division 
+
+Suit Jackets 
+
+63   
+
+No 
+
+Yes 
+
+Page|22 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+ 
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+Women Division 
+
+Suit Trousers 
+
+Women Division 
+
+Jackets 
+
+Women Division 
+
+Trousers 
+
+Women Division  Coats 
+
+Women Division 
+
+Skirts 
+
+Women Division  Dresses 
+
+Women Division 
+
+Shirts 
+
+Women Division  Knitwear 
+
+Women Division 
+
+Tops 
+
+Women Division 
+
+Jumpsuits 
+
+Women Division  Accessories 
+
+Men Division 
+
+Suits 
+
+Men Division 
+
+Vests 
+
+Men Division 
+
+Coats 
+
+Men Division 
+
+Jackets 
+
+Men Division 
+
+Trousers 
+
+Men Division 
+
+Shoes 
+
+Men Division 
+
+Shirts 
+
+Men Division 
+
+Ties 
+
+Men Division 
+
+Knitwear 
+
+Men Division 
+
+MTM Shirts 
+
+Men Division 
+
+MTM Suits 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+16 
+
+17 
+
+64   
+
+36   
+
+42   
+
+34   
+
+39   
+
+35   
+
+57   
+
+43   
+
+41   
+
+37   
+
+58   
+
+20   
+
+29   
+
+21   
+
+28   
+
+22   
+
+33   
+
+23   
+
+24   
+
+62   
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+No 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+Yes 
+
+No 
+
+Yes 
+
+No 
+
+No 
+
+No 
+
+No 
+
+Bags 
+
+Belts Basic 
+
+Socks Basic 
+
+Belts Fashion 
+
+Socks Fashion 
+
+169 No 
+
+63 No 
+
+64 No 
+
+2188 No 
+
+2189 No 
+
+Page|23 
+
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Belts NOOS 
+
+Socks NOOS 
+
+Cufflinks 
+
+Suspenders 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares Basic 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares Fashion 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares NOOS 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Gloves 
+
+Scarfs 
+
+2321 No 
+
+2322 No 
+
+68 Yes 
+
+21 Yes 
+
+170 Yes 
+
+2187 Yes 
+
+2248 Yes 
+
+172 No 
+
+65 No 
+
+Size 
+
+a.  There is no need to have a conversion table or a region association since all the 
+
+details will appear in the ‘Product’ data file, section ‘Variants’. 
+
+b.  Sizes will be printed using a space between them as a separator: ‘'DE:36R IT:40R 
+
+US:6R UK:4R' for both large and small non-RFID labels.  
+
+23) Nexgen will print the relevant sizes and follow the sequence depending on the Department 
+
+ID and Category ID as described in the lookup table 
+20191017_BusinessRulesPerProductGroup 
+
+Division 
+
+Department  DepartmentId  Category Exceptions 
+
+CategoryId  Relevant sizes and sequence 
+
+Default 
+
+Women Division  Suit Jackets 
+
+Women Division  Suit Trousers 
+
+Women Division  Jackets 
+
+63   
+
+64   
+
+36   
+
+EU/UK/US 
+
+DE/IT/US/UK 
+
+DE/IT/US/UK 
+
+DE/IT/US/UK 
+
+Page|24 
+
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+ 
+  
+  
+  
+  
+  
+  
+  
+Women Division  Trousers 
+
+Women Division  Coats 
+
+Women Division  Skirts 
+
+Women Division  Dresses 
+
+Women Division  Shirts 
+
+Women Division  Knitwear 
+
+Women Division  Tops 
+
+Women Division  Jumpsuits 
+
+Women Division  Accessories 
+
+Men Division 
+
+Suits 
+
+Men Division 
+
+Vests 
+
+Men Division 
+
+Coats 
+
+Men Division 
+
+Jackets 
+
+Men Division 
+
+Trousers 
+
+Men Division 
+
+Shoes 
+
+Men Division 
+
+Shirts 
+
+Men Division 
+
+Ties 
+
+Men Division 
+
+Knitwear 
+
+42   
+
+34   
+
+39   
+
+35   
+
+57   
+
+43   
+
+41   
+
+37   
+
+58   
+
+20   
+
+29   
+
+21   
+
+28   
+
+22   
+
+33   
+
+23   
+
+24   
+
+62   
+
+Men Division 
+
+MTM Shirts 
+
+16 
+
+Men Division 
+
+MTM Suits 
+
+17 
+
+Men Division 
+
+Accessories 
+
+Bags 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Belts Basic 
+
+Socks Basic 
+
+Belts Fashion 
+
+Socks Fashion 
+
+Belts NOOS 
+
+Socks NOOS 
+
+DE/IT/US/UK 
+
+DE/IT/US/UK 
+
+DE/IT/US/UK 
+
+DE/IT/US/UK 
+
+DE/IT/US/UK 
+
+DE/IT/US/UK 
+
+DE/IT/US/UK 
+
+DE/IT/US/UK 
+
+EU 
+
+EU/UK/US 
+
+EU/UK/US 
+
+EU/UK/US 
+
+EU/UK/US 
+
+EU/UK/US 
+
+EU/UK/US 
+
+EU/UK/US 
+
+None 
+
+EU 
+
+None 
+
+None 
+
+169 None 
+
+63 EU/UK/US 
+
+64 EU/UK/US 
+
+2188 EU/UK/US 
+
+2189 EU/UK/US 
+
+2321 EU/UK/US 
+
+2322 EU/UK/US 
+
+Page|25 
+
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Cufflinks 
+
+Suspenders 
+
+68 EU/UK/US 
+
+21 EU/UK/US 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares Basic 
+
+170 EU/UK/US 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares Fashion 
+
+2187 EU/UK/US 
+
+Men Division 
+
+Accessories 
+
+Pocket Squares NOOS 
+
+2248 EU/UK/US 
+
+Men Division 
+
+Accessories 
+
+Men Division 
+
+Accessories 
+
+Gloves 
+
+Scarfs 
+
+172 EU 
+
+65 EU 
+
+24) If there are any other size values in the Product database, they should not be printed. 
+25) If the size is missing, then print the ‘LongDescription’ as it comes in the ‘Variants’ section of 
+
+the ‘Product’ data file instead of the short description right below the SKU and remove the 
+Size row. 
+
+a.  If the long description is too long to fit in one row, we can split the long description 
+in two different rows. One extra row is available since we will not be printing the 
+size. 
+
+26) Size values format could be: YY (numeric) YYL (alphanumeric) and XL (text) up to four 
+
+characters (XXXL)) 
+
+a.  Larger values have been found in the ‘SizeOptions’ file that Suitsupply shared with 
+
+Nexgen, but those will not appear in the barcode labels. 
+
+27) If there is only one single size value (repeated or not) or if all values are the same across 
+the different types, print the size only one time without the ‘country’ (type of size) in the 
+size line. 
+
+Pre-packed boxes 
+
+1)  Sometimes the products will be pre-packed into boxes and another label is also necessary. 
+2)  If the ‘Purchase order’ data file includes ‘boxes’ section, then Nexgen will print the barcode 
+
+and the ‘boxcode’ in a small label 
+
+a.  The box label will be populated along with the RFID and non-RFID labels required 
+
+Page|26 
+
+ 
+ 
+ 
+ 
+  
+  
+  
+  
+  
+  
+  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+b.  The box label is unique. Each boxcode is expected printed once. If a purchase 
+
+order contains 15 boxes, then we should print 1 label for each box, 15 in total. 
+
+Reports 
+
+RFID and non-RFID labels 
+
+Nexgen will auto generate and emails to the below email addresses: 
+RFIDresults@suitsupply.com 
+LMaat@suitsupply.com 
+SJahangir@suitsupply.com 
+MBrowning@suitsupply.com 
+
+A summary of the different reports, their frequency and their purpose follow below: 
+
+Report name 
+
+Frequency  Description 
+
+Daily 
+
+Daily 
+
+Daily 
+
+Suitsupply RFID 
+compulsory field 
+missing 
+
+Suitsupply POs 
+Called Out 
+
+Suitsupply - not 
+called out 14 days 
+before ex factory 
+date 
+
+Highlights orders which Nexgen has received the previous day but 
+have been excluded from Ecom call out availability due to missing 
+fields - UPC, price or description.  Contains maximum proceeding 
+two months worth of POs received into Nexgen. Only for RFID 
+items 
+
+All those POs received and called out by your supply base, 
+including both RFID and non-RFID items. 
+
+Includes POs received by Nexgen not called by vendor base, 14 
+days before garment ship date, , including both RFID and non-
+RFID items. 
+
+All orders with a date of -21 or greater v the garment ex factory 
+date will drop off the report 
+
+Page|27 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+ 
+ 
+ 
+Automated alert also to be sent to the email addresses associated 
+with the supplier IDs included in this report to remind vendors to 
+place orders urgently, quoting the PO numbers  
+
+Nexgen: Suitsupply 
+Serial and PO 
+
+Weekly 
+Fridays 
+
+Shows the EPC values range for all POs shipped by Nexgen, 
+including both RFID and non-RFID items. 
+
+Also shows extra quantity placed for compared to the original PO 
+quantity, highlighting those over 20% in red 
+
+Non-RFID labels 
+
+Suitsupply barcode compulsory field missing 
+If there is a scenario in which a PO contains a null value for any of these data points, they will 
+appear in the report. Those required fields are: 
+
+a.  EAN Code 
+b. 
+‘Future’ Price 
+c.  Short description 
+
+There are some exceptions depending on the region ID: 
+
+Region 
+
+Pricing on RFID 
+
+Pricing on barcode 
+sticker 
+
+Russia/16 
+
+Singapore/20 
+
+Panama/33 
+
+Colombia/47 
+
+No 
+
+No 
+
+No 
+
+No 
+
+Outside EU/6 
+
+ No 
+
+South Korea/24 
+
+No 
+
+Belarus/14 
+
+No 
+
+No 
+
+Yes 
+
+Yes 
+
+No 
+
+No 
+
+No 
+
+No 
+
+Page|28 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+If the price is missing but the Region is listed in the table above, then it should not appear in this 
+report. 
+
+Different recipients will be receiving the report depending on the product department: 
+
+●  Refer to the “E-mail Address” Column in the following document: 
+○  Lookup Table: 20191017_BusinessRulesPerProductGroup 
+
+This report is similar to the ‘Suitsupply RFID compulsory field missing’ report. 
+
+Suitsupply barcode data exceeds max character limit (buying) 
+
+If data exceeds the maximum characters limit, the whole PO will be on hold and an exception 
+report will be sent. 
+Different recipients will be receiving the report depending on the product department: 
+
+●  Refer to the “E-mail Address” Column in the following document: 
+○  Lookup Table: 20191017_BusinessRulesPerProductGroup 
+
+Fields on exception report: 
+
+PurchaseOrderId 
+
+SupplierId 
+
+ShortDescription 
+
+Fit 
+
+LongDescription 
+
+Size_Type1 
+
+Size_Value1 
+
+Size_Type2 
+
+Size_Value2 
+
+Size_Type3 
+
+Size_Value3 
+
+Page|29 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Size_Type4 
+
+Size_Value4 
+
+Size_Type5 
+
+Size_Value5 
+
+Size_Type6 
+
+Size_Value6 
+
+Size_Type7 
+
+Size_Value7 
+
+Size_Type8 
+
+Size_Value8 
+
+Size_Type9 
+
+Size_Value9 
+
+Size_Type10 
+
+Size_Value10 
+
+Print_size 
+
+ticket_code 
+
+status 
+
+create_date 
+
+filename 
+
+ExWarehouseDate 
+
+ItemCode 
+
+Division 
+
+Department 
+
+Page|30 
+
+ 
+ 
+ 
+ 
+DepartmentId 
+
+Category 
+
+CategoryId 
+
+Fields that need to check the character limit. 
+If Column Z is populated, there is an issue and needs to be tackled. 
+
+A summary of the different reports, their frequency and their purpose follow below: 
+
+Report name 
+
+Frequency  Description 
+
+Suitsupply RFID 
+compulsory field 
+missing 
+
+Daily 
+
+Highlights orders which Nexgen has received the previous day but 
+have been excluded from Ecom call out availability due to missing 
+fields.  Contains maximum proceeding two months worth of POs 
+received into Nexgen 
+
+Suitsupply barcode 
+data exceeds max 
+character limit 
+(buying) 
+
+Occasional  All those POs received with a value exceeding the maximum 
+
+character limit. 
+
+Nexgen E-commerce Deployment Outline 
+
+1.  The new DB Structure(PO + Product Separate) will make the callout process slightly 
+
+different and we need to confirm this with the customer. If we receive a PO.123 and a 
+Product.345.v1 file on Day 1, and an update to the Product.345.v2 file on Day 2; when the 
+PO is called out on Day 3, it will be with the product data in 345.v2 
+
+2.  We will allow 5 days lead time for both RFID and non-RFID labels, as we are currently 
+
+doing for RFID.  
+
+3.  If Quantity is 0 in the PO data file, Nexgen will process the order and put 0 in the EDI 
+
+quantity field. Suitsupply does not want any alert on this. 
+
+Non-RFID labels 
+
+1)  Vendor/factory PO call out at order header 
+2)  Order data will populate in item details by Department ID and Category ID. There will be 
+
+no Nexgen item call out in the PO file. 
+
+3)  Nexgen will let the quantities be editable so supplier can order more than the original 
+
+quantity. 
+
+a.  Order quantities will be limited to 50% overage of the original PO quantity. 
+
+Page|31 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+4)  There is no limit to the latest date a PO can be called out. 
+
+RFID labels 
+
+1)  PO call out at order header.  
+2)  Order data will populate in item details by item ID as defined by region and stylecode 
+
+identifier. There will be no Nexgen item call out in the PO file. 
+
+3)  Items to be enabled in Ecom for Hong Kong (China) service bureau production, China and 
+
+United Kingdom  
+
+4)  Nexgen will print and encode the variable stickers on the CL4NX thermal transfer printer in 
+
+each approved service bureau location. 
+
+5)  Order quantities will be limited to 50% overage of the original PO quantity. 
+
+a.  Any orders that are greater than 20% of the original PO quantity will be highlighted 
+
+in the weekly order detail report.  
+
+6)  Nexgen will provide a once weekly order detail report that includes the serial number range 
+
+that was applied to the printed orders.  
+
+Nexgen RFID Encoding Schema 
+
+1)  To Nexgen, the serial number range with code 02 has been assigned, which will be located 
+on position 16 and 17 of the hexadecimal SGTIN. Consequently, for every distinct GTIN 
+(EAN), Nexgen can use a serial number between 536,870,912 and 805,306,367. 
+
+For example, for EAN 8719119000765 Nexgen can use: 
+
+From 
+
+536870912 
+
+To 
+
+805306367 
+
+3036142C3C00130020000000 
+
+3036142C3C0013002FFFFFFF 
+
+Serial number 
+range 
+
+Hexadecimal 
+example 
+
+EPC Tag URI 
+example 
+
+urn:epc:tag:sgtin-
+96:1.8719119.000076.536870912 
+
+urn:epc:tag:sgtin-96:1.8719119.000076.805306367 
+
+EPC Pure Identity 
+URI example 
+
+urn:epc:id:sgtin:8719119.000076.536870912  urn:epc:id:sgtin:8719119.000076.805306367 
+
+Page|32 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+(01)08719119000765(21)536870912 
+
+(01)08719119000765(21)805306367 
+
+GS1 Key or other 
+identifier (GTIN 
++ serial, AI 01 to 
+AI 21) 
+
+example 
+
+2)  Suitsupply currently has three company prefixes identified in their UPC/EAN data string 
+
+which Nexgen will use to create the SGTIN EPC value. (8719119, 8719137, 8719475) 
+
+Page|33 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+

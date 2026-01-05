@@ -3,6 +3,7 @@ const router = express.Router();
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const zlib = require('zlib');
 const AdmZip = require('adm-zip');
 const dal = require('../utils/dal');
 
@@ -17,6 +18,17 @@ const STORE_RECOVERY_CONFIG_FILE = dal.paths.storeRecoveryConfigFile || path.joi
 
 // Default suitsApi host root (used when admin doesn't have/scan a base URL).
 const DEFAULT_STORE_RECOVERY_BASE_URL = 'https://printlabel.tst.suitapi.com/';
+const DEFAULT_STORE_RECOVERY_OAUTH_DOMAIN = 'https://login.microsoftonline.com';
+const DEFAULT_STORE_RECOVERY_OAUTH_TOKEN_URL = 'https://login.microsoftonline.com/suitsupply.com/oauth2/token';
+// From CREATE RFID app defaults: suitsApi_clientId
+const DEFAULT_STORE_RECOVERY_OAUTH_CLIENT_ID = 'a775bf49-2444-46e1-b8e2-dfa0e6564c51';
+const DEFAULT_STORE_RECOVERY_OAUTH_RESOURCE = 'https://suitsupply.com/printlabel-tst-sp';
+
+function extractGuid(value) {
+  const s = (value || '').toString();
+  const m = s.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  return m ? m[0] : '';
+}
 
 function maskSecret(value) {
   const s = (value || '').toString();
@@ -29,6 +41,60 @@ function extractFirstUrl(text) {
   const s = (text || '').toString();
   const m = s.match(/https?:\/\/[^\s"'<>]+/i);
   return m ? m[0] : '';
+}
+
+function looksLikeGzipBase64(text) {
+  const t = (text || '').toString().trim();
+  if (!t) return false;
+  if (!t.startsWith('H4sI')) return false;
+  const compact = t.replace(/\s+/g, '');
+  return /^[A-Za-z0-9+/=]+$/.test(compact);
+}
+
+function bytesLookPrintableAscii(buf) {
+  if (!buf || !buf.length) return true;
+  let printable = 0;
+  for (const b of buf) {
+    if (b === 9 || b === 10 || b === 13) { printable++; continue; }
+    if (b >= 32 && b <= 126) { printable++; continue; }
+  }
+  return printable / buf.length >= 0.9;
+}
+
+function extractSuitQrKeyValues(decodedText) {
+  const txt = (decodedText || '').toString().trim();
+  if (!txt) return {};
+  if (!looksLikeGzipBase64(txt)) return {};
+
+  try {
+    const compact = txt.replace(/\s+/g, '');
+    const gz = Buffer.from(compact, 'base64');
+    const buf = zlib.gunzipSync(gz);
+    const latin = buf.toString('latin1');
+    const re = /@S\dC([A-Za-z0-9_./-]+)=@/g;
+    const matches = Array.from(latin.matchAll(re));
+    if (!matches.length) return {};
+
+    const kv = {};
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      const key = (m[1] || '').trim();
+      if (!key) continue;
+      const start = (m.index || 0) + m[0].length;
+      const end = (i + 1 < matches.length) ? (matches[i + 1].index || buf.length) : buf.length;
+      const valBuf = buf.subarray(start, end);
+      if (!valBuf.length) continue;
+      if (bytesLookPrintableAscii(valBuf)) {
+        const val = valBuf.toString('latin1').trim();
+        if (val) kv[key] = val;
+      } else {
+        kv[key] = valBuf.toString('base64');
+      }
+    }
+    return kv;
+  } catch (_) {
+    return {};
+  }
 }
 
 function readStoreRecoveryConfig() {
@@ -180,6 +246,10 @@ router.post('/store-recovery-config', express.json(), (req, res) => {
     const decodedText = (body.decodedText || body.raw || '').toString();
     let baseUrl = (body.baseUrl || body.apiBaseUrl || '').toString().trim();
 
+    // If the QR payload is the Suit gzip/base64 format, extract any key-values server-side.
+    const suitKv = extractSuitQrKeyValues(decodedText);
+    if (!baseUrl && suitKv.suitsApi_baseUrl) baseUrl = String(suitKv.suitsApi_baseUrl).trim();
+
     const authType = (body.authType || body.lookupAuthType || '').toString().trim() || 'apiKey';
     const headerName = (body.headerName || body.apiKeyHeader || body.apiKeyHeaderName || 'x-api-key').toString().trim() || 'x-api-key';
     const apiKey = (body.apiKey || '').toString();
@@ -187,11 +257,17 @@ router.post('/store-recovery-config', express.json(), (req, res) => {
     const oauthDomain = (body.oauthDomain || '').toString().trim();
     const oauthTokenUrl = (body.oauthTokenUrl || '').toString().trim();
     const oauthClientId = (body.oauthClientId || '').toString().trim();
-    const oauthClientSecret = (body.oauthClientSecret || '').toString();
+    let oauthClientSecret = (body.oauthClientSecret || '').toString();
     const oauthResource = (body.oauthResource || '').toString().trim();
     const oauthScope = (body.oauthScope || '').toString().trim();
     const oauthGrantType = (body.oauthGrantType || '').toString().trim();
     const oauthCountryCode = (body.oauthCountryCode || '').toString().trim();
+
+    if (!oauthClientSecret && suitKv.suitsApi_clientSecret) {
+      oauthClientSecret = String(suitKv.suitsApi_clientSecret);
+    }
+
+    const looksLikeSuitsApi = /suitapi\.com/i.test(baseUrl || DEFAULT_STORE_RECOVERY_BASE_URL) || !!suitKv.suitsApi_clientSecret;
 
     // If admin only uploads/pastes the QR decoded payload, try to pull a URL out.
     if (!baseUrl && decodedText) baseUrl = extractFirstUrl(decodedText);
@@ -199,25 +275,30 @@ router.post('/store-recovery-config', express.json(), (req, res) => {
     if (!baseUrl) baseUrl = DEFAULT_STORE_RECOVERY_BASE_URL;
 
     const current = readStoreRecoveryConfig();
+    const nextAuthType = (looksLikeSuitsApi && (!apiKey || authType === 'oauth2')) ? 'oauth2' : authType;
     const next = {
       baseUrl,
-      authType,
+      authType: nextAuthType,
       headerName,
       // Allow leaving apiKey blank to keep existing.
       apiKey: apiKey ? apiKey : current.apiKey,
-      oauthDomain: oauthDomain || current.oauthDomain,
-      oauthTokenUrl: oauthTokenUrl || current.oauthTokenUrl,
-      oauthClientId: oauthClientId || current.oauthClientId,
+      oauthDomain: (oauthDomain || current.oauthDomain || (looksLikeSuitsApi ? DEFAULT_STORE_RECOVERY_OAUTH_DOMAIN : '')).toString().trim(),
+      oauthTokenUrl: (oauthTokenUrl || current.oauthTokenUrl || (looksLikeSuitsApi ? DEFAULT_STORE_RECOVERY_OAUTH_TOKEN_URL : '')).toString().trim(),
+      oauthClientId: (oauthClientId || current.oauthClientId || (looksLikeSuitsApi ? DEFAULT_STORE_RECOVERY_OAUTH_CLIENT_ID : '')).toString().trim(),
       // Allow leaving client secret blank to keep existing.
       oauthClientSecret: oauthClientSecret ? oauthClientSecret : current.oauthClientSecret,
-      oauthResource: oauthResource || current.oauthResource,
+      oauthResource: (oauthResource || current.oauthResource || (looksLikeSuitsApi ? DEFAULT_STORE_RECOVERY_OAUTH_RESOURCE : '')).toString().trim(),
       oauthScope: oauthScope || current.oauthScope,
-      oauthGrantType: oauthGrantType || current.oauthGrantType,
+      oauthGrantType: (oauthGrantType || current.oauthGrantType || (looksLikeSuitsApi ? 'client_credentials' : '')).toString().trim(),
       oauthCountryCode: oauthCountryCode || current.oauthCountryCode,
       decodedText,
       updatedAt: new Date().toISOString(),
       updatedBy: req.user?.name || null
     };
+
+    // If the admin uploads only the QR, fill missing clientId from known defaults.
+    // (CREATE RFID app defaults to a fixed clientId for SuitSupply.)
+    if (looksLikeSuitsApi && !next.oauthClientId) next.oauthClientId = DEFAULT_STORE_RECOVERY_OAUTH_CLIENT_ID;
     writeStoreRecoveryConfig(next);
 
     return res.json({
