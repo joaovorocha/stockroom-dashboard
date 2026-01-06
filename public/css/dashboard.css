@@ -512,6 +512,13 @@
   color: #7b1fa2;
 }
 
+.mix-item.rtw,
+.mix-item.cm {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
 .mix-total {
   margin-left: auto;
   font-weight: 600;

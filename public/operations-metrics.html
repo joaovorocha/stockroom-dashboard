@@ -105,6 +105,53 @@
               <span class="metric-value" id="tailorAlterationsHours">--</span>
               <span class="metric-change neutral">Total</span>
             </div>
+
+            <div class="metric-card" id="tailorAuditApgCard">
+              <span class="metric-label">APG</span>
+              <span class="metric-value" id="tailorAuditApg">--</span>
+              <span class="metric-change neutral" id="tailorAuditWeekHint">Last complete week</span>
+            </div>
+
+            <div class="metric-card" id="tailorAuditSizePassCard">
+              <span class="metric-label">L3M Size Pass</span>
+              <span class="metric-value" id="tailorAuditSizePassPct">--</span>
+              <span class="metric-change neutral" id="tailorAuditGeneratedHint">Overdue Audit</span>
+            </div>
+
+            <div class="metric-card" id="tailorAuditFreeAltCard">
+              <span class="metric-label">Free Alterations</span>
+              <span class="metric-value" id="tailorAuditFreeAltPct">--</span>
+              <span class="metric-change neutral">L3M</span>
+            </div>
+          </div>
+
+          <div class="metrics-row" style="margin-top: 12px;">
+            <div class="metric-card" id="onTimeOverallChartCard">
+              <span class="metric-label">Overall On-Time</span>
+              <span class="metric-value" id="onTimeOverallPct">--</span>
+              <div style="display:flex; justify-content:center; align-items:center; height: 180px;">
+                <canvas id="onTimeOverallChart" width="180" height="180"></canvas>
+              </div>
+              <span class="metric-change neutral" id="onTimeOverallCounts">Good vs Late</span>
+            </div>
+
+            <div class="metric-card" id="onTimeLongChartCard">
+              <span class="metric-label">On-Time % (Long)</span>
+              <span class="metric-value" id="onTimeLongPct">--</span>
+              <div style="display:flex; justify-content:center; align-items:center; height: 180px;">
+                <canvas id="onTimeLongChart" width="180" height="180"></canvas>
+              </div>
+              <span class="metric-change neutral" id="onTimeLongCounts">Good vs Late</span>
+            </div>
+
+            <div class="metric-card" id="onTimeShortChartCard">
+              <span class="metric-label">On-Time % (Short)</span>
+              <span class="metric-value" id="onTimeShortPct">--</span>
+              <div style="display:flex; justify-content:center; align-items:center; height: 180px;">
+                <canvas id="onTimeShortChart" width="180" height="180"></canvas>
+              </div>
+              <span class="metric-change neutral" id="onTimeShortCounts">Good vs Late</span>
+            </div>
           </div>
 
           <details style="margin-top: 12px;">
@@ -121,6 +168,22 @@
                   </tr>
                 </thead>
                 <tbody id="tailorLastWeekTableBody"></tbody>
+              </table>
+            </div>
+          </details>
+
+          <details style="margin-top: 10px;">
+            <summary style="cursor:pointer; user-select:none;">Per-tailor APG + L3M</summary>
+            <div class="orders-table-container" style="margin-top: 10px;">
+              <table class="orders-table">
+                <thead>
+                  <tr>
+                    <th>Tailor</th>
+                    <th>APG</th>
+                    <th>L3M Size Pass</th>
+                  </tr>
+                </thead>
+                <tbody id="tailorApgTableBody"></tbody>
               </table>
             </div>
           </details>

@@ -1581,7 +1581,7 @@
                   <option value="">Select...</option>
                   <option value="MOD" ${emp.role === 'MOD' ? 'selected' : ''}>MOD (Manager on Duty)</option>
                   <option value="HOST" ${emp.role === 'HOST' ? 'selected' : ''}>Host</option>
-                  <option value="IN-STORE" ${(emp.role === 'IN-STORE' || emp.role === 'Off') ? 'selected' : ''}>In-Store</option>
+                  <option value="IN-STORE" ${(emp.role === 'IN-STORE' || emp.role === 'Off') ? 'selected' : ''}>BOH-Manager</option>
                 </select>
               </div>
               <div class="edit-field">
@@ -2146,7 +2146,7 @@
 	        return;
 	      }
 
-	      // Required fields: anyone marked In-Store must have a shift (or station for tailors).
+        // Required fields: anyone marked BOH-Manager must have a shift (or station for tailors).
 	      const missingRequired = [];
 		      (employees.SA || []).forEach(e => {
 		        if (e?.isOff) return;
@@ -2161,8 +2161,8 @@
 	        if (!(e?.shift || '').toString().trim()) missingRequired.push(`${e.name} (Manager shift)`);
 	      });
 		      // Tailors can be left blank for now (no required fields enforced).
-		      if (missingRequired.length) {
-		        alert('To publish, everyone marked In-Store needs required fields:\n\n' + missingRequired.join('\n'));
+          if (missingRequired.length) {
+            alert('To publish, everyone marked BOH-Manager needs required fields:\n\n' + missingRequired.join('\n'));
 		        saveBtn.disabled = false;
 		        saveBtn.textContent = 'Publish';
 		        return;

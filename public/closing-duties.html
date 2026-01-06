@@ -334,21 +334,77 @@
     let closingDuties = [];
     let employees = { SA: [] };
     let submitDutyState = { section: '', type: '' };
-    let selectedDate = (() => {
+    let selectedDate = '';
+
+    function localISODate() {
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
-    })();
+    }
+
+    async function initSelectedDate() {
+      // Use store-day date (timezone + dayStart aware) so assignments load from the correct gameplan file.
+      try {
+        const res = await fetch('/api/gameplan/today');
+        if (res.ok) {
+          const info = await res.json();
+          if (info?.date && /^\d{4}-\d{2}-\d{2}$/.test(info.date)) {
+            selectedDate = info.date;
+          }
+        }
+      } catch (_) {}
+
+      if (!selectedDate) selectedDate = localISODate();
+
+      const historyDateEl = document.getElementById('historyDate');
+      if (historyDateEl) historyDateEl.value = selectedDate;
+      const displayEl = document.getElementById('historyDateDisplay');
+      if (displayEl) displayEl.textContent = selectedDate;
+    }
+
+    function normalizeKey(str) {
+      return (str || '').toString().trim().toLowerCase();
+    }
+
+    function getQueryParams() {
+      const params = new URLSearchParams(window.location.search || '');
+      return {
+        section: (params.get('section') || '').toString().trim(),
+        submit: (params.get('submit') || '').toString().trim(),
+      };
+    }
+
+    function tryDeepLinkToAssignedDuty() {
+      const { section, submit } = getQueryParams();
+      if (!section) return;
+
+      const wanted = normalizeKey(section);
+      const rows = Array.from(document.querySelectorAll('[data-section]'));
+      const match = rows.find(el => normalizeKey(el.getAttribute('data-section')) === wanted);
+      if (!match) return;
+
+      match.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      const shouldSubmit = submit === '1' || submit.toLowerCase() === 'true' || submit.toLowerCase() === 'yes';
+      if (!shouldSubmit) return;
+
+      const btn = match.querySelector('button');
+      if (btn) btn.click();
+    }
 
     document.addEventListener('DOMContentLoaded', async () => {
       await checkAuth();
       await loadSettings();
       await loadEmployees();
+      await initSelectedDate();
       await loadTodayDuties();
       renderAssignedDuties();
       setupEventListeners();
+
+      // Run after render so assigned rows/buttons exist.
+      setTimeout(tryDeepLinkToAssignedDuty, 0);
     });
 
     async function loadEmployees() {
@@ -416,7 +472,7 @@
         assignedSections.forEach(section => {
           const isComplete = submittedSections.includes(section);
           html += `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: ${isComplete ? '#f0fff4' : '#fffbeb'}; border: 1px solid ${isComplete ? 'var(--success)' : '#ffc107'}; border-radius: 6px;">
+            <div data-section="${section.replace(/"/g, '&quot;')}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: ${isComplete ? '#f0fff4' : '#fffbeb'}; border: 1px solid ${isComplete ? 'var(--success)' : '#ffc107'}; border-radius: 6px;">
               <span style="font-weight: 500;">${section}</span>
               ${isComplete
                 ? '<span style="color: var(--success); font-size: 13px;">Completed</span>'
@@ -567,7 +623,13 @@
           if (submitBtn) submitBtn.disabled = true;
           const response = await fetch('/api/closing-duties/submit', { method: 'POST', body: formData });
           if (!response.ok) {
-            const msg = await response.text();
+            let msg = '';
+            try {
+              const data = await response.json();
+              msg = (data?.error || data?.message || '').toString();
+            } catch (_) {
+              msg = (await response.text()) || '';
+            }
             throw new Error(msg || 'Submit failed');
           }
           alert('Closing duty submitted successfully!');
@@ -576,7 +638,7 @@
           renderAssignedDuties();
         } catch (e) {
           console.error(e);
-          alert('Error submitting duty');
+          alert(e?.message || 'Error submitting duty');
         } finally {
           if (submitBtn) submitBtn.disabled = false;
         }
@@ -923,6 +985,8 @@
       document.getElementById('historyDate').value = selectedDate;
       document.getElementById('historyDate').addEventListener('change', (e) => {
         selectedDate = e.target.value;
+        const displayEl = document.getElementById('historyDateDisplay');
+        if (displayEl) displayEl.textContent = selectedDate;
         loadTodayDuties();
       });
       document.getElementById('prevDay').addEventListener('click', () => {
@@ -933,6 +997,8 @@
         const day = String(d.getDate()).padStart(2, '0');
         selectedDate = `${year}-${month}-${day}`;
         document.getElementById('historyDate').value = selectedDate;
+        const displayEl = document.getElementById('historyDateDisplay');
+        if (displayEl) displayEl.textContent = selectedDate;
         loadTodayDuties();
       });
       document.getElementById('nextDay').addEventListener('click', () => {
@@ -943,16 +1009,18 @@
         const day = String(d.getDate()).padStart(2, '0');
         selectedDate = `${year}-${month}-${day}`;
         document.getElementById('historyDate').value = selectedDate;
+        const displayEl = document.getElementById('historyDateDisplay');
+        if (displayEl) displayEl.textContent = selectedDate;
         loadTodayDuties();
       });
       document.getElementById('todayBtn').addEventListener('click', () => {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        selectedDate = `${year}-${month}-${day}`;
-        document.getElementById('historyDate').value = selectedDate;
-        loadTodayDuties();
+        (async () => {
+          await initSelectedDate();
+          document.getElementById('historyDate').value = selectedDate;
+          const displayEl = document.getElementById('historyDateDisplay');
+          if (displayEl) displayEl.textContent = selectedDate;
+          loadTodayDuties();
+        })();
       });
 
       // Photo modal

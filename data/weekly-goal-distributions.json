@@ -29,6 +29,36 @@
       ],
       "updatedAt": "2026-01-01T19:24:57.040Z",
       "updatedBy": "Victor Rocha"
+    },
+    "2026-W52": {
+      "weekKey": "2026-W52",
+      "enabled": true,
+      "percents": [
+        17,
+        14,
+        9,
+        8,
+        9,
+        20,
+        23
+      ],
+      "updatedAt": "2026-01-05T10:56:07.498Z",
+      "updatedBy": "Victor Rocha"
+    },
+    "2026-W01": {
+      "weekKey": "2026-W01",
+      "enabled": false,
+      "percents": [
+        15,
+        15,
+        14,
+        14,
+        14,
+        14,
+        14
+      ],
+      "updatedAt": "2026-01-06T01:58:41.717Z",
+      "updatedBy": "Victor Rocha"
     }
   }
 }

@@ -42,6 +42,10 @@ const LOOKER_EMAIL_PATTERNS = [
     targetFolder: 'dashboard-tailor_myr'
   },
   {
+    subjectPattern: /overdue\s*audit|store\s*ops.*overdue|overdue\s*30-?min|store\s*ops.*audit/i,
+    targetFolder: 'dashboard-store_ops_overdue_audit'
+  },
+  {
     subjectPattern: /employee.*level|store.*count/i,
     targetFolder: 'dashboard-store_count_performance_-_employee_level'
   }
@@ -247,6 +251,20 @@ class GmailLookerFetcher {
         fs.writeFileSync(filePath, attachment.content);
         savedFiles.push(filePath);
         console.log(`Saved CSV: ${filename}`);
+      }
+
+      // Handle PDF exports (some Looker dashboards are emailed as PDFs)
+      else if (filename.toLowerCase().endsWith('.pdf')) {
+        const destDir = path.join(FILES_DIR, targetFolder);
+        const filePath = path.join(destDir, this.sanitizeFilename(filename));
+
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+        }
+
+        fs.writeFileSync(filePath, attachment.content);
+        savedFiles.push(filePath);
+        console.log(`Saved PDF: ${filename}`);
       }
     }
 

@@ -122,7 +122,10 @@
                 <div class="expandable-list" id="saFittingRoomAssignmentsList"></div>
               </div>
               <div class="sa-assignment-panel">
-                <div class="sa-assignment-panel__title">Closing Duties Status</div>
+                <div class="sa-assignment-panel__title" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                  <span>Closing Duties Status</span>
+                  <span id="closingDutiesStoreCompletion" style="font-size:12px; color: var(--text-secondary);">--</span>
+                </div>
                 <div class="expandable-list" id="saClosingDutiesStatusList"></div>
               </div>
             </div>
@@ -191,10 +194,16 @@
             </div>
           </div>
           <div class="product-mix-row">
-            <span class="mix-label">Last Week Mix:</span>
+            <span class="mix-label">Occasion Mix:</span>
             <span class="mix-item formal"><span id="formalPct">--</span> Formal</span>
             <span class="mix-item casual"><span id="casualPct">--</span> Casual</span>
             <span class="mix-item tuxedo"><span id="tuxedoPct">--</span> Tuxedo</span>
+            <span class="mix-total">= 100%</span>
+          </div>
+          <div class="product-mix-row" style="margin-top: 8px;">
+            <span class="mix-label">Production Type:</span>
+            <span class="mix-item rtw"><span id="rtwPct">--</span> RTW</span>
+            <span class="mix-item cm"><span id="cmPct">--</span> CM</span>
             <span class="mix-total">= 100%</span>
           </div>
 

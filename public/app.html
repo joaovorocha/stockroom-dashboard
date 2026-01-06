@@ -139,6 +139,14 @@
             <span class="metric-value" id="homeShift">--</span>
           </div>
           <div class="metric-card">
+            <span class="metric-label">Position</span>
+            <span class="metric-value" id="homePosition">--</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Zone</span>
+            <span class="metric-value" id="homeZone">--</span>
+          </div>
+          <div class="metric-card">
             <span class="metric-label">Lunch</span>
             <span class="metric-value" id="homeLunch">--</span>
           </div>
@@ -146,10 +154,11 @@
             <span class="metric-label">Fitting Room</span>
             <span class="metric-value" id="homeFittingRoom">--</span>
           </div>
-          <div class="metric-card">
+          <div class="metric-card" id="homeClosingCard">
             <span class="metric-label">Closing Duties</span>
             <span class="metric-value" id="homeClosingSummary">--</span>
             <span class="metric-change neutral" id="homeClosingList">--</span>
+            <span class="metric-hint" id="homeClosingHint" style="display:none;">Tap to submit</span>
           </div>
         </div>
       </div>
@@ -184,6 +193,7 @@
           <div class="metric-card">
             <span class="metric-label">Drop-offs</span>
             <span class="metric-value" id="dropoffs">--</span>
+            <span class="metric-change" id="dropoffsChange">--</span>
           </div>
           <div class="metric-card warning clickable" id="loansCard" onclick="showLoansModal()">
             <span class="metric-label">Loans Overdue</span>
@@ -194,11 +204,86 @@
         </div>
 
         <div class="product-mix-row">
-          <span class="mix-label">Last Week Mix:</span>
+          <span class="mix-label">Occasion Mix:</span>
           <span class="mix-item formal"><span id="formalPct">--</span> Formal</span>
           <span class="mix-item casual"><span id="casualPct">--</span> Casual</span>
           <span class="mix-item tuxedo"><span id="tuxedoPct">--</span> Tuxedo</span>
           <span class="mix-total">= 100%</span>
+        </div>
+        <div class="product-mix-row" style="margin-top: 8px;">
+          <span class="mix-label">Production Type:</span>
+          <span class="mix-item rtw"><span id="rtwPct">--</span> RTW</span>
+          <span class="mix-item cm"><span id="cmPct">--</span> CM</span>
+          <span class="mix-total">= 100%</span>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <div style="font-weight: 600; margin-bottom: 8px;">🚀 Customer Journey</div>
+          <div class="metrics-row">
+            <div class="metric-card">
+              <span class="metric-label">Total Customers</span>
+              <span class="metric-value" id="cjTotalCustomers">--</span>
+              <span class="metric-change" id="cjTotalCustomersVsPY">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Returning Customers</span>
+              <span class="metric-value" id="cjReturningCustomers">--</span>
+              <span class="metric-change" id="cjReturningCustomersVsPY">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Returning Customers %</span>
+              <span class="metric-value" id="cjReturningPct">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">New Customers</span>
+              <span class="metric-value" id="cjNewCustomers">--</span>
+              <span class="metric-change" id="cjNewCustomersVsPY">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">New Customers %</span>
+              <span class="metric-value" id="cjNewPct">--</span>
+            </div>
+          </div>
+
+          <div class="metrics-row" style="margin-top: 12px;">
+            <div class="metric-card">
+              <span class="metric-label">Visits</span>
+              <span class="metric-value" id="cjVisits">--</span>
+              <span class="metric-change" id="cjVisitsVsPY">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Appointments</span>
+              <span class="metric-value" id="cjAppointments">--</span>
+              <span class="metric-change neutral" id="cjAppointmentsPy">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">QR Check-Ins</span>
+              <span class="metric-value" id="cjQrCheckins">--</span>
+              <span class="metric-change" id="cjQrCheckinsVsPY">--</span>
+            </div>
+          </div>
+
+          <div class="metrics-row" style="margin-top: 12px;">
+            <div class="metric-card">
+              <span class="metric-label">NPS Score</span>
+              <span class="metric-value" id="cjNpsScore">--</span>
+              <span class="metric-change neutral" id="cjNpsVsPY">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Notes Taken</span>
+              <span class="metric-value" id="cjNotesTaken">--</span>
+              <span class="metric-change neutral" id="cjNotesTakenVsPY">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Completed Reaches</span>
+              <span class="metric-value" id="cjCompletedReaches">--</span>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Newsletters Subscription</span>
+              <span class="metric-value" id="cjNewsletterPct">--</span>
+              <span class="metric-change" id="cjNewsletterVsPY">--</span>
+            </div>
+          </div>
         </div>
 
         <div style="margin-top: 14px;">
@@ -223,6 +308,26 @@
               <span class="metric-label">Hours of Alterations</span>
               <span class="metric-value" id="mgrTailorAlterationsHours">--</span>
               <span class="metric-change neutral">Total</span>
+            </div>
+          </div>
+
+          <div class="metrics-row" style="margin-top: 12px;">
+            <div class="metric-card" id="tailorAuditSizePassCard">
+              <span class="metric-label">L3M Size Pass</span>
+              <span class="metric-value" id="tailorAuditSizePassPct">--</span>
+              <span class="metric-change neutral" id="tailorAuditGeneratedHint">Overdue Audit</span>
+            </div>
+
+            <div class="metric-card" id="tailorAuditFreeAltCard">
+              <span class="metric-label">Free Alterations</span>
+              <span class="metric-value" id="tailorAuditFreeAltPct">--</span>
+              <span class="metric-change neutral">L3M</span>
+            </div>
+
+            <div class="metric-card" id="tailorAuditApgCard">
+              <span class="metric-label">APG</span>
+              <span class="metric-value" id="tailorAuditApg">--</span>
+              <span class="metric-change neutral" id="tailorAuditWeekHint">Last complete week</span>
             </div>
           </div>
         </div>

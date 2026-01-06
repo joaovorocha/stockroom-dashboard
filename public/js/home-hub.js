@@ -98,18 +98,45 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const shift = (userEmp?.shift || userEmp?.role || '').toString().trim();
-    const lunch = (userEmp?.lunch || userEmp?.scheduledLunch || '').toString().trim();
-    const fittingRoom = (userEmp?.fittingRoom || '').toString().trim();
+    const position = (
+      userEmp?.station ||
+      userEmp?.taskOfTheDay ||
+      userEmp?.role ||
+      ''
+    ).toString().trim();
+    const zones = Array.isArray(userEmp?.zones)
+      ? userEmp.zones.map(z => (z || '').toString().trim()).filter(Boolean)
+      : ((userEmp?.zone || '').toString().trim() ? [(userEmp?.zone || '').toString().trim()] : []);
+    const zoneText = zones.length ? zones.join(' / ') : '';
+
+    const lunch = (
+      userEmp?.scheduledLunch ||
+      userEmp?.lunch ||
+      userEmp?.lunchTime ||
+      userEmp?.lunchStart ||
+      ''
+    ).toString().trim();
+    const fittingRoom = (
+      userEmp?.fittingRoom ||
+      userEmp?.fitting_room ||
+      ''
+    ).toString().trim();
 
     const shiftText = shift || '--';
+    const positionText = position || '--';
+    const zoneDisplayText = zoneText || '--';
     const lunchText = lunch || '--';
     const fittingRoomText = fittingRoom || '--';
 
     setText('homeShift', shiftText);
+    setText('homePosition', positionText);
+    setText('homeZone', zoneDisplayText);
     setText('homeLunch', lunchText);
     setText('homeFittingRoom', fittingRoomText);
 
     setCardVisibleByValue('homeShift', !isEmptyDisplayValue(shiftText));
+    setCardVisibleByValue('homePosition', !isEmptyDisplayValue(positionText));
+    setCardVisibleByValue('homeZone', !isEmptyDisplayValue(zoneDisplayText));
     setCardVisibleByValue('homeLunch', !isEmptyDisplayValue(lunchText));
     setCardVisibleByValue('homeFittingRoom', !isEmptyDisplayValue(fittingRoomText));
 
@@ -122,6 +149,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       setText('homeClosingList', '--');
       setCardVisibleByValue('homeClosingSummary', false);
       setCardStatusClass('homeClosingSummary', null);
+      const hint = document.getElementById('homeClosingHint');
+      if (hint) hint.style.display = 'none';
+      const card = document.getElementById('homeClosingCard');
+      if (card) {
+        card.classList.remove('clickable');
+        card.style.cursor = '';
+        card.onclick = null;
+      }
     } else {
       const completedCount = assignedClosing.filter(s => submitted.has(s)).length;
       const pendingCount = Math.max(0, assignedClosing.length - completedCount);
@@ -141,6 +176,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         setCardStatusClass('homeClosingSummary', 'success');
       } else {
         setCardStatusClass('homeClosingSummary', 'warning');
+      }
+
+      const targetSection = assignedClosing.find(s => !submitted.has(s)) || assignedClosing[0];
+      const card = document.getElementById('homeClosingCard');
+      const hint = document.getElementById('homeClosingHint');
+      if (card && targetSection) {
+        card.classList.add('clickable');
+        card.style.cursor = 'pointer';
+        card.onclick = () => {
+          const url = `/closing-duties?section=${encodeURIComponent(targetSection)}&submit=1`;
+          window.location.href = url;
+        };
+        if (hint) hint.style.display = '';
+      } else if (hint) {
+        hint.style.display = 'none';
       }
     }
 

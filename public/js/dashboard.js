@@ -137,6 +137,17 @@ function getLocalISODate() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function shiftISODate(dateStr, deltaDays) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test((dateStr || '').toString())) return null;
+  const [y, m, d] = dateStr.split('-').map(n => Number(n));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (Number.isNaN(dt.getTime())) return null;
+  dt.setUTCDate(dt.getUTCDate() + Number(deltaDays || 0));
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
+}
+
 let currentClientDate = getLocalISODate();
 
 function getEmployeeZones(emp) {
@@ -156,12 +167,28 @@ function normalizeEmployeeDailyFields(emp) {
   const fittingRoom = Array.isArray(emp.fittingRoom)
     ? (emp.fittingRoom[0] || '').toString().trim()
     : (emp.fittingRoom || '').toString().trim();
-  const isOff = emp?.isOff === true || emp?.isOff === 'true';
+  const rawIsOff = emp?.isOff === true || emp?.isOff === 'true';
   const closingSections = Array.isArray(emp.closingSections)
     ? emp.closingSections.map(s => (s || '').toString().trim()).filter(Boolean)
     : ((emp.closingSections || '').toString().trim()
       ? (emp.closingSections || '').toString().split(',').map(s => s.trim()).filter(Boolean)
       : []);
+
+  // If an employee has any daily assignment set, treat them as "On Duty" even if the toggle was left as Day Off.
+  // This prevents BOH tasks (and similar fields) from being hidden in the Day Off group.
+  const hasAnyAssignment =
+    zones.length > 0 ||
+    !!fittingRoom ||
+    closingSections.length > 0 ||
+    !!(emp?.scheduledLunch || '').toString().trim() ||
+    !!(emp?.shift || '').toString().trim() ||
+    !!(emp?.lunch || '').toString().trim() ||
+    !!(emp?.taskOfTheDay || '').toString().trim() ||
+    !!(emp?.role || '').toString().trim() ||
+    !!(emp?.station || '').toString().trim();
+
+  const isOff = rawIsOff && !hasAnyAssignment;
+
   return { ...emp, isOff, zones, zone: zones[0] || '', fittingRoom, closingSections };
 }
 
@@ -271,6 +298,22 @@ function applyUnpublishedVisibility() {
 
   const shouldHide = !gameplanData?.published && !isPrivilegedUser();
 
+  // Even when today's plan isn't published yet, employees should still be able to
+  // see their own role page (which is already self-limited/collapsed).
+  const keepVisible = new Set();
+  if (currentPageType === 'SA') {
+    keepVisible.add('saAssignmentStatus');
+    keepVisible.add('saSection');
+    keepVisible.add('bohSection');
+    keepVisible.add('expandableAssignments');
+  }
+  if (currentPageType === 'BOH') {
+    keepVisible.add('bohSection');
+  }
+  if (currentPageType === 'TAILOR') {
+    keepVisible.add('tailorsSection');
+  }
+
   const idsToHide = [
     'welcomeStoreInfo', // notes/briefing
     'expandableAssignments',
@@ -292,6 +335,10 @@ function applyUnpublishedVisibility() {
     if (el.dataset.origDisplay === undefined) {
       const orig = (el.style.display || '').toString();
       el.dataset.origDisplay = orig === 'none' ? '' : orig;
+    }
+    if (shouldHide && keepVisible.has(id)) {
+      el.style.display = el.dataset.origDisplay;
+      return;
     }
     el.style.display = shouldHide ? 'none' : el.dataset.origDisplay;
   });
@@ -500,6 +547,43 @@ function setupSSEConnection() {
       handleSSEUpdate(update);
     } catch (e) {
       console.error('Error parsing SSE message:', e);
+
+    // OPS_METRICS: Per-tailor APG + L3M list
+    try {
+      const tbody = document.getElementById('tailorApgTableBody');
+      if (tbody) {
+        const tailors = Array.isArray(employees?.TAILOR) ? employees.TAILOR : [];
+        const rows = tailors
+          .map(t => {
+            const apg = getTailorApgForEmployee(t);
+            const l3m = getL3MSizePassPctForEmployee(t);
+            return {
+              name: (t?.name || '').toString().trim(),
+              apg,
+              l3m,
+              sortKey: Number.isFinite(Number(apg)) ? Number(apg) : -1
+            };
+          })
+          .filter(r => r.name)
+          .sort((a, b) => b.sortKey - a.sortKey);
+
+        tbody.innerHTML = rows
+          .map(r => {
+            const apgText = Number.isFinite(Number(r.apg)) ? formatNumberOrDash(r.apg, 1) : '--';
+            const l3mText = Number.isFinite(Number(r.l3m)) ? `${formatNumberOrDash(r.l3m, 0)}%` : '--';
+            return `
+              <tr>
+                <td>${r.name}</td>
+                <td>${apgText}</td>
+                <td>${l3mText}</td>
+              </tr>
+            `;
+          })
+          .join('');
+      }
+    } catch (_) {
+      // Ignore.
+    }
     }
   };
 
@@ -721,10 +805,10 @@ async function loadGameplan() {
     // Always load the current store-day date from server (timezone + dayStart aware).
     const today = await getStoreDayInfo();
     const clientDate = today?.date || getLocalISODate();
-    
-	    const response = await fetch(`/api/gameplan/date/${clientDate}`);
-		    if (response.ok) {
-		      gameplanData = await response.json();
+
+      const response = await fetch(`/api/gameplan/date/${clientDate}`);
+        if (response.ok) {
+          gameplanData = await response.json();
       
       // Update notes in both sidebar and inline editors (whichever exists)
       const notesEditor = document.getElementById('notesEditor') || document.getElementById('notesEditorInline');
@@ -737,14 +821,38 @@ async function loadGameplan() {
         lastEditedBy.textContent = `Last edited by ${gameplanData.lastEditedBy}${editTime ? ' at ' + editTime : ''}`;
       }
 
-	      // Clear previous day's daily fields, then merge today's assignments (if any).
-	      resetAllEmployeesDailyFields();
-	      if (gameplanData.assignments) mergeAssignments(gameplanData.assignments);
-	    } else {
-		      // If there is no game plan file yet, treat as "not published".
-		      gameplanData = { notes: '', assignments: {}, published: false };
-		      resetAllEmployeesDailyFields();
-		    }
+        // Clear previous day's daily fields, then merge today's assignments (if any).
+        resetAllEmployeesDailyFields();
+        if (gameplanData.assignments) mergeAssignments(gameplanData.assignments);
+      } else {
+          // If there is no game plan file yet for *today*, employees can end up seeing
+          // "empty" assignments right at day rollover. For non-privileged users, fall
+          // back to yesterday's published plan for display, while still treating today
+          // as unpublished (so full-team sections remain gated).
+          const canFallback = !isPrivilegedUser() && currentPageType !== 'EDIT';
+          const yesterdayDate = shiftISODate(clientDate, -1);
+          if (canFallback && yesterdayDate) {
+            const yResp = await fetch(`/api/gameplan/date/${yesterdayDate}`);
+            if (yResp.ok) {
+              const yData = await yResp.json();
+              gameplanData = {
+                ...yData,
+                published: false,
+                fallbackFromDate: yesterdayDate,
+                effectiveDate: clientDate
+              };
+              resetAllEmployeesDailyFields();
+              if (gameplanData.assignments) mergeAssignments(gameplanData.assignments);
+            } else {
+              gameplanData = { notes: '', assignments: {}, published: false };
+              resetAllEmployeesDailyFields();
+            }
+          } else {
+            // If there is no game plan file yet, treat as "not published".
+            gameplanData = { notes: '', assignments: {}, published: false };
+            resetAllEmployeesDailyFields();
+          }
+        }
 
 	    // Banner at TOP if not published (whether file exists or not)
 	    const statusBanner = document.getElementById('statusBanner');
@@ -1145,6 +1253,11 @@ function setupWelcomeSection() {
       case 'TAILOR':
         if (userEmployee.station) detailsHtml += `<div class="assignment-item"><span class="label">Station:</span> <span class="value">${userEmployee.station}</span></div>`;
         if (userEmployee.lunch) detailsHtml += `<div class="assignment-item"><span class="label">Lunch:</span> <span class="value">${userEmployee.lunch}</span></div>`;
+        {
+          const apg = getTailorApgForEmployee(userEmployee);
+          const apgText = apg !== null ? formatNumberOrDash(apg, 1) : '--';
+          detailsHtml += `<div class="assignment-item"><span class="label">APG:</span> <span class="value">${apgText}</span></div>`;
+        }
         if (userEmployee.productivity) {
           detailsHtml += `<div class="assignment-item"><span class="label">YTD Productivity:</span> <span class="value ${userEmployee.productivity >= 100 ? 'positive' : 'negative'}">${userEmployee.productivity}%</span></div>`;
         }
@@ -1522,16 +1635,36 @@ function renderSAAssignmentStatus() {
   // Closing duties status (section -> assignee + completed/pending)
   const allSections = (settings.closingSections || []).map(s => s?.name).filter(Boolean);
   const sectionToAssignee = {};
-  (employees.SA || []).forEach(sa => {
-    const list = Array.isArray(sa?.closingSections) ? sa.closingSections : [];
+  // Include assignments from all groups so everyone can see who owns each duty.
+  const allPeople = []
+    .concat(employees.SA || [])
+    .concat(employees.BOH || [])
+    .concat(employees.MANAGEMENT || [])
+    .concat(employees.TAILOR || []);
+  allPeople.forEach(person => {
+    const list = Array.isArray(person?.closingSections) ? person.closingSections : [];
     list.forEach(sectionName => {
-      if (sectionName) sectionToAssignee[sectionName] = { name: sa?.name || '', id: sa?.id };
+      const key = (sectionName || '').toString().trim();
+      if (!key) return;
+      // Keep first match for stability.
+      if (sectionToAssignee[key]) return;
+      sectionToAssignee[key] = { name: person?.name || '', id: person?.id, type: person?.type || '' };
     });
   });
 
   const submitted = new Set(
     (closingDutiesToday || []).map(s => (s?.section || '').toString()).filter(Boolean)
   );
+
+  // Store-wide completion rate (all configured sections, regardless of assignee type).
+  const completionEl = document.getElementById('closingDutiesStoreCompletion');
+  if (completionEl) {
+    const total = Array.isArray(allSections) ? allSections.length : 0;
+    const completed = total ? allSections.filter(s => submitted.has(s)).length : 0;
+    const pct = total ? Math.round((completed / total) * 100) : null;
+    completionEl.textContent = pct === null ? '--' : `${pct}%`;
+    completionEl.title = total ? `${completed}/${total} completed` : '';
+  }
 
   if (!Array.isArray(allSections) || allSections.length === 0) {
     dutiesListEl.innerHTML = '<div class="expandable-list-item">No closing duties configured</div>';
@@ -1554,10 +1687,14 @@ function renderSAAssignmentStatus() {
       let cls = 'expandable-list-item';
       if (isMine) cls += ' mine';
 
+      const whoHtml = isMine
+        ? `<a class="status-pill__who" href="/closing-duties?section=${encodeURIComponent(left)}&submit=1" style="color:inherit; text-decoration:underline;">${who}</a>`
+        : `<span class="status-pill__who">${who}</span>`;
+
       return `
         <div class="${cls}">
           <span class="item-name">${left}</span>
-          <span class="item-assignee">${statusPill}<span class="status-pill__who">${who}</span></span>
+          <span class="item-assignee">${statusPill}${whoHtml}</span>
         </div>
       `;
     }).join('');
@@ -1736,8 +1873,9 @@ function renderAll() {
       renderManagementQuickSection();
       renderSAAssignmentStatus();
       renderSASection();
+      // SA view is a shared "status" view; always show BOH tasks here.
+      renderBOHSection();
       // Hide other sections not relevant to SA
-      setDisplay('bohSection', 'none');
       setDisplay('managementSection', 'none');
       setDisplay('tailorsSection', 'none');
       setDisplay('operationsSection', 'none');
@@ -1854,6 +1992,18 @@ function updateWorkingToday() {
 function updateMetricsDisplay() {
   if (!metrics.wtd) return;
 
+  const setVsPyEl = (el, value) => {
+    if (!el) return;
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      el.textContent = 'Ø vs PY';
+      el.className = 'metric-change neutral';
+      return;
+    }
+    el.textContent = `${num >= 0 ? '+' : ''}${num}% vs PY`;
+    el.className = `metric-change ${num >= 0 ? 'positive' : 'negative'}`;
+  };
+
   document.getElementById('wtdSales').textContent = formatCurrency(metrics.wtd.salesAmount);
   const wtdChange = document.getElementById('wtdChange');
   wtdChange.textContent = `${metrics.wtd.salesVsPY >= 0 ? '+' : ''}${metrics.wtd.salesVsPY}% vs PY`;
@@ -1876,12 +2026,92 @@ function updateMetricsDisplay() {
     ipcChange.className = `metric-change ${metrics.metrics.ipcVsPY >= 0 ? 'positive' : 'negative'}`;
 
     document.getElementById('dropoffs').textContent = `${metrics.metrics.dropOffs}%`;
+
+    const dropoffsChange = document.getElementById('dropoffsChange');
+    if (dropoffsChange) setVsPyEl(dropoffsChange, metrics.metrics.dropOffsVsPY);
   }
 
   if (metrics.lastWeekSales) {
     document.getElementById('formalPct').textContent = `${metrics.lastWeekSales.formal}%`;
     document.getElementById('casualPct').textContent = `${metrics.lastWeekSales.casual}%`;
     document.getElementById('tuxedoPct').textContent = `${metrics.lastWeekSales.tuxedo}%`;
+  }
+
+  if (metrics.productMixCmRtw) {
+    const rtwEl = document.getElementById('rtwPct');
+    const cmEl = document.getElementById('cmPct');
+    if (rtwEl) rtwEl.textContent = `${Math.round(metrics.productMixCmRtw.RTW ?? 0)}%`;
+    if (cmEl) cmEl.textContent = `${Math.round(metrics.productMixCmRtw.CM ?? 0)}%`;
+  }
+
+  const cj = metrics.customerJourney;
+  if (cj) {
+    const setText = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+
+    const setPercentText = (id, value, digits = 1) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const n = Number(value);
+      if (!Number.isFinite(n)) {
+        el.textContent = '--';
+        return;
+      }
+      const factor = Math.pow(10, digits);
+      el.textContent = `${Math.round(n * factor) / factor}%`;
+    };
+
+    setText('cjTotalCustomers', formatNumberOrDash(cj.totalCustomers, 0));
+    setVsPyEl(document.getElementById('cjTotalCustomersVsPY'), cj.totalCustomersVsPY);
+
+    setText('cjReturningCustomers', formatNumberOrDash(cj.returningCustomers, 0));
+    setVsPyEl(document.getElementById('cjReturningCustomersVsPY'), cj.returningCustomersVsPY);
+    setPercentText('cjReturningPct', cj.returningPct, 1);
+
+    setText('cjNewCustomers', formatNumberOrDash(cj.newCustomers, 0));
+    setVsPyEl(document.getElementById('cjNewCustomersVsPY'), cj.newCustomersVsPY);
+    setPercentText('cjNewPct', cj.newPct, 1);
+
+    setText('cjVisits', formatNumberOrDash(cj.visits, 0));
+    setVsPyEl(document.getElementById('cjVisitsVsPY'), cj.visitsVsPY);
+
+    setPercentText('cjAppointments', cj.appointmentsShareTy, 0);
+    const apptPyEl = document.getElementById('cjAppointmentsPy');
+    if (apptPyEl) {
+      const py = Number(cj.appointmentsSharePy);
+      apptPyEl.textContent = Number.isFinite(py) ? `${Math.round(py)}% PY` : '--';
+      apptPyEl.className = 'metric-change neutral';
+    }
+
+    setPercentText('cjQrCheckins', cj.qrCheckinsPct, 1);
+    setVsPyEl(document.getElementById('cjQrCheckinsVsPY'), cj.qrCheckinsVsPY);
+
+    const npsEl = document.getElementById('cjNpsScore');
+    if (npsEl) {
+      const n = Number(cj.npsScore);
+      npsEl.textContent = Number.isFinite(n) ? `${n}` : '--';
+    }
+    const npsVsEl = document.getElementById('cjNpsVsPY');
+    if (npsVsEl) {
+      const n = Number(cj.npsVsPY);
+      npsVsEl.textContent = Number.isFinite(n) ? `${n >= 0 ? '+' : ''}${n}% vs PY` : 'Ø vs PY';
+      npsVsEl.className = Number.isFinite(n) ? `metric-change ${n >= 0 ? 'positive' : 'negative'}` : 'metric-change neutral';
+    }
+
+    setText('cjNotesTaken', formatNumberOrDash(cj.notesTaken, 0));
+    const notesVsEl = document.getElementById('cjNotesTakenVsPY');
+    if (notesVsEl) {
+      const n = Number(cj.notesTakenVsPY);
+      notesVsEl.textContent = Number.isFinite(n) ? `${n >= 0 ? '+' : ''}${n}% vs PY` : 'Ø vs PY';
+      notesVsEl.className = Number.isFinite(n) ? `metric-change ${n >= 0 ? 'positive' : 'negative'}` : 'metric-change neutral';
+    }
+
+    setText('cjCompletedReaches', formatNumberOrDash(cj.completedReaches, 0));
+
+    setPercentText('cjNewsletterPct', cj.newsletterPct, 1);
+    setVsPyEl(document.getElementById('cjNewsletterVsPY'), cj.newsletterVsPY);
   }
 
   renderRetailWeekStoreInfo();
@@ -1992,6 +2222,8 @@ function createSACard(emp, isCurrentUser = false) {
   const isDayOff = !isWorking;
   card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
+  const l3mText = formatPercentOrDash(getL3MSizePassPctForEmployee(emp), 0);
+
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -2021,6 +2253,12 @@ function createSACard(emp, isCurrentUser = false) {
           <span class="role day-off-badge">Day Off</span>
         </div>
       </div>
+      <div class="card-body">
+        <div class="card-field">
+          <span class="field-label">L3M Size Pass</span>
+          <span class="field-value">${l3mText}</span>
+        </div>
+      </div>
     `;
     return card;
   }
@@ -2042,6 +2280,10 @@ function createSACard(emp, isCurrentUser = false) {
         <span class="field-label">Fitting Room</span>
         <span class="field-value">${emp.fittingRoom || '-'}</span>
       </div>
+          <div class="card-field">
+            <span class="field-label">L3M Size Pass</span>
+            <span class="field-value">${l3mText}</span>
+          </div>
 		      <div class="card-field">
 		        <span class="field-label">Target</span>
 		        <span class="field-value">${(isWorking && perPersonTarget) ? formatCurrency(perPersonTarget) : '-'}</span>
@@ -2095,13 +2337,15 @@ function renderBOHSection() {
   if (currentUserEmp && !currentUserEmp?.isOff) orderedAll = [currentUserEmp, ...workingList.filter(e => e.id !== currentUserEmp.id)];
 
   const collapsed = (() => {
-    if (!isPrivileged) return currentUserEmp ? [currentUserEmp] : [];
+    // If this page doesn't offer an expand control (ex: SA view), show the full list.
+    if (!expandBtn) return orderedAll;
+    if (!isPrivileged) return currentUserEmp ? [currentUserEmp] : orderedAll.slice(0, 4);
     return orderedAll.slice(0, 4);
   })();
 
-  const shown = showAllEmployees.BOH ? orderedAll : collapsed;
+  const shown = (!expandBtn || showAllEmployees.BOH) ? orderedAll : collapsed;
 
-  const canExpand = orderedAll.length > collapsed.length || (!isPrivileged && workingList.length > 1);
+  const canExpand = !!expandBtn && (orderedAll.length > collapsed.length || (!isPrivileged && workingList.length > 1));
   if (expandBtn) {
     if (!canExpand) {
       expandBtn.style.display = 'none';
@@ -2123,6 +2367,8 @@ function createBOHCard(emp, isCurrentUser = false) {
   const isDayOff = !!emp?.isOff;
   card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
+  const l3mText = formatPercentOrDash(getL3MSizePassPctForEmployee(emp), 0);
+
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -2134,6 +2380,12 @@ function createBOHCard(emp, isCurrentUser = false) {
         <div class="employee-info">
           <h4>${emp.name}</h4>
           <span class="role day-off-badge">Day Off</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-field">
+          <span class="field-label">L3M Size Pass</span>
+          <span class="field-value">${l3mText}</span>
         </div>
       </div>
     `;
@@ -2167,6 +2419,10 @@ function createBOHCard(emp, isCurrentUser = false) {
       <div class="card-field">
         <span class="field-label">Lunch</span>
         <span class="field-value">${emp.lunch || '-'}</span>
+      </div>
+      <div class="card-field">
+        <span class="field-label">L3M Size Pass</span>
+        <span class="field-value">${l3mText}</span>
       </div>
       <div class="card-field full-width">
         <span class="field-label">Task of the Day</span>
@@ -2238,6 +2494,8 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
   const card = document.createElement('div');
   card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
+  const l3mText = formatPercentOrDash(getL3MSizePassPctForEmployee(emp), 0);
+
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -2253,6 +2511,12 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
         <div class="employee-info">
           <h4>${emp.name}</h4>
           <span class="role day-off-badge">Day Off</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-field">
+          <span class="field-label">L3M Size Pass</span>
+          <span class="field-value">${l3mText}</span>
         </div>
       </div>
     `;
@@ -2282,6 +2546,10 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
         <div class="card-field">
           <span class="field-label">Lunch</span>
           <span class="field-value">${emp.lunch || '-'}</span>
+        </div>
+        <div class="card-field">
+          <span class="field-label">L3M Size Pass</span>
+          <span class="field-value">${l3mText}</span>
         </div>
         ${scanRow}
       </div>
@@ -2319,6 +2587,8 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
   const card = document.createElement('div');
   card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
+  const l3mText = formatPercentOrDash(getL3MSizePassPctForEmployee(emp), 0);
+
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -2330,6 +2600,12 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
         <div class="employee-info">
           <h4>${emp.name}</h4>
           <span class="role day-off-badge">Day Off</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-field">
+          <span class="field-label">L3M Size Pass</span>
+          <span class="field-value">${l3mText}</span>
         </div>
       </div>
     `;
@@ -2345,6 +2621,8 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
       : '';
     const productivity = emp.productivity || 0;
     const productivityClass = productivity >= 100 ? 'positive' : productivity >= 80 ? 'warning' : 'negative';
+    const apg = getTailorApgForEmployee(emp);
+    const apgText = apg !== null ? formatNumberOrDash(apg, 1) : '--';
     card.innerHTML = `
       <div class="card-header">
         ${photoHtml}
@@ -2361,6 +2639,14 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
         <div class="card-field">
           <span class="field-label">Lunch</span>
           <span class="field-value">${emp.lunch || '-'}</span>
+        </div>
+        <div class="card-field">
+          <span class="field-label">APG</span>
+          <span class="field-value">${apgText}</span>
+        </div>
+        <div class="card-field">
+          <span class="field-label">L3M Size Pass</span>
+          <span class="field-value">${l3mText}</span>
         </div>
         ${scanRow}
       </div>
@@ -2456,6 +2742,11 @@ function renderOperationsHealth() {
       else if (health.inventoryAccuracy < 98) card.classList.add('warning');
     }
   }
+
+  // OPS_METRICS: Tailor on-time donut charts
+  if (currentPageType === 'OPS_METRICS') {
+    renderTailorOnTimeCharts();
+  }
 }
 
 function renderMainRetailKpis() {
@@ -2533,6 +2824,137 @@ function formatNumberOrDash(value, digits = 0) {
   return `${Math.round(n * factor) / factor}`;
 }
 
+function getTailorApgForEmployee(emp) {
+  const employeeApg = Number(emp?.metrics?.apg);
+  if (Number.isFinite(employeeApg)) return employeeApg;
+
+  const storeApg = Number(metrics?.storeOpsOverdueAudit?.apg);
+  if (Number.isFinite(storeApg)) return storeApg;
+
+  return null;
+}
+
+function getL3MSizePassPctForEmployee(emp) {
+  const employeeVal = Number(emp?.metrics?.l3mSizePassPct ?? emp?.metrics?.l3mSizePass);
+  if (Number.isFinite(employeeVal)) return employeeVal;
+
+  const storeVal = Number(metrics?.storeOpsOverdueAudit?.l3mSizePassPct);
+  if (Number.isFinite(storeVal)) return storeVal;
+
+  return null;
+}
+
+function formatPercentOrDash(value, digits = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  return `${formatNumberOrDash(n, digits)}%`;
+}
+
+// Tailor over-audit donut charts (overall + long/short)
+let onTimeOverallChart = null;
+let onTimeLongChart = null;
+let onTimeShortChart = null;
+
+function destroyChartSafely(chart) {
+  try {
+    if (chart && typeof chart.destroy === 'function') chart.destroy();
+  } catch (_) {}
+}
+
+function getCssVarColor(varName, fallback) {
+  try {
+    const v = window.getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    return v || fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function renderOnTimeDoughnut(canvasId, split) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  if (typeof Chart === 'undefined') return null;
+  if (!split) return null;
+
+  const good = Number(split.goodCount);
+  const late = Number(split.lateCount);
+  const goodCount = Number.isFinite(good) ? good : 0;
+  const lateCount = Number.isFinite(late) ? late : 0;
+
+  const goodColor = getCssVarColor('--success', '#28a745');
+  const lateColor = getCssVarColor('--danger', '#dc3545');
+
+  return new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: ['Good', 'Late'],
+      datasets: [
+        {
+          data: [goodCount, lateCount],
+          backgroundColor: [goodColor, lateColor],
+          borderWidth: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = (goodCount + lateCount) || 1;
+              const pct = Math.round((ctx.raw / total) * 1000) / 10;
+              return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderTailorOnTimeCharts() {
+  const breakdown = metrics?.operationsHealth?.alterationsOnTimeBreakdown;
+  const overall = breakdown?.overall || null;
+  const long = breakdown?.byDuration?.long || null;
+  const short = breakdown?.byDuration?.short || null;
+
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  const setCardVisible = (cardId, visible) => {
+    const el = document.getElementById(cardId);
+    if (el) el.style.display = visible ? '' : 'none';
+  };
+
+  setText('onTimeOverallPct', overall ? formatPercentOrDash(overall.goodPct, 0) : '--');
+  setText('onTimeLongPct', long ? formatPercentOrDash(long.goodPct, 0) : '--');
+  setText('onTimeShortPct', short ? formatPercentOrDash(short.goodPct, 0) : '--');
+
+  const formatCounts = (split) => {
+    if (!split) return 'Good vs Late';
+    const good = Number(split.goodCount);
+    const late = Number(split.lateCount);
+    if (!Number.isFinite(good) || !Number.isFinite(late)) return 'Good vs Late';
+    return `Good: ${good} • Late: ${late}`;
+  };
+  setText('onTimeOverallCounts', formatCounts(overall));
+  setText('onTimeLongCounts', formatCounts(long));
+  setText('onTimeShortCounts', formatCounts(short));
+
+  setCardVisible('onTimeOverallChartCard', !!overall);
+  setCardVisible('onTimeLongChartCard', !!long);
+  setCardVisible('onTimeShortChartCard', !!short);
+
+  onTimeOverallChart = (destroyChartSafely(onTimeOverallChart), renderOnTimeDoughnut('onTimeOverallChart', overall));
+  onTimeLongChart = (destroyChartSafely(onTimeLongChart), renderOnTimeDoughnut('onTimeLongChart', long));
+  onTimeShortChart = (destroyChartSafely(onTimeShortChart), renderOnTimeDoughnut('onTimeShortChart', short));
+}
+
 function renderTailorProductivityLastWeek() {
   const health = metrics?.operationsHealth;
   if (!health) return;
@@ -2554,6 +2976,36 @@ function renderTailorProductivityLastWeek() {
   setIfPresent('mgrTailorUtilizationPct', formatPct(health.utilization));
   setIfPresent('mgrTailorWorkedHours', formatNumberOrDash(health.workedHours, 0));
   setIfPresent('mgrTailorAlterationsHours', formatNumberOrDash(health.hoursOfAlterations, 0));
+
+  // Store Ops Overdue Audit (PDF-derived) KPIs
+  try {
+    const audit = metrics?.storeOpsOverdueAudit;
+    const apgEl = document.getElementById('tailorAuditApg');
+    const sizePassEl = document.getElementById('tailorAuditSizePassPct');
+    const freeAltEl = document.getElementById('tailorAuditFreeAltPct');
+    const weekHintEl = document.getElementById('tailorAuditWeekHint');
+    const genHintEl = document.getElementById('tailorAuditGeneratedHint');
+
+    if (apgEl) apgEl.textContent = Number.isFinite(Number(audit?.apg)) ? formatNumberOrDash(audit.apg, 1) : '--';
+    if (sizePassEl) sizePassEl.textContent = Number.isFinite(Number(audit?.l3mSizePassPct)) ? `${formatNumberOrDash(audit.l3mSizePassPct, 0)}%` : '--';
+    if (freeAltEl) freeAltEl.textContent = Number.isFinite(Number(audit?.freeAlterationPct)) ? `${formatNumberOrDash(audit.freeAlterationPct, 0)}%` : '--';
+
+    if (weekHintEl) {
+      if (audit?.finishedWeekStart && audit?.finishedWeekEnd) {
+        weekHintEl.textContent = `Finished week: ${audit.finishedWeekStart} → ${audit.finishedWeekEnd}`;
+      } else {
+        weekHintEl.textContent = 'Last complete week';
+      }
+    }
+
+    if (genHintEl) {
+      if (audit?.generatedByLookerAtText) genHintEl.textContent = `Looker: ${audit.generatedByLookerAtText}`;
+      else if (audit?.sourceFile) genHintEl.textContent = `Overdue Audit: ${audit.sourceFile}`;
+      else genHintEl.textContent = 'Overdue Audit';
+    }
+  } catch (_) {
+    // ignore
+  }
 
   const tailorBody = document.getElementById('tailorLastWeekTableBody');
   if (tailorBody) {

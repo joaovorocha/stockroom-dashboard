@@ -638,11 +638,12 @@ router.get('/metrics', (req, res) => {
         inventoryIssues: savedData.inventoryIssues,
         tailorProductivityTrend: savedData.tailorTrend,
         employeeCountPerformance: savedData.countPerformance,
-        loans: savedData.loans
+        loans: savedData.loans,
+        storeOpsOverdueAudit: savedData.storeOpsOverdueAudit || null
       };
 
-      // LEGACY SUPPORT: Backfill operations health "Productivity" details in older saved payloads.
-      if (!metrics.operationsHealth?.tailorsLastWeek?.length || metrics.operationsHealth?.workedHours === undefined || metrics.operationsHealth?.hoursOfAlterations === undefined) {
+      // LEGACY SUPPORT: Backfill operations health details in older saved payloads.
+      if (!metrics.operationsHealth?.tailorsLastWeek?.length || metrics.operationsHealth?.workedHours === undefined || metrics.operationsHealth?.hoursOfAlterations === undefined || metrics.operationsHealth?.alterationsOnTimeBreakdown === undefined) {
         try {
           const computedOps = lookerProcessor.processOperationsHealth();
           metrics.operationsHealth = metrics.operationsHealth || {};
@@ -717,6 +718,13 @@ router.get('/metrics', (req, res) => {
       tailorProductivityTrend: tailorTrend,
       employeeCountPerformance: countPerformance
     };
+
+    // Live path: attempt to read the latest Store Ops overdue audit PDF metrics from persisted dashboard-data.
+    // (Parsing is done in the scheduler/processor; this keeps live mode from needing to parse PDFs.)
+    try {
+      const saved = LookerDataProcessor.getSavedDashboardData();
+      if (saved?.storeOpsOverdueAudit) metrics.storeOpsOverdueAudit = saved.storeOpsOverdueAudit;
+    } catch (_) {}
 
     if (!metrics.employeeCountPerformance?.employees?.length) {
       const snap = readLatestScanPerformanceSnapshot();

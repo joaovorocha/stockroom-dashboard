@@ -9,6 +9,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const pdfParse = require('pdf-parse');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const FILES_DIR = path.join(__dirname, '..', 'files');
@@ -20,6 +21,7 @@ const STORES_PERFORMANCE_DIR = path.join(FILES_DIR, 'dashboard-stores_performanc
 const APPOINTMENTS_DIR = path.join(FILES_DIR, 'dashboard-appointment_booking_insights_v2');
 const LOANS_DIR = path.join(FILES_DIR, 'dashboard-loan_dashboard');
 const TAILOR_DIR = path.join(FILES_DIR, 'dashboard-tailor_myr');
+const STORE_OPS_OVERDUE_AUDIT_DIR = path.join(FILES_DIR, 'dashboard-store_ops_overdue_audit');
 const COUNT_PERFORMANCE_DIR = path.join(FILES_DIR, 'dashboard-store_count_performance_-_employee_level');
 const WORK_EXPENSES_DIR = path.join(FILES_DIR, 'dashboard-work_related_expenses');
 const GMAIL_IMPORTS_DIR = path.join(FILES_DIR, 'gmail-imports');
@@ -159,7 +161,10 @@ class LookerDataProcessor {
       loans: results.loans || existingData.loans || {},
 
       // Work-related expenses / employee discounts
-      workRelatedExpenses: updates.workRelatedExpenses ? results.workRelatedExpenses : (existingData.workRelatedExpenses || {})
+      workRelatedExpenses: updates.workRelatedExpenses ? results.workRelatedExpenses : (existingData.workRelatedExpenses || {}),
+
+      // Store Ops Overdue Audit (PDF)
+      storeOpsOverdueAudit: results.storeOpsOverdueAudit || existingData.storeOpsOverdueAudit || null
     };
 
     this.writeJsonFile(DASHBOARD_DATA_FILE, dashboardData);
@@ -280,6 +285,184 @@ class LookerDataProcessor {
     }
 
     return data;
+  }
+
+  findLatestFile(dir, exts = []) {
+    try {
+      if (!fs.existsSync(dir)) return null;
+      const entries = fs.readdirSync(dir)
+        .map(name => {
+          const full = path.join(dir, name);
+          let stat;
+          try { stat = fs.statSync(full); } catch (_) { return null; }
+          return stat.isFile() ? { name, full, mtimeMs: stat.mtimeMs } : null;
+        })
+        .filter(Boolean);
+
+      const lowerExts = (exts || []).map(e => e.toLowerCase());
+      const filtered = lowerExts.length
+        ? entries.filter(e => lowerExts.some(x => e.name.toLowerCase().endsWith(x)))
+        : entries;
+
+      filtered.sort((a, b) => b.mtimeMs - a.mtimeMs);
+      return filtered[0]?.full || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  extractFirstMatchNumber(text, regex, parser = (s) => Number(s)) {
+    const m = (text || '').match(regex);
+    if (!m) return null;
+    const v = parser(m[1]);
+    return Number.isFinite(Number(v)) ? Number(v) : null;
+  }
+
+  parsePercentNearLabel(text, labelRegex) {
+    const s = (text || '').toString();
+    const m = s.match(labelRegex);
+    if (!m) return null;
+    const idx = m.index ?? -1;
+    if (idx < 0) return null;
+
+    // Search a small window before the label for a percentage like "75%".
+    const start = Math.max(0, idx - 80);
+    const window = s.slice(start, idx);
+    const pm = window.match(/(\d{1,3}(?:\.\d+)?)%\s*$/);
+    if (pm && Number.isFinite(Number(pm[1]))) return Number(pm[1]);
+
+    // Fallback: search a small window after label.
+    const after = s.slice(idx, Math.min(s.length, idx + 120));
+    const pm2 = after.match(/(\d{1,3}(?:\.\d+)?)%/);
+    if (pm2 && Number.isFinite(Number(pm2[1]))) return Number(pm2[1]);
+    return null;
+  }
+
+  parseStoreOpsOverdueAuditText(text) {
+    const t = (text || '').toString();
+    if (!t || !/Overdue\s+Audit/i.test(t)) return null;
+
+    const locationMatch = t.match(/Location\s+Name\s+is\s+([^\n\r]+)/i);
+    const locationName = locationMatch ? locationMatch[1].trim() : null;
+
+    const generatedMatch = t.match(/Generated\s+by\s+Looker\s+on\s+([^\n\r]+)/i);
+    const generatedByLookerAtText = generatedMatch ? generatedMatch[1].trim() : null;
+
+    const dates = Array.from(t.matchAll(/20\d{2}-\d{2}-\d{2}/g)).map(m => m[0]);
+    let finishedWeekStart = null;
+    let finishedWeekEnd = null;
+    if (dates.length) {
+      const uniq = Array.from(new Set(dates)).sort();
+      finishedWeekStart = uniq[0];
+      finishedWeekEnd = uniq[uniq.length - 1];
+    }
+
+    const l3mSizePassPct = this.parsePercentNearLabel(t, /L3M\s+Size\s+Pass/i);
+    const freeAlterationPct = this.parsePercentNearLabel(t, /Free\s+Alteratio/i);
+    const apg = this.extractFirstMatchNumber(t, /\n\s*([0-9]+(?:\.[0-9]+)?)\s*\n\s*APG\b/i, (s) => Number(s));
+
+    return {
+      locationName,
+      generatedByLookerAtText,
+      finishedWeekStart,
+      finishedWeekEnd,
+      l3mSizePassPct,
+      freeAlterationPct,
+      apg
+    };
+  }
+
+  getLastCompleteWeekRange() {
+    try {
+      const now = new Date();
+      // Start of current week (Sunday)
+      const thisWeekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
+
+      const lastWeekStart = new Date(thisWeekStart);
+      lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+      const lastWeekEnd = new Date(lastWeekStart);
+      lastWeekEnd.setDate(lastWeekStart.getDate() + 6);
+
+      const toIso = (d) => d.toISOString().split('T')[0];
+      return { start: toIso(lastWeekStart), end: toIso(lastWeekEnd) };
+    } catch (_) {
+      return { start: null, end: null };
+    }
+  }
+
+  processStoreOpsOverdueAuditFromCSVs() {
+    // Prefer the standard stores performance exports, but allow the dedicated store-ops folder too.
+    const candidateDirs = [STORES_PERFORMANCE_DIR, STORE_OPS_OVERDUE_AUDIT_DIR];
+
+    const readFirst = (fileName) => {
+      for (const dir of candidateDirs) {
+        const full = path.join(dir, fileName);
+        const rows = this.readCSV(full);
+        if (rows && rows.length) return { rows, full };
+      }
+      return { rows: [], full: null };
+    };
+
+    const apgData = readFirst('apg.csv');
+    const freeAltData = readFirst('free_alterations.csv');
+    const sizePassData = readFirst('l3m_size_passport_addoption_rate_1.csv');
+
+    const apgRow = apgData.rows?.[0] || null;
+    const apg = apgRow && Object.prototype.hasOwnProperty.call(apgRow, 'APG') ? Number(apgRow.APG) : null;
+
+    const freeAltRow = (freeAltData.rows || []).slice().reverse().find(r => {
+      const yes = (r?.Yes || '').toString();
+      return /%/.test(yes);
+    }) || null;
+    const freeAlterationPct = freeAltRow ? this.parsePercent(freeAltRow.Yes) : null;
+
+    const sizePassRow = (sizePassData.rows || []).slice().reverse().find(r => {
+      const yes = (r?.Yes || '').toString();
+      return /%/.test(yes);
+    }) || null;
+    const l3mSizePassPct = sizePassRow ? this.parsePercent(sizePassRow.Yes) : null;
+
+    const hasAny = [apg, freeAlterationPct, l3mSizePassPct].some(v => Number.isFinite(Number(v)));
+    if (!hasAny) return null;
+
+    const week = this.getLastCompleteWeekRange();
+    const sourceFiles = [apgData.full, freeAltData.full, sizePassData.full]
+      .filter(Boolean)
+      .map(p => path.basename(p));
+
+    return {
+      locationName: null,
+      generatedByLookerAtText: null,
+      finishedWeekStart: week.start,
+      finishedWeekEnd: week.end,
+      l3mSizePassPct: Number.isFinite(Number(l3mSizePassPct)) ? Number(l3mSizePassPct) : null,
+      freeAlterationPct: Number.isFinite(Number(freeAlterationPct)) ? Number(freeAlterationPct) : null,
+      apg: Number.isFinite(Number(apg)) ? Number(apg) : null,
+      sourceFile: sourceFiles[0] || null,
+      sourceFiles
+    };
+  }
+
+  async processStoreOpsOverdueAudit() {
+    // Prefer CSV exports (the most reliable format), then fall back to PDF parsing.
+    const fromCsv = this.processStoreOpsOverdueAuditFromCSVs();
+    if (fromCsv) return fromCsv;
+
+    const pdfPath = this.findLatestFile(STORE_OPS_OVERDUE_AUDIT_DIR, ['.pdf']);
+    if (!pdfPath) return null;
+
+    try {
+      const buf = fs.readFileSync(pdfPath);
+      const parsed = await pdfParse(buf);
+      const text = (parsed && parsed.text) ? parsed.text : '';
+      const metrics = this.parseStoreOpsOverdueAuditText(text);
+      if (!metrics) return null;
+      return { ...metrics, sourceFile: path.basename(pdfPath) };
+    } catch (e) {
+      this.errors.push(`Store Ops Overdue Audit PDF parse failed: ${e?.message || e}`);
+      return null;
+    }
   }
 
   // Read and parse a CSV file
@@ -430,6 +613,101 @@ class LookerDataProcessor {
       metrics.productMixCmRtw = mix; // ex: { RTW: 85, CM: 15 }
     }
 
+    // Customer Journey metrics
+    metrics.customerJourney = {};
+
+    const totalCustomersData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'total_customers.csv'));
+    if (totalCustomersData.length > 0) {
+      const row = totalCustomersData[0];
+      metrics.customerJourney.totalCustomers = parseInt(row['Retail Management - Metrics # Orders'], 10) || 0;
+      const vs = (row['% Customers vs PY formatted'] || '').toString().trim();
+      metrics.customerJourney.totalCustomersVsPY = vs ? this.parsePercent(vs) : null;
+    }
+
+    const returningCustomersData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'returning_customers.csv'));
+    if (returningCustomersData.length > 0) {
+      const row = returningCustomersData[0];
+      metrics.customerJourney.returningCustomers = parseInt(row['Retail Management - Metrics # Returning Customer Orders'], 10) || 0;
+      const vs = (row['Returning Customers vs PY'] || '').toString().trim();
+      metrics.customerJourney.returningCustomersVsPY = vs ? this.parsePercent(vs) : null;
+    }
+
+    const newCustomersData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'new_customers.csv'));
+    if (newCustomersData.length > 0) {
+      const row = newCustomersData[0];
+      metrics.customerJourney.newCustomers = parseInt(row['Retail Management - Metrics # New Customer Orders'], 10) || 0;
+      const vs = (row['New Customers vs PY'] || '').toString().trim();
+      metrics.customerJourney.newCustomersVsPY = vs ? this.parsePercent(vs) : null;
+    }
+
+    if (Number(metrics.customerJourney.totalCustomers) > 0) {
+      const total = Number(metrics.customerJourney.totalCustomers);
+      const returning = Number(metrics.customerJourney.returningCustomers) || 0;
+      const news = Number(metrics.customerJourney.newCustomers) || 0;
+      metrics.customerJourney.returningPct = Math.round((returning / total) * 1000) / 10;
+      metrics.customerJourney.newPct = Math.round((news / total) * 1000) / 10;
+    }
+
+    const visitsData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'visits.csv'));
+    if (visitsData.length > 0) {
+      const row = visitsData[0];
+      metrics.customerJourney.visits = parseInt(row['Retail Management - Metrics # Store Visits'], 10) || 0;
+      const vs = (row['Retail Management - Metrics % Visits vs PY'] || '').toString().trim();
+      metrics.customerJourney.visitsVsPY = vs ? this.parsePercent(vs) : null;
+    }
+
+    const appointmentsData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'appointments.csv'));
+    if (appointmentsData.length > 0) {
+      const row = appointmentsData[0];
+      const ty = (row['Appointments Share % TY'] || '').toString().trim();
+      const py = (row['Appointments Share % PY'] || '').toString().trim();
+      metrics.customerJourney.appointmentsShareTy = ty ? this.parsePercent(ty) : null;
+      metrics.customerJourney.appointmentsSharePy = py ? this.parsePercent(py) : null;
+    }
+
+    const qrCheckinsData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'qr_check-ins.csv'));
+    if (qrCheckinsData.length > 0) {
+      const row = qrCheckinsData[0];
+      const pct = (row['Retail Management - Metrics % QR Checkin'] || '').toString().trim();
+      const vs = (row['Retail Management - Metrics % QR Checkin vs PY'] || '').toString().trim();
+      metrics.customerJourney.qrCheckinsPct = pct ? this.parsePercent(pct) : null;
+      metrics.customerJourney.qrCheckinsVsPY = vs ? this.parsePercent(vs) : null;
+    }
+
+    const npsData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'nps_score.csv'));
+    if (npsData.length > 0) {
+      const row = npsData[0];
+      const score = (row['NPS Formatted without %'] || '').toString().trim();
+      const vs = (row['NPS versus PY %'] || '').toString().trim();
+      metrics.customerJourney.npsScore = score ? parseFloat(score) || 0 : null;
+      metrics.customerJourney.npsVsPY = vs ? this.parsePercent(vs) : null;
+    }
+
+    const notesData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'notes_taken.csv'));
+    if (notesData.length > 0) {
+      const row = notesData[0];
+      metrics.customerJourney.notesTaken = parseInt(row['Retail Management - Metrics # Notes Taken'], 10) || 0;
+      const vs = (row['Notes Taken vs PY %'] || '').toString().trim();
+      metrics.customerJourney.notesTakenVsPY = vs ? this.parsePercent(vs) : null;
+    }
+
+    const reachesData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'completed_reachs.csv'));
+    if (reachesData.length > 0) {
+      const row = reachesData[0];
+      metrics.customerJourney.completedReaches = parseInt(row['Retail Management - Metrics # Completed Reachouts'], 10) || 0;
+    }
+
+    const newsletterPrimary = path.join(STORES_PERFORMANCE_DIR, 'newsletters_subscriptions_.csv');
+    const newsletterFallback = path.join(STORES_PERFORMANCE_DIR, 'newsletters_subscriptions__.csv');
+    const newsletterData = this.readCSV(fs.existsSync(newsletterPrimary) ? newsletterPrimary : newsletterFallback);
+    if (newsletterData.length > 0) {
+      const row = newsletterData[0];
+      const pct = (row['Retail Management - Metrics % Orders with Newsletter'] || '').toString().trim();
+      const vs = (row['Newsletter % versus PY %'] || '').toString().trim();
+      metrics.customerJourney.newsletterPct = pct ? this.parsePercent(pct) : null;
+      metrics.customerJourney.newsletterVsPY = vs ? this.parsePercent(vs) : null;
+    }
+
     // Selling bookable vs non-bookable next 14 days
     const bookableData = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'selling_bookable_vs_non-bookable_next_14_days.csv'));
     if (bookableData.length > 0) {
@@ -478,17 +756,19 @@ class LookerDataProcessor {
         }))
         .filter(r => r.weekNumber);
 
-      const getWeekNumberSundayStart = (date) => {
+      const getRetailWeekNumberSundayStart = (date) => {
         const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
         const jan1 = new Date(d.getFullYear(), 0, 1);
-        const startOfWeek1 = new Date(jan1);
-        startOfWeek1.setDate(jan1.getDate() - jan1.getDay()); // back to Sunday
-        const diffDays = Math.floor((d - startOfWeek1) / 86400000);
+        const firstSunday = new Date(jan1);
+        const offset = (7 - jan1.getDay()) % 7;
+        firstSunday.setDate(jan1.getDate() + offset); // first Sunday on/after Jan 1
+        if (d < firstSunday) return 0; // treat as previous year's last week
+        const diffDays = Math.floor((d - firstSunday) / 86400000);
         return Math.floor(diffDays / 7) + 1;
       };
 
       const now = new Date();
-      const currentWeek = getWeekNumberSundayStart(now);
+      const currentWeek = getRetailWeekNumberSundayStart(now);
       const currentRow = rows.find(r => r.weekNumber === currentWeek) || rows[rows.length - 1] || null;
 
       metrics.salesByRetailWeeks = rows;
@@ -538,10 +818,12 @@ class LookerDataProcessor {
       consultation: null
     };
 
-    // Get current retail week (roughly)
+    // Get current retail week (Week 1 starts on first Sunday on/after Jan 1)
     const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const currentWeek = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+    const jan1 = new Date(now.getFullYear(), 0, 1);
+    const firstSunday = new Date(jan1);
+    firstSunday.setDate(jan1.getDate() + ((7 - jan1.getDay()) % 7));
+    const currentWeek = now < firstSunday ? 0 : (Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - firstSunday) / 86400000 / 7) + 1);
 
     // Pickup appointments
     const pickupData = this.readCSV(path.join(APPOINTMENTS_DIR, 'pickup_appointments_-_trend_over_week.csv'));
@@ -920,6 +1202,7 @@ class LookerDataProcessor {
       tailorsLastWeek: [],
       benchmarkTimesMinutes: [],
       onTimeAlterations: null,
+      alterationsOnTimeBreakdown: null,
       overdueAlterations: 0,
       inventoryAccuracy: null
     };
@@ -1036,6 +1319,64 @@ class LookerDataProcessor {
       const row = ontimeData[0];
       const value = row['Ontime'] || Object.values(row)[0];
       health.onTimeAlterations = this.parsePercent(value);
+    }
+
+    // On-time breakdown (Overdue Yes/No) for donut charts
+    try {
+      const parseCount = (value) => {
+        const n = parseInt((value ?? '').toString().replace(/[^0-9\-]/g, ''), 10);
+        return Number.isFinite(n) ? n : null;
+      };
+
+      const computeSplit = (goodCount, lateCount) => {
+        const good = Number(goodCount);
+        const late = Number(lateCount);
+        const total = (Number.isFinite(good) ? good : 0) + (Number.isFinite(late) ? late : 0);
+        if (!Number.isFinite(total) || total <= 0) return null;
+        const goodPct = Math.round((good / total) * 1000) / 10;
+        const latePct = Math.round((late / total) * 1000) / 10;
+        return {
+          goodCount: Number.isFinite(good) ? good : null,
+          lateCount: Number.isFinite(late) ? late : null,
+          total,
+          goodPct,
+          latePct
+        };
+      };
+
+      const overallRows = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'overall_on-time_.csv'));
+      const overallNumericRow = (overallRows || []).slice().reverse().find(r => {
+        const no = parseCount(r?.No);
+        const yes = parseCount(r?.Yes);
+        return Number.isFinite(no) && Number.isFinite(yes);
+      }) || null;
+      const overallNo = overallNumericRow ? parseCount(overallNumericRow.No) : null;
+      const overallYes = overallNumericRow ? parseCount(overallNumericRow.Yes) : null;
+      const overall = (Number.isFinite(overallNo) && Number.isFinite(overallYes)) ? computeSplit(overallNo, overallYes) : null;
+
+      const perDurationRows = this.readCSV(path.join(STORES_PERFORMANCE_DIR, 'on-time_per_duration.csv'));
+      const byDuration = {};
+      (perDurationRows || []).forEach(r => {
+        const duration = (r?.['Is Overdue (Yes / No)'] || '').toString().trim().toLowerCase();
+        if (duration !== 'long' && duration !== 'short') return;
+        const no = parseCount(r?.No);
+        const yes = parseCount(r?.Yes);
+        const split = (Number.isFinite(no) && Number.isFinite(yes)) ? computeSplit(no, yes) : null;
+        if (split) byDuration[duration] = split;
+      });
+
+      if (overall || Object.keys(byDuration).length) {
+        health.alterationsOnTimeBreakdown = {
+          overall: overall || null,
+          byDuration: {
+            long: byDuration.long || null,
+            short: byDuration.short || null
+          },
+          sourceFiles: ['overall_on-time_.csv', 'on-time_per_duration.csv']
+        };
+      }
+    } catch (_) {
+      // Ignore parsing failures; UI will fall back to simpler KPIs.
     }
 
     // Overdue Alterations
@@ -1276,10 +1617,12 @@ class LookerDataProcessor {
       }
     };
 
-    // Get current retail week
+    // Get current retail week (Week 1 starts on first Sunday on/after Jan 1)
     const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const currentWeekNum = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+    const jan1 = new Date(now.getFullYear(), 0, 1);
+    const firstSunday = new Date(jan1);
+    firstSunday.setDate(jan1.getDate() + ((7 - jan1.getDay()) % 7));
+    const currentWeekNum = now < firstSunday ? 0 : (Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - firstSunday) / 86400000 / 7) + 1);
     result.currentWeek.week = currentWeekNum;
 
     // Visits by type (appointment vs walk-in)
@@ -1439,10 +1782,12 @@ class LookerDataProcessor {
       if (count2024 > 0) result.ytdAvg2024 = Math.round(total2024 / count2024);
       if (count2025 > 0) result.ytdAvg2025 = Math.round(total2025 / count2025);
 
-      // Get current week data
+      // Get current week data (Week 1 starts on first Sunday on/after Jan 1)
       const now = new Date();
-      const startOfYear = new Date(now.getFullYear(), 0, 1);
-      const currentWeekNum = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+      const jan1 = new Date(now.getFullYear(), 0, 1);
+      const firstSunday = new Date(jan1);
+      firstSunday.setDate(jan1.getDate() + ((7 - jan1.getDay()) % 7));
+      const currentWeekNum = now < firstSunday ? 0 : (Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - firstSunday) / 86400000 / 7) + 1);
       result.currentWeek = result.weeks.find(w => w.week === currentWeekNum);
     }
 
@@ -1512,6 +1857,10 @@ class LookerDataProcessor {
       // Process work-related expenses (employee discounts)
       console.log('Processing work-related expenses...');
       results.workRelatedExpenses = this.processWorkRelatedExpenses();
+
+      // Process Store Ops "Overdue Audit" metrics (CSV preferred; PDF fallback)
+      console.log('Processing Store Ops overdue audit (CSV/PDF)...');
+      results.storeOpsOverdueAudit = await this.processStoreOpsOverdueAudit();
 
       // Save metrics
       const metricsFile = path.join(METRICS_DIR, `${this.getTodayDate()}.json`);
