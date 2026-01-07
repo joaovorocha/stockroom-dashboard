@@ -4,8 +4,41 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const zlib = require('zlib');
+const { execFileSync } = require('child_process');
 const AdmZip = require('adm-zip');
 const dal = require('../utils/dal');
+const { getActiveUsersSummary } = require('../utils/active-users');
+
+function getDiskUsageBytes(targetPath = '/') {
+  try {
+    const out = execFileSync('df', ['-kP', targetPath], { encoding: 'utf8' });
+    const lines = out.split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) return { available: false, error: 'df output missing data' };
+
+    // POSIX format: Filesystem 1024-blocks Used Available Capacity Mounted on
+    // Example: /dev/sda1  30830512  123456  30600000  1% /
+    const cols = lines[1].trim().split(/\s+/);
+    if (cols.length < 6) return { available: false, error: 'df output unparseable' };
+
+    const totalKiB = Number(cols[1]);
+    const usedKiB = Number(cols[2]);
+    const availKiB = Number(cols[3]);
+    const usePercent = Number(String(cols[4]).replace('%', ''));
+    const mount = cols.slice(5).join(' ');
+
+    return {
+      available: true,
+      path: targetPath,
+      mount,
+      totalBytes: Number.isFinite(totalKiB) ? totalKiB * 1024 : null,
+      usedBytes: Number.isFinite(usedKiB) ? usedKiB * 1024 : null,
+      availBytes: Number.isFinite(availKiB) ? availKiB * 1024 : null,
+      usePercent: Number.isFinite(usePercent) ? usePercent : null,
+    };
+  } catch (e) {
+    return { available: false, error: e?.message || 'df failed' };
+  }
+}
 
 const DATA_DIR = dal.paths.dataDir;
 const TIMEOFF_FILE = dal.paths.timeoffFile;
@@ -190,6 +223,48 @@ function readWorkExpensesConfig() {
   };
 }
 
+function tryExec(cmd, args, { timeoutMs = 1200 } = {}) {
+  try {
+    const out = execFileSync(cmd, args, {
+      timeout: timeoutMs,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return out ? out.toString('utf8') : '';
+  } catch {
+    return null;
+  }
+}
+
+function getGpuInfo() {
+  // If the host doesn't have NVIDIA tools installed, this will gracefully return unavailable.
+  const out = tryExec('nvidia-smi', [
+    '--query-gpu=index,name,utilization.gpu,memory.total,memory.used,temperature.gpu',
+    '--format=csv,noheader,nounits',
+  ]);
+  if (!out) return { available: false };
+
+  const gpus = out
+    .split('\n')
+    .map(l => l.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split(',').map(p => p.trim());
+      if (parts.length < 6) return null;
+      return {
+        index: Number(parts[0]),
+        name: parts[1],
+        utilGpuPercent: Number(parts[2]),
+        memTotalMiB: Number(parts[3]),
+        memUsedMiB: Number(parts[4]),
+        tempC: Number(parts[5]),
+      };
+    })
+    .filter(Boolean);
+
+  return { available: true, gpus };
+}
+
 function writeWorkExpensesConfig(next) {
   dal.writeJsonAtomic(WORK_EXPENSES_CONFIG_FILE, next, { pretty: true });
 }
@@ -212,6 +287,55 @@ router.post('/store-config', express.json(), (req, res) => {
   } catch (e) {
     return res.status(400).json({ error: e?.message || 'Invalid store config' });
   }
+});
+
+// GET /api/admin/health - basic server health metrics (admin only; middleware enforced in server.js)
+router.get('/health', (req, res) => {
+  const mem = process.memoryUsage();
+  const users = getActiveUsersSummary();
+  const disk = getDiskUsageBytes('/');
+
+  return res.json({
+    ok: true,
+    ts: new Date().toISOString(),
+    process: {
+      pid: process.pid,
+      uptimeSec: Math.round(process.uptime()),
+      node: process.version,
+      rssBytes: mem.rss,
+      heapUsedBytes: mem.heapUsed,
+      heapTotalBytes: mem.heapTotal,
+    },
+    os: {
+      hostname: os.hostname(),
+      platform: os.platform(),
+      release: os.release(),
+      arch: os.arch(),
+      uptimeSec: os.uptime(),
+      loadavg: os.loadavg(),
+      cpuCores: (os.cpus() || []).length,
+      totalMemBytes: os.totalmem(),
+      freeMemBytes: os.freemem(),
+    },
+    gpu: getGpuInfo(),
+    disk,
+    runtime: {
+      env: {
+        nodeEnv: process.env.NODE_ENV || null,
+        port: process.env.PORT || null,
+      },
+      versions: {
+        node: process.version,
+        v8: process.versions?.v8 || null,
+        openssl: process.versions?.openssl || null,
+        uv: process.versions?.uv || null,
+      },
+    },
+    users: {
+      activeCount: users.activeCount,
+      windowMs: users.windowMs,
+    },
+  });
 });
 
 // GET /api/admin/store-recovery-config - Store Recovery product lookup config (admin only)

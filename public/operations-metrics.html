@@ -12,25 +12,24 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <meta name="apple-mobile-web-app-title" content="Daily Operations">
   <link rel="stylesheet" href="/css/theme.css?v=14">
 	  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
-  <link rel="stylesheet" href="/css/mobile.css?v=3">
+  <link rel="stylesheet" href="/css/mobile.css?v=5">
   <script src="/vendor/chart.umd.min.js?v=1" defer></script>
 </head>
-<body>
+<body data-page-type="ops_metrics">
   <!-- Shared Header Mount -->
   <div id="shared-header-mount"></div>
 <main class="dashboard-layout dashboard-layout--single">
     <section class="section operations-section" id="operationsSection" style="margin-top: 20px;">
       <div class="section-header">
         <h2>📊 Operations Overview</h2>
-        <button class="btn btn-sm btn-outline" id="toggleOperations">Hide</button>
       </div>
       <div class="operations-content" id="operationsContent">
-        <div class="import-status-card" id="importStatusCardOps" style="margin: 0 0 16px 0;">
-          <h4>📊 Data Import</h4>
+        <div class="operations-import-inline" id="importStatusCardOps">
+          <h4 class="operations-import-title">📊 Data Import</h4>
           <div class="import-info">
             <span class="import-label">Last Looker sync:</span>
             <span class="import-value" id="lastLookerSync">--</span>
@@ -173,14 +172,13 @@
           </details>
 
           <details style="margin-top: 10px;">
-            <summary style="cursor:pointer; user-select:none;">Per-tailor APG + L3M</summary>
+            <summary style="cursor:pointer; user-select:none;">Per-tailor APG</summary>
             <div class="orders-table-container" style="margin-top: 10px;">
               <table class="orders-table">
                 <thead>
                   <tr>
                     <th>Tailor</th>
                     <th>APG</th>
-                    <th>L3M Size Pass</th>
                   </tr>
                 </thead>
                 <tbody id="tailorApgTableBody"></tbody>
@@ -392,6 +390,6 @@
     </section>
   </main>
 <script src="/js/dashboard.js?v=21"></script>
-  <script src="/js/shared-header.js?v=23"></script>
+  <script src="/js/shared-header.js?v=24"></script>
 </body>
 </html>

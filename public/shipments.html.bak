@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
+  <title>Shipments - Daily Game Plan | San Francisco</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Daily Operations">
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
+  <link rel="stylesheet" href="/css/mobile.css?v=5">
+  <style>
+    :root { --shipments-font-scale: 1; }
+    .page-wrap { padding: 16px; max-width: 1200px; margin: 0 auto; }
+    .section-header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .filter-bar { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+    .filter-bar input, .filter-bar select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      background: var(--surface);
+      color: var(--text-primary);
+    }
+    .filter-bar input { flex: 1; min-width: 220px; }
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 10px 0 14px;
+    }
+    .summary-item {
+      background: var(--surface);
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .summary-item .count { font-size: 18px; font-weight: 700; }
+    .summary-item .label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .shipment-list { display: grid; gap: 10px; }
+    .shipment-card {
+      background: var(--background);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .shipment-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .tracking-number { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-weight: 700; font-size: calc(14px * var(--shipments-font-scale)); }
+    .meta { font-size: calc(12px * var(--shipments-font-scale)); color: var(--text-secondary); }
+    .status-pill {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: capitalize;
+      white-space: nowrap;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+    .status-pill.delivered { background: var(--success); color: #fff; }
+    .status-pill.label-created { background: #607d8b; color: #fff; }
+    .status-pill.in-transit { background: #2196f3; color: #fff; }
+    .status-pill.unknown { background: #9e9e9e; color: #fff; }
+    .status-pill.requested { background: #9c27b0; color: #fff; }
+
+    .shipment-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-top: 10px; }
+    .field label { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+    .field div { font-size: 13px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .field .wrap { white-space: normal; }
+	    .link-row { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+	    .link-row a { color: var(--primary); text-decoration: none; font-size: 13px; }
+	    .mao-link {
+	      display: inline-flex;
+	      align-items: center;
+	      gap: 6px;
+	      color: var(--primary);
+	      text-decoration: none;
+	      font-size: 13px;
+	      white-space: nowrap;
+	    }
+	    .mao-link .icon {
+	      display: inline-block;
+	      font-size: 13px;
+	      line-height: 1;
+	    }
+    .empty {
+      padding: 16px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--text-secondary);
+    }
+    .small-note { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+
+    /* Phones: 2x2 summary grid */
+    @media (max-width: 768px) {
+      .summary-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Shared Header Mount -->
+  <div id="shared-header-mount"></div>
+<div class="page-wrap">
+    <section class="section">
+      <div class="section-header section-header-row">
+        <div>
+          <h2 style="margin:0;">Shipments</h2>
+        </div>
+        <div class="controls">
+          <div class="small-note" id="autoRefreshNote">Auto-refreshing…</div>
+        </div>
+      </div>
+
+      <div class="summary-row">
+        <div class="summary-item">
+          <div class="count" id="countTotal">0</div>
+          <div class="label">Shown</div>
+        </div>
+        <div class="summary-item">
+          <div class="count" id="countInTransit">0</div>
+          <div class="label">In Transit</div>
+        </div>
+        <div class="summary-item">
+          <div class="count" id="countDelivered">0</div>
+          <div class="label">Delivered</div>
+        </div>
+        <div class="summary-item">
+          <div class="count" id="countUnknown">0</div>
+          <div class="label">Unknown</div>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <input type="text" id="searchInput" placeholder="Search tracking, customer, address, employee, PSUS...">
+        <select id="statusFilter" aria-label="Status filter">
+          <option value="">All statuses</option>
+          <option value="label-created">Label created</option>
+          <option value="in-transit">In transit</option>
+          <option value="delivered">Delivered</option>
+          <option value="unknown">Unknown</option>
+          <option value="requested">Requested</option>
+        </select>
+      </div>
+
+      <div class="shipment-list" id="shipmentsList"></div>
+      <div class="empty" id="emptyState" style="display:none;">No shipments match your filters.</div>
+    </section>
+  </div>
+  <script src="/js/shared-header.js?v=24"></script>
+  <script>
+    let allShipments = [];
+    let currentUser = null;
+    let refreshTimer = null;
+    let lastRefreshAt = null;
+    const AUTO_REFRESH_INTERVAL = 60_000;
+
+    function safeText(value) {
+      return (value === undefined || value === null) ? '' : String(value);
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return safeText(value);
+      return d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function trackingLink(trackingNumber) {
+      const t = safeText(trackingNumber).trim();
+      if (!t) return '';
+      return `https://www.ups.com/track?tracknum=${encodeURIComponent(t)}`;
+    }
+
+    function isEmailCaptured(shipment) {
+      const src = safeText(shipment.source).toLowerCase();
+      if (src === 'email-import') return true;
+      const statusSrc = safeText(shipment.statusUpdatedSource).toLowerCase();
+      return statusSrc === 'email';
+    }
+
+    function canManage(user) {
+      const role = safeText(user && user.role).toUpperCase();
+      return !!(user && (user.isAdmin || user.isManager || role === 'MANAGEMENT' || role === 'BOH'));
+    }
+
+    function applyFilters() {
+      const q = safeText(document.getElementById('searchInput').value).trim().toLowerCase();
+      const status = document.getElementById('statusFilter').value;
+
+      return (allShipments || []).filter(s => {
+        if (status) {
+          const st = safeText(s.status).toLowerCase();
+          if (st !== status) return false;
+        }
+        if (!q) return true;
+        const haystack = [
+          safeText(s.trackingNumber || s.tracking),
+          safeText(s.customerName),
+          safeText(s.destination),
+          safeText(s.shipper),
+          safeText(s.notes),
+          safeText(s.orderNumber),
+          safeText(s.processedByName),
+          safeText(s.processedById),
+          safeText(s.referenceNumber1),
+          safeText(s.referenceNumber2),
+          safeText(s.address && typeof s.address === 'object' ? `${s.address.line1 || ''} ${s.address.line2 || ''} ${s.address.city || ''} ${s.address.state || ''} ${s.address.zip || ''} ${s.address.country || ''}` : s.address)
+        ].join(' ').toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+
+    function updateSummary(items) {
+      const total = items.length;
+      const counts = { 'in-transit': 0, delivered: 0, unknown: 0 };
+      for (const s of items) {
+        const st = safeText(s.status).toLowerCase();
+        if (st === 'in-transit') counts['in-transit']++;
+        else if (st === 'delivered') counts.delivered++;
+        else if (st === 'unknown') counts.unknown++;
+      }
+      document.getElementById('countTotal').textContent = String(total);
+      document.getElementById('countInTransit').textContent = String(counts['in-transit']);
+      document.getElementById('countDelivered').textContent = String(counts.delivered);
+      document.getElementById('countUnknown').textContent = String(counts.unknown);
+    }
+
+    function renderShipments() {
+      const list = document.getElementById('shipmentsList');
+      const empty = document.getElementById('emptyState');
+      const items = applyFilters().sort((a, b) => {
+        const ad = new Date(a.updatedAt || a.createdAt || a.importedAt || 0).getTime() || 0;
+        const bd = new Date(b.updatedAt || b.createdAt || b.importedAt || 0).getTime() || 0;
+        return bd - ad;
+      });
+
+      updateSummary(items);
+
+      if (!items.length) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+
+      list.innerHTML = items.map(s => {
+        const tracking = safeText(s.trackingNumber || s.tracking).trim();
+        const status = safeText(s.status || 'unknown').toLowerCase() || 'unknown';
+        const customer = safeText(s.customerName) || safeText(s.destination) || '—';
+        const when = formatDate(s.emailDate || s.importedAt || s.createdAt || s.updatedAt);
+        const src = safeText(s.source || s.statusUpdatedSource || '').trim() || '—';
+        const link = trackingLink(tracking);
+        const statusFromUps = safeText(s.statusFromUPS).trim();
+	        const processedBy = safeText(s.processedByName || s.employeeName);
+          const processedById = safeText(s.processedById || s.employeeId);
+	        const orderNumber = safeText(s.orderNumber || s.referenceNumber2);
+	        const psus = (typeof extractPSUSNumber === 'function') ? extractPSUSNumber(orderNumber) : null;
+	        const maoUrl = (psus && typeof getMAOOrderURL === 'function') ? getMAOOrderURL(psus) : null;
+        const addr = (s.address && typeof s.address === 'object')
+          ? [safeText(s.address.line1), safeText(s.address.line2), [safeText(s.address.city), safeText(s.address.state), safeText(s.address.zip)].filter(Boolean).join(' '), safeText(s.address.country)].filter(Boolean).join(', ')
+          : safeText(s.address);
+
+        return `
+          <div class="shipment-card">
+            <div class="shipment-top">
+              <div>
+                <div class="tracking-number">${tracking ? tracking : 'No Tracking'}</div>
+                <div class="meta">${when ? when : ''}${src ? ` • ${src}` : ''}</div>
+              </div>
+              <div class="status-pill ${status}">${status}</div>
+            </div>
+	            <div class="shipment-body">
+              <div class="field">
+                <label>Customer / Destination</label>
+                <div class="wrap">${customer}</div>
+              </div>
+              <div class="field">
+                <label>Address</label>
+                <div class="wrap">${addr || '—'}</div>
+              </div>
+              <div class="field">
+                <label>UPS Status</label>
+                <div class="wrap">${statusFromUps || '—'}</div>
+              </div>
+              <div class="field">
+                <label>Processed By</label>
+                <div class="wrap">${processedById ? `${processedBy || '—'} (${processedById})` : (processedBy || '—')}</div>
+              </div>
+	              <div class="field">
+	                <label>UPS Service</label>
+	                <div class="wrap">${safeText(s.serviceType || s.service || '') || '—'}</div>
+	              </div>
+	              <div class="field">
+	                <label>Order</label>
+	                <div class="wrap">
+	                  ${psus && maoUrl
+	                    ? `${psus} <a class="mao-link" href="${maoUrl}" target="_blank" rel="noopener noreferrer" title="View on MAO"><span class="icon">↗</span><span>(View on MAO)</span></a>`
+	                    : (orderNumber || '—')
+	                  }
+	                </div>
+	              </div>
+	              <div class="field">
+	                <label>Packages / Weight</label>
+	                <div class="wrap">${(s.packageCount !== undefined && s.packageCount !== null) ? safeText(s.packageCount) : '—'} / ${(s.packageWeightLbs !== undefined && s.packageWeightLbs !== null) ? `${safeText(s.packageWeightLbs)} lbs` : '—'}</div>
+	              </div>
+	            </div>
+	            <div class="link-row">
+	              ${link ? `<a href="${link}" target="_blank" rel="noopener noreferrer">Open UPS Tracking</a>` : `<span class="meta">No tracking link</span>`}
+	              <span class="meta"></span>
+	            </div>
+	          </div>
+	        `;
+	      }).join('');
+	    }
+
+    function setAutoRefreshMessage(message) {
+      const el = document.getElementById('autoRefreshNote');
+      if (el) el.textContent = message;
+    }
+
+    function formatRefreshTime(date) {
+      if (!date) return '';
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function loadShipments({ showLoader = false } = {}) {
+      const list = document.getElementById('shipmentsList');
+      if (showLoader) list.innerHTML = '<div class="meta">Loading…</div>';
+      setAutoRefreshMessage('Refreshing…');
+      try {
+        const resp = await fetch('/api/shipments', { credentials: 'include' });
+        if (!resp.ok) throw new Error('Failed to load shipments');
+        allShipments = await resp.json();
+        lastRefreshAt = new Date();
+        setAutoRefreshMessage(`Updated ${formatRefreshTime(lastRefreshAt)} • Refreshes every 60s`);
+      } catch (e) {
+        console.error(e);
+        allShipments = [];
+        setAutoRefreshMessage('Unable to refresh. Retrying shortly…');
+      }
+      renderShipments();
+    }
+
+    function startAutoRefresh() {
+      if (refreshTimer) return;
+      refreshTimer = setInterval(() => loadShipments().catch(() => {}), AUTO_REFRESH_INTERVAL);
+    }
+
+    function stopAutoRefresh() {
+      if (refreshTimer) clearInterval(refreshTimer);
+      refreshTimer = null;
+    }
+
+    async function initPage() {
+      SharedHeader.mountHeader({ showRefresh: false });
+      await SharedHeader.init();
+      currentUser = SharedHeader.currentUser;
+      if (!currentUser) {
+        window.location.href = '/login';
+        return;
+      }
+
+      document.getElementById('searchInput').addEventListener('input', renderShipments);
+      document.getElementById('statusFilter').addEventListener('change', renderShipments);
+
+      await loadShipments({ showLoader: true });
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) stopAutoRefresh();
+        else {
+          loadShipments().catch(() => {});
+          startAutoRefresh();
+        }
+      });
+      startAutoRefresh();
+    }
+
+    document.addEventListener('DOMContentLoaded', initPage);
+  </script>
+</body>
+</html>

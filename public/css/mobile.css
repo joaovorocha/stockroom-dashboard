@@ -3,7 +3,7 @@
 /* ===== Global Mobile Fixes ===== */
 @media (max-width: 768px) {
   /* Base */
-  body {
+  html, body {
     font-size: 14px;
     overflow-x: hidden;
   }
@@ -122,6 +122,52 @@
     gap: 12px;
   }
 
+  /* Operations page: prevent import status values from being cut off */
+  .operations-section .import-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .operations-section .import-value {
+    text-align: left;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  /* SA: On Duty Today should be full-width on phones (no sticky side window) */
+  body[data-page-type="sa"] #managementQuickSection {
+    position: static !important;
+    top: auto !important;
+    width: 100% !important;
+    padding: 16px !important;
+  }
+
+  body[data-page-type="sa"] #managementQuickGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Retail Week info boxes: prevent long source paths from forcing horizontal overflow */
+  #retailWeekInfo,
+  #retailWeekWelcomeInfo {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  #retailWeekInfo > div,
+  #retailWeekWelcomeInfo > div {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+
+  #retailWeekInfo span,
+  #retailWeekWelcomeInfo span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
   /* ===== SECTIONS ===== */
   .section {
     margin-bottom: 16px;
@@ -157,7 +203,55 @@
 
   /* Operations Metrics: avoid horizontal overflow, show 2 cards per row */
   .operations-section .metrics-row {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px;
+  }
+
+  .operations-section .metric-card {
+    min-width: 0;
+  }
+
+  /* Operations Metrics: make metric cards more compact */
+  body[data-page-type="ops_metrics"] .operations-section {
+    padding: 12px;
+  }
+
+  body[data-page-type="ops_metrics"] .operations-section .ops-subsection {
+    padding: 10px;
+  }
+
+  body[data-page-type="ops_metrics"] .operations-section .metric-card {
+    padding: 8px 6px;
+  }
+
+  body[data-page-type="ops_metrics"] .operations-section .metric-label {
+    font-size: 8px !important;
+    letter-spacing: 0.02em;
+  }
+
+  body[data-page-type="ops_metrics"] .operations-section .metric-value {
+    font-size: 16px !important;
+  }
+
+  body[data-page-type="ops_metrics"] .operations-section .metric-change,
+  body[data-page-type="ops_metrics"] .operations-section .metric-hint {
+    font-size: 10px !important;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  /* Operations Metrics: shrink on-time donut charts */
+  body[data-page-type="ops_metrics"] #onTimeOverallChartCard > div,
+  body[data-page-type="ops_metrics"] #onTimeLongChartCard > div,
+  body[data-page-type="ops_metrics"] #onTimeShortChartCard > div {
+    height: 140px !important;
+  }
+
+  body[data-page-type="ops_metrics"] #onTimeOverallChart,
+  body[data-page-type="ops_metrics"] #onTimeLongChart,
+  body[data-page-type="ops_metrics"] #onTimeShortChart {
+    width: 140px !important;
+    height: 140px !important;
   }
 
   .metric-card {
@@ -191,7 +285,8 @@
   }
 
   .operations-section .orders-table-container {
-    overflow-x: hidden;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .metric-value {

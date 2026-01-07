@@ -27,17 +27,20 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  // iPhone images can be large; keep this permissive but bounded.
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB per file
   fileFilter: (req, file, cb) => {
     // iPhone photos can be HEIC/HEIF; allow those alongside common web image types.
     const allowedTypes = /jpeg|jpg|png|gif|webp|heic|heif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test((file.mimetype || '').toLowerCase());
+    const extOk = allowedTypes.test(path.extname(file.originalname || '').toLowerCase());
+    const mimeOk = allowedTypes.test((file.mimetype || '').toLowerCase());
 
-    if (extname && mimetype) {
+    // Some mobile browsers may send a generic mimetype (ex: application/octet-stream).
+    // Accept if either the extension or mimetype indicates an allowed image.
+    if (extOk || mimeOk) {
       return cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed (jpg, png, gif, webp, heic)'));
+      cb(new Error(`Only image files are allowed (jpg, png, gif, webp, heic). Received: ${file.mimetype || 'unknown'} (${file.originalname || 'unknown'})`));
     }
   }
 });

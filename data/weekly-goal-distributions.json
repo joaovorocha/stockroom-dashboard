@@ -47,17 +47,17 @@
     },
     "2026-W01": {
       "weekKey": "2026-W01",
-      "enabled": false,
+      "enabled": true,
       "percents": [
+        20,
+        10,
+        11,
+        10,
         15,
         15,
-        14,
-        14,
-        14,
-        14,
-        14
+        19
       ],
-      "updatedAt": "2026-01-06T01:58:41.717Z",
+      "updatedAt": "2026-01-06T19:00:54.349Z",
       "updatedBy": "Victor Rocha"
     }
   }

@@ -4,6 +4,8 @@
   const statusEl = document.getElementById('radioStatus');
   const copyAllBtn = document.getElementById('copyAllBtn');
   const clearUiBtn = document.getElementById('clearUiBtn');
+  const listenLiveBtn = document.getElementById('listenLiveBtn');
+  const listenLiveStatus = document.getElementById('listenLiveStatus');
 
   const controlsEl = document.getElementById('radioControls');
   const serviceStatusEl = document.getElementById('serviceStatus');
@@ -28,6 +30,175 @@
   let allTextCache = [];
   let isPrivileged = false;
   let currentConfig = null;
+
+  // --- Live audio monitor (WebSocket -> WebAudio) ---
+  const monitor = {
+    ws: null,
+    audioCtx: null,
+    processor: null,
+    sourceSampleRate: 24000,
+    queue: [],
+    queueOffset: 0,
+    queuedSamples: 0,
+    enabled: false,
+  };
+
+  function setListenStatus(text) {
+    if (!listenLiveStatus) return;
+    listenLiveStatus.textContent = text || 'Live listen: --';
+  }
+
+  function int16ToFloat32(int16) {
+    const out = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) out[i] = int16[i] / 32768;
+    return out;
+  }
+
+  function resampleLinear(input, srcRate, dstRate) {
+    if (!input || input.length === 0) return new Float32Array(0);
+    if (!srcRate || !dstRate || srcRate === dstRate) return input;
+    const ratio = dstRate / srcRate;
+    const outLen = Math.max(1, Math.round(input.length * ratio));
+    const out = new Float32Array(outLen);
+    const maxIdx = input.length - 1;
+    for (let i = 0; i < outLen; i++) {
+      const x = i / ratio;
+      const x0 = Math.floor(x);
+      const x1 = Math.min(maxIdx, x0 + 1);
+      const t = x - x0;
+      const a = input[x0] || 0;
+      const b = input[x1] || 0;
+      out[i] = a + (b - a) * t;
+    }
+    return out;
+  }
+
+  function enqueueAudio(f32) {
+    if (!f32 || !f32.length) return;
+    monitor.queue.push(f32);
+    monitor.queuedSamples += f32.length;
+    // Keep a small jitter buffer (does not limit streaming).
+    const max = (monitor.audioCtx?.sampleRate || 48000) * 10;
+    while (monitor.queuedSamples > max && monitor.queue.length > 1) {
+      const dropped = monitor.queue.shift();
+      monitor.queuedSamples -= (dropped?.length || 0);
+      monitor.queueOffset = 0;
+    }
+  }
+
+  function startAudioPump() {
+    if (!monitor.audioCtx) return;
+    if (monitor.processor) return;
+
+    // ScriptProcessorNode is deprecated but widely supported; fine for internal tool.
+    const bufSize = 2048;
+    const proc = monitor.audioCtx.createScriptProcessor(bufSize, 0, 1);
+    proc.onaudioprocess = (e) => {
+      const out = e.outputBuffer.getChannelData(0);
+      let i = 0;
+      while (i < out.length) {
+        if (monitor.queue.length === 0) {
+          out[i++] = 0;
+          continue;
+        }
+        const cur = monitor.queue[0];
+        const avail = cur.length - monitor.queueOffset;
+        const n = Math.min(avail, out.length - i);
+        out.set(cur.subarray(monitor.queueOffset, monitor.queueOffset + n), i);
+        monitor.queueOffset += n;
+        monitor.queuedSamples -= n;
+        i += n;
+        if (monitor.queueOffset >= cur.length) {
+          monitor.queue.shift();
+          monitor.queueOffset = 0;
+        }
+      }
+    };
+    proc.connect(monitor.audioCtx.destination);
+    monitor.processor = proc;
+  }
+
+  async function startLiveListen() {
+    if (monitor.enabled) return;
+    monitor.enabled = true;
+    setListenStatus('Live listen: Connecting…');
+
+    try {
+      monitor.audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+    } catch {
+      monitor.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    try {
+      await monitor.audioCtx.resume();
+    } catch {}
+
+    startAudioPump();
+
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${proto}://${window.location.host}/ws/radio-monitor`;
+    const ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
+    monitor.ws = ws;
+
+    ws.onopen = () => {
+      setListenStatus('Live listen: On');
+      if (listenLiveBtn) listenLiveBtn.textContent = 'Stop Listening';
+    };
+
+    ws.onmessage = (ev) => {
+      if (!monitor.audioCtx) return;
+      if (typeof ev.data === 'string') {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg && msg.type === 'hello' && msg.sampleRate) {
+            monitor.sourceSampleRate = Number(msg.sampleRate) || monitor.sourceSampleRate;
+          }
+        } catch {}
+        return;
+      }
+
+      try {
+        const ab = ev.data;
+        const i16 = new Int16Array(ab);
+        let f32 = int16ToFloat32(i16);
+        const dstRate = monitor.audioCtx.sampleRate || 48000;
+        f32 = resampleLinear(f32, monitor.sourceSampleRate, dstRate);
+        enqueueAudio(f32);
+      } catch {}
+    };
+
+    ws.onerror = () => {
+      // handled by close
+    };
+
+    ws.onclose = () => {
+      stopLiveListen();
+    };
+  }
+
+  function stopLiveListen() {
+    if (!monitor.enabled) {
+      if (listenLiveBtn) listenLiveBtn.textContent = 'Listen Live';
+      return;
+    }
+    monitor.enabled = false;
+    setListenStatus('Live listen: Off');
+
+    try { monitor.ws?.close(); } catch {}
+    monitor.ws = null;
+
+    try { monitor.processor?.disconnect(); } catch {}
+    monitor.processor = null;
+
+    try { monitor.audioCtx?.close(); } catch {}
+    monitor.audioCtx = null;
+
+    monitor.queue = [];
+    monitor.queueOffset = 0;
+    monitor.queuedSamples = 0;
+    if (listenLiveBtn) listenLiveBtn.textContent = 'Listen Live';
+  }
 
   async function copyToClipboard(text) {
     try {
@@ -159,11 +330,14 @@
     try {
       const resp = await fetch('/api/radio/service', { credentials: 'include' }).then(r => r.json());
       if (!resp || !resp.ok) return;
-      const running = !!resp.running;
-      const pid = resp.pid ? ` (pid ${resp.pid})` : '';
-      serviceStatusEl.textContent = `Service: ${running ? 'Running' : 'Stopped'}${pid}`;
-      if (startServiceBtn) startServiceBtn.disabled = running;
-      if (stopServiceBtn) stopServiceBtn.disabled = !running;
+      const captureRunning = !!resp?.capture?.running;
+      const transcriberRunning = !!resp?.transcriber?.running;
+      const capPid = resp?.capture?.pid ? `pid ${resp.capture.pid}` : 'no pid';
+      const trPid = resp?.transcriber?.pid ? `pid ${resp.transcriber.pid}` : 'no pid';
+      serviceStatusEl.textContent = `Capture: ${captureRunning ? 'Running' : 'Stopped'} (${capPid}) • Transcriber: ${transcriberRunning ? 'Running' : 'Stopped'} (${trPid})`;
+      const anyRunning = captureRunning || transcriberRunning;
+      if (startServiceBtn) startServiceBtn.disabled = anyRunning;
+      if (stopServiceBtn) stopServiceBtn.disabled = !anyRunning;
     } catch {}
   }
 
@@ -194,6 +368,15 @@
     } else {
       setCfgMessage(resp?.error || 'Save failed');
     }
+  }
+
+  let liveApplyTimer = null;
+  function scheduleLiveApply() {
+    if (!isPrivileged) return;
+    if (liveApplyTimer) clearTimeout(liveApplyTimer);
+    liveApplyTimer = setTimeout(() => {
+      saveConfig({ restart: false });
+    }, 450);
   }
 
   async function startService() {
@@ -264,6 +447,19 @@
   if (killRtlBtn) killRtlBtn.addEventListener('click', killRtl);
   if (saveCfgBtn) saveCfgBtn.addEventListener('click', () => saveConfig({ restart: false }));
   if (saveRestartBtn) saveRestartBtn.addEventListener('click', () => saveConfig({ restart: true }));
+
+  if (listenLiveBtn) {
+    listenLiveBtn.addEventListener('click', () => {
+      if (monitor.enabled) stopLiveListen();
+      else startLiveListen();
+    });
+  }
+
+  // Hot-apply config while service runs (no PM2 restart).
+  if (cfgFreq) cfgFreq.addEventListener('input', scheduleLiveApply);
+  if (cfgGain) cfgGain.addEventListener('input', scheduleLiveApply);
+  if (cfgVad) cfgVad.addEventListener('input', scheduleLiveApply);
+  if (cfgPpm) cfgPpm.addEventListener('input', scheduleLiveApply);
 
   loadConfig().then(loadServiceStatus);
 

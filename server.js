@@ -1,10 +1,13 @@
 require("dotenv").config();
 const express = require('express');
+const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const cors = require('cors');
+const dgram = require('dgram');
+const { WebSocketServer } = require('ws');
 
 const authRoutes = require('./routes/auth');
 const shipmentsRoutes = require('./routes/shipments');
@@ -20,6 +23,7 @@ const expensesRoutes = require('./routes/expenses');
 const storeRecoveryRoutes = require('./routes/storeRecovery');
 const authMiddleware = require('./middleware/auth');
 const { getUPSScheduler } = require('./utils/ups-scheduler');
+const { markActive } = require('./utils/active-users');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -71,10 +75,29 @@ function isRequestSecure(req) {
   return !!req.secure || xfProto.split(',')[0].trim() === 'https';
 }
 
+function isPrivateLanIpHost(hostHeader) {
+  const host = (hostHeader || '').toString().split(',')[0].trim();
+  const hostNoPort = host.replace(/:\d+$/, '');
+  const m = hostNoPort.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const octets = m.slice(1).map((x) => Number.parseInt(x, 10));
+  if (octets.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false;
+
+  const [a, b] = octets;
+  if (a === 10) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  return false;
+}
+
 // Optional HTTPS enforcement (recommended in production behind a TLS proxy)
 app.use((req, res, next) => {
   if (!FORCE_HTTPS) return next();
   if (isRequestSecure(req)) return next();
+
+  // Allow HTTP access via private LAN IPs (useful as a Wi-Fi fallback when
+  // DNS/Internet is flaky). The HTTPS proxy + certificate is for the hostname.
+  if (isPrivateLanIpHost(req.get('host'))) return next();
 
   const host = req.get('host');
   const target = `https://${host}${req.originalUrl || req.url || ''}`;
@@ -163,6 +186,7 @@ app.use((req, res, next) => {
     '/login-v2',
     '/forgot-password',
     '/reset-password',
+    '/favicon.ico',
     '/manifest.webmanifest',
     '/sw.js'
   ]);
@@ -185,6 +209,12 @@ app.use((req, res, next) => {
 
   // Otherwise require auth.
   return authMiddleware(req, res, next);
+});
+
+// Track active users for admin health monitoring.
+app.use((req, res, next) => {
+  if (req.user) markActive(req.user, req);
+  return next();
 });
 
 // Normalize common copy/paste dash characters in URLs (e.g. Safari/Docs en-dash/em-dash)
@@ -401,8 +431,8 @@ app.get('/radio-transcripts', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'radio-transcripts.html'));
 });
 
-app.get('/radio-admin', authMiddleware, managerOnly, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'radio-admin.html'));
+app.get('/radio-admin', authMiddleware, adminOnly, (req, res) => {
+  return res.redirect('/admin#radio');
 });
 
 app.get('/closing-duties', authMiddleware, (req, res) => {
@@ -472,6 +502,233 @@ function broadcastUpdate(updateType, data) {
 // Export broadcastUpdate for use in route handlers
 app.set('broadcastUpdate', broadcastUpdate);
 
+// --- Radio live audio monitor (UDP -> WebSocket) ---
+// Capture process sends 100ms chunks of mono int16 PCM @ 24000 Hz to UDP 127.0.0.1:7355.
+const RADIO_MONITOR_UDP_HOST = process.env.RADIO_MONITOR_UDP_HOST || '127.0.0.1';
+const RADIO_MONITOR_UDP_PORT = Number.parseInt(process.env.RADIO_MONITOR_UDP_PORT || '7355', 10) || 7355;
+const RADIO_MONITOR_SAMPLE_RATE = Number.parseInt(process.env.RADIO_MONITOR_SAMPLE_RATE || '24000', 10) || 24000;
+
+// --- Radio spectrum/waterfall (rtl_power -> UDP JSON -> WebSocket) ---
+const RADIO_SPECTRUM_UDP_HOST = process.env.RADIO_SPECTRUM_UDP_HOST || '127.0.0.1';
+const RADIO_SPECTRUM_UDP_PORT = Number.parseInt(process.env.RADIO_SPECTRUM_UDP_PORT || '7356', 10) || 7356;
+
+function parseCookieHeader(headerValue) {
+  const header = (headerValue || '').toString();
+  const out = {};
+  header.split(';').forEach(part => {
+    const idx = part.indexOf('=');
+    if (idx < 0) return;
+    const k = part.slice(0, idx).trim();
+    const v = part.slice(idx + 1).trim();
+    if (!k) return;
+    out[k] = v;
+  });
+  return out;
+}
+
+function decodeCookieValue(v) {
+  const raw = (v || '').toString();
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function validateSessionFromCookie(cookieHeader) {
+  const cookies = parseCookieHeader(cookieHeader);
+  const sessionRaw = cookies.userSession;
+  if (!sessionRaw) return null;
+
+  let sessionObj = null;
+  try {
+    sessionObj = JSON.parse(decodeCookieValue(sessionRaw));
+  } catch {
+    return null;
+  }
+
+  const usersFile = path.join(__dirname, 'data', 'users.json');
+  try {
+    if (!fs.existsSync(usersFile)) return null;
+    const usersData = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
+    const list = usersData.users || [];
+    const employeeId = sessionObj.employeeId || sessionObj.userId;
+    const found = list.find(u => u.employeeId === employeeId || u.id === employeeId) || null;
+    if (!found) return null;
+    return found;
+  } catch {
+    return null;
+  }
+}
+
+const radioMonitorClients = new Set();
+const radioSpectrumClients = new Set();
+
+const RADIO_ANALYZER_LOG_PATH = path.join(__dirname, 'logs', 'radio-analyzer.log');
+
+function appendLogLine(filePath, line, { maxBytes = 2 * 1024 * 1024 } = {}) {
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    try {
+      const st = fs.statSync(filePath);
+      if (st.size > maxBytes) {
+        const keep = Math.floor(maxBytes / 2);
+        const fd = fs.openSync(filePath, 'r');
+        try {
+          const buf = Buffer.alloc(keep);
+          fs.readSync(fd, buf, 0, keep, Math.max(0, st.size - keep));
+          fs.writeFileSync(filePath, buf.toString('utf8'), 'utf8');
+        } finally {
+          fs.closeSync(fd);
+        }
+      }
+    } catch {
+      // ignore stat/trim errors
+    }
+    fs.appendFileSync(filePath, line + '\n', 'utf8');
+  } catch {
+    // ignore
+  }
+}
+
+function logAnalyzer(event, details) {
+  const obj = {
+    ts: new Date().toISOString(),
+    event: (event || 'event').toString(),
+    ...(details && typeof details === 'object' ? details : {}),
+  };
+  appendLogLine(RADIO_ANALYZER_LOG_PATH, JSON.stringify(obj));
+}
+
+let radioMonitorLastFrameAt = 0;
+let radioSpectrumLastFrameAt = 0;
+let radioSpectrumLastParseErrorAt = 0;
+let radioSpectrumLastState = '';
+
+function broadcastRadioPcm(buf) {
+  if (!buf || !buf.length) return;
+  radioMonitorLastFrameAt = Date.now();
+  for (const ws of radioMonitorClients) {
+    if (!ws || ws.readyState !== 1) continue;
+    // Drop frames for slow clients to avoid backpressure and memory growth.
+    if (ws.bufferedAmount > 512 * 1024) continue;
+    try {
+      ws.send(buf);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+const radioMonitorUdp = dgram.createSocket('udp4');
+radioMonitorUdp.on('message', (msg) => {
+  broadcastRadioPcm(msg);
+});
+radioMonitorUdp.on('error', (err) => {
+  console.error('Radio monitor UDP error:', err?.message || err);
+});
+try {
+  radioMonitorUdp.bind(RADIO_MONITOR_UDP_PORT, RADIO_MONITOR_UDP_HOST, () => {
+    console.log(`Radio monitor UDP listening on ${RADIO_MONITOR_UDP_HOST}:${RADIO_MONITOR_UDP_PORT}`);
+  });
+} catch (e) {
+  console.error('Failed to bind radio monitor UDP:', e?.message || e);
+}
+
+const wssRadioMonitor = new WebSocketServer({ noServer: true });
+wssRadioMonitor.on('connection', (ws, req) => {
+  radioMonitorClients.add(ws);
+  try {
+    ws.send(JSON.stringify({ type: 'hello', format: 's16le', channels: 1, sampleRate: RADIO_MONITOR_SAMPLE_RATE }));
+  } catch {}
+
+  ws.on('close', () => {
+    radioMonitorClients.delete(ws);
+  });
+});
+
+function broadcastRadioSpectrum(msgObj) {
+  if (!msgObj) return;
+  const payload = JSON.stringify(msgObj);
+  for (const ws of radioSpectrumClients) {
+    if (!ws || ws.readyState !== 1) continue;
+    if (ws.bufferedAmount > 512 * 1024) continue;
+    try {
+      ws.send(payload);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+const radioSpectrumUdp = dgram.createSocket('udp4');
+radioSpectrumUdp.on('message', (msg) => {
+  try {
+    const s = msg.toString('utf8');
+    const obj = JSON.parse(s);
+    radioSpectrumLastFrameAt = Date.now();
+    broadcastRadioSpectrum(obj);
+  } catch {
+    radioSpectrumLastParseErrorAt = Date.now();
+    logAnalyzer('udp-parse-error', {
+      bytes: msg?.length || 0,
+      sample: (msg ? msg.toString('utf8', 0, Math.min(140, msg.length)) : ''),
+    });
+  }
+});
+radioSpectrumUdp.on('error', (err) => {
+  console.error('Radio spectrum UDP error:', err?.message || err);
+});
+try {
+  radioSpectrumUdp.bind(RADIO_SPECTRUM_UDP_PORT, RADIO_SPECTRUM_UDP_HOST, () => {
+    console.log(`Radio spectrum UDP listening on ${RADIO_SPECTRUM_UDP_HOST}:${RADIO_SPECTRUM_UDP_PORT}`);
+  });
+} catch (e) {
+  console.error('Failed to bind radio spectrum UDP:', e?.message || e);
+}
+
+const wssRadioSpectrum = new WebSocketServer({ noServer: true });
+wssRadioSpectrum.on('connection', (ws, req) => {
+  radioSpectrumClients.add(ws);
+  try {
+    ws.send(JSON.stringify({ type: 'hello', stream: 'radio-spectrum' }));
+  } catch {}
+  logAnalyzer('ws-connect', { clientCount: radioSpectrumClients.size, user: ws.user?.employeeId || ws.user?.id || null });
+  ws.on('close', () => {
+    radioSpectrumClients.delete(ws);
+    logAnalyzer('ws-close', { clientCount: radioSpectrumClients.size, user: ws.user?.employeeId || ws.user?.id || null });
+  });
+});
+
+function broadcastRadioSpectrumStatus() {
+  if (radioSpectrumClients.size === 0) return;
+  const now = Date.now();
+  const ageMs = radioSpectrumLastFrameAt ? (now - radioSpectrumLastFrameAt) : null;
+
+  let status = { type: 'status', ok: true, state: 'streaming' };
+  if (!radioSpectrumLastFrameAt) {
+    status = { type: 'status', ok: true, state: 'waiting' };
+  } else if (ageMs != null && ageMs > 3000) {
+    status = { type: 'status', ok: false, state: 'stalled', ageMs };
+  } else if (ageMs != null) {
+    status = { type: 'status', ok: true, state: 'streaming', ageMs };
+  }
+
+  if (radioSpectrumLastParseErrorAt && (now - radioSpectrumLastParseErrorAt) < 3000) {
+    status = { type: 'status', ok: false, state: 'udp-parse-error' };
+  }
+
+  const stateKey = `${status.ok ? 'ok' : 'bad'}:${status.state}`;
+  if (stateKey !== radioSpectrumLastState) {
+    radioSpectrumLastState = stateKey;
+    logAnalyzer('stream-state', { ok: status.ok, state: status.state, ageMs: status.ageMs ?? null, clients: radioSpectrumClients.size });
+  }
+
+  broadcastRadioSpectrum(status);
+}
+
+setInterval(broadcastRadioSpectrumStatus, 1000).unref?.();
+
 // Start UPS email import scheduler
 // Default: every 30 minutes between 8am-8pm (includes 8:00-19:30 + 20:00)
 const UPS_IMPORT_CRON = process.env.UPS_EMAIL_IMPORT_CRON || '0,30 8-19 * * *;0 20 * * *';
@@ -486,8 +743,45 @@ try {
   console.error('Failed to start UPS scheduler:', e.message);
 }
 
-// Use HTTP for development (avoids cookie issues with self-signed certs)
-app.listen(PORT, '0.0.0.0', () => {
+// Use HTTP server so WebSocket upgrades work.
+const server = http.createServer(app);
+
+server.on('upgrade', (req, socket, head) => {
+  let pathname = '';
+  try {
+    pathname = new URL(req.url || '', 'http://localhost').pathname;
+  } catch {
+    pathname = '';
+  }
+
+  if (pathname !== '/ws/radio-monitor' && pathname !== '/ws/radio-spectrum') {
+    return;
+  }
+
+  const user = validateSessionFromCookie(req.headers.cookie || '');
+  if (!user) {
+    try {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    } catch {}
+    try { socket.destroy(); } catch {}
+    return;
+  }
+
+  if (pathname === '/ws/radio-monitor') {
+    wssRadioMonitor.handleUpgrade(req, socket, head, (ws) => {
+      ws.user = user;
+      wssRadioMonitor.emit('connection', ws, req);
+    });
+    return;
+  }
+
+  wssRadioSpectrum.handleUpgrade(req, socket, head, (ws) => {
+    ws.user = user;
+    wssRadioSpectrum.emit('connection', ws, req);
+  });
+});
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n╔═══════════════════════════════════════════════════════════╗`);
   console.log(`║  🖥️  STOCKROOM DASHBOARD SERVER                          ║`);
   console.log(`╠═══════════════════════════════════════════════════════════╣`);

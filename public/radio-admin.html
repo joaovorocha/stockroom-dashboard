@@ -76,10 +76,7 @@
       </div>
       <div style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <button class="btn" id="listenToggleBtn" type="button">Listen Live</button>
-        <span class="muted">Plays a rolling ~3s buffer (near real-time).</span>
-      </div>
-      <div style="margin-top: 10px;">
-        <audio id="liveAudio" controls preload="none" style="width: 100%; max-width: 520px;"></audio>
+        <span class="muted">Streams live audio (near real-time).</span>
       </div>
       <div class="live-list" id="liveList"></div>
     </div>
@@ -97,6 +94,14 @@
       </div>
 
       <div class="radio-grid">
+        <div class="radio-field">
+          <div class="label-row">
+            <label for="activeChannelSelect">Active Channel</label>
+            <button class="help-btn" type="button" data-help-for="activeChannelHelp" aria-label="Active channel help">i</button>
+          </div>
+          <div class="muted help-text" id="activeChannelHelp">Switches the tuner to another saved channel. Applies live (no restart).</div>
+          <select id="activeChannelSelect"></select>
+        </div>
         <div class="radio-field">
           <div class="label-row">
             <label for="channelLabelInput">Channel Name</label>
@@ -190,7 +195,7 @@
     </div>
   </div>
 
-  <script src="/js/shared-header.js?v=23"></script>
+  <script src="/js/shared-header.js?v=24"></script>
   <script>
     let currentUser = null;
     let radioConfig = null;
@@ -237,41 +242,150 @@
 
     function wireLiveListen() {
       const btn = $('listenToggleBtn');
-      const audio = $('liveAudio');
-      if (!btn || !audio) return;
+      if (!btn) return;
 
-      let timer = null;
-      const stop = () => {
-        if (timer) clearInterval(timer);
-        timer = null;
-        try { audio.pause(); } catch {}
-        btn.textContent = 'Listen Live';
+      const monitor = {
+        ws: null,
+        audioCtx: null,
+        processor: null,
+        sourceSampleRate: 24000,
+        queue: [],
+        queueOffset: 0,
+        queuedSamples: 0,
+        enabled: false,
       };
 
-      const tick = async () => {
-        // Cache-bust the rolling WAV
-        const url = `/api/radio/live-audio?t=${Date.now()}`;
-        const wasPlaying = !audio.paused;
-        audio.src = url;
-        if (wasPlaying) {
-          try { await audio.play(); } catch {}
+      function int16ToFloat32(int16) {
+        const out = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) out[i] = int16[i] / 32768;
+        return out;
+      }
+
+      function resampleLinear(input, srcRate, dstRate) {
+        if (!input || input.length === 0) return new Float32Array(0);
+        if (!srcRate || !dstRate || srcRate === dstRate) return input;
+        const ratio = dstRate / srcRate;
+        const outLen = Math.max(1, Math.round(input.length * ratio));
+        const out = new Float32Array(outLen);
+        const maxIdx = input.length - 1;
+        for (let i = 0; i < outLen; i++) {
+          const x = i / ratio;
+          const x0 = Math.floor(x);
+          const x1 = Math.min(maxIdx, x0 + 1);
+          const t = x - x0;
+          const a = input[x0] || 0;
+          const b = input[x1] || 0;
+          out[i] = a + (b - a) * t;
         }
-      };
+        return out;
+      }
 
-      btn.addEventListener('click', async () => {
-        if (timer) {
-          stop();
+      function enqueueAudio(f32) {
+        if (!f32 || !f32.length) return;
+        monitor.queue.push(f32);
+        monitor.queuedSamples += f32.length;
+        // Keep a small jitter buffer, but keep streaming continuously.
+        const max = (monitor.audioCtx?.sampleRate || 48000) * 10;
+        while (monitor.queuedSamples > max && monitor.queue.length > 1) {
+          const dropped = monitor.queue.shift();
+          monitor.queuedSamples -= (dropped?.length || 0);
+          monitor.queueOffset = 0;
+        }
+      }
+
+      function startAudioPump() {
+        if (!monitor.audioCtx) return;
+        if (monitor.processor) return;
+        const bufSize = 2048;
+        const proc = monitor.audioCtx.createScriptProcessor(bufSize, 0, 1);
+        proc.onaudioprocess = (e) => {
+          const out = e.outputBuffer.getChannelData(0);
+          let i = 0;
+          while (i < out.length) {
+            if (monitor.queue.length === 0) {
+              out[i++] = 0;
+              continue;
+            }
+            const cur = monitor.queue[0];
+            const avail = cur.length - monitor.queueOffset;
+            const n = Math.min(avail, out.length - i);
+            out.set(cur.subarray(monitor.queueOffset, monitor.queueOffset + n), i);
+            monitor.queueOffset += n;
+            monitor.queuedSamples -= n;
+            i += n;
+            if (monitor.queueOffset >= cur.length) {
+              monitor.queue.shift();
+              monitor.queueOffset = 0;
+            }
+          }
+        };
+        proc.connect(monitor.audioCtx.destination);
+        monitor.processor = proc;
+      }
+
+      function stop() {
+        if (!monitor.enabled) {
+          btn.textContent = 'Listen Live';
           return;
         }
-        btn.textContent = 'Stop Listening';
-        await tick();
-        try { await audio.play(); } catch {}
-        timer = setInterval(tick, 1200);
-      });
+        monitor.enabled = false;
+        try { monitor.ws?.close(); } catch {}
+        monitor.ws = null;
+        try { monitor.processor?.disconnect(); } catch {}
+        monitor.processor = null;
+        try { monitor.audioCtx?.close(); } catch {}
+        monitor.audioCtx = null;
+        monitor.queue = [];
+        monitor.queueOffset = 0;
+        monitor.queuedSamples = 0;
+        btn.textContent = 'Listen Live';
+      }
 
-      audio.addEventListener('pause', () => {
-        // If user pauses manually, stop auto-refresh.
-        if (timer) stop();
+      async function start() {
+        if (monitor.enabled) return;
+        monitor.enabled = true;
+        btn.textContent = 'Stop Listening';
+
+        try {
+          monitor.audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+        } catch {
+          monitor.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        try { await monitor.audioCtx.resume(); } catch {}
+        startAudioPump();
+
+        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const url = `${proto}://${window.location.host}/ws/radio-monitor`;
+        const ws = new WebSocket(url);
+        ws.binaryType = 'arraybuffer';
+        monitor.ws = ws;
+
+        ws.onmessage = (ev) => {
+          if (!monitor.audioCtx) return;
+          if (typeof ev.data === 'string') {
+            try {
+              const msg = JSON.parse(ev.data);
+              if (msg && msg.type === 'hello' && msg.sampleRate) {
+                monitor.sourceSampleRate = Number(msg.sampleRate) || monitor.sourceSampleRate;
+              }
+            } catch {}
+            return;
+          }
+          try {
+            const i16 = new Int16Array(ev.data);
+            let f32 = int16ToFloat32(i16);
+            const dstRate = monitor.audioCtx.sampleRate || 48000;
+            f32 = resampleLinear(f32, monitor.sourceSampleRate, dstRate);
+            enqueueAudio(f32);
+          } catch {}
+        };
+
+        ws.onclose = () => stop();
+      }
+
+      btn.addEventListener('click', () => {
+        if (monitor.enabled) stop();
+        else start();
       });
     }
 
@@ -374,6 +488,21 @@
       const active = Array.isArray(cfg.channels)
         ? (cfg.channels.find(c => c && String(c.id) === String(cfg.activeChannelId)) || cfg.channels[0])
         : null;
+
+      const chSel = $('activeChannelSelect');
+      if (chSel && Array.isArray(cfg.channels)) {
+        chSel.innerHTML = '';
+        cfg.channels.forEach((c) => {
+          if (!c || !c.id) return;
+          const opt = document.createElement('option');
+          opt.value = String(c.id);
+          const label = (c.label ? String(c.label) : String(c.id)).trim();
+          opt.textContent = label || String(c.id);
+          chSel.appendChild(opt);
+        });
+        chSel.value = String(cfg.activeChannelId || (cfg.channels[0] && cfg.channels[0].id) || 'default');
+      }
+
       $('channelLabelInput').value = (active && active.label) ? String(active.label) : (cfg.channelLabel || '');
       $('freqInput').value = cfg.freq || '';
       $('ppmInput').value = cfg.ppm ?? '';
@@ -420,20 +549,41 @@
     }
 
     function readForm() {
-      return {
-        channelLabel: $('channelLabelInput').value,
-        freq: $('freqInput').value,
-        ppm: Number($('ppmInput').value || 0),
-        gain: Number($('gainInput').value || 0),
-        vadThreshold: Number($('vadInput').value || 0),
-        hangoverMs: Number($('hangoverInput').value || 0),
+      const next = {
         model: $('modelSelect').value,
         device: $('deviceSelect').value,
         computeType: $('computeSelect').value,
+        vadThreshold: Number($('vadInput').value || 0),
+        hangoverMs: Number($('hangoverInput').value || 0),
+      };
+
+      // Preserve channel list; edit the currently selected channel in-place.
+      const cfg = (radioConfig && typeof radioConfig === 'object') ? radioConfig : {};
+      const channels = Array.isArray(cfg.channels) ? cfg.channels.map(c => ({ ...c })) : [{ id: 'default', label: 'Default', freq: '', ppm: 0, gain: 0 }];
+      const activeId = String(($('activeChannelSelect')?.value || cfg.activeChannelId || (channels[0] && channels[0].id) || 'default'));
+      const active = channels.find(c => String(c.id) === activeId) || channels[0];
+      if (active) {
+        active.label = $('channelLabelInput').value;
+        active.freq = $('freqInput').value;
+        active.ppm = Number($('ppmInput').value || 0);
+        active.gain = Number($('gainInput').value || 0);
+      }
+
+      return {
+        ...cfg,
+        ...next,
+        channels,
+        activeChannelId: activeId,
       };
     }
 
-    async function saveConfig(restart) {
+    let liveSaveTimer = null;
+    function scheduleLiveSave() {
+      if (liveSaveTimer) clearTimeout(liveSaveTimer);
+      liveSaveTimer = setTimeout(() => saveConfig(false, { silent: true }), 450);
+    }
+
+    async function saveConfig(restart, opts = {}) {
       const payload = { ...readForm(), restart: !!restart };
       const btn = restart ? $('saveRestartBtn') : $('saveBtn');
       if (btn) { btn.disabled = true; btn.textContent = restart ? 'Saving & restarting…' : 'Saving…'; }
@@ -446,14 +596,25 @@
         const data = await res.json();
         if (!res.ok || data?.ok === false) throw new Error(data?.error || `Save failed (HTTP ${res.status})`);
         radioConfig = data.config || radioConfig;
-        alert(restart ? 'Config saved and service restart requested.' : 'Config saved.');
+        fillForm(radioConfig);
+        if (!opts.silent) {
+          alert(restart ? 'Config saved and service restart requested.' : 'Config saved.');
+        }
       } catch (e) {
-        alert(e?.message || 'Failed to save config');
+        if (!opts.silent) alert(e?.message || 'Failed to save config');
       } finally {
         if (btn) { btn.disabled = false; btn.textContent = restart ? 'Save & Restart' : 'Save'; }
         refreshStatus();
       }
     }
+
+    // Hot-apply config changes without restart.
+    ;['activeChannelSelect','channelLabelInput','freqInput','ppmInput','gainInput','vadInput','hangoverInput','modelSelect','deviceSelect','computeSelect'].forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('input', scheduleLiveSave);
+      el.addEventListener('change', scheduleLiveSave);
+    });
 
     async function startService() {
       $('startBtn').disabled = true;

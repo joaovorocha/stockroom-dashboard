@@ -136,5 +136,21 @@
     "submittedAt": "2025-12-21T22:39:14.864Z",
     "completedAt": null,
     "completedBy": null
+  },
+  {
+    "id": "punch-1767727296408",
+    "employeeName": "Marc Lopez",
+    "employeeId": "10424",
+    "employeeUserId": "user-008",
+    "missedDate": "2026-01-05",
+    "clockInTime": "",
+    "lunchOutTime": "",
+    "lunchInTime": "",
+    "clockOutTime": "07:30",
+    "missedTime": "",
+    "punchType": "",
+    "reason": "Forgot when I left ",
+    "status": "pending",
+    "submittedAt": "2026-01-06T19:21:36.408Z"
   }
 ]

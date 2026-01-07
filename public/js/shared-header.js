@@ -1,4 +1,4 @@
-// Shared Header Component for Stockroom Dashboard
+// Shared Header Component for Daily Operations
 // Standardized header with consistent navigation across all pages
 
 const SharedHeader = {
@@ -12,11 +12,11 @@ const SharedHeader = {
 
   // Page title mapping
   pageTitles: {
-    '/home': 'GamePlan',
-    '/app': 'GamePlan',
+    '/home': 'Daily Operations',
+    '/app': 'Daily Operations',
     '/store-recovery': 'Store Recovery',
     '/qr-decode': 'QR Decode',
-    '/dashboard': 'Daily Game Plan',
+    '/dashboard': 'Game Plan',
     '/operations-metrics': 'Operations Metrics',
     '/awards': 'Team Awards',
     '/expenses': 'Employee Discount',
@@ -25,7 +25,6 @@ const SharedHeader = {
     '/scanner': 'Scanner',
     '/radio': 'Radio Transcription',
     '/radio-transcripts': 'Radio Transcripts',
-    '/radio-admin': 'Radio Admin',
     '/lost-punch': 'Lost Punch',
     '/closing-duties': 'Closing Duties',
     '/time-off': 'Time Off',
@@ -47,7 +46,6 @@ const SharedHeader = {
     '/scanner': '📷',
     '/radio': '🎙️',
     '/radio-transcripts': '📝',
-    '/radio-admin': '🎛️',
     '/lost-punch': '🕒',
     '/closing-duties': '✅',
     '/time-off': '🗓️',
@@ -74,7 +72,7 @@ const SharedHeader = {
       }
     }
     // Default title
-    return 'GamePlan';
+    return 'Daily Operations';
   },
 
   // Generate header HTML
@@ -84,12 +82,11 @@ const SharedHeader = {
 
     const navItems = [
       { href: '/dashboard', label: 'Game Plan', id: 'navGamePlan' },
-      { href: '/store-recovery', label: 'Store Recovery', id: 'navStoreRecovery' },
+      { href: '/store-recovery', label: 'Store Recovery', id: 'navStoreRecovery', adminOnly: true },
       { href: '/operations-metrics', label: 'Operations', id: 'navOperationsMetrics' },
       { href: '/awards', label: 'Awards', id: 'navAwards' },
       { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' },
       { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' },
-      { href: '/radio-admin', label: 'Radio Admin', id: 'navRadioAdmin', managerOnly: true },
       { href: '/shipments', label: 'Shipments', id: 'navShipments', badge: 'shipmentsBadge' },
       { href: '/scanner', label: 'Scanner', id: 'navScanner' },
       { href: '/lost-punch', label: 'Lost Punch', id: 'navLostPunch' },
@@ -111,7 +108,7 @@ const SharedHeader = {
   <header class="header">
     <div class="header-brand">
       <a href="/home" class="logo-link">
-        <img src="/images/suitsupply-logo.svg" alt="Suitsupply" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>SUITSUPPLY</span>'">
+        <img src="/icons/icon-32.png" alt="Daily Operations" class="logo-img" onerror="this.outerHTML='<span class=\\'logo-text\\'>DAILY OPS</span>'">
       </a>
       <div class="header-title">
         <h1>${pageTitle}</h1>
@@ -603,6 +600,13 @@ const SharedHeader = {
       if (user.isAdmin && !this.isPhoneViewport()) adminLink.style.display = 'inline';
       else adminLink.style.display = 'none';
     }
+
+    // Show admin-only links for admins (except the Admin Console link which stays hidden on phones).
+    document.querySelectorAll('.header-nav a[data-admin-only="true"]').forEach((a) => {
+      if (a && a.id === 'navAdmin') return;
+      a.style.display = user?.isAdmin ? '' : 'none';
+    });
+
     if (opsLink) {
       opsLink.style.display = this.isPhoneViewport() ? 'none' : '';
     }

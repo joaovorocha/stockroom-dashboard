@@ -46,6 +46,32 @@ function normalizeLine(line) {
   return (line || '').toString().replace(/\s+/g, ' ').trim();
 }
 
+function cleanReferenceValue(raw) {
+  const line = normalizeLine(raw);
+  if (!line) return '';
+  // Keep only basic reference characters; HTML stripping can concatenate tokens.
+  let cleaned = line.replace(/[^A-Za-z0-9-]/g, '');
+  cleaned = cleaned.replace(/reference$/i, '');
+  return cleaned;
+}
+
+function normalizeEmployeeId(raw) {
+  // Employee IDs in the system are typically short alnum strings (e.g. 6543, jayuy).
+  const ref = cleanReferenceValue(raw);
+  if (!ref) return '';
+  return ref.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isPlausibleServiceType(raw) {
+  const s = normalizeLine(raw);
+  if (!s) return false;
+  const lower = s.toLowerCase();
+  if (lower.includes('trademark') || lower.includes('brandmark') || lower.includes('united parcel service')) return false;
+  if (lower.includes('the color brown') || lower.includes('of america') || lower.includes('inc.')) return false;
+  if (s.length > 60) return false;
+  return /(ground|air|next\s*day|second\s*day|3\s*day|saver|worldwide|surepost|express|expedited|standard)/i.test(s);
+}
+
 function parseShipToBlock(combinedText) {
   const text = (combinedText || '').toString();
   const m = text.match(/(?:^|\n)\s*Ship To:\s*([\s\S]*?)(?=\n\s*(?:UPS Service|Service|Number of Packages|Package Weight|Reference Number|Tracking Number|$))/i);
@@ -417,9 +443,15 @@ class UPSEmailParser {
       details.weight = parseFloat(weightMatch[1]);
     }
 
-    // Extract service type ("UPS Service: UPS GROUND")
-    const serviceLine = combinedText.match(/(?:UPS Service|Service|Ship Method|Shipping)[:\s]+([^\n<]+)/i);
-    if (serviceLine) details.serviceType = normalizeLine(serviceLine[1]).substring(0, 80);
+    // Extract service type (avoid matching the legal footer that contains the word "Shipping")
+    const serviceLine =
+      combinedText.match(/(?:^|\n)\s*UPS Service\s*[:\-]\s*([^\n<]+)/i) ||
+      combinedText.match(/(?:^|\n)\s*Service\s*[:\-]\s*([^\n<]+)/i) ||
+      combinedText.match(/(?:^|\n)\s*Ship Method\s*[:\-]\s*([^\n<]+)/i);
+    if (serviceLine) {
+      const candidate = normalizeLine(serviceLine[1]).substring(0, 80);
+      if (isPlausibleServiceType(candidate)) details.serviceType = candidate;
+    }
 
     // Extract origin (store/location)
     const originMatch = combinedText.match(/(?:Origin|Ship From)[:\s]+([A-Za-z0-9\s,.-]+?)(?:\n|<|$)/i);
@@ -436,11 +468,13 @@ class UPSEmailParser {
     }
 
     // Reference numbers
-    const ref1 = combinedText.match(/Reference Number 1:\s*([A-Za-z0-9-]+)/i);
-    if (ref1) details.reference1 = ref1[1].trim();
-    const ref2 = combinedText.match(/Reference Number 2:\s*([A-Za-z0-9-]+)/i);
-    if (ref2) details.reference2 = ref2[1].trim();
-    details.orderNumber = extractPSUSNumber(details.reference2) || extractPSUSNumber(combinedText) || '';
+    const ref1 = combinedText.match(/Reference Number 1:\s*([^\n<]+)/i);
+    if (ref1) details.reference1 = cleanReferenceValue(ref1[1]);
+    const ref2 = combinedText.match(/Reference Number 2:\s*([^\n<]+)/i);
+    if (ref2) details.reference2 = cleanReferenceValue(ref2[1]);
+
+    // Order number: prefer PSUS parsing, but keep a plain reference as fallback (for numeric orders)
+    details.orderNumber = extractPSUSNumber(details.reference2) || extractPSUSNumber(combinedText) || details.reference2 || '';
 
     // Fallbacks for customer and address
     if (!details.customerName && details.destination) details.customerName = details.destination.split(/[\n<]/)[0].trim();
@@ -499,7 +533,7 @@ class UPSEmailParser {
     const newShipments = [];
     let updated = 0;
 
-    // Load users for processed-by mapping (Reference Number 1)
+    // Load users/employees for processed-by mapping (Reference Number 1)
     let users = [];
     try {
       const usersPath = path.join(DATA_DIR, 'users.json');
@@ -509,10 +543,32 @@ class UPSEmailParser {
       }
     } catch (_) {}
 
-    const processedById = (details.reference1 || '').toString().trim();
-    const processedByUser = processedById
-      ? users.find(u => (u?.employeeId || '').toString().trim() === processedById) || null
-      : null;
+    let employees = [];
+    try {
+      const employeesPath = path.join(DATA_DIR, 'employees-v2.json');
+      if (fs.existsSync(employeesPath)) {
+        const parsed = JSON.parse(fs.readFileSync(employeesPath, 'utf8'));
+        const groups = parsed?.employees && typeof parsed.employees === 'object' ? parsed.employees : {};
+        employees = Object.keys(groups)
+          .flatMap(k => (Array.isArray(groups[k]) ? groups[k] : []))
+          .filter(Boolean);
+      }
+    } catch (_) {}
+
+    const employeeIndex = new Map();
+    for (const u of users) {
+      const key = normalizeEmployeeId(u?.employeeId);
+      if (key) employeeIndex.set(key, { employeeId: (u?.employeeId || '').toString().trim(), name: u?.name || '', imageUrl: u?.imageUrl || '' });
+    }
+    for (const e of employees) {
+      const key = normalizeEmployeeId(e?.employeeId);
+      if (key && !employeeIndex.has(key)) employeeIndex.set(key, { employeeId: (e?.employeeId || '').toString().trim(), name: e?.name || '', imageUrl: e?.imageUrl || '' });
+    }
+
+    const reference1 = cleanReferenceValue(details.reference1);
+    const processedKey = normalizeEmployeeId(reference1);
+    const processedByUser = processedKey ? (employeeIndex.get(processedKey) || null) : null;
+    const processedById = processedByUser?.employeeId || '';
 
     for (const tracking of details.trackingNumbers) {
       const createdAt = details.date instanceof Date ? details.date.toISOString() : new Date().toISOString();
@@ -541,9 +597,9 @@ class UPSEmailParser {
         serviceType: details.serviceType || details.service || '',
         packageCount: Number.isFinite(details.packages) ? details.packages : null,
         packageWeightLbs: Number.isFinite(details.weight) ? details.weight : null,
-        referenceNumber1: processedById || '',
-        referenceNumber2: (details.reference2 || '').toString().trim(),
-        processedById: processedByUser?.employeeId || processedById || '',
+        referenceNumber1: reference1 || '',
+        referenceNumber2: cleanReferenceValue(details.reference2) || '',
+        processedById: processedById,
         processedByName: processedByUser?.name || '',
         processedByImageUrl: processedByUser?.imageUrl || '',
         shipper: details.shipper || '',

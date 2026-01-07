@@ -2017,10 +2017,22 @@
 /* Orders Table */
 .orders-table-container,
 .leaderboard-table-container {
+  max-width: 100%;
   max-height: 300px;
   overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 8px;
   border: 1px solid var(--border);
+}
+
+/* Operations Metrics: inline import block inside the Operations section */
+.operations-import-inline {
+  margin: 0 0 16px 0;
+}
+
+.operations-import-title {
+  margin: 0 0 10px 0;
 }
 
 .orders-table,

@@ -12,7 +12,7 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <meta name="apple-mobile-web-app-title" content="Daily Operations">
   <link rel="stylesheet" href="/css/theme.css?v=14">
 	  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
@@ -31,6 +31,21 @@
       margin-bottom: 24px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border);
+    }
+
+    /* Weekly goals + notes: side-by-side on desktop */
+    .edit-goal-notes-row {
+      display: grid;
+      grid-template-columns: 1.35fr 0.65fr;
+      gap: 16px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+
+    @media (max-width: 1024px) {
+      .edit-goal-notes-row {
+        grid-template-columns: 1fr;
+      }
     }
 
     .edit-header h2 {
@@ -769,15 +784,16 @@
 	        <span id="lastEditedBy" style="font-size: 12px; color: var(--text-secondary);"></span>
 	        <div id="targetPerSaInfo" style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;"></div>
 	      </div>
-	      <div class="edit-actions">
-	        <button class="btn btn-sm" id="copyYesterdayBtn">📋 Copy from Yesterday</button>
+        <div class="edit-actions">
+            <button class="btn btn-sm" id="copyYesterdayBtn">📋 Templates</button>
 	        <button class="btn btn-secondary" id="clearAllBtn" style="background:#f87171;">Clear All</button>
 	        <a href="/dashboard" class="btn btn-secondary">Cancel</a>
 	        <button class="btn btn-primary" id="saveAllBtn">Publish</button>
 	      </div>
 	    </div>
 
-	    <section class="section-card" id="weeklyGoalSection" style="margin-bottom: 18px;">
+      <div class="edit-goal-notes-row">
+      <section class="section-card" id="weeklyGoalSection" style="margin-bottom: 0;">
 	      <div class="section-title" style="margin-bottom: 10px;">
 	        <h3 style="margin:0;">Weekly Goal Distribution</h3>
 	        <div style="display:flex; gap:10px; align-items:center;">
@@ -785,6 +801,17 @@
 	            <input type="checkbox" id="weeklyGoalEnabled">
 	            Use sliders
 	          </label>
+
+                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary);">
+                      <span>Retail week target</span>
+                      <input id="retailWeekTargetDisplay" type="text" value="--" disabled style="width: 110px;">
+                    </div>
+
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); text-transform:none;">
+                      <input type="checkbox" id="manualWeeklyGoalEnabled">
+                      Manual weekly goal
+                    </label>
+                    <input id="manualWeeklyGoalValue" type="number" inputmode="decimal" min="0" step="0.01" placeholder="148.00" disabled style="width: 120px;">
 	          <button class="btn btn-sm btn-outline" type="button" id="weeklyGoalNormalizeBtn">Normalize</button>
 	          <button class="btn btn-sm btn-primary" type="button" id="weeklyGoalSaveBtn">Save</button>
 	        </div>
@@ -798,10 +825,10 @@
 	    </section>
 
 	    <!-- Game Plan Notes Section -->
-	    <section class="notes-card collapsed" id="notesCard">
+      <section class="notes-card" id="notesCard" style="margin-bottom: 0;">
 	      <div class="notes-card-header" id="notesCardHeader">
 	        <h3 style="margin:0">📝 Notes</h3>
-	        <span class="notes-card-toggle">▸</span>
+          <span class="notes-card-toggle">▾</span>
       </div>
 	      <div class="notes-card-body">
       <div class="notes-editor-container">
@@ -864,18 +891,68 @@
       </div>
     </section>
 
-    <!-- Copy from Yesterday Modal -->
+	    </div>
+
+    <!-- Templates / Copy Modal -->
     <div class="modal-overlay" id="copyModalOverlay">
       <div class="modal">
-	        <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Copy from Yesterday</div>
-	        <div style="margin-bottom: 16px; color: var(--text-secondary);">This copies only closing duties from yesterday.</div>
+	        <div style="font-size: 18px; font-weight: 600; margin-bottom: 6px;">Apply Template</div>
+	        <div style="margin-bottom: 14px; color: var(--text-secondary);">Apply yesterday or a saved manager template to prefill today before publishing.</div>
+
+          <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom: 12px;">
+            <div style="min-width: 220px;">
+              <label style="display:block; font-size:12px; color: var(--text-secondary); margin-bottom: 6px;">Source</label>
+              <select id="templateSourceSelect" style="width:100%;">
+                <option value="yesterday">Yesterday</option>
+                <option value="template">Saved template…</option>
+              </select>
+            </div>
+
+            <div style="min-width: 240px; flex: 1;">
+              <label style="display:block; font-size:12px; color: var(--text-secondary); margin-bottom: 6px;">Template</label>
+              <select id="gameplanTemplateSelect" style="width:100%;" disabled>
+                <option value="">Select a template…</option>
+              </select>
+            </div>
+
+            <div style="min-width: 170px;">
+              <label style="display:block; font-size:12px; color: var(--text-secondary); margin-bottom: 6px;">Weekday</label>
+              <select id="gameplanTemplateWeekday" style="width:100%;" disabled>
+                <option value="">Any day</option>
+                <option value="1">Mon</option>
+                <option value="2">Tue</option>
+                <option value="3">Wed</option>
+                <option value="4">Thu</option>
+                <option value="5">Fri</option>
+                <option value="6">Sat</option>
+                <option value="0">Sun</option>
+              </select>
+            </div>
+
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-sm btn-outline" type="button" id="saveGameplanTemplateBtn">Save as Template</button>
+              <button class="btn btn-sm btn-secondary" type="button" id="deleteGameplanTemplateBtn" disabled>Delete</button>
+            </div>
+          </div>
+
+          <div id="selectedTemplateMeta" style="font-size:12px; color: var(--text-secondary); margin-bottom: 10px; display:none;"></div>
+
 		        <div class="copy-fields-list">
-		          <label><input type="checkbox" value="closingSections" class="copy-field" checked disabled> Closing Duties</label>
+              <label><input type="checkbox" value="notes" class="copy-field" checked> Notes</label>
+              <label><input type="checkbox" value="shift" class="copy-field" checked> Shift</label>
+              <label><input type="checkbox" value="zones" class="copy-field" checked> Zones</label>
+              <label><input type="checkbox" value="fittingRoom" class="copy-field" checked> Fitting Room</label>
+              <label><input type="checkbox" value="lunch" class="copy-field" checked> Lunch</label>
+              <label><input type="checkbox" value="closingSections" class="copy-field" checked> Closing Duties</label>
+              <label><input type="checkbox" value="taskOfTheDay" class="copy-field" checked> Task of the day</label>
+              <label><input type="checkbox" value="role" class="copy-field" checked> Role</label>
+              <label><input type="checkbox" value="station" class="copy-field" checked> Station</label>
 		        </div>
-	        <label style="margin: 12px 0; display:none;"><input type="checkbox" id="selectAllFields"> <strong>Select All</strong></label>
+
+	        <label style="margin: 12px 0;"><input type="checkbox" id="selectAllFields"> <strong>Select All</strong></label>
 	        <div class="modal-actions">
 	          <button class="btn btn-secondary" id="cancelCopyBtn">Cancel</button>
-	          <button class="btn btn-primary" id="confirmCopyBtn">Copy Closing Duties</button>
+	          <button class="btn btn-primary" id="confirmCopyBtn">Apply</button>
 	        </div>
 	      </div>
 	    </div>
@@ -939,7 +1016,7 @@
     <p>Daily Game Plan - San Francisco | Developed by Victor Rocha | 831-998-3808</p>
   </footer>
 
-  <script src="/js/shared-header.js?v=23"></script>
+  <script src="/js/shared-header.js?v=24"></script>
   <script>
         let currentUser = null;
         let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
@@ -949,6 +1026,48 @@
         let storeMetrics = {};
             let currentStoreDayInfo = null;
             let weeklyGoalDistribution = { weekKey: null, enabled: false, percents: [15, 15, 14, 14, 14, 14, 14], updatedAt: null, updatedBy: null };
+              let manualWeeklyGoal = { enabled: false, value: null };
+
+              function getManualWeeklyGoalStorageKey(weekKey) {
+                if (!weekKey) return null;
+                return `manualWeeklyGoal:${weekKey}`;
+              }
+
+              function loadManualWeeklyGoalFromStorage(weekKey) {
+                try {
+                  const key = getManualWeeklyGoalStorageKey(weekKey);
+                  if (!key) return;
+                  const raw = localStorage.getItem(key);
+                  if (!raw) return;
+                  const data = JSON.parse(raw);
+                  manualWeeklyGoal.enabled = data?.enabled === true || data?.enabled === 'true';
+                  const v = data?.value;
+                  if (v === null || v === undefined || v === '') {
+                    manualWeeklyGoal.value = '';
+                  } else {
+                    const n = Number(v);
+                    manualWeeklyGoal.value = Number.isFinite(n) ? n : '';
+                  }
+                } catch (_) {}
+              }
+
+              function saveManualWeeklyGoalToStorage(weekKey) {
+                try {
+                  const key = getManualWeeklyGoalStorageKey(weekKey);
+                  if (!key) return;
+
+                  const enabled = !!manualWeeklyGoal?.enabled;
+                  const value = manualWeeklyGoal?.value;
+                  const isBlank = value === null || value === undefined || value === '';
+
+                  if (!enabled && isBlank) {
+                    localStorage.removeItem(key);
+                    return;
+                  }
+
+                  localStorage.setItem(key, JSON.stringify({ enabled, value }));
+                } catch (_) {}
+              }
               const MAX_WEEKLY_DAY_PERCENT = 40;
               let notesTemplates = [];
 					    let hasUnsavedChanges = false;
@@ -1063,12 +1182,13 @@
 			    function getDailyTargetValue() {
 			      const retailWeek = storeMetrics?.retailWeek || null;
 			      const weekly = Number(retailWeek?.target || 0);
+                                const weeklyForSliders = getWeeklyTargetForDistribution();
 
 			      // If the manager enabled per-day sliders, use weekly target * day%.
 			      const dayIndex = Number(currentStoreDayInfo?.weekdayIndex);
-			      if (weeklyGoalDistribution?.enabled && Number.isFinite(weekly) && weekly > 0 && Number.isFinite(dayIndex) && dayIndex >= 0 && dayIndex <= 6) {
+			      if (weeklyGoalDistribution?.enabled && Number.isFinite(weeklyForSliders) && weeklyForSliders > 0 && Number.isFinite(dayIndex) && dayIndex >= 0 && dayIndex <= 6) {
 			        const pct = Number(weeklyGoalDistribution?.percents?.[dayIndex]);
-			        if (Number.isFinite(pct)) return weekly * (pct / 100);
+			        if (Number.isFinite(pct)) return weeklyForSliders * (pct / 100);
 			      }
 
 			      const direct = Number(retailWeek?.targetPerDay || 0);
@@ -1135,9 +1255,29 @@
 			      return Number.isFinite(weekly) && weekly > 0 ? weekly : null;
 			    }
 
+                              function formatMoneyPlain(amount) {
+                                const n = Number(amount);
+                                if (!Number.isFinite(n)) return '';
+                                return n.toFixed(2);
+                              }
+
+                              function getManualWeeklyGoalValue() {
+                                if (!manualWeeklyGoal?.enabled) return null;
+                                const n = Number(manualWeeklyGoal?.value);
+                                return Number.isFinite(n) && n > 0 ? n : null;
+                              }
+
+                              function getWeeklyTargetForDistribution() {
+                                const manual = getManualWeeklyGoalValue();
+                                if (manual) return manual;
+                                return getWeeklyTargetValue();
+                              }
+
+
           async function loadWeeklyGoalDistribution() {
 			      const weekKey = getWeekKeyFromMetrics();
 			      weeklyGoalDistribution.weekKey = weekKey;
+                                loadManualWeeklyGoalFromStorage(weekKey);
 			      if (!weekKey) return;
 			      try {
               const resp = await authFetch(`/api/gameplan/weekly-goal-distribution/${encodeURIComponent(weekKey)}`);
@@ -1163,18 +1303,43 @@
 			      if (!grid || !enabledEl || !totalEl || !metaEl) return;
 
 			      const weekKey = weeklyGoalDistribution?.weekKey;
-			      const weeklyTarget = getWeeklyTargetValue();
+			      const baseWeeklyTarget = getWeeklyTargetValue();
+                                const weeklyTarget = getWeeklyTargetForDistribution();
 			      const weekNum = storeMetrics?.retailWeek?.weekNumber;
 			      const weekLabel = weekNum ? `Retail Week ${weekNum}` : 'Retail Week';
 			      const updatedAt = weeklyGoalDistribution?.updatedAt ? new Date(weeklyGoalDistribution.updatedAt).toLocaleString() : '';
 			      const updatedBy = (weeklyGoalDistribution?.updatedBy || '').toString().trim();
 			      const metaParts = [];
 			      metaParts.push(weekKey ? `${weekLabel} (${weekKey})` : weekLabel);
-			      metaParts.push(weeklyTarget ? `Weekly target: ${formatCurrency(weeklyTarget)}` : 'Weekly target: --');
+			      metaParts.push(baseWeeklyTarget ? `Retail week target: ${formatCurrency(baseWeeklyTarget)}` : 'Retail week target: --');
+                                if (manualWeeklyGoal?.enabled) metaParts.push(weeklyTarget ? `Manual weekly goal: ${formatCurrency(weeklyTarget)}` : 'Manual weekly goal: --');
 			      if (updatedAt || updatedBy) metaParts.push(`Saved ${updatedAt}${updatedBy ? ` by ${updatedBy}` : ''}`);
 			      metaEl.textContent = metaParts.join(' · ');
 
 			      enabledEl.checked = !!weeklyGoalDistribution?.enabled;
+
+                                const retailWeekTargetDisplayEl = document.getElementById('retailWeekTargetDisplay');
+                                const manualEnabledEl = document.getElementById('manualWeeklyGoalEnabled');
+                                const manualValueEl = document.getElementById('manualWeeklyGoalValue');
+
+                                if (retailWeekTargetDisplayEl) {
+                                  retailWeekTargetDisplayEl.value = baseWeeklyTarget ? formatMoneyPlain(baseWeeklyTarget) : '--';
+                                }
+                                if (manualEnabledEl) {
+                                  manualEnabledEl.checked = !!manualWeeklyGoal?.enabled;
+                                }
+                                if (manualValueEl) {
+                                  manualValueEl.disabled = !manualWeeklyGoal?.enabled;
+                                  if (manualWeeklyGoal?.enabled) {
+                                    if (manualWeeklyGoal?.value === null || manualWeeklyGoal?.value === undefined || manualWeeklyGoal?.value === '') {
+                                      manualWeeklyGoal.value = baseWeeklyTarget || '';
+                                    }
+                                    const v = Number(manualWeeklyGoal?.value);
+                                    manualValueEl.value = Number.isFinite(v) ? String(v) : '';
+                                  } else {
+                                    manualValueEl.value = '';
+                                  }
+                                }
 
 			      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 			      grid.innerHTML = '';
@@ -1339,6 +1504,35 @@
 		          renderWeeklyGoalDistribution();
 		          updateTargetPerSaInfo();
 		        });
+
+                          document.getElementById('manualWeeklyGoalEnabled')?.addEventListener('change', (e) => {
+                            manualWeeklyGoal.enabled = !!e.target.checked;
+                            if (manualWeeklyGoal.enabled) {
+                              const base = getWeeklyTargetValue();
+                              if (manualWeeklyGoal.value === null || manualWeeklyGoal.value === undefined || manualWeeklyGoal.value === '') {
+                                manualWeeklyGoal.value = base || '';
+                              }
+                            }
+                            const wk = weeklyGoalDistribution?.weekKey || getWeekKeyFromMetrics();
+                            saveManualWeeklyGoalToStorage(wk);
+                            renderWeeklyGoalDistribution();
+                            updateTargetPerSaInfo();
+                          });
+
+                          document.getElementById('manualWeeklyGoalValue')?.addEventListener('input', (e) => {
+                            const raw = (e.target.value || '').toString();
+                            if (!raw) {
+                              manualWeeklyGoal.value = '';
+                            } else {
+                              const n = Number(raw);
+                              manualWeeklyGoal.value = Number.isFinite(n) ? n : '';
+                            }
+                            const wk = weeklyGoalDistribution?.weekKey || getWeekKeyFromMetrics();
+                            saveManualWeeklyGoalToStorage(wk);
+                            renderWeeklyGoalDistribution();
+                            updateTargetPerSaInfo();
+                          });
+
 		        document.getElementById('weeklyGoalNormalizeBtn')?.addEventListener('click', () => {
 		          normalizeWeeklyPercents();
 		        });
@@ -2424,10 +2618,18 @@
 
 	      const copyModalOverlay = document.getElementById('copyModalOverlay');
 	      const cancelCopyBtn = document.getElementById('cancelCopyBtn');
-	      const confirmCopyBtn = document.getElementById('confirmCopyBtn');
-	      const selectAllFields = document.getElementById('selectAllFields');
-	      const copyFields = document.querySelectorAll('.copy-field');
+        const confirmCopyBtn = document.getElementById('confirmCopyBtn');
+        const selectAllFields = document.getElementById('selectAllFields');
+        const copyFields = document.querySelectorAll('.copy-field');
 	      const copyBtn = document.getElementById('copyYesterdayBtn');
+        const templateSourceSelect = document.getElementById('templateSourceSelect');
+        const templateSelect = document.getElementById('gameplanTemplateSelect');
+        const templateWeekday = document.getElementById('gameplanTemplateWeekday');
+        const templateMeta = document.getElementById('selectedTemplateMeta');
+        const saveTemplateBtn = document.getElementById('saveGameplanTemplateBtn');
+        const deleteTemplateBtn = document.getElementById('deleteGameplanTemplateBtn');
+
+        let gameplanTemplates = [];
 
 	      if (!copyModalOverlay || !copyBtn) {
 		        editWarn('[EDIT] Copy modal elements missing', {
@@ -2452,9 +2654,162 @@
 	        }
 	      }
 
-		      async function copyFromYesterdayFields() {
+        function formatWeekday(idx) {
+          const map = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          if (idx === null || idx === undefined) return 'Any day';
+          const n = Number(idx);
+          return Number.isFinite(n) ? (map[n] || 'Any day') : 'Any day';
+        }
+
+        function setTemplateControlsEnabled(enabled) {
+          if (templateSelect) templateSelect.disabled = !enabled;
+          // Weekday + Save are for creating templates; keep enabled.
+        }
+
+        function getSelectedFields() {
+          return Array.from(copyFields).filter(cb => cb.checked).map(cb => cb.value);
+        }
+
+        function computeTemplatePayloadFromCurrent(selectedFields) {
+          const payload = { assignments: {}, notes: '' };
+          if (selectedFields.includes('notes')) {
+            const notesEditor = document.getElementById('notesEditor');
+            payload.notes = notesEditor ? (notesEditor.innerHTML || '') : '';
+          }
+
+          const dailyFieldMap = {
+            zones: true,
+            fittingRoom: true,
+            scheduledLunch: true,
+            lunch: true,
+            closingSections: true,
+            shift: true,
+            taskOfTheDay: true,
+            role: true,
+            station: true
+          };
+
+          const people = []
+            .concat(employees.MANAGEMENT || [])
+            .concat(employees.SA || [])
+            .concat(employees.BOH || [])
+            .concat(employees.TAILOR || []);
+
+          people.forEach(emp => {
+            const id = emp?.id;
+            if (!id) return;
+            const entry = {};
+            selectedFields.forEach(f => {
+              if (f === 'notes') return;
+              if (!dailyFieldMap[f] && f !== 'lunch') return;
+	
+              if (f === 'zones') {
+                const z = Array.isArray(emp.zones)
+                  ? emp.zones.map(v => (v || '').toString().trim()).filter(Boolean)
+                  : ((emp.zone || '').toString().trim() ? [(emp.zone || '').toString().trim()] : []);
+                entry.zones = z;
+                entry.zone = z[0] || '';
+                return;
+              }
+	
+              if (f === 'lunch') {
+                const val = (emp.scheduledLunch ?? emp.lunch ?? '').toString();
+                // Persist both, apply logic will route correctly.
+                entry.scheduledLunch = val;
+                entry.lunch = val;
+                return;
+              }
+	
+              if (f === 'closingSections') {
+                entry.closingSections = Array.isArray(emp.closingSections) ? emp.closingSections.slice() : [];
+                return;
+              }
+	
+              entry[f] = Array.isArray(emp[f]) ? emp[f].slice() : emp[f];
+            });
+	
+            if (Object.keys(entry).length) payload.assignments[id] = entry;
+          });
+
+          return payload;
+        }
+
+        async function loadGameplanTemplates() {
+          if (!templateSelect) return;
+          try {
+            const resp = await authFetch('/api/gameplan/templates');
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json().catch(() => ({}));
+            gameplanTemplates = Array.isArray(data?.templates) ? data.templates : [];
+	
+            templateSelect.innerHTML = '<option value="">Select a template…</option>' + gameplanTemplates
+              .map(t => {
+                const w = formatWeekday(t?.weekdayIndex);
+                const label = `${t?.name || 'Template'} (${w})`;
+                return `<option value="${t?.id}">${label}</option>`;
+              })
+              .join('');
+	
+            // Auto-pick weekday template if present
+            const storeDay = await getStoreDayInfo();
+            const wk = Number.isFinite(Number(storeDay?.weekdayIndex)) ? Number(storeDay.weekdayIndex) : null;
+            if (wk !== null) {
+              const match = gameplanTemplates.find(t => Number(t?.weekdayIndex) === wk);
+              if (match?.id) templateSelect.value = match.id;
+            }
+	
+            updateTemplateMeta();
+          } catch (e) {
+            // If templates API not accessible (non-manager), keep disabled.
+            gameplanTemplates = [];
+            templateSelect.innerHTML = '<option value="">Templates unavailable</option>';
+            if (templateMeta) {
+              templateMeta.style.display = 'none';
+              templateMeta.textContent = '';
+            }
+          }
+        }
+
+        function updateTemplateMeta() {
+          if (!templateMeta) return;
+          const id = templateSelect ? templateSelect.value : '';
+          const tmpl = gameplanTemplates.find(t => t?.id === id) || null;
+          if (!tmpl) {
+            templateMeta.style.display = 'none';
+            templateMeta.textContent = '';
+            if (deleteTemplateBtn) deleteTemplateBtn.disabled = true;
+            if (templateWeekday) templateWeekday.value = '';
+            return;
+          }
+	
+          const by = tmpl?.createdBy?.name || tmpl?.createdBy?.email || 'Unknown';
+          const when = tmpl?.createdAt ? new Date(tmpl.createdAt).toLocaleString() : '';
+          const wk = formatWeekday(tmpl?.weekdayIndex);
+          templateMeta.textContent = `Created by ${by}${when ? ` • ${when}` : ''} • ${wk}`;
+          templateMeta.style.display = '';
+          if (deleteTemplateBtn) deleteTemplateBtn.disabled = false;
+          if (templateWeekday) templateWeekday.value = (tmpl?.weekdayIndex === null || tmpl?.weekdayIndex === undefined) ? '' : String(tmpl.weekdayIndex);
+        }
+
+          async function applyFromSource() {
 		        try {
-		          const selectedFields = ['closingSections'];
+              const selectedFields = getSelectedFields();
+              if (!selectedFields.length) {
+                alert('Select at least one field to apply.');
+                return;
+              }
+
+              const source = templateSourceSelect ? templateSourceSelect.value : 'yesterday';
+              let data = null;
+              if (source === 'template') {
+                const id = templateSelect ? templateSelect.value : '';
+                const tmpl = gameplanTemplates.find(t => t?.id === id) || null;
+                if (!tmpl) {
+                  alert('Select a template.');
+                  return;
+                }
+                data = tmpl?.payload || {};
+              } else {
 
 		          const params = new URLSearchParams(window.location.search);
 		          const copyDate = params.get('copyDate');
@@ -2475,32 +2830,34 @@
 			            return;
 			          }
 
-			          const data = await response.json();
-			          editLog('[EDIT] Copy payload keys:', Object.keys(data || {}));
-			          copyFieldsToEmployees(data, selectedFields);
+                data = await response.json();
+                editLog('[EDIT] Copy payload keys:', Object.keys(data || {}));
+              }
+
+                copyFieldsToEmployees(data, selectedFields);
 		          copyModalOverlay.classList.remove('show');
 		          hasUnsavedChanges = true;
-		          alert('Closing duties copied!');
+                  alert('Template applied');
 		        } catch (error) {
 		          console.error('Error copying:', error);
-		          alert('Error loading yesterday plan.');
+              alert('Error applying template.');
 		        }
 		      }
 
-	      function copyFieldsToEmployees(yesterdayData, fieldsToCopy) {
+        function copyFieldsToEmployees(yesterdayData, fieldsToCopy) {
 	        // Support both payloads:
 	        // - /api/gameplan/yesterday -> { employees: [...], notes }
 	        // - /api/gameplan/date/:date -> { assignments: { [id]: {...} }, notes }
-	        const yEmployees = yesterdayData.employees
-	          ? yesterdayData.employees
-	          : Object.keys(yesterdayData.assignments || {}).map(id => ({ id, ...(yesterdayData.assignments[id] || {}) }));
+          const yEmployees = (yesterdayData && yesterdayData.employees)
+            ? yesterdayData.employees
+            : Object.keys((yesterdayData && yesterdayData.assignments) || {}).map(id => ({ id, ...(((yesterdayData && yesterdayData.assignments) || {})[id] || {}) }));
 
 	        if (!Array.isArray(yEmployees) || yEmployees.length === 0) return;
 
 	        // Notes
-	        if (fieldsToCopy.includes('notes')) {
+          if (fieldsToCopy.includes('notes')) {
 	          const notesEditor = document.getElementById('notesEditor');
-	          if (notesEditor) notesEditor.innerHTML = yesterdayData.notes || '';
+            if (notesEditor) notesEditor.innerHTML = (yesterdayData && yesterdayData.notes) ? yesterdayData.notes : '';
 	        }
 
 	        yEmployees.forEach(yEmp => {
@@ -2539,6 +2896,11 @@
 	              return;
 	            }
 
+                if (field === 'fittingRoom') {
+                  found.fittingRoom = (yEmp.fittingRoom || '').toString().trim();
+                  return;
+                }
+
 	            if (!yEmp.hasOwnProperty(field)) return;
 	            found[field] = Array.isArray(yEmp[field]) ? [...yEmp[field]] : yEmp[field];
 	          });
@@ -2557,7 +2919,13 @@
 	          e.preventDefault();
 	          e.stopPropagation();
 		          editLog('[EDIT] Opening Copy from Yesterday modal');
-		          copyModalOverlay.classList.add('show');
+              copyModalOverlay.classList.add('show');
+              loadSavedCopyPreferences();
+              if (templateSourceSelect) {
+                const src = templateSourceSelect.value || 'yesterday';
+                setTemplateControlsEnabled(src === 'template');
+              }
+              loadGameplanTemplates();
 		          return;
 		        }
 
@@ -2571,7 +2939,7 @@
 	        const confirmBtn = e.target.closest('#confirmCopyBtn');
 	        if (confirmBtn) {
 	          e.preventDefault();
-	          copyFromYesterdayFields();
+            applyFromSource();
 	          return;
 	        }
 
@@ -2580,7 +2948,112 @@
 	        }
 	      });
 
-		      // No-op: selectAllFields hidden in UI
+        // Field toggle persistence
+        copyFields.forEach(cb => cb.addEventListener('change', saveCopyPreferences));
+        if (selectAllFields) {
+          selectAllFields.addEventListener('change', () => {
+            const checked = !!selectAllFields.checked;
+            copyFields.forEach(cb => cb.checked = checked);
+            saveCopyPreferences();
+          });
+        }
+
+        if (templateSourceSelect) {
+          templateSourceSelect.addEventListener('change', () => {
+            const src = templateSourceSelect.value;
+            const enabled = src === 'template';
+            setTemplateControlsEnabled(enabled);
+            if (enabled) loadGameplanTemplates();
+            updateTemplateMeta();
+          });
+        }
+
+        if (templateSelect) {
+          templateSelect.addEventListener('change', () => {
+            updateTemplateMeta();
+          });
+        }
+
+        if (templateWeekday) {
+          templateWeekday.addEventListener('change', async () => {
+            // Weekday selector is used when saving a new template.
+          });
+        }
+
+        if (saveTemplateBtn) {
+          saveTemplateBtn.addEventListener('click', async () => {
+            try {
+              const selectedFields = getSelectedFields();
+              if (!selectedFields.length) {
+                alert('Select at least one field to save.');
+                return;
+              }
+
+              const name = prompt('Template name');
+              if (!name || !name.trim()) return;
+              const weekdayIndex = templateWeekday ? (templateWeekday.value || '') : '';
+              const payload = computeTemplatePayloadFromCurrent(selectedFields);
+              const fieldsObj = selectedFields.reduce((acc, k) => { acc[k] = true; return acc; }, {});
+
+              const resp = await authFetch('/api/gameplan/templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: name.trim(),
+                  weekdayIndex: weekdayIndex === '' ? null : Number(weekdayIndex),
+                  fields: fieldsObj,
+                  payload
+                })
+              });
+              const created = await resp.json().catch(() => null);
+              if (!resp.ok) {
+                let msg = `Save failed (HTTP ${resp.status})`;
+                try {
+                  if (created?.error) msg = created.error;
+                } catch (_) {}
+                throw new Error(msg);
+              }
+              await loadGameplanTemplates();
+              if (templateSourceSelect) templateSourceSelect.value = 'template';
+              setTemplateControlsEnabled(true);
+              // Select newly created if present
+              if (created?.template?.id && templateSelect) templateSelect.value = created.template.id;
+              updateTemplateMeta();
+              alert('Template saved');
+            } catch (e) {
+              alert(e?.message || 'Failed to save template');
+            }
+          });
+        }
+
+        if (deleteTemplateBtn) {
+          deleteTemplateBtn.addEventListener('click', async () => {
+            const id = templateSelect ? templateSelect.value : '';
+            const tmpl = gameplanTemplates.find(t => t?.id === id);
+            if (!tmpl) return;
+            if (!confirm(`Delete template "${tmpl.name}"?`)) return;
+            try {
+              const resp = await authFetch(`/api/gameplan/templates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+              if (!resp.ok) {
+                let msg = `Delete failed (HTTP ${resp.status})`;
+                try {
+                  const d = await resp.json();
+                  if (d?.error) msg = d.error;
+                } catch (_) {}
+                throw new Error(msg);
+              }
+              await loadGameplanTemplates();
+              if (templateSelect) templateSelect.value = '';
+              updateTemplateMeta();
+              alert('Template deleted');
+            } catch (e) {
+              alert(e?.message || 'Failed to delete template');
+            }
+          });
+        }
+
+          // Initialize preferences
+          loadSavedCopyPreferences();
 		    }
     
     // ===== Rich Text Notes Editor =====

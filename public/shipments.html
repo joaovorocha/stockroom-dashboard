@@ -12,11 +12,11 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <meta name="apple-mobile-web-app-title" content="Daily Operations">
   <link rel="stylesheet" href="/css/theme.css?v=14">
   <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
-  <link rel="stylesheet" href="/css/mobile.css?v=3">
+  <link rel="stylesheet" href="/css/mobile.css?v=5">
   <style>
     :root { --shipments-font-scale: 1; }
     .page-wrap { padding: 16px; max-width: 1200px; margin: 0 auto; }
@@ -32,10 +32,13 @@
       color: var(--text-primary);
     }
     .filter-bar input { flex: 1; min-width: 220px; }
-    .summary-row { display: flex; gap: 10px; margin: 10px 0 14px; flex-wrap: wrap; }
+    .summary-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 10px 0 14px;
+    }
     .summary-item {
-      flex: 1;
-      min-width: 140px;
       background: var(--surface);
       padding: 10px;
       border-radius: 8px;
@@ -98,6 +101,11 @@
       color: var(--text-secondary);
     }
     .small-note { font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+
+    /* Phones: 2x2 summary grid */
+    @media (max-width: 768px) {
+      .summary-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    }
   </style>
 </head>
 <body>
@@ -135,10 +143,6 @@
 
       <div class="filter-bar">
         <input type="text" id="searchInput" placeholder="Search tracking, customer, address, employee, PSUS...">
-        <select id="sourceFilter" aria-label="Source filter">
-          <option value="email" selected>Email only</option>
-          <option value="all">All sources</option>
-        </select>
         <select id="statusFilter" aria-label="Status filter">
           <option value="">All statuses</option>
           <option value="label-created">Label created</option>
@@ -153,7 +157,7 @@
       <div class="empty" id="emptyState" style="display:none;">No shipments match your filters.</div>
     </section>
   </div>
-  <script src="/js/shared-header.js?v=23"></script>
+  <script src="/js/shared-header.js?v=24"></script>
   <script>
     let allShipments = [];
     let currentUser = null;
@@ -192,11 +196,9 @@
 
     function applyFilters() {
       const q = safeText(document.getElementById('searchInput').value).trim().toLowerCase();
-      const sourceMode = document.getElementById('sourceFilter').value;
       const status = document.getElementById('statusFilter').value;
 
       return (allShipments || []).filter(s => {
-        if (sourceMode === 'email' && !isEmailCaptured(s)) return false;
         if (status) {
           const st = safeText(s.status).toLowerCase();
           if (st !== status) return false;
@@ -233,15 +235,27 @@
       document.getElementById('countDelivered').textContent = String(counts.delivered);
       document.getElementById('countUnknown').textContent = String(counts.unknown);
     }
+      function getShipmentSortTime(s) {
+        const v = s && typeof s === 'object'
+          ? (s.shippedAt || s.shippedDate || s.shipDate || s.emailDate || s.importedAt || s.createdAt || s.updatedAt || 0)
+          : 0;
+        const t = new Date(v).getTime();
+        return Number.isFinite(t) ? t : 0;
+      }
+
 
     function renderShipments() {
       const list = document.getElementById('shipmentsList');
       const empty = document.getElementById('emptyState');
       const items = applyFilters().sort((a, b) => {
-        const ad = new Date(a.updatedAt || a.createdAt || a.importedAt || 0).getTime() || 0;
-        const bd = new Date(b.updatedAt || b.createdAt || b.importedAt || 0).getTime() || 0;
-        return bd - ad;
-      });
+          const ad = getShipmentSortTime(a);
+          const bd = getShipmentSortTime(b);
+          if (bd !== ad) return bd - ad;
+          // tie-breaker: most recently updated
+          const au = new Date(a.updatedAt || 0).getTime() || 0;
+          const bu = new Date(b.updatedAt || 0).getTime() || 0;
+          return bu - au;
+        });
 
       updateSummary(items);
 
@@ -256,12 +270,12 @@
         const tracking = safeText(s.trackingNumber || s.tracking).trim();
         const status = safeText(s.status || 'unknown').toLowerCase() || 'unknown';
         const customer = safeText(s.customerName) || safeText(s.destination) || '—';
-        const when = formatDate(s.emailDate || s.importedAt || s.createdAt || s.updatedAt);
+        const when = formatDate(s.shippedAt || s.shippedDate || s.shipDate || s.emailDate || s.importedAt || s.createdAt || s.updatedAt);
         const src = safeText(s.source || s.statusUpdatedSource || '').trim() || '—';
         const link = trackingLink(tracking);
         const statusFromUps = safeText(s.statusFromUPS).trim();
 	        const processedBy = safeText(s.processedByName || s.employeeName);
-	        const processedById = safeText(s.processedById || s.employeeId || s.referenceNumber1);
+          const processedById = safeText(s.processedById || s.employeeId);
 	        const orderNumber = safeText(s.orderNumber || s.referenceNumber2);
 	        const psus = (typeof extractPSUSNumber === 'function') ? extractPSUSNumber(orderNumber) : null;
 	        const maoUrl = (psus && typeof getMAOOrderURL === 'function') ? getMAOOrderURL(psus) : null;
@@ -370,7 +384,6 @@
       }
 
       document.getElementById('searchInput').addEventListener('input', renderShipments);
-      document.getElementById('sourceFilter').addEventListener('change', renderShipments);
       document.getElementById('statusFilter').addEventListener('change', renderShipments);
 
       await loadShipments({ showLoader: true });

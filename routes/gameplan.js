@@ -14,6 +14,7 @@ const PRODUCT_IMAGE_CACHE_FILE = dal.paths.productImagesCacheFile;
 const SCAN_PERFORMANCE_HISTORY_DIR = dal.paths.scanPerformanceHistoryDir;
 const WEEKLY_GOAL_DISTRIBUTIONS_FILE = dal.paths.weeklyGoalDistributionsFile;
 const NOTES_TEMPLATES_FILE = dal.paths.notesTemplatesFile;
+const GAMEPLAN_TEMPLATES_FILE = path.join(DATA_DIR, 'gameplan-templates.json');
 const WORK_EXPENSES_CONFIG_FILE = path.join(DATA_DIR, 'work-expenses-config.json');
 
 // Initialize Looker data processor
@@ -117,6 +118,31 @@ function readNotesTemplates() {
 
 function writeNotesTemplates(next) {
   writeJsonFile(NOTES_TEMPLATES_FILE, next);
+}
+
+function readGameplanTemplates() {
+  return readJsonFile(GAMEPLAN_TEMPLATES_FILE, { byStore: {} });
+}
+
+function writeGameplanTemplates(next) {
+  writeJsonFile(GAMEPLAN_TEMPLATES_FILE, next);
+}
+
+function normalizeTemplateName(value) {
+  return (value || '').toString().trim().slice(0, 80);
+}
+
+function normalizeWeekdayIndex(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const i = Math.floor(n);
+  if (i < 0 || i > 6) return null;
+  return i;
+}
+
+function newTemplateId() {
+  return `gpt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 }
 
 function normalizeWeekKey(value) {
@@ -1497,6 +1523,125 @@ router.delete('/notes-templates/:id', requireManager, (req, res) => {
   if (next.length === list.length) return res.status(404).json({ error: 'Template not found' });
   data.byUser[userId] = next;
   writeNotesTemplates(data);
+  return res.json({ success: true });
+});
+
+// ===== Game Plan Templates (store-scoped) =====
+
+// GET /api/gameplan/templates - List templates for this store (manager/admin)
+router.get('/templates', requireManager, (req, res) => {
+  const cfg = dal.getStoreConfig();
+  const storeId = (cfg?.storeId || 'sf').toString().trim() || 'sf';
+  const data = readGameplanTemplates();
+  const list = Array.isArray(data?.byStore?.[storeId]?.templates) ? data.byStore[storeId].templates : [];
+  const sorted = list.slice().sort((a, b) => (b?.updatedAt || b?.createdAt || '').localeCompare(a?.updatedAt || a?.createdAt || ''));
+  return res.json({ storeId, templates: sorted });
+});
+
+// POST /api/gameplan/templates - Create template (manager/admin)
+router.post('/templates', requireManager, express.json({ limit: '1mb' }), (req, res) => {
+  const cfg = dal.getStoreConfig();
+  const storeId = (cfg?.storeId || 'sf').toString().trim() || 'sf';
+
+  const body = req.body || {};
+  const name = normalizeTemplateName(body.name);
+  if (!name) return res.status(400).json({ error: 'name is required' });
+
+  const weekdayIndex = normalizeWeekdayIndex(body.weekdayIndex);
+  const fields = (body.fields && typeof body.fields === 'object') ? body.fields : {};
+  const payload = (body.payload && typeof body.payload === 'object') ? body.payload : {};
+
+  const actor = {
+    name: req.user?.name || null,
+    employeeId: req.user?.employeeId || null,
+    email: req.user?.email || null
+  };
+
+  const now = new Date().toISOString();
+  const template = {
+    id: newTemplateId(),
+    name,
+    weekdayIndex,
+    storeId,
+    fields,
+    payload,
+    createdBy: actor,
+    createdAt: now,
+    updatedBy: actor,
+    updatedAt: now
+  };
+
+  const data = readGameplanTemplates();
+  if (!data.byStore) data.byStore = {};
+  if (!data.byStore[storeId]) data.byStore[storeId] = { templates: [] };
+  if (!Array.isArray(data.byStore[storeId].templates)) data.byStore[storeId].templates = [];
+  data.byStore[storeId].templates.push(template);
+  writeGameplanTemplates(data);
+  return res.json({ success: true, template });
+});
+
+// PUT /api/gameplan/templates/:id - Update template (manager/admin)
+router.put('/templates/:id', requireManager, express.json({ limit: '1mb' }), (req, res) => {
+  const cfg = dal.getStoreConfig();
+  const storeId = (cfg?.storeId || 'sf').toString().trim() || 'sf';
+  const id = (req.params.id || '').toString().trim();
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+
+  const body = req.body || {};
+  const name = normalizeTemplateName(body.name);
+  if (!name) return res.status(400).json({ error: 'name is required' });
+
+  const weekdayIndex = normalizeWeekdayIndex(body.weekdayIndex);
+  const fields = (body.fields && typeof body.fields === 'object') ? body.fields : {};
+  const payload = (body.payload && typeof body.payload === 'object') ? body.payload : {};
+
+  const data = readGameplanTemplates();
+  const list = Array.isArray(data?.byStore?.[storeId]?.templates) ? data.byStore[storeId].templates : [];
+  const idx = list.findIndex(t => (t?.id || '') === id);
+  if (idx < 0) return res.status(404).json({ error: 'Template not found' });
+
+  const actor = {
+    name: req.user?.name || null,
+    employeeId: req.user?.employeeId || null,
+    email: req.user?.email || null
+  };
+  const now = new Date().toISOString();
+
+  const cur = list[idx] || {};
+  list[idx] = {
+    ...cur,
+    name,
+    weekdayIndex,
+    storeId,
+    fields,
+    payload,
+    updatedBy: actor,
+    updatedAt: now
+  };
+
+  if (!data.byStore) data.byStore = {};
+  if (!data.byStore[storeId]) data.byStore[storeId] = { templates: list };
+  data.byStore[storeId].templates = list;
+  writeGameplanTemplates(data);
+  return res.json({ success: true, template: list[idx] });
+});
+
+// DELETE /api/gameplan/templates/:id - Delete template (manager/admin)
+router.delete('/templates/:id', requireManager, (req, res) => {
+  const cfg = dal.getStoreConfig();
+  const storeId = (cfg?.storeId || 'sf').toString().trim() || 'sf';
+  const id = (req.params.id || '').toString().trim();
+  if (!id) return res.status(400).json({ error: 'Invalid id' });
+
+  const data = readGameplanTemplates();
+  const list = Array.isArray(data?.byStore?.[storeId]?.templates) ? data.byStore[storeId].templates : [];
+  const next = list.filter(t => (t?.id || '') !== id);
+  if (next.length === list.length) return res.status(404).json({ error: 'Template not found' });
+
+  if (!data.byStore) data.byStore = {};
+  if (!data.byStore[storeId]) data.byStore[storeId] = { templates: [] };
+  data.byStore[storeId].templates = next;
+  writeGameplanTemplates(data);
   return res.json({ success: true });
 });
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="view-transition" content="same-origin">
-  <title>Home | GamePlan</title>
+  <title>Home | Daily Operations</title>
 
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/favicon.ico" sizes="any">
@@ -13,7 +13,7 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="GamePlan">
+  <meta name="apple-mobile-web-app-title" content="Daily Operations">
 
   <link rel="stylesheet" href="/css/theme.css?v=14">
   <link rel="stylesheet" href="/css/shared-header.css?v=22">
@@ -154,6 +154,10 @@
             <span class="metric-label">Fitting Room</span>
             <span class="metric-value" id="homeFittingRoom">--</span>
           </div>
+          <div class="metric-card" id="homeAvailableRoomsCard" style="display:none; grid-column: span 2; text-align:left;">
+            <span class="metric-label" style="display:block; text-align:left;">Available Rooms</span>
+            <div class="metric-value" id="homeAvailableRoomsList" style="margin-top:6px; font-size:14px; font-weight:600; line-height:1.6; white-space:pre-line;">--</div>
+          </div>
           <div class="metric-card" id="homeClosingCard">
             <span class="metric-label">Closing Duties</span>
             <span class="metric-value" id="homeClosingSummary">--</span>
@@ -240,6 +244,11 @@
               <span class="metric-change" id="cjNewCustomersVsPY">--</span>
             </div>
             <div class="metric-card">
+              <span class="metric-label">Newsletters Subscription</span>
+              <span class="metric-value" id="cjNewsletterPct">--</span>
+              <span class="metric-change" id="cjNewsletterVsPY">--</span>
+            </div>
+            <div class="metric-card">
               <span class="metric-label">New Customers %</span>
               <span class="metric-value" id="cjNewPct">--</span>
             </div>
@@ -277,11 +286,6 @@
             <div class="metric-card">
               <span class="metric-label">Completed Reaches</span>
               <span class="metric-value" id="cjCompletedReaches">--</span>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">Newsletters Subscription</span>
-              <span class="metric-value" id="cjNewsletterPct">--</span>
-              <span class="metric-change" id="cjNewsletterVsPY">--</span>
             </div>
           </div>
         </div>
@@ -357,9 +361,9 @@
     </section>
   </main>
 <script src="/js/app-home.js?v=1"></script>
-  <script src="/js/dashboard.js?v=21"></script>
-  <script src="/js/home-hub.js?v=1"></script>
-  <script src="/js/shared-header.js?v=23"></script>
+  <script src="/js/dashboard.js?v=23"></script>
+  <script src="/js/home-hub.js?v=3"></script>
+  <script src="/js/shared-header.js?v=24"></script>
 
   <!-- Loans Detail Modal (used by the WTD section) -->
   <div class="modal-overlay" id="loansModal">

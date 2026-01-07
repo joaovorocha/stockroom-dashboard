@@ -12,7 +12,7 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <meta name="apple-mobile-web-app-title" content="Daily Operations">
   <link rel="stylesheet" href="/css/theme.css?v=14">
   <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
@@ -261,6 +261,21 @@
                 These duties have no assignee for the selected day. If you complete one, tap “Submit” on a section below to upload photos and notes.
               </div>
             </div>
+
+            <div id="anyDutySubmitBox" style="padding: 12px; background: var(--background); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px;">
+              <div style="font-weight: 600; margin-bottom: 8px;">Submit any duty</div>
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px;">
+                Use this to submit any duty (even if it’s already assigned). 🟢 = completed, 🟡 = pending.
+              </div>
+              <div style="display:flex; gap: 10px; align-items:center; flex-wrap: wrap;">
+                <select id="anyDutySelect" class="form-control" style="min-width: 260px; flex: 1 1 260px;">
+                  <option value="">Select a duty…</option>
+                </select>
+                <button id="anyDutySubmitBtn" type="button" class="btn btn-primary">Submit</button>
+              </div>
+              <div id="anyDutySubmitHint" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);"></div>
+            </div>
+
 	          <div id="unassignedDutiesList">
 	            <p style="color: var(--text-muted);">Loading...</p>
 	          </div>
@@ -307,7 +322,7 @@
           <input class="form-control" id="submitDutySection" type="text" readonly>
         </div>
         <div class="form-group" style="margin-bottom: 16px;">
-          <label>Photos (required for duty completion)</label>
+          <label>Photos (required, up to 10)</label>
           <input type="file" class="form-control" id="submitDutyPhotos" accept="image/*" multiple>
           <div class="photo-preview" id="submitDutyPreview"></div>
         </div>
@@ -331,10 +346,100 @@
   <script>
     let currentUser = null;
     let settings = { closingSections: [] };
+    let storeConfig = null;
     let closingDuties = [];
     let employees = { SA: [] };
     let submitDutyState = { section: '', type: '' };
     let selectedDate = '';
+    let submitDutyPreparedFiles = [];
+    let submitDutyPreparing = false;
+    const SUBMIT_DUTY_MAX_PHOTOS = 10;
+
+    function formatBytes(bytes) {
+      const b = Number(bytes);
+      if (!Number.isFinite(b) || b <= 0) return '0B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.min(units.length - 1, Math.floor(Math.log(b) / Math.log(1024)));
+      const val = b / Math.pow(1024, i);
+      return `${val.toFixed(val >= 10 || i === 0 ? 0 : 1)}${units[i]}`;
+    }
+
+    function setSubmitHint(text) {
+      const el = document.getElementById('submitDutyHint');
+      if (el) el.textContent = text || '';
+    }
+
+    async function loadImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          try { URL.revokeObjectURL(url); } catch (_) {}
+          resolve(img);
+        };
+        img.onerror = (e) => {
+          try { URL.revokeObjectURL(url); } catch (_) {}
+          reject(e);
+        };
+        img.src = url;
+      });
+    }
+
+    async function canvasToJpegFile(canvas, baseName, quality) {
+      const blob = await new Promise((resolve, reject) => {
+        try {
+          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Failed to encode image'))), 'image/jpeg', quality);
+        } catch (e) {
+          reject(e);
+        }
+      });
+      return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+    }
+
+    async function compressImageFile(file, opts = {}) {
+      const maxDim = Number.isFinite(opts.maxDim) ? opts.maxDim : 1280;
+      const targetBytes = Number.isFinite(opts.targetBytes) ? opts.targetBytes : 1_500_000; // ~1.5MB
+
+      const name = (file?.name || 'photo').toString();
+      const baseName = name.replace(/\.[^./\\]+$/, '') || 'photo';
+
+      // Only attempt to compress images.
+      const looksLikeImage =
+        ((file?.type || '').toString().toLowerCase().startsWith('image/')) ||
+        /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(name);
+      if (!looksLikeImage) return file;
+
+      const img = await loadImageFromFile(file);
+      const srcW = img.naturalWidth || img.width;
+      const srcH = img.naturalHeight || img.height;
+      if (!srcW || !srcH) return file;
+
+      const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+      const dstW = Math.max(1, Math.round(srcW * scale));
+      const dstH = Math.max(1, Math.round(srcH * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = dstW;
+      canvas.height = dstH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return file;
+      ctx.drawImage(img, 0, 0, dstW, dstH);
+
+      // Try a few qualities to get under targetBytes.
+      const qualities = [0.78, 0.65, 0.52, 0.42];
+      let best = null;
+      for (const q of qualities) {
+        const candidate = await canvasToJpegFile(canvas, baseName, q);
+        best = candidate;
+        if (candidate.size <= targetBytes) break;
+      }
+
+      // Use the smaller of original vs compressed.
+      if (best && Number.isFinite(best.size) && Number.isFinite(file.size)) {
+        return best.size < file.size ? best : file;
+      }
+      return best || file;
+    }
 
     function localISODate() {
       const today = new Date();
@@ -344,13 +449,104 @@
       return `${year}-${month}-${day}`;
     }
 
+    function parseLocalDateFromISO(isoDate) {
+      const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec((isoDate || '').toString());
+      if (!m) return new Date(isoDate);
+      const y = Number(m[1]);
+      const mo = Number(m[2]) - 1;
+      const d = Number(m[3]);
+      return new Date(y, mo, d);
+    }
+
+    function getStoreTimeZone() {
+      const tz = (storeConfig?.timeZone || '').toString().trim();
+      return tz || null;
+    }
+
+    function timeZoneOffsetMinutes(date, timeZone) {
+      const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        hour12: false,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
+      const parts = dtf.formatToParts(date);
+      const map = {};
+      for (const p of parts) {
+        if (p.type !== 'literal') map[p.type] = p.value;
+      }
+
+      const asUtcMs = Date.UTC(
+        Number(map.year),
+        Number(map.month) - 1,
+        Number(map.day),
+        Number(map.hour),
+        Number(map.minute),
+        Number(map.second)
+      );
+
+      return (asUtcMs - date.getTime()) / 60000;
+    }
+
+    function dateForIsoInTimeZone(isoDate, timeZone) {
+      const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(String(isoDate || ''));
+      if (!m) return new Date(isoDate);
+
+      const y = Number(m[1]);
+      const mo = Number(m[2]) - 1;
+      const d = Number(m[3]);
+
+      // Target local noon in that timezone to avoid DST edge cases.
+      const approx = new Date(Date.UTC(y, mo, d, 12, 0, 0));
+      let off = timeZoneOffsetMinutes(approx, timeZone);
+      let candidate = new Date(Date.UTC(y, mo, d, 12, 0, 0) - off * 60000);
+      const off2 = timeZoneOffsetMinutes(candidate, timeZone);
+      if (off2 !== off) {
+        off = off2;
+        candidate = new Date(Date.UTC(y, mo, d, 12, 0, 0) - off * 60000);
+      }
+      return candidate;
+    }
+
+    function formatISODateForDisplay(isoDate) {
+      const tz = getStoreTimeZone();
+      try {
+        if (tz && typeof Intl !== 'undefined' && Intl.DateTimeFormat) {
+          const d = dateForIsoInTimeZone(isoDate, tz);
+          if (!d || !Number.isFinite(d.getTime())) return (isoDate || '').toString();
+          return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz });
+        }
+      } catch (_) {
+        // Invalid/unsupported timeZone; fall back to local formatting.
+      }
+
+      const d = parseLocalDateFromISO(isoDate);
+      if (!d || !Number.isFinite(d.getTime())) return (isoDate || '').toString();
+      return d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    function syncHistoryDateDisplay() {
+      const el = document.getElementById('historyDateDisplay');
+      if (el) el.textContent = formatISODateForDisplay(selectedDate);
+    }
+
     async function initSelectedDate() {
+      const { date: qpDate } = getQueryParams();
+      if (qpDate && /^\d{4}-\d{2}-\d{2}$/.test(qpDate)) {
+        selectedDate = qpDate;
+      }
+
       // Use store-day date (timezone + dayStart aware) so assignments load from the correct gameplan file.
       try {
         const res = await fetch('/api/gameplan/today');
         if (res.ok) {
           const info = await res.json();
-          if (info?.date && /^\d{4}-\d{2}-\d{2}$/.test(info.date)) {
+          if (!selectedDate && info?.date && /^\d{4}-\d{2}-\d{2}$/.test(info.date)) {
             selectedDate = info.date;
           }
         }
@@ -360,8 +556,7 @@
 
       const historyDateEl = document.getElementById('historyDate');
       if (historyDateEl) historyDateEl.value = selectedDate;
-      const displayEl = document.getElementById('historyDateDisplay');
-      if (displayEl) displayEl.textContent = selectedDate;
+      syncHistoryDateDisplay();
     }
 
     function normalizeKey(str) {
@@ -373,6 +568,8 @@
       return {
         section: (params.get('section') || '').toString().trim(),
         submit: (params.get('submit') || '').toString().trim(),
+        tab: (params.get('tab') || '').toString().trim(),
+        date: (params.get('date') || '').toString().trim(),
       };
     }
 
@@ -397,11 +594,30 @@
     document.addEventListener('DOMContentLoaded', async () => {
       await checkAuth();
       await loadSettings();
+      await loadStoreConfig();
       await loadEmployees();
       await initSelectedDate();
       await loadTodayDuties();
       renderAssignedDuties();
       setupEventListeners();
+
+      // Optional: open a specific tab via URL (?tab=history|unassigned|submit)
+      const { tab } = getQueryParams();
+      const wanted = (tab || '').toString().trim().toLowerCase();
+      if (wanted && ['submit', 'unassigned', 'history'].includes(wanted)) {
+        const btn = document.querySelector(`.duties-tabs .tab[data-tab="${wanted}"]`);
+        if (btn) btn.click();
+      }
+
+      const anyDutySubmitBtn = document.getElementById('anyDutySubmitBtn');
+      if (anyDutySubmitBtn) {
+        anyDutySubmitBtn.addEventListener('click', () => {
+          const sel = document.getElementById('anyDutySelect');
+          const section = (sel?.value || '').toString().trim();
+          if (!section) return;
+          openSubmitDutyModal('unassigned', section);
+        });
+      }
 
       // Run after render so assigned rows/buttons exist.
       setTimeout(tryDeepLinkToAssignedDuty, 0);
@@ -590,6 +806,9 @@
       function closeSubmitDutyModal() {
         document.getElementById('submitDutyModal').classList.remove('active');
         submitDutyState = { section: '', type: '' };
+        submitDutyPreparedFiles = [];
+        submitDutyPreparing = false;
+        setSubmitHint('');
       }
 
       async function submitDutyFromModal() {
@@ -603,10 +822,21 @@
           return;
         }
 
-        const files = document.getElementById('submitDutyPhotos').files;
+        if (submitDutyPreparing) {
+          alert('Preparing photos… please wait a moment and try again.');
+          return;
+        }
+
+        const inputFiles = document.getElementById('submitDutyPhotos').files;
+        let files = (submitDutyPreparedFiles && submitDutyPreparedFiles.length)
+          ? submitDutyPreparedFiles
+          : Array.from(inputFiles || []);
         if (!files || files.length === 0) {
           alert('Please add at least 1 photo.');
           return;
+        }
+        if (files.length > SUBMIT_DUTY_MAX_PHOTOS) {
+          files = files.slice(0, SUBMIT_DUTY_MAX_PHOTOS);
         }
 
         const formData = new FormData();
@@ -623,12 +853,13 @@
           if (submitBtn) submitBtn.disabled = true;
           const response = await fetch('/api/closing-duties/submit', { method: 'POST', body: formData });
           if (!response.ok) {
-            let msg = '';
+            const raw = (await response.text()) || '';
+            let msg = raw;
             try {
-              const data = await response.json();
-              msg = (data?.error || data?.message || '').toString();
+              const data = JSON.parse(raw);
+              msg = (data?.error || data?.message || raw || '').toString();
             } catch (_) {
-              msg = (await response.text()) || '';
+              // raw was not JSON; keep as-is
             }
             throw new Error(msg || 'Submit failed');
           }
@@ -675,6 +906,16 @@
       } catch (e) { console.error(e); }
     }
 
+    async function loadStoreConfig() {
+      try {
+        const response = await fetch('/api/gameplan/store-config');
+        if (!response.ok) throw new Error('Failed to load store config');
+        storeConfig = await response.json();
+      } catch (_) {
+        storeConfig = null;
+      }
+    }
+
 	    async function loadTodayDuties() {
 	      try {
 	        const response = await fetch(`/api/closing-duties/${selectedDate}`);
@@ -701,11 +942,34 @@
 	      const container = document.getElementById('unassignedDutiesList');
 	      if (!container) return;
 
+        // Keep the "Submit any duty" dropdown in sync with today's completion state.
+        const anyDutySelect = document.getElementById('anyDutySelect');
+        const anyDutySubmitBtn = document.getElementById('anyDutySubmitBtn');
+        const anyDutyHint = document.getElementById('anyDutySubmitHint');
+
 	      const sections = (settings.closingSections || []).map(s => s?.name).filter(Boolean);
 	      if (sections.length === 0) {
+          if (anyDutySelect) anyDutySelect.innerHTML = '<option value="">No duties configured</option>';
+          if (anyDutySubmitBtn) anyDutySubmitBtn.disabled = true;
+          if (anyDutyHint) anyDutyHint.textContent = '';
 	        container.innerHTML = '<p style="color: var(--text-muted);">No closing sections configured.</p>';
 	        return;
 	      }
+
+        const isToday = isSelectedDateToday();
+        const isCompletedSection = (name) => (closingDuties || []).some(d => d?.section === name);
+        if (anyDutySelect) {
+          const options = ['<option value="">Select a duty…</option>'];
+          sections.forEach((name) => {
+            const completed = isCompletedSection(name);
+            const prefix = completed ? '🟢 Completed' : '🟡 Pending';
+            options.push(`<option value="${String(name).replace(/"/g, '&quot;')}">${prefix} — ${name}</option>`);
+          });
+          anyDutySelect.innerHTML = options.join('');
+          anyDutySelect.disabled = !isToday;
+        }
+        if (anyDutySubmitBtn) anyDutySubmitBtn.disabled = !isToday;
+        if (anyDutyHint) anyDutyHint.textContent = isToday ? '' : 'Submitting is only available for today.';
 
 	      // Map section -> employee for the selected day (published game plan)
 	      let sectionToEmployee = {};
@@ -736,7 +1000,7 @@
 	        sectionToEmployee = {};
 	      }
 
-	      const unassigned = sections.filter(name => !sectionToEmployee[name]);
+        const unassigned = sections.filter(name => !sectionToEmployee[name]);
 	      if (unassigned.length === 0) {
 	        container.innerHTML = '<p style="color: var(--text-muted);">No unassigned closing duties for this day.</p>';
 	        return;
@@ -747,7 +1011,7 @@
 	          ${unassigned.map(section => `
 	            <div style="display:flex; justify-content: space-between; align-items:center; padding: 12px 16px; background: var(--background); border: 1px solid var(--border); border-radius: 8px;">
 	              <div style="font-weight: 600;">${section}</div>
-	              ${isSelectedDateToday()
+                ${isToday
                   ? `<button class="btn btn-sm btn-primary" onclick="openSubmitDutyModal('unassigned','${section.replace(/'/g, '\\\\\'')}')">Submit</button>`
                   : `<button class="btn btn-sm btn-secondary" disabled>Today only</button>`
                 }
@@ -848,7 +1112,7 @@
 
     async function renderHistory() {
       const container = document.getElementById('historyList');
-      document.getElementById('historyDateDisplay').textContent = new Date(selectedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      syncHistoryDateDisplay();
 
       const sections = settings.closingSections || [];
       if (!sections.length) {
@@ -969,24 +1233,83 @@
         if (e.target.id === 'submitDutyModal') closeSubmitDutyModal();
       });
 
-      document.getElementById('submitDutyPhotos').addEventListener('change', (e) => {
+      document.getElementById('submitDutyPhotos').addEventListener('change', async (e) => {
         const preview = document.getElementById('submitDutyPreview');
-        preview.innerHTML = '';
-        Array.from(e.target.files || []).forEach(file => {
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            preview.innerHTML += `<img src="${ev.target.result}">`;
-          };
-          reader.readAsDataURL(file);
-        });
+        const submitBtn = document.getElementById('confirmSubmitDuty');
+        const picked = Array.from(e.target.files || []);
+
+        if (!picked.length) return;
+
+        const existing = Array.isArray(submitDutyPreparedFiles) ? submitDutyPreparedFiles : [];
+        const remaining = Math.max(0, SUBMIT_DUTY_MAX_PHOTOS - existing.length);
+        const toAdd = picked.slice(0, remaining);
+
+        if (existing.length >= SUBMIT_DUTY_MAX_PHOTOS) {
+          setSubmitHint(`Max ${SUBMIT_DUTY_MAX_PHOTOS} photos reached. Remove some to add more.`);
+          try { e.target.value = ''; } catch (_) {}
+          return;
+        }
+
+        if (picked.length > remaining) {
+          alert(`Max ${SUBMIT_DUTY_MAX_PHOTOS} photos. Only the first ${remaining} will be added.`);
+        }
+
+        if (preview && existing.length === 0) preview.innerHTML = '';
+
+        submitDutyPreparing = true;
+        if (submitBtn) submitBtn.disabled = true;
+        setSubmitHint('Optimizing photos for upload…');
+
+        try {
+          const out = existing.slice();
+          for (const file of toAdd) {
+            try {
+              const optimized = await compressImageFile(file, { maxDim: 1280, targetBytes: 1_500_000 });
+              out.push(optimized);
+            } catch (err) {
+              console.error('Photo optimize failed; using original file', err);
+              out.push(file);
+            }
+          }
+          submitDutyPreparedFiles = out;
+
+          // Preview all prepared files
+          if (preview) {
+            preview.innerHTML = '';
+            for (const file of submitDutyPreparedFiles) {
+              try {
+                const reader = new FileReader();
+                const dataUrl = await new Promise((resolve, reject) => {
+                  reader.onload = (ev) => resolve(ev.target.result);
+                  reader.onerror = reject;
+                  reader.readAsDataURL(file);
+                });
+                preview.innerHTML += `<img src="${dataUrl}">`;
+              } catch (_) {}
+            }
+          }
+
+          const totalBytes = submitDutyPreparedFiles.reduce((sum, f) => sum + (f?.size || 0), 0);
+          const maxNote = submitDutyPreparedFiles.length >= SUBMIT_DUTY_MAX_PHOTOS ? ` (max ${SUBMIT_DUTY_MAX_PHOTOS})` : '';
+          setSubmitHint(`Ready to submit (${submitDutyPreparedFiles.length} photo(s), ${formatBytes(totalBytes)} total)${maxNote}.`);
+        } catch (err) {
+          console.error(err);
+          // Keep any existing prepared files; fall back to original for newly picked files.
+          submitDutyPreparedFiles = existing.concat(toAdd);
+          setSubmitHint('Could not optimize photos; will upload original files.');
+        } finally {
+          submitDutyPreparing = false;
+          if (submitBtn) submitBtn.disabled = false;
+          // Clear the input so iPhone users can pick/take another photo and have it append.
+          try { e.target.value = ''; } catch (_) {}
+        }
       });
 
       // Date navigation
       document.getElementById('historyDate').value = selectedDate;
       document.getElementById('historyDate').addEventListener('change', (e) => {
         selectedDate = e.target.value;
-        const displayEl = document.getElementById('historyDateDisplay');
-        if (displayEl) displayEl.textContent = selectedDate;
+        syncHistoryDateDisplay();
         loadTodayDuties();
       });
       document.getElementById('prevDay').addEventListener('click', () => {
@@ -997,8 +1320,7 @@
         const day = String(d.getDate()).padStart(2, '0');
         selectedDate = `${year}-${month}-${day}`;
         document.getElementById('historyDate').value = selectedDate;
-        const displayEl = document.getElementById('historyDateDisplay');
-        if (displayEl) displayEl.textContent = selectedDate;
+        syncHistoryDateDisplay();
         loadTodayDuties();
       });
       document.getElementById('nextDay').addEventListener('click', () => {
@@ -1009,16 +1331,14 @@
         const day = String(d.getDate()).padStart(2, '0');
         selectedDate = `${year}-${month}-${day}`;
         document.getElementById('historyDate').value = selectedDate;
-        const displayEl = document.getElementById('historyDateDisplay');
-        if (displayEl) displayEl.textContent = selectedDate;
+        syncHistoryDateDisplay();
         loadTodayDuties();
       });
       document.getElementById('todayBtn').addEventListener('click', () => {
         (async () => {
           await initSelectedDate();
           document.getElementById('historyDate').value = selectedDate;
-          const displayEl = document.getElementById('historyDateDisplay');
-          if (displayEl) displayEl.textContent = selectedDate;
+          syncHistoryDateDisplay();
           loadTodayDuties();
         })();
       });
@@ -1033,6 +1353,6 @@
 
 	    }
 	  </script>
-    <script src="/js/shared-header.js?v=23"></script>
+    <script src="/js/shared-header.js?v=24"></script>
 	</body>
 </html>

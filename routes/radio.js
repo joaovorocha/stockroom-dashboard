@@ -8,8 +8,11 @@ const router = express.Router();
 const TRANSCRIPTS_PATH = path.join(__dirname, '..', 'data', 'radio', 'transcripts.jsonl');
 const LAST_ID_PATH = path.join(__dirname, '..', 'data', 'radio', '_last_id.txt');
 const CONFIG_PATH = path.join(__dirname, '..', 'data', 'radio', 'config.json');
+const CONFIG_LIVE_PATH = path.join(__dirname, '..', 'data', 'radio', 'config.live.json');
 const SERVICE_PATH = path.join(__dirname, '..', 'data', 'radio', 'service.json');
-const LOG_PATH = path.join(__dirname, '..', 'logs', 'radio-transcriber.log');
+const RADIO_LOG_PATH = path.join(__dirname, '..', 'logs', 'radio.log');
+const TRANSCRIBE_LOG_PATH = path.join(__dirname, '..', 'logs', 'radio-transcriber.log');
+const ANALYZER_LOG_PATH = path.join(__dirname, '..', 'logs', 'radio-analyzer.log');
 
 function safeInt(value, fallback = 0) {
   const n = Number.parseInt(String(value ?? ''), 10);
@@ -37,6 +40,20 @@ function readLastBytes(filePath, maxBytes) {
     fs.closeSync(fd);
   }
 }
+
+router.get('/analyzer/logs', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  const maxBytes = Math.min(1024 * 1024, safeInt(req.query?.bytes, 1024 * 128));
+  if (!fs.existsSync(ANALYZER_LOG_PATH)) {
+    return res.json({ ok: true, exists: false, logs: '' });
+  }
+  try {
+    const logs = readLastBytes(ANALYZER_LOG_PATH, maxBytes);
+    return res.json({ ok: true, exists: true, logs });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e?.message || 'Failed to read analyzer logs' });
+  }
+});
 
 function loadTranscripts({ afterId = 0, limit = 200 }) {
   if (!fs.existsSync(TRANSCRIPTS_PATH)) return [];
@@ -91,6 +108,13 @@ function defaultConfig() {
     vadThreshold: 0.04,
     // Slightly shorter hangover reduces segment length and ASR work.
     hangoverMs: 600,
+
+    // Admin UI helpers (hardware model + mode). These are not used by the radio pipeline directly,
+    // but allow the admin page to keep track of which preset the user is targeting.
+    radioMode: 'manual',
+    radioModel: 'generic',
+    radioChannelPlan: 'custom',
+
     model: 'tiny',
     device: 'cpu',
     computeType: 'int8',
@@ -153,19 +177,37 @@ function normalizeConfig(raw) {
   };
 }
 
-function loadConfig() {
+function loadConfigFrom(filePath) {
   try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
+    if (fs.existsSync(filePath)) {
+      const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       return normalizeConfig(raw);
     }
   } catch {}
-  return normalizeConfig(null);
+  return null;
 }
 
-function saveConfig(cfg) {
-  ensureDir(CONFIG_PATH);
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(normalizeConfig(cfg), null, 2));
+function loadSavedConfig() {
+  return loadConfigFrom(CONFIG_PATH) || normalizeConfig(null);
+}
+
+function loadEffectiveConfig() {
+  const live = loadConfigFrom(CONFIG_LIVE_PATH);
+  if (live) return { cfg: live, source: 'live' };
+  return { cfg: loadSavedConfig(), source: 'saved' };
+}
+
+function saveConfigTo(filePath, cfg) {
+  ensureDir(filePath);
+  fs.writeFileSync(filePath, JSON.stringify(normalizeConfig(cfg), null, 2));
+}
+
+function deleteLiveConfig() {
+  try {
+    if (fs.existsSync(CONFIG_LIVE_PATH)) fs.unlinkSync(CONFIG_LIVE_PATH);
+  } catch {
+    // ignore
+  }
 }
 
 function execPm2(args) {
@@ -220,7 +262,10 @@ async function pm2List() {
 
 async function getRadioProc() {
   const list = await pm2List();
-  return list.find(p => p?.name === 'radio-transcriber') || null;
+  return {
+    radio: list.find(p => p?.name === 'radio') || null,
+    transcriber: list.find(p => p?.name === 'radio-transcriber') || null,
+  };
 }
 
 function buildArgsFromConfig(cfg) {
@@ -248,6 +293,49 @@ function buildArgsFromConfig(cfg) {
   const ppm = safeInt(cfg.ppm, 0);
   if (ppm) args.push('--ppm', String(ppm));
   return args;
+}
+
+function buildRadioStartArgs() {
+  return [
+    'start',
+    'radio/radio_service.py',
+    '--name',
+    'radio',
+    '--interpreter',
+    'python3',
+    '--output',
+    RADIO_LOG_PATH,
+    '--error',
+    RADIO_LOG_PATH,
+    '--',
+    '--config',
+    CONFIG_PATH,
+  ];
+}
+
+function buildTranscriberStartArgs() {
+  return [
+    'start',
+    'radio/transcribe_worker.py',
+    '--name',
+    'radio-transcriber',
+    '--interpreter',
+    'python3',
+    '--output',
+    TRANSCRIBE_LOG_PATH,
+    '--error',
+    TRANSCRIBE_LOG_PATH,
+    '--',
+    '--config',
+    CONFIG_PATH,
+  ];
+}
+
+async function pm2EnsureStarted(procName, startArgs) {
+  const list = await pm2List();
+  const exists = list.some(p => p?.name === procName);
+  if (exists) return execPm2(['restart', procName]);
+  return execPm2(startArgs);
 }
 
 router.get('/status', (req, res) => {
@@ -299,16 +387,25 @@ router.get('/live-audio', (req, res) => {
 });
 
 router.get('/config', (req, res) => {
-  const cfg = loadConfig();
+  const { cfg, source } = loadEffectiveConfig();
   const privileged = isPrivileged(req);
-  return res.json({ ok: true, config: cfg, privileged });
+  return res.json({ ok: true, config: cfg, privileged, draft: source === 'live' });
 });
 
-router.post('/config', (req, res) => {
+router.post('/config', async (req, res) => {
   if (!requirePrivileged(req, res)) return;
 
   const body = req.body || {};
-  const prev = loadConfig();
+  if (body.discardDraft) {
+    deleteLiveConfig();
+    const { cfg } = loadEffectiveConfig();
+    return res.json({ ok: true, config: cfg, discarded: true });
+  }
+
+  const prevEffective = loadEffectiveConfig().cfg;
+  const prevSaved = loadSavedConfig();
+  const commit = body.commit !== false; // default true (backward compatible)
+  const prev = commit ? prevSaved : prevEffective;
 
   // Start with previous normalized config.
   const next = { ...prev };
@@ -340,10 +437,12 @@ router.post('/config', (req, res) => {
 
   const cfg = normalizeConfig({
     ...next,
-    // rtl_fm squelch tends to stop PCM output entirely, which breaks live metering and VAD.
-    // Keep squelch at 0 and do "squelch-like" behavior via VAD threshold instead.
-    squelch: 0,
-    squelchDelay: 1,
+    radioMode: String(body.radioMode ?? next.radioMode ?? 'manual'),
+    radioModel: String(body.radioModel ?? next.radioModel ?? 'generic'),
+    radioChannelPlan: String(body.radioChannelPlan ?? next.radioChannelPlan ?? 'custom'),
+    // Noise squelch is implemented in the python pipeline; keep this value configurable.
+    squelch: safeFloat(body.squelch ?? next.squelch, next.squelch),
+    squelchDelay: safeFloat(body.squelchDelay ?? next.squelchDelay, next.squelchDelay),
     vadThreshold: safeFloat(body.vadThreshold ?? next.vadThreshold, next.vadThreshold),
     hangoverMs: safeInt(body.hangoverMs ?? next.hangoverMs, next.hangoverMs),
     model: String(body.model ?? next.model),
@@ -351,34 +450,62 @@ router.post('/config', (req, res) => {
     computeType: String(body.computeType ?? next.computeType),
   });
 
-  saveConfig(cfg);
-
-  const shouldRestart = !!body.restart;
-  if (!shouldRestart) return res.json({ ok: true, config: cfg });
-
-  // Restart the python service if it is running
-  const state = readServiceState();
-  if (state?.pid && isProcessRunning(state.pid)) {
-    try {
-      process.kill(-state.pid, 'SIGTERM');
-    } catch {
-      try {
-        process.kill(state.pid, 'SIGTERM');
-      } catch {}
-    }
-    writeServiceState({ running: false, stoppedAt: new Date().toISOString() });
+  if (commit) {
+    saveConfigTo(CONFIG_PATH, cfg);
+    deleteLiveConfig();
+  } else {
+    saveConfigTo(CONFIG_LIVE_PATH, cfg);
   }
 
-  return res.json({ ok: true, config: cfg, restarted: true });
+  const shouldRestart = !!body.restart;
+  if (!shouldRestart) return res.json({ ok: true, config: cfg, draft: !commit });
+
+  // Restart PM2 processes so tuner/model changes apply immediately (rarely needed; most settings hot-apply).
+  const restartedRadio = await execPm2(['restart', 'radio']);
+  const restartedTranscriber = await execPm2(['restart', 'radio-transcriber']);
+  return res.json({
+    ok: restartedRadio.code === 0 && restartedTranscriber.code === 0,
+    config: cfg,
+    draft: !commit,
+    restarted: true,
+    radio: { out: restartedRadio.out, err: restartedRadio.err },
+    transcriber: { out: restartedTranscriber.out, err: restartedTranscriber.err },
+  });
 });
 
 router.get('/service', (req, res) => {
-  getRadioProc().then((proc) => {
-    if (!proc) return res.json({ ok: true, running: false, proc: null });
-    const status = proc.pm2_env?.status || 'unknown';
-    const pid = proc.pid || null;
-    return res.json({ ok: true, running: status === 'online', pid, status, proc: { name: proc.name, pid } });
+  getRadioProc().then((procs) => {
+    const radioStatus = procs?.radio?.pm2_env?.status || 'stopped';
+    const transcriberStatus = procs?.transcriber?.pm2_env?.status || 'stopped';
+    const radioRunning = radioStatus === 'online';
+    const transcriberRunning = transcriberStatus === 'online';
+    return res.json({
+      ok: true,
+      running: radioRunning || transcriberRunning,
+      radio: {
+        running: radioRunning,
+        status: radioStatus,
+        pid: procs?.radio?.pid || null,
+        name: procs?.radio?.name || 'radio'
+      },
+      transcriber: {
+        running: transcriberRunning,
+        status: transcriberStatus,
+        pid: procs?.transcriber?.pid || null,
+        name: procs?.transcriber?.name || 'radio-transcriber'
+      }
+    });
   });
+});
+
+router.post('/service/start-spectrum', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  return res.json({ ok: false, error: 'Analyzer is built into the Radio service now (no separate Spectrum service).' });
+});
+
+router.post('/service/stop-spectrum', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  return res.json({ ok: false, error: 'Analyzer is built into the Radio service now (no separate Spectrum service).' });
 });
 
 router.post('/service/start', (req, res) => {
@@ -386,39 +513,144 @@ router.post('/service/start', (req, res) => {
 
   (async () => {
     const existing = await getRadioProc();
-    if (existing && existing.pm2_env?.status === 'online') {
-      return res.json({ ok: true, running: true, pid: existing.pid, alreadyRunning: true });
+    const radioOnline = existing?.radio?.pm2_env?.status === 'online';
+    const transcriberOnline = existing?.transcriber?.pm2_env?.status === 'online';
+    if (radioOnline && transcriberOnline) {
+      return res.json({ ok: true, running: true, alreadyRunning: true, radioPid: existing.radio.pid, transcriberPid: existing.transcriber.pid });
     }
 
-    ensureDir(LOG_PATH);
+    // Stop legacy processes if they exist.
+    try { await execPm2(['stop', 'radio-spectrum']); } catch {}
+    try { await execPm2(['stop', 'radio-capture']); } catch {}
+
+    ensureDir(RADIO_LOG_PATH);
+    ensureDir(TRANSCRIBE_LOG_PATH);
     const cfg = loadConfig();
     saveConfig(cfg);
 
-    // pm2 will keep it alive and prevent USB lock leftovers from a dead parent.
-    const pm2Args = [
-      'start',
-      'radio/transcribe_walkie.py',
-      '--name',
-      'radio-transcriber',
-      '--interpreter',
-      'python3',
-      '--output',
-      LOG_PATH,
-      '--error',
-      LOG_PATH,
-      '--',
-      '--config',
-      CONFIG_PATH,
-    ];
-    const started = await execPm2(pm2Args);
-    const proc = await getRadioProc();
-    const status = proc?.pm2_env?.status || 'unknown';
+    // Start radio service (RTL-SDR -> live audio + analyzer + segments)
+    const radioArgs = buildRadioStartArgs();
+
+    // Start transcriber (separate worker; reads segments -> writes transcripts)
+    const transcribeArgs = buildTranscriberStartArgs();
+
+    const startedRadio = radioOnline ? { code: 0, out: '', err: '' } : await execPm2(radioArgs);
+    const startedTranscriber = transcriberOnline ? { code: 0, out: '', err: '' } : await execPm2(transcribeArgs);
+
+    const procs = await getRadioProc();
+    const radioStatus = procs?.radio?.pm2_env?.status || 'unknown';
+    const transcriberStatus = procs?.transcriber?.pm2_env?.status || 'unknown';
+    const ok = (startedRadio.code === 0 && radioStatus === 'online') || (startedTranscriber.code === 0 && transcriberStatus === 'online');
+
     return res.json({
-      ok: started.code === 0 && status === 'online',
-      status,
-      pid: proc?.pid || null,
-      out: started.out,
-      err: started.err,
+      ok,
+      radio: { status: radioStatus, pid: procs?.radio?.pid || null, out: startedRadio.out, err: startedRadio.err },
+      transcriber: { status: transcriberStatus, pid: procs?.transcriber?.pid || null, out: startedTranscriber.out, err: startedTranscriber.err },
+    });
+  })();
+});
+
+router.post('/service/start-radio', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  (async () => {
+    ensureDir(RADIO_LOG_PATH);
+    const cfg = loadConfig();
+    saveConfig(cfg);
+
+    // Stop legacy processes that could still hold the dongle.
+    try { await execPm2(['stop', 'radio-spectrum']); } catch {}
+    try { await execPm2(['stop', 'radio-capture']); } catch {}
+
+    const started = await pm2EnsureStarted('radio', buildRadioStartArgs());
+    const procs = await getRadioProc();
+    const radioStatus = procs?.radio?.pm2_env?.status || 'unknown';
+    return res.json({
+      ok: started.code === 0 && radioStatus === 'online',
+      radio: { status: radioStatus, pid: procs?.radio?.pid || null, out: started.out, err: started.err },
+      transcriber: { status: procs?.transcriber?.pm2_env?.status || 'unknown', pid: procs?.transcriber?.pid || null },
+    });
+  })();
+});
+
+// Backwards-compatible alias
+router.post('/service/start-capture', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  (async () => {
+    ensureDir(RADIO_LOG_PATH);
+    const cfg = loadConfig();
+    saveConfig(cfg);
+
+    try { await execPm2(['stop', 'radio-spectrum']); } catch {}
+    try { await execPm2(['stop', 'radio-capture']); } catch {}
+
+    const started = await pm2EnsureStarted('radio', buildRadioStartArgs());
+    const procs = await getRadioProc();
+    const radioStatus = procs?.radio?.pm2_env?.status || 'unknown';
+    return res.json({
+      ok: started.code === 0 && radioStatus === 'online',
+      radio: { status: radioStatus, pid: procs?.radio?.pid || null, out: started.out, err: started.err },
+      transcriber: { status: procs?.transcriber?.pm2_env?.status || 'unknown', pid: procs?.transcriber?.pid || null },
+    });
+  })();
+});
+
+router.post('/service/stop-radio', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  (async () => {
+    const stopped = await execPm2(['stop', 'radio']);
+    const procs = await getRadioProc();
+    const radioStatus = procs?.radio?.pm2_env?.status || 'stopped';
+    return res.json({
+      ok: stopped.code === 0,
+      radio: { status: radioStatus, out: stopped.out, err: stopped.err },
+      transcriber: { status: procs?.transcriber?.pm2_env?.status || 'unknown', pid: procs?.transcriber?.pid || null },
+    });
+  })();
+});
+
+// Backwards-compatible alias
+router.post('/service/stop-capture', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  (async () => {
+    const stopped = await execPm2(['stop', 'radio']);
+    const procs = await getRadioProc();
+    const radioStatus = procs?.radio?.pm2_env?.status || 'stopped';
+    return res.json({
+      ok: stopped.code === 0,
+      radio: { status: radioStatus, out: stopped.out, err: stopped.err },
+      transcriber: { status: procs?.transcriber?.pm2_env?.status || 'unknown', pid: procs?.transcriber?.pid || null },
+    });
+  })();
+});
+
+router.post('/service/start-transcriber', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  (async () => {
+    ensureDir(TRANSCRIBE_LOG_PATH);
+    const cfg = loadConfig();
+    saveConfig(cfg);
+
+    const started = await pm2EnsureStarted('radio-transcriber', buildTranscriberStartArgs());
+    const procs = await getRadioProc();
+    const transcriberStatus = procs?.transcriber?.pm2_env?.status || 'unknown';
+    return res.json({
+      ok: started.code === 0 && transcriberStatus === 'online',
+      radio: { status: procs?.radio?.pm2_env?.status || 'unknown', pid: procs?.radio?.pid || null },
+      transcriber: { status: transcriberStatus, pid: procs?.transcriber?.pid || null, out: started.out, err: started.err },
+    });
+  })();
+});
+
+router.post('/service/stop-transcriber', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  (async () => {
+    const stopped = await execPm2(['stop', 'radio-transcriber']);
+    const procs = await getRadioProc();
+    const transcriberStatus = procs?.transcriber?.pm2_env?.status || 'stopped';
+    return res.json({
+      ok: stopped.code === 0,
+      radio: { status: procs?.radio?.pm2_env?.status || 'unknown', pid: procs?.radio?.pid || null },
+      transcriber: { status: transcriberStatus, out: stopped.out, err: stopped.err },
     });
   })();
 });
@@ -426,10 +658,18 @@ router.post('/service/start', (req, res) => {
 router.post('/service/stop', (req, res) => {
   if (!requirePrivileged(req, res)) return;
   (async () => {
-    const stopped = await execPm2(['stop', 'radio-transcriber']);
-    const proc = await getRadioProc();
-    const status = proc?.pm2_env?.status || 'stopped';
-    return res.json({ ok: stopped.code === 0, running: status === 'online', status, out: stopped.out, err: stopped.err });
+    const stoppedRadio = await execPm2(['stop', 'radio']);
+    const stoppedTranscriber = await execPm2(['stop', 'radio-transcriber']);
+    const procs = await getRadioProc();
+    const radioStatus = procs?.radio?.pm2_env?.status || 'stopped';
+    const transcriberStatus = procs?.transcriber?.pm2_env?.status || 'stopped';
+    const running = radioStatus === 'online' || transcriberStatus === 'online';
+    return res.json({
+      ok: stoppedRadio.code === 0 && stoppedTranscriber.code === 0,
+      running,
+      radio: { status: radioStatus, out: stoppedRadio.out, err: stoppedRadio.err },
+      transcriber: { status: transcriberStatus, out: stoppedTranscriber.out, err: stoppedTranscriber.err },
+    });
   })();
 });
 

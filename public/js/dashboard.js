@@ -309,6 +309,7 @@ function applyUnpublishedVisibility() {
   }
   if (currentPageType === 'BOH') {
     keepVisible.add('bohSection');
+    keepVisible.add('saSection');
   }
   if (currentPageType === 'TAILOR') {
     keepVisible.add('tailorsSection');
@@ -392,7 +393,7 @@ function renderRetailWeekStoreInfo() {
     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
       <strong>Retail Week ${retailWeek.weekNumber}</strong>
       <span style="color:var(--text-secondary);">${retailWeek.weekStart} → ${retailWeek.weekEnd}</span>
-      <span><strong>Retail Week Sales:</strong> ${weekSalesText}</span>
+      <span>${weekSalesText}</span>
       <span><strong>Retail Week Target:</strong> ${weekTargetText}</span>
       <span><strong>Daily Target (Today):</strong> ${dailyTargetText}</span>
       ${saLine}
@@ -445,7 +446,7 @@ function renderRetailWeekWelcomeInfo() {
     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
       <strong>Retail Week ${retailWeek.weekNumber}</strong>
       <span style="color:var(--text-secondary);">${retailWeek.weekStart} → ${retailWeek.weekEnd}</span>
-      <span><strong>Retail Week Sales:</strong> ${weekSalesText}</span>
+      <span>${weekSalesText}</span>
       <span><strong>Retail Week Target:</strong> ${weekTargetText}</span>
       <span><strong>Daily Target (Today):</strong> ${dailyTargetText}</span>
       ${saLine}
@@ -548,7 +549,7 @@ function setupSSEConnection() {
     } catch (e) {
       console.error('Error parsing SSE message:', e);
 
-    // OPS_METRICS: Per-tailor APG + L3M list
+    // OPS_METRICS: Per-tailor APG list
     try {
       const tbody = document.getElementById('tailorApgTableBody');
       if (tbody) {
@@ -556,11 +557,9 @@ function setupSSEConnection() {
         const rows = tailors
           .map(t => {
             const apg = getTailorApgForEmployee(t);
-            const l3m = getL3MSizePassPctForEmployee(t);
             return {
               name: (t?.name || '').toString().trim(),
               apg,
-              l3m,
               sortKey: Number.isFinite(Number(apg)) ? Number(apg) : -1
             };
           })
@@ -570,12 +569,10 @@ function setupSSEConnection() {
         tbody.innerHTML = rows
           .map(r => {
             const apgText = Number.isFinite(Number(r.apg)) ? formatNumberOrDash(r.apg, 1) : '--';
-            const l3mText = Number.isFinite(Number(r.l3m)) ? `${formatNumberOrDash(r.l3m, 0)}%` : '--';
             return `
               <tr>
                 <td>${r.name}</td>
                 <td>${apgText}</td>
-                <td>${l3mText}</td>
               </tr>
             `;
           })
@@ -806,7 +803,10 @@ async function loadGameplan() {
     const today = await getStoreDayInfo();
     const clientDate = today?.date || getLocalISODate();
 
-      const response = await fetch(`/api/gameplan/date/${clientDate}`);
+      const response = await fetch(`/api/gameplan/date/${clientDate}`, {
+        credentials: 'include',
+        cache: 'no-store'
+      });
         if (response.ok) {
           gameplanData = await response.json();
       
@@ -825,33 +825,10 @@ async function loadGameplan() {
         resetAllEmployeesDailyFields();
         if (gameplanData.assignments) mergeAssignments(gameplanData.assignments);
       } else {
-          // If there is no game plan file yet for *today*, employees can end up seeing
-          // "empty" assignments right at day rollover. For non-privileged users, fall
-          // back to yesterday's published plan for display, while still treating today
-          // as unpublished (so full-team sections remain gated).
-          const canFallback = !isPrivilegedUser() && currentPageType !== 'EDIT';
-          const yesterdayDate = shiftISODate(clientDate, -1);
-          if (canFallback && yesterdayDate) {
-            const yResp = await fetch(`/api/gameplan/date/${yesterdayDate}`);
-            if (yResp.ok) {
-              const yData = await yResp.json();
-              gameplanData = {
-                ...yData,
-                published: false,
-                fallbackFromDate: yesterdayDate,
-                effectiveDate: clientDate
-              };
-              resetAllEmployeesDailyFields();
-              if (gameplanData.assignments) mergeAssignments(gameplanData.assignments);
-            } else {
-              gameplanData = { notes: '', assignments: {}, published: false };
-              resetAllEmployeesDailyFields();
-            }
-          } else {
-            // If there is no game plan file yet, treat as "not published".
-            gameplanData = { notes: '', assignments: {}, published: false };
-            resetAllEmployeesDailyFields();
-          }
+          // If there is no game plan file yet for *today*, keep the day clean.
+          // This prevents stale/yesterday assignments from showing before a manager publishes.
+          gameplanData = { notes: '', assignments: {}, published: false, effectiveDate: clientDate };
+          resetAllEmployeesDailyFields();
         }
 
 	    // Banner at TOP if not published (whether file exists or not)
@@ -1604,22 +1581,27 @@ function renderSAAssignmentStatus() {
   const userEmployee = findCurrentUserEmployee('SA');
   const frAssignments = {};
   allSAs.forEach(sa => {
-    if (sa?.fittingRoom) frAssignments[sa.fittingRoom] = sa.name;
+    const key = (sa?.fittingRoom || '').toString().trim();
+    if (key) frAssignments[key] = sa.name;
   });
 
   if (!Array.isArray(allFittingRooms) || allFittingRooms.length === 0) {
     frListEl.innerHTML = '<div class="expandable-list-item">No fitting rooms configured</div>';
   } else {
-    frListEl.innerHTML = allFittingRooms.map(fr => {
-      const roomName = fr?.name || fr;
+    const roomNames = allFittingRooms
+      .map(fr => (fr?.name || fr))
+      .map(v => (v || '').toString().trim())
+      .filter(Boolean);
+
+    frListEl.innerHTML = roomNames.map(roomName => {
       const assignee = frAssignments[roomName] || '';
-      const isMine = !!(userEmployee?.fittingRoom && roomName === userEmployee.fittingRoom);
+      const isMine = !!(userEmployee?.fittingRoom && roomName === (userEmployee.fittingRoom || '').toString().trim());
       const isAvailable = !assignee;
       let cls = 'expandable-list-item';
       if (isMine) cls += ' mine';
       else if (isAvailable) cls += ' available';
 
-      const displayAssignee = isMine ? 'You' : (assignee ? assignee.split(' ')[0] : 'Available');
+      const displayAssignee = isMine ? 'You' : (assignee ? assignee.split(' ')[0] : '');
       return `
         <div class="${cls}">
           <span class="item-name">${roomName}</span>
@@ -1674,8 +1656,10 @@ function renderSAAssignmentStatus() {
       const assigneeName = assigneeObj?.name || '';
       const isComplete = submitted.has(sectionName);
       const left = sectionName;
+      const storeDate = storeDayInfo?.date || currentClientDate || getLocalISODate();
+      const historyUrl = `/closing-duties?tab=history&date=${encodeURIComponent(storeDate)}&section=${encodeURIComponent(left)}`;
       const statusPill = isComplete
-        ? '<span class="status-pill status-pill--complete">Completed</span>'
+        ? `<a href="${historyUrl}" class="status-pill status-pill--complete" style="color:inherit; text-decoration:underline;">Completed</a>`
         : '<span class="status-pill status-pill--pending">Pending</span>';
 
       const isMine = !!(
@@ -1688,7 +1672,10 @@ function renderSAAssignmentStatus() {
       if (isMine) cls += ' mine';
 
       const whoHtml = isMine
-        ? `<a class="status-pill__who" href="/closing-duties?section=${encodeURIComponent(left)}&submit=1" style="color:inherit; text-decoration:underline;">${who}</a>`
+        ? (isComplete
+          ? `<a class="status-pill__who" href="${historyUrl}" style="color:inherit; text-decoration:underline;">${who}</a>`
+          : `<a class="status-pill__who" href="/closing-duties?section=${encodeURIComponent(left)}&submit=1" style="color:inherit; text-decoration:underline;">${who}</a>`
+        )
         : `<span class="status-pill__who">${who}</span>`;
 
       return `
@@ -1896,6 +1883,7 @@ function renderAll() {
       break;
     case 'BOH':
       renderBOHSection();
+      renderSASection();
       renderSAAssignmentStatus();
       // Ops dashboard moved to /operations-metrics
       setDisplay('operationsSection', 'none');
@@ -1903,7 +1891,6 @@ function renderAll() {
       // Keep welcome visible so lunch + status blocks can show
       setDisplay('managementQuickSection', 'none');
       setDisplay('metricsSection', 'none');
-      setDisplay('saSection', 'none');
       setDisplay('managementSection', 'none');
       setDisplay('tailorsSection', 'none');
       setDisplay('lookerSection', 'none');
@@ -2194,11 +2181,11 @@ function renderSASection() {
   };
 
   const collapsed = getCollapsedList();
-  const shown = showAllEmployees.SA ? orderedAll : collapsed;
+  const shown = (!expandBtn || showAllEmployees.SA) ? orderedAll : collapsed;
 
   // Toggle button
   const maxCollapsed = collapsed.length;
-  const canExpand = orderedAll.length > maxCollapsed || (!isPrivileged && workingList.length > 1);
+  const canExpand = !!expandBtn && (orderedAll.length > maxCollapsed || (!isPrivileged && workingList.length > 1));
   if (expandBtn) {
     if (!canExpand) {
       expandBtn.style.display = 'none';
@@ -2221,8 +2208,6 @@ function createSACard(emp, isCurrentUser = false) {
   const isWorking = !emp.isOff && (!storeConfig?.requireSaShift || hasShift);
   const isDayOff = !isWorking;
   card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
-
-  const l3mText = formatPercentOrDash(getL3MSizePassPctForEmployee(emp), 0);
 
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
@@ -2253,12 +2238,6 @@ function createSACard(emp, isCurrentUser = false) {
           <span class="role day-off-badge">Day Off</span>
         </div>
       </div>
-      <div class="card-body">
-        <div class="card-field">
-          <span class="field-label">L3M Size Pass</span>
-          <span class="field-value">${l3mText}</span>
-        </div>
-      </div>
     `;
     return card;
   }
@@ -2280,10 +2259,6 @@ function createSACard(emp, isCurrentUser = false) {
         <span class="field-label">Fitting Room</span>
         <span class="field-value">${emp.fittingRoom || '-'}</span>
       </div>
-          <div class="card-field">
-            <span class="field-label">L3M Size Pass</span>
-            <span class="field-value">${l3mText}</span>
-          </div>
 		      <div class="card-field">
 		        <span class="field-label">Target</span>
 		        <span class="field-value">${(isWorking && perPersonTarget) ? formatCurrency(perPersonTarget) : '-'}</span>
@@ -2367,8 +2342,6 @@ function createBOHCard(emp, isCurrentUser = false) {
   const isDayOff = !!emp?.isOff;
   card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
-  const l3mText = formatPercentOrDash(getL3MSizePassPctForEmployee(emp), 0);
-
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -2380,12 +2353,6 @@ function createBOHCard(emp, isCurrentUser = false) {
         <div class="employee-info">
           <h4>${emp.name}</h4>
           <span class="role day-off-badge">Day Off</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="card-field">
-          <span class="field-label">L3M Size Pass</span>
-          <span class="field-value">${l3mText}</span>
         </div>
       </div>
     `;
@@ -2419,10 +2386,6 @@ function createBOHCard(emp, isCurrentUser = false) {
       <div class="card-field">
         <span class="field-label">Lunch</span>
         <span class="field-value">${emp.lunch || '-'}</span>
-      </div>
-      <div class="card-field">
-        <span class="field-label">L3M Size Pass</span>
-        <span class="field-value">${l3mText}</span>
       </div>
       <div class="card-field full-width">
         <span class="field-label">Task of the Day</span>
@@ -2494,8 +2457,6 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
   const card = document.createElement('div');
   card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
-  const l3mText = formatPercentOrDash(getL3MSizePassPctForEmployee(emp), 0);
-
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -2511,12 +2472,6 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
         <div class="employee-info">
           <h4>${emp.name}</h4>
           <span class="role day-off-badge">Day Off</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="card-field">
-          <span class="field-label">L3M Size Pass</span>
-          <span class="field-value">${l3mText}</span>
         </div>
       </div>
     `;
@@ -2546,10 +2501,6 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
         <div class="card-field">
           <span class="field-label">Lunch</span>
           <span class="field-value">${emp.lunch || '-'}</span>
-        </div>
-        <div class="card-field">
-          <span class="field-label">L3M Size Pass</span>
-          <span class="field-value">${l3mText}</span>
         </div>
         ${scanRow}
       </div>
@@ -2587,8 +2538,6 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
   const card = document.createElement('div');
   card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
-  const l3mText = formatPercentOrDash(getL3MSizePassPctForEmployee(emp), 0);
-
   const photoHtml = emp.imageUrl
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
@@ -2600,12 +2549,6 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
         <div class="employee-info">
           <h4>${emp.name}</h4>
           <span class="role day-off-badge">Day Off</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="card-field">
-          <span class="field-label">L3M Size Pass</span>
-          <span class="field-value">${l3mText}</span>
         </div>
       </div>
     `;
@@ -2643,10 +2586,6 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
         <div class="card-field">
           <span class="field-label">APG</span>
           <span class="field-value">${apgText}</span>
-        </div>
-        <div class="card-field">
-          <span class="field-label">L3M Size Pass</span>
-          <span class="field-value">${l3mText}</span>
         </div>
         ${scanRow}
       </div>

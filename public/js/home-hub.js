@@ -140,6 +140,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     setCardVisibleByValue('homeLunch', !isEmptyDisplayValue(lunchText));
     setCardVisibleByValue('homeFittingRoom', !isEmptyDisplayValue(fittingRoomText));
 
+    // Available fitting rooms (store-wide)
+    try {
+      const card = document.getElementById('homeAvailableRoomsCard');
+      const listEl = document.getElementById('homeAvailableRoomsList');
+      if (card && listEl) {
+        const allRooms = Array.isArray(settings?.fittingRooms)
+          ? settings.fittingRooms.map(fr => (fr?.name || fr)).map(v => (v || '').toString().trim()).filter(Boolean)
+          : [];
+        const assigned = new Set(
+          (Array.isArray(employees?.SA) ? employees.SA : [])
+            .map(sa => (sa?.fittingRoom || '').toString().trim())
+            .filter(Boolean)
+        );
+        const available = allRooms.filter(r => !assigned.has(r));
+
+        if (available.length > 0) {
+          listEl.textContent = available.join('\n');
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      }
+    } catch (_) {
+      // quiet fail
+    }
+
     const assignedClosing = Array.isArray(userEmp?.closingSections) ? userEmp.closingSections.filter(Boolean) : [];
     const submissions = Array.isArray(closingDutiesToday) ? closingDutiesToday : [];
     const submitted = new Set(submissions.map(s => (s?.section || '').toString()).filter(Boolean));
@@ -160,7 +186,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       const completedCount = assignedClosing.filter(s => submitted.has(s)).length;
       const pendingCount = Math.max(0, assignedClosing.length - completedCount);
-      const summaryText = `${completedCount} completed • ${pendingCount} pending`;
+      const summaryText = pendingCount > 0
+        ? `${completedCount} completed • ${pendingCount} pending`
+        : `${completedCount} completed`;
       setText('homeClosingSummary', summaryText);
 
       const list = assignedClosing
@@ -179,16 +207,25 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       const targetSection = assignedClosing.find(s => !submitted.has(s)) || assignedClosing[0];
+      const storeDate = (typeof storeDayInfo === 'object' && storeDayInfo && storeDayInfo.date)
+        ? storeDayInfo.date
+        : (typeof getLocalISODate === 'function' ? getLocalISODate() : new Date().toISOString().split('T')[0]);
       const card = document.getElementById('homeClosingCard');
       const hint = document.getElementById('homeClosingHint');
       if (card && targetSection) {
         card.classList.add('clickable');
         card.style.cursor = 'pointer';
         card.onclick = () => {
-          const url = `/closing-duties?section=${encodeURIComponent(targetSection)}&submit=1`;
+          const fullyComplete = pendingCount === 0 && completedCount > 0;
+          const url = fullyComplete
+            ? `/closing-duties?tab=history&date=${encodeURIComponent(storeDate)}&section=${encodeURIComponent(targetSection)}`
+            : `/closing-duties?section=${encodeURIComponent(targetSection)}&submit=1`;
           window.location.href = url;
         };
-        if (hint) hint.style.display = '';
+        if (hint) {
+          hint.textContent = (pendingCount === 0 && completedCount > 0) ? 'View more below' : 'Tap to submit';
+          hint.style.display = '';
+        }
       } else if (hint) {
         hint.style.display = 'none';
       }

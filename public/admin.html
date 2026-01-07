@@ -12,7 +12,7 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <meta name="apple-mobile-web-app-title" content="Daily Operations">
   <link rel="stylesheet" href="/css/theme.css?v=14">
   <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <style>
@@ -288,6 +288,72 @@
 
     .admin-toast.success { border-color: rgba(22, 163, 74, 0.25); }
     .admin-toast.error { border-color: rgba(220, 38, 38, 0.25); }
+
+    .radio-channel-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .radio-channel-row .radio-channel-id {
+      font-size: 12px;
+      color: #666;
+      min-width: 90px;
+    }
+
+    .radio-channel-row input {
+      min-width: 140px;
+      flex: 1;
+    }
+
+    .btn-circle {
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    .radio-mode-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    .radio-sdr-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin: 12px 0;
+    }
+
+    .radio-sdr-canvas {
+      width: 100%;
+      height: auto;
+      background: #0b0b0b;
+      border-radius: 8px;
+      border: 1px solid #222;
+      display: block;
+    }
+
+    @media (max-width: 980px) {
+      .radio-mode-row { grid-template-columns: 1fr; }
+    }
+
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    @media (max-width: 980px) {
+      .health-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -314,7 +380,8 @@
 	        <li><a href="#shifts" data-tab="shifts">Shifts</a></li>
 	        <li><a href="#sections" data-tab="sections">Closing Duties</a></li>
         <li><a href="#stations" data-tab="stations">Tailor Stations</a></li>
-        <li><a href="/radio-admin" data-tab="radio-admin">Radio Admin</a></li>
+        <li><a href="#radio" data-tab="radio">Radio</a></li>
+        <li><a href="#health" data-tab="health">Health</a></li>
         <li><a href="#backups" data-tab="backups">Backups</a></li>
         <li><a href="#activity" data-tab="activity">Activity Log</a></li>
         <li><a href="/dashboard" style="color: #666; margin-top: 20px;">&larr; Back to Dashboard</a></li>
@@ -609,6 +676,256 @@
             <div class="add-item-row">
               <input type="text" id="newStation" placeholder="Add new station...">
               <button class="btn btn-primary btn-sm" onclick="addSettingItem('tailorStations', 'newStation')">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Radio Tab -->
+      <div id="radioTab" class="tab-content">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3>Radio</h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button class="btn btn-outline btn-sm" id="radioHelpBtn" title="Help" aria-label="Radio admin help">i</button>
+              <button class="btn btn-outline btn-sm" id="radioReloadBtn" aria-label="Reload radio config">Reload</button>
+              <button class="btn btn-primary btn-sm" id="radioSaveBtn" aria-label="Save radio config">Save</button>
+              <button class="btn btn-secondary btn-sm" id="radioSaveRestartBtn" aria-label="Save radio config and restart services">Save + Restart</button>
+            </div>
+          </div>
+          <div class="admin-card-body">
+            <div id="radioMeta" style="margin-top:0; color:#555; line-height:1.4; margin-bottom:12px;">Loading…</div>
+
+            <div class="health-grid" style="margin-bottom:12px;">
+              <div class="settings-item" style="align-items:flex-start;">
+                <div style="width:100%;">
+                  <div style="font-weight:600; margin-bottom:6px;">Radio Service</div>
+                  <div id="radioCaptureStatus" style="color:#555; margin-bottom:8px;">Status: —</div>
+                  <div id="radioTuneStatus" style="color:#555; margin-bottom:8px;">Tuned: —</div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-outline btn-sm" type="button" id="radioCaptureStartBtn">Start</button>
+                    <button class="btn btn-outline btn-sm" type="button" id="radioCaptureStopBtn">Stop</button>
+                  </div>
+                  <div style="font-size:12px; color:#777; margin-top:8px;">Receives radio audio (RTL-SDR) and provides live audio + segments.</div>
+                </div>
+              </div>
+              <div class="settings-item" style="align-items:flex-start;">
+                <div style="width:100%;">
+                  <div style="font-weight:600; margin-bottom:6px;">Transcriber Service</div>
+                  <div id="radioTranscriberStatus" style="color:#555; margin-bottom:8px;">Status: —</div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-outline btn-sm" type="button" id="radioTranscriberStartBtn">Start</button>
+                    <button class="btn btn-outline btn-sm" type="button" id="radioTranscriberStopBtn">Stop</button>
+                  </div>
+                  <div style="font-size:12px; color:#777; margin-top:8px;">Reads segments and produces transcripts (can be CPU-heavy).</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="radio-sdr-grid">
+              <div>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+                  <div style="font-weight:600;">Analyzer</div>
+                  <div id="radioSpectrumMeta" style="font-size:12px; color:#777;">Waiting for data…</div>
+                </div>
+                <canvas id="radioSpectrumCanvas" class="radio-sdr-canvas" width="900" height="220"></canvas>
+              </div>
+              <div>
+                <div style="font-weight:600; margin-bottom:8px;">Waterfall</div>
+                <canvas id="radioWaterfallCanvas" class="radio-sdr-canvas" width="900" height="260"></canvas>
+              </div>
+            </div>
+
+            <div style="margin:6px 0 12px; font-size:12px; color:#777; line-height:1.35;">
+              Tip: In <b>Automatic</b> mode, use “Apply Automatic” to quickly set VAD / gain / drift. In <b>Manual</b> mode, edit each channel.
+            </div>
+
+            <div class="radio-mode-row">
+              <div class="form-group">
+                <label for="radioMode">Mode</label>
+                <select id="radioMode" aria-label="Radio mode">
+                  <option value="automatic">Automatic</option>
+                  <option value="manual">Manual</option>
+                </select>
+                <div style="font-size:12px; color:#777; margin-top:6px;">Automatic = apply presets/tuning. Manual = edit channels directly.</div>
+              </div>
+              <div class="form-group">
+                <label for="radioModel">Radio Model</label>
+                <select id="radioModel" aria-label="Radio model">
+                  <option value="motorola-clp446e">Motorola CLP446e</option>
+                  <option value="generic">Generic / Custom</option>
+                </select>
+                <div style="font-size:12px; color:#777; margin-top:6px;">Used to suggest defaults and channel naming.</div>
+              </div>
+              <div class="form-group">
+                <label for="radioChannelPlan">Frequencies / Channel Plan</label>
+                <select id="radioChannelPlan" aria-label="Channel plan">
+                  <option value="custom">Custom</option>
+                  <option value="pmr446-16">PMR446 (16ch)</option>
+                </select>
+                <div style="font-size:12px; color:#777; margin-top:6px;">PMR446 generates 16 standard 446MHz channels.</div>
+              </div>
+            </div>
+
+            <div id="radioAutomaticOptions" style="display:none;">
+              <div class="form-row form-row-3">
+                <div class="form-group">
+                  <label for="radioAutoVadThreshold">VAD Threshold</label>
+                  <input id="radioAutoVadThreshold" type="number" step="0.001" min="0" placeholder="0.03" aria-label="Automatic VAD threshold">
+                  <div style="font-size:12px; color:#777; margin-top:6px;">Higher = fewer false triggers; too high may miss speech.</div>
+                </div>
+                <div class="form-group">
+                  <label for="radioAutoGain">Gain (apply)</label>
+                  <input id="radioAutoGain" type="number" step="1" aria-label="Automatic gain">
+                  <div style="font-size:12px; color:#777; margin-top:6px;">Applies to the selected channels. Start low, increase if audio is quiet.</div>
+                </div>
+                <div class="form-group">
+                  <label for="radioAutoPpm">Drift (PPM apply)</label>
+                  <input id="radioAutoPpm" type="number" step="1" aria-label="Automatic drift PPM">
+                  <div style="font-size:12px; color:#777; margin-top:6px;">Frequency correction (PPM). Use if tuning is slightly off.</div>
+                </div>
+              </div>
+              <div class="form-row form-row-3" style="margin-top:0;">
+                <div class="form-group">
+                  <label for="radioAutoDriftScope">Drift applies to</label>
+                  <select id="radioAutoDriftScope" aria-label="Drift applies to">
+                    <option value="active">Active channel only</option>
+                    <option value="all">All channels</option>
+                  </select>
+                </div>
+                <div class="form-group" style="display:flex; align-items:flex-end; gap:8px;">
+                  <button class="btn btn-outline btn-sm" type="button" id="radioApplyAutoBtn">Apply Automatic</button>
+                </div>
+                <div class="form-group"></div>
+              </div>
+              <hr style="margin:16px 0; border:none; border-top:1px solid #e0e0e0;">
+            </div>
+
+            <div id="radioManualOptions">
+              <div class="form-row form-row-3">
+                <div class="form-group">
+                  <label for="radioActiveChannel">Active Channel</label>
+                  <select id="radioActiveChannel" aria-label="Active channel"></select>
+                  <div style="font-size:12px; color:#777; margin-top:6px;">The service listens on the active channel’s frequency.</div>
+                </div>
+                <div class="form-group">
+                  <label for="radioVadThreshold">VAD Threshold</label>
+                  <input id="radioVadThreshold" type="number" step="0.001" min="0" placeholder="0.04" aria-label="VAD threshold">
+                  <div style="font-size:12px; color:#777; margin-top:6px;">Voice activity sensitivity for detecting speech.</div>
+                </div>
+                <div class="form-group">
+                  <label for="radioHangoverMs">Hangover (ms)</label>
+                  <input id="radioHangoverMs" type="number" step="1" min="0" placeholder="600" aria-label="Hangover ms">
+                  <div style="font-size:12px; color:#777; margin-top:6px;">How long to keep recording after speech ends.</div>
+                </div>
+              </div>
+
+              <div class="form-row form-row-3" style="margin-top:0;">
+                <div class="form-group">
+                  <label for="radioSquelch">Squelch (noise)</label>
+                  <input id="radioSquelch" type="number" step="0.001" min="0" placeholder="0" aria-label="Squelch noise threshold">
+                  <div style="font-size:12px; color:#777; margin-top:6px;">0 = off. Higher mutes more idle hiss; too high may miss weak signals.</div>
+                </div>
+                <div class="form-group">
+                  <label for="radioSquelchDelay">Squelch Delay (s)</label>
+                  <input id="radioSquelchDelay" type="number" step="0.1" min="0" placeholder="1" aria-label="Squelch delay seconds">
+                  <div style="font-size:12px; color:#777; margin-top:6px;">How long to keep audio open after signal drops.</div>
+                </div>
+                <div class="form-group"></div>
+              </div>
+
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:4px;">
+                <button class="btn btn-outline btn-sm" type="button" id="radioApplyPresetBtn">Apply preset to channels</button>
+                <span style="color:#777; font-size:12px;">Uses the selected Radio Model + Channel Plan</span>
+              </div>
+
+              <div style="display:grid; grid-template-columns: 90px 1fr 1fr 1fr 1fr 92px; gap:8px; margin-top:12px; font-size:12px; color:#666;">
+                <div>Channel ID</div>
+                <div>Label</div>
+                <div>Frequency</div>
+                <div>Drift (PPM)</div>
+                <div>Gain</div>
+                <div></div>
+              </div>
+
+              <div class="settings-list" id="radioChannelsList"></div>
+
+              <div class="form-row form-row-3" style="margin-top:12px; align-items:flex-end;">
+                <div class="form-group" style="grid-column: span 1;">
+                  <label for="radioNewChannelLabel">New channel label</label>
+                  <input type="text" id="radioNewChannelLabel" placeholder="e.g., Channel 1" aria-label="New channel label">
+                  <div style="font-size:12px; color:#777; margin-top:6px;">A friendly name shown in the Active Channel list.</div>
+                </div>
+                <div class="form-group" style="grid-column: span 1;">
+                  <label for="radioNewChannelFreq">New channel frequency</label>
+                  <input type="text" id="radioNewChannelFreq" placeholder="e.g., 446.01875M" aria-label="New channel frequency" list="radioFreqList">
+                  <div style="font-size:12px; color:#777; margin-top:6px;">Use “M” suffix (MHz). Suggestions appear for PMR446.</div>
+                </div>
+                <div class="form-group" style="grid-column: span 1; display:flex; justify-content:flex-end;">
+                  <button class="btn btn-primary btn-sm" id="radioAddChannelBtn" aria-label="Add channel" type="button">Add</button>
+                </div>
+              </div>
+
+              <hr style="margin:16px 0; border:none; border-top:1px solid #e0e0e0;">
+
+              <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" id="radioListenBtn" aria-label="Listen live">Listen Live</button>
+                <button class="btn btn-outline btn-sm" id="radioStopListenBtn" aria-label="Stop live listening" disabled>Stop</button>
+                <span id="radioListenStatus" style="color:#555;">Live listen: Off</span>
+              </div>
+            </div>
+
+            <datalist id="radioFreqList"></datalist>
+          </div>
+        </div>
+      </div>
+
+      <!-- Health Tab -->
+      <div id="healthTab" class="tab-content">
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3>Server Health</h3>
+            <button class="btn btn-outline btn-sm" id="healthRefreshBtn">Refresh</button>
+          </div>
+          <div class="admin-card-body">
+            <div id="healthMeta" style="margin-top:0; color:#555; line-height:1.4; margin-bottom:12px;">Loading…</div>
+            <div class="health-grid">
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">🧠 CPU / Load</div>
+                  <div id="healthCpuText" style="color:#555;"></div>
+                </div>
+              </div>
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">🧮 Memory</div>
+                  <div id="healthMemText" style="color:#555;"></div>
+                </div>
+              </div>
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">🎛️ GPU</div>
+                  <div id="healthGpuText" style="color:#555;"></div>
+                </div>
+              </div>
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">👥 Logged-in Users</div>
+                  <div id="healthUsersText" style="color:#555;"></div>
+                </div>
+              </div>
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">💽 Disk</div>
+                  <div id="healthDiskText" style="color:#555;"></div>
+                </div>
+              </div>
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">🧩 Runtime</div>
+                  <div id="healthRuntimeText" style="color:#555;"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1459,8 +1776,1102 @@
           loadStoreConfig();
           loadStoreRecoveryConfig();
         }
+	        if (tab === 'radio') initRadioTab();
+	        if (tab === 'health') startHealthPolling();
+	        if (tab !== 'health') stopHealthPolling();
 	      });
 	    });
+
+      function getTabFromHash() {
+        const raw = (window.location.hash || '').toString().replace(/^#/, '').trim();
+        return raw;
+      }
+
+      function activateTabFromHash() {
+        const tab = getTabFromHash();
+        if (!tab) return;
+        const link = document.querySelector(`.admin-nav a[data-tab="${tab}"]`);
+        if (link) link.click();
+      }
+
+      window.addEventListener('hashchange', activateTabFromHash);
+      // Initial hash navigation (supports redirects like /admin#radio)
+      window.setTimeout(activateTabFromHash, 0);
+
+      // --- Radio (embedded admin controls) ---
+      const radioAdmin = {
+        config: null,
+        draft: false,
+        privileged: false,
+        saveTimer: null,
+        initialized: false,
+        monitor: {
+          ws: null,
+          audioCtx: null,
+          processor: null,
+          sourceSampleRate: 24000,
+          queue: [],
+          queueOffset: 0,
+          queuedSamples: 0,
+          enabled: false,
+        }
+      };
+
+      const RADIO_PRESETS = {
+        models: [
+          { id: 'motorola-clp446e', name: 'Motorola CLP446e' },
+          { id: 'generic', name: 'Generic / Custom' },
+        ],
+        channelPlans: [
+          { id: 'custom', name: 'Custom' },
+          { id: 'pmr446-16', name: 'PMR446 (16ch)' },
+        ],
+      };
+
+      function pmr446Frequencies() {
+        const out = [];
+        const start = 446.00625;
+        const step = 0.0125;
+        for (let i = 0; i < 16; i++) {
+          const f = (start + i * step).toFixed(5);
+          out.push(`${f}M`);
+        }
+        return out;
+      }
+
+      function buildPlanChannels(planId) {
+        if (planId === 'pmr446-16') {
+          const freqs = pmr446Frequencies();
+          return freqs.map((freq, i) => ({
+            id: `ch${i + 1}`,
+            label: `Channel ${i + 1}`,
+            freq,
+          }));
+        }
+        return null;
+      }
+
+      function syncRadioFreqDatalist() {
+        const list = document.getElementById('radioFreqList');
+        if (!list) return;
+        const freqs = pmr446Frequencies();
+        list.innerHTML = '';
+        freqs.forEach((f, idx) => {
+          const opt = document.createElement('option');
+          opt.value = f;
+          opt.label = `PMR446 ${idx + 1}`;
+          list.appendChild(opt);
+        });
+      }
+
+      function getRadioModeFromUi() {
+        const v = (document.getElementById('radioMode')?.value || '').toString();
+        return (v === 'automatic' || v === 'manual') ? v : 'manual';
+      }
+
+      function applyRadioModeUi() {
+        const mode = getRadioModeFromUi();
+        const autoEl = document.getElementById('radioAutomaticOptions');
+        const manualEl = document.getElementById('radioManualOptions');
+        if (autoEl) autoEl.style.display = mode === 'automatic' ? '' : 'none';
+        if (manualEl) manualEl.style.display = mode === 'manual' ? '' : 'none';
+      }
+
+      function applyPresetToConfig({ gain = null, ppm = null, setVadThreshold = null } = {}) {
+        if (!radioAdmin.config) return;
+        const model = (document.getElementById('radioModel')?.value || 'generic').toString();
+        const plan = (document.getElementById('radioChannelPlan')?.value || 'custom').toString();
+
+        const next = { ...(radioAdmin.config || {}) };
+        next.radioMode = getRadioModeFromUi();
+        next.radioModel = model;
+        next.radioChannelPlan = plan;
+
+        const planChannels = buildPlanChannels(plan);
+        if (planChannels) {
+          const existingMap = new Map((next.channels || []).map(c => [c.id, c]));
+          next.channels = planChannels.map((c) => {
+            const prev = existingMap.get(c.id) || {};
+            return {
+              id: c.id,
+              label: c.label,
+              freq: c.freq,
+              ppm: ppm != null ? ppm : (prev.ppm ?? 0),
+              gain: gain != null ? gain : (prev.gain ?? 0),
+            };
+          });
+          next.activeChannelId = next.channels[0]?.id || next.activeChannelId;
+        }
+
+        if (Number.isFinite(setVadThreshold)) next.vadThreshold = setVadThreshold;
+
+        radioAdmin.config = next;
+        renderRadioConfig();
+        radioScheduleHotSave();
+      }
+
+      function applyAutoTuningToChannels() {
+        if (!radioAdmin.config) return;
+        const threshold = Number(document.getElementById('radioAutoVadThreshold')?.value);
+        const gain = Number(document.getElementById('radioAutoGain')?.value);
+        const ppm = Number(document.getElementById('radioAutoPpm')?.value);
+        const scope = (document.getElementById('radioAutoDriftScope')?.value || 'active').toString();
+
+        const next = { ...(radioAdmin.config || {}) };
+        if (Number.isFinite(threshold)) next.vadThreshold = threshold;
+
+        const activeId = next.activeChannelId || next.channels?.[0]?.id;
+        next.channels = (next.channels || []).map((ch) => {
+          const shouldApply = scope === 'all' || (scope === 'active' && ch.id === activeId);
+          return {
+            ...ch,
+            gain: Number.isFinite(gain) && shouldApply ? gain : (ch.gain ?? 0),
+            ppm: Number.isFinite(ppm) && shouldApply ? ppm : (ch.ppm ?? 0),
+          };
+        });
+
+        radioAdmin.config = next;
+        renderRadioConfig();
+        radioScheduleHotSave();
+      }
+
+      function setRadioMeta(text) {
+        const el = document.getElementById('radioMeta');
+        if (el) el.textContent = text || '';
+      }
+
+      function setRadioListenStatus(text) {
+        const el = document.getElementById('radioListenStatus');
+        if (el) el.textContent = text || '';
+      }
+
+      function int16ToFloat32(int16) {
+        const out = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) out[i] = int16[i] / 32768;
+        return out;
+      }
+
+      function resampleLinear(input, srcRate, dstRate) {
+        if (!input || input.length === 0) return new Float32Array(0);
+        if (!srcRate || !dstRate || srcRate === dstRate) return input;
+        const ratio = dstRate / srcRate;
+        const outLen = Math.max(1, Math.round(input.length * ratio));
+        const out = new Float32Array(outLen);
+        const maxIdx = input.length - 1;
+        for (let i = 0; i < outLen; i++) {
+          const x = i / ratio;
+          const x0 = Math.floor(x);
+          const x1 = Math.min(maxIdx, x0 + 1);
+          const t = x - x0;
+          const a = input[x0] || 0;
+          const b = input[x1] || 0;
+          out[i] = a + (b - a) * t;
+        }
+        return out;
+      }
+
+      function radioEnqueueAudio(f32) {
+        const m = radioAdmin.monitor;
+        if (!f32 || !f32.length) return;
+        m.queue.push(f32);
+        m.queuedSamples += f32.length;
+        const max = (m.audioCtx?.sampleRate || 48000) * 10;
+        while (m.queuedSamples > max && m.queue.length > 1) {
+          const dropped = m.queue.shift();
+          m.queuedSamples -= (dropped?.length || 0);
+          m.queueOffset = 0;
+        }
+      }
+
+      function radioStartAudioPump() {
+        const m = radioAdmin.monitor;
+        if (!m.audioCtx) return;
+        if (m.processor) return;
+
+        const bufSize = 2048;
+        const proc = m.audioCtx.createScriptProcessor(bufSize, 0, 1);
+        proc.onaudioprocess = (e) => {
+          const out = e.outputBuffer.getChannelData(0);
+          let i = 0;
+          while (i < out.length) {
+            if (m.queue.length === 0) {
+              out[i++] = 0;
+              continue;
+            }
+            const cur = m.queue[0];
+            const avail = cur.length - m.queueOffset;
+            const n = Math.min(avail, out.length - i);
+            out.set(cur.subarray(m.queueOffset, m.queueOffset + n), i);
+            m.queueOffset += n;
+            m.queuedSamples -= n;
+            i += n;
+            if (m.queueOffset >= cur.length) {
+              m.queue.shift();
+              m.queueOffset = 0;
+            }
+          }
+        };
+        proc.connect(m.audioCtx.destination);
+        m.processor = proc;
+      }
+
+      async function radioStartLiveListen() {
+        const m = radioAdmin.monitor;
+        if (m.enabled) return;
+        m.enabled = true;
+
+        setRadioListenStatus('Live listen: Connecting…');
+
+        try {
+          m.audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+        } catch {
+          m.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        try { await m.audioCtx.resume(); } catch (_) {}
+        radioStartAudioPump();
+
+        radioConnectLiveListenWs();
+      }
+
+      function radioConnectLiveListenWs() {
+        const m = radioAdmin.monitor;
+        if (!m.enabled) return;
+        if (m.ws && (m.ws.readyState === 0 || m.ws.readyState === 1)) return;
+
+        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const url = `${proto}://${window.location.host}/ws/radio-monitor`;
+        const ws = new WebSocket(url);
+        ws.binaryType = 'arraybuffer';
+        m.ws = ws;
+
+        ws.onopen = () => {
+          setRadioListenStatus('Live listen: On');
+          const stopBtn = document.getElementById('radioStopListenBtn');
+          if (stopBtn) stopBtn.disabled = false;
+        };
+
+        ws.onmessage = (ev) => {
+          if (!m.audioCtx) return;
+          if (typeof ev.data === 'string') {
+            try {
+              const msg = JSON.parse(ev.data);
+              if (msg && msg.type === 'hello' && msg.sampleRate) {
+                m.sourceSampleRate = Number(msg.sampleRate) || m.sourceSampleRate;
+              }
+            } catch (_) {}
+            return;
+          }
+
+          try {
+            const ab = ev.data;
+            const i16 = new Int16Array(ab);
+            let f32 = int16ToFloat32(i16);
+            const dstRate = m.audioCtx.sampleRate || 48000;
+            f32 = resampleLinear(f32, m.sourceSampleRate, dstRate);
+            radioEnqueueAudio(f32);
+          } catch (_) {}
+        };
+
+        ws.onclose = () => {
+          if (!m.enabled) return;
+          m.ws = null;
+          setRadioListenStatus('Live listen: Reconnecting…');
+          setTimeout(radioConnectLiveListenWs, 1000);
+        };
+
+        ws.onerror = () => {
+          // handled by close
+        };
+      }
+
+      function radioStopLiveListen() {
+        const m = radioAdmin.monitor;
+        if (!m.enabled) return;
+        m.enabled = false;
+        setRadioListenStatus('Live listen: Off');
+
+        try { m.ws?.close(); } catch (_) {}
+        m.ws = null;
+
+        try { m.processor?.disconnect(); } catch (_) {}
+        m.processor = null;
+
+        try { m.audioCtx?.close(); } catch (_) {}
+        m.audioCtx = null;
+
+        m.queue = [];
+        m.queueOffset = 0;
+        m.queuedSamples = 0;
+
+        const stopBtn = document.getElementById('radioStopListenBtn');
+        if (stopBtn) stopBtn.disabled = true;
+      }
+
+      function radioSanitizeId(text) {
+        return (text || '')
+          .toString()
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 24) || 'ch';
+      }
+
+      function readRadioConfigFromUi() {
+        const cfg = radioAdmin.config || {};
+        const radioMode = getRadioModeFromUi();
+        const radioModel = (document.getElementById('radioModel')?.value || cfg.radioModel || 'generic').toString();
+        const radioChannelPlan = (document.getElementById('radioChannelPlan')?.value || cfg.radioChannelPlan || 'custom').toString();
+        const activeChannelId = (document.getElementById('radioActiveChannel')?.value || cfg.activeChannelId || '').toString();
+        const vadThreshold = Number((radioMode === 'automatic'
+          ? document.getElementById('radioAutoVadThreshold')?.value
+          : document.getElementById('radioVadThreshold')?.value));
+        const hangoverMs = Number(document.getElementById('radioHangoverMs')?.value);
+        const squelch = Number(document.getElementById('radioSquelch')?.value);
+        const squelchDelay = Number(document.getElementById('radioSquelchDelay')?.value);
+
+        const channels = [];
+        document.querySelectorAll('#radioChannelsList [data-channel-id]').forEach(row => {
+          const id = (row.getAttribute('data-channel-id') || '').toString();
+          const label = (row.querySelector('input[data-field="label"]')?.value || '').toString().trim();
+          const freq = (row.querySelector('input[data-field="freq"]')?.value || '').toString().trim();
+          const ppm = Number(row.querySelector('input[data-field="ppm"]')?.value);
+          const gain = Number(row.querySelector('input[data-field="gain"]')?.value);
+          if (!freq) return;
+          channels.push({
+            id,
+            label: label || id,
+            freq,
+            ppm: Number.isFinite(ppm) ? ppm : 0,
+            gain: Number.isFinite(gain) ? gain : 0,
+          });
+        });
+
+        return {
+          channels,
+          activeChannelId,
+          radioMode,
+          radioModel,
+          radioChannelPlan,
+          vadThreshold: Number.isFinite(vadThreshold) ? vadThreshold : (cfg.vadThreshold ?? 0.04),
+          hangoverMs: Number.isFinite(hangoverMs) ? hangoverMs : (cfg.hangoverMs ?? 600),
+          squelch: Number.isFinite(squelch) ? squelch : (cfg.squelch ?? 0),
+          squelchDelay: Number.isFinite(squelchDelay) ? squelchDelay : (cfg.squelchDelay ?? 1),
+        };
+      }
+
+      function radioScheduleHotSave() {
+        window.clearTimeout(radioAdmin.saveTimer);
+        radioAdmin.saveTimer = window.setTimeout(() => {
+          // Live-apply to draft (does not persist unless user clicks Save).
+          saveRadioConfig({ restart: false, quiet: true, commit: false });
+        }, 700);
+      }
+
+      async function saveRadioConfig({ restart = false, quiet = false, commit = true } = {}) {
+        try {
+          const patch = readRadioConfigFromUi();
+          const resp = await fetch('/api/radio/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ ...patch, restart, commit }),
+          });
+
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error(data?.error || `Failed to save (HTTP ${resp.status})`);
+          radioAdmin.config = data.config || radioAdmin.config;
+          radioAdmin.draft = !!data.draft;
+          renderRadioConfig();
+          if (!quiet) showToast(restart ? 'Radio saved + restarted' : (commit ? 'Radio saved' : 'Live applied (not saved)'));
+        } catch (e) {
+          if (!quiet) showToast(e?.message || 'Failed to save radio config', 'error');
+        }
+      }
+
+      function discardRadioDraftBestEffort() {
+        // Best effort: revert back to saved config if the user leaves without saving.
+        try {
+          const body = JSON.stringify({ discardDraft: true });
+          if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/radio/config', new Blob([body], { type: 'application/json' }));
+            return;
+          }
+        } catch (_) {}
+      }
+
+      function renderRadioConfig() {
+        const cfg = radioAdmin.config;
+        if (!cfg) return;
+
+        const modeSel = document.getElementById('radioMode');
+        if (modeSel) modeSel.value = (cfg.radioMode === 'automatic' ? 'automatic' : 'manual');
+        const modelSel = document.getElementById('radioModel');
+        if (modelSel) modelSel.value = (cfg.radioModel || 'generic');
+        const planSel = document.getElementById('radioChannelPlan');
+        if (planSel) planSel.value = (cfg.radioChannelPlan || 'custom');
+        applyRadioModeUi();
+
+        const activeSel = document.getElementById('radioActiveChannel');
+        if (activeSel) {
+          activeSel.innerHTML = '';
+          (cfg.channels || []).forEach(ch => {
+            const opt = document.createElement('option');
+            opt.value = ch.id;
+            opt.textContent = `${ch.label || ch.id} (${ch.freq || ''})`;
+            activeSel.appendChild(opt);
+          });
+          activeSel.value = cfg.activeChannelId || (cfg.channels?.[0]?.id || '');
+        }
+
+        const vadEl = document.getElementById('radioVadThreshold');
+        if (vadEl) vadEl.value = String(cfg.vadThreshold ?? '');
+        const vadAutoEl = document.getElementById('radioAutoVadThreshold');
+        if (vadAutoEl) vadAutoEl.value = String(cfg.vadThreshold ?? '');
+        const hangEl = document.getElementById('radioHangoverMs');
+        if (hangEl) hangEl.value = String(cfg.hangoverMs ?? '');
+
+        const sqEl = document.getElementById('radioSquelch');
+        if (sqEl) sqEl.value = String(cfg.squelch ?? '');
+        const sqdEl = document.getElementById('radioSquelchDelay');
+        if (sqdEl) sqdEl.value = String(cfg.squelchDelay ?? '');
+
+        const list = document.getElementById('radioChannelsList');
+        if (list) {
+          list.innerHTML = '';
+          (cfg.channels || []).forEach((ch) => {
+            const row = document.createElement('div');
+            row.className = 'settings-item radio-channel-row';
+            row.setAttribute('data-channel-id', ch.id);
+
+            const idSpan = document.createElement('span');
+            idSpan.className = 'radio-channel-id';
+            idSpan.textContent = ch.id;
+            idSpan.title = 'Internal channel ID (used for saving)';
+            row.appendChild(idSpan);
+
+            const label = document.createElement('input');
+            label.type = 'text';
+            label.value = ch.label || '';
+            label.placeholder = 'Label';
+            label.setAttribute('aria-label', `Channel ${ch.id} label`);
+            label.title = 'Friendly name shown in the Active Channel dropdown';
+            label.setAttribute('data-field', 'label');
+            label.addEventListener('input', radioScheduleHotSave);
+            row.appendChild(label);
+
+            const freq = document.createElement('input');
+            freq.type = 'text';
+            freq.value = ch.freq || '';
+            freq.placeholder = 'Freq (e.g., 446.01875M)';
+            freq.setAttribute('aria-label', `Channel ${ch.id} frequency`);
+            freq.setAttribute('list', 'radioFreqList');
+            freq.title = 'Receive frequency in MHz (end with “M”), e.g. 446.01875M';
+            freq.setAttribute('data-field', 'freq');
+            freq.addEventListener('input', radioScheduleHotSave);
+            row.appendChild(freq);
+
+            const ppm = document.createElement('input');
+            ppm.type = 'number';
+            ppm.step = '1';
+            ppm.value = String(ch.ppm ?? 0);
+            ppm.placeholder = 'Drift (PPM)';
+            ppm.setAttribute('aria-label', `Channel ${ch.id} drift PPM`);
+            ppm.title = 'Frequency correction in PPM (use if tuning is slightly off)';
+            ppm.setAttribute('data-field', 'ppm');
+            ppm.addEventListener('input', radioScheduleHotSave);
+            row.appendChild(ppm);
+
+            const gain = document.createElement('input');
+            gain.type = 'number';
+            gain.step = '1';
+            gain.value = String(ch.gain ?? 0);
+            gain.placeholder = 'Gain';
+            gain.setAttribute('aria-label', `Channel ${ch.id} gain`);
+            gain.title = 'Amplification applied to the received audio (start low, increase if quiet)';
+            gain.setAttribute('data-field', 'gain');
+            gain.addEventListener('input', radioScheduleHotSave);
+            row.appendChild(gain);
+
+            const btn = document.createElement('button');
+            btn.className = 'btn-remove';
+            btn.textContent = 'Remove';
+            btn.setAttribute('aria-label', `Remove channel ${ch.id}`);
+            btn.addEventListener('click', () => {
+              const next = (radioAdmin.config?.channels || []).filter(c => c.id !== ch.id);
+              if (next.length === 0) {
+                showToast('At least one channel is required', 'error');
+                return;
+              }
+              const activeId = radioAdmin.config?.activeChannelId;
+              radioAdmin.config = {
+                ...(radioAdmin.config || {}),
+                channels: next,
+                activeChannelId: activeId === ch.id ? next[0].id : activeId,
+              };
+              renderRadioConfig();
+              radioScheduleHotSave();
+            });
+            row.appendChild(btn);
+
+            list.appendChild(row);
+          });
+        }
+      }
+
+      async function loadRadioTab() {
+        try {
+          setRadioMeta('Loading radio config…');
+          const resp = await fetch('/api/radio/config', { credentials: 'include' });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error(data?.error || `Failed to load radio config (HTTP ${resp.status})`);
+          radioAdmin.config = data.config || null;
+          radioAdmin.privileged = !!data.privileged;
+          radioAdmin.draft = !!data.draft;
+
+          setRadioMeta(radioAdmin.draft
+            ? 'Live changes are active (NOT saved). Click Save to keep them.'
+            : 'Hot config applies automatically (no restart needed for channel changes).');
+          renderRadioConfig();
+          await refreshRadioServiceStatus();
+        } catch (e) {
+          setRadioMeta(e?.message || 'Failed to load radio config');
+        }
+      }
+
+      function setRadioServiceStatusText({ radio, transcriber } = {}) {
+        const capEl = document.getElementById('radioCaptureStatus');
+        const trEl = document.getElementById('radioTranscriberStatus');
+        if (capEl) {
+          const s = radio?.status || 'unknown';
+          const pid = radio?.pid ? ` (pid ${radio.pid})` : '';
+          capEl.textContent = `Status: ${s}${pid}`;
+        }
+        if (trEl) {
+          const s = transcriber?.status || 'unknown';
+          const pid = transcriber?.pid ? ` (pid ${transcriber.pid})` : '';
+          trEl.textContent = `Status: ${s}${pid}`;
+        }
+      }
+
+      async function refreshRadioServiceStatus() {
+        try {
+          const svc = await fetch('/api/radio/service', { credentials: 'include' });
+          const svcData = await svc.json().catch(() => ({}));
+          if (!svc.ok || !svcData.ok) return;
+          setRadioServiceStatusText({ radio: svcData.radio, transcriber: svcData.transcriber });
+        } catch (_) {}
+      }
+
+      async function radioServiceAction(path) {
+        try {
+          const resp = await fetch(path, { method: 'POST', credentials: 'include' });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error(data?.error || `Service action failed (HTTP ${resp.status})`);
+          setRadioServiceStatusText({ radio: data.radio, transcriber: data.transcriber });
+          showToast('Service updated');
+        } catch (e) {
+          showToast(e?.message || 'Service action failed', 'error');
+        }
+      }
+
+      // --- Spectrum / Waterfall (WebSocket) ---
+      const radioSpectrum = {
+        ws: null,
+        lastFrame: null,
+        waterfallReady: false,
+        lastStatusWasError: false,
+        lastFftAt: 0,
+      };
+
+      function formatBandLabel(plan) {
+        const p = (plan || '').toString();
+        if (p === 'pmr446-16') return 'PMR446 (16ch)';
+        if (p) return p;
+        return '—';
+      }
+
+      function formatModelLabel(model) {
+        const m = (model || '').toString();
+        if (m === 'motorola-clp446e') return 'Motorola CLP446e';
+        if (m) return m;
+        return '—';
+      }
+
+      function updateTuneStatusFrom(cfg, live) {
+        const el = document.getElementById('radioTuneStatus');
+        if (!el) return;
+
+        const freq = (live?.freq || cfg?.freq || '').toString() || '—';
+        const channel = (live?.channelLabel || '').toString().trim() || (() => {
+          const activeId = cfg?.activeChannelId || cfg?.channels?.[0]?.id;
+          const ch = (cfg?.channels || []).find(c => c.id === activeId) || (cfg?.channels || [])[0] || null;
+          return (ch?.label || '').toString().trim();
+        })();
+
+        const band = formatBandLabel(cfg?.radioChannelPlan);
+        const model = formatModelLabel(cfg?.radioModel);
+        const parts = [`${freq}${channel ? ` (${channel})` : ''}`, `Band: ${band}`, `Model: ${model}`];
+        el.textContent = `Tuned: ${parts.join(' • ')}`;
+      }
+
+      async function refreshRadioLiveOnce() {
+        try {
+          const resp = await fetch('/api/radio/live', { credentials: 'include', cache: 'no-store' });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data?.ok) {
+            updateTuneStatusFrom(radioAdmin.config || null, null);
+            return;
+          }
+          updateTuneStatusFrom(radioAdmin.config || null, data.live || null);
+        } catch (_) {
+          updateTuneStatusFrom(radioAdmin.config || null, null);
+        }
+      }
+
+      function parseFreqToHz(text) {
+        const s = (text || '').toString().trim();
+        const m = s.match(/([0-9.]+)\s*M/i);
+        if (m) return Math.round(parseFloat(m[1]) * 1e6);
+        const n = Number(s);
+        if (!Number.isFinite(n)) return null;
+        return n < 10000 ? Math.round(n * 1e6) : Math.round(n);
+      }
+
+      function getActiveChannelCenterHz() {
+        const cfg = radioAdmin.config || {};
+        const activeId = cfg.activeChannelId || cfg.channels?.[0]?.id;
+        const ch = (cfg.channels || []).find(c => c.id === activeId) || (cfg.channels || [])[0] || null;
+        const hz = parseFreqToHz(ch?.freq || cfg.freq);
+        return hz || null;
+      }
+
+      function dbmToColor(dbm) {
+        const v = Number(dbm);
+        // Map ~[-120..-30] dBm to [0..1]
+        const t = Math.max(0, Math.min(1, (v + 120) / 90));
+        // Simple blue->cyan->yellow->white gradient
+        const r = Math.round(255 * Math.pow(t, 1.7));
+        const g = Math.round(255 * Math.pow(t, 1.2));
+        const b = Math.round(255 * Math.pow(1 - t, 0.4));
+        return [r, g, b, 255];
+      }
+
+      function drawSpectrumFrame(frame) {
+        const canvas = document.getElementById('radioSpectrumCanvas');
+        const meta = document.getElementById('radioSpectrumMeta');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const dbm = Array.isArray(frame?.dbm) ? frame.dbm : [];
+        if (!dbm.length) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#0b0b0b';
+        ctx.fillRect(0, 0, w, h);
+
+        const minDbm = -120;
+        const maxDbm = -30;
+
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 6; i++) {
+          const y = Math.round((h * i) / 6);
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#00d1ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < dbm.length; i++) {
+          const v = Number(dbm[i]);
+          const t = (Math.max(minDbm, Math.min(maxDbm, v)) - minDbm) / (maxDbm - minDbm);
+          const x = (i / (dbm.length - 1)) * (w - 1);
+          const y = h - 1 - t * (h - 1);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Channel marker + 12.5 kHz highlight
+        const center = getActiveChannelCenterHz();
+        const lowHz = Number(frame.lowHz);
+        const highHz = Number(frame.highHz);
+        if (Number.isFinite(center) && Number.isFinite(lowHz) && Number.isFinite(highHz) && highHz > lowHz) {
+          const toX = (hz) => ((hz - lowHz) / (highHz - lowHz)) * w;
+          const half = 12500 / 2;
+          const x0 = Math.max(0, Math.min(w, toX(center - half)));
+          const x1 = Math.max(0, Math.min(w, toX(center + half)));
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+          ctx.fillRect(Math.min(x0, x1), 0, Math.abs(x1 - x0), h);
+
+          const xc = Math.max(0, Math.min(w, toX(center)));
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(xc, 0);
+          ctx.lineTo(xc, h);
+          ctx.stroke();
+        }
+
+        if (meta) {
+          const step = Number(frame.stepHz);
+          const ppm = frame.ppm ?? '—';
+          const gain = frame.gain ?? '—';
+          const tuned = (frame?.freq || '').toString().trim();
+          const ch = (frame?.channelLabel || '').toString().trim();
+          const tunedLabel = tuned ? `${tuned}${ch ? ` (${ch})` : ''}` : '';
+          meta.textContent = `Bins: ${dbm.length} • Step: ${Number.isFinite(step) ? step + ' Hz' : '—'} • PPM: ${ppm} • Gain: ${gain}${tunedLabel ? ` • Tuned: ${tunedLabel}` : ''}`;
+        }
+      }
+
+      function drawWaterfallRow(frame) {
+        const canvas = document.getElementById('radioWaterfallCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const dbm = Array.isArray(frame?.dbm) ? frame.dbm : [];
+        if (!dbm.length) return;
+
+        const w = canvas.width;
+        const h = canvas.height;
+
+        // Scroll up 1 row
+        const img = ctx.getImageData(0, 0, w, h - 1);
+        ctx.putImageData(img, 0, 0);
+
+        // Draw new row at bottom
+        const row = ctx.createImageData(w, 1);
+        for (let x = 0; x < w; x++) {
+          const idx = Math.floor((x / (w - 1)) * (dbm.length - 1));
+          const c = dbmToColor(dbm[idx]);
+          row.data[x * 4 + 0] = c[0];
+          row.data[x * 4 + 1] = c[1];
+          row.data[x * 4 + 2] = c[2];
+          row.data[x * 4 + 3] = 255;
+        }
+        ctx.putImageData(row, 0, h - 1);
+      }
+
+      function radioConnectSpectrumWs() {
+        if (radioSpectrum.ws && (radioSpectrum.ws.readyState === 0 || radioSpectrum.ws.readyState === 1)) return;
+        const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const url = `${proto}://${window.location.host}/ws/radio-spectrum`;
+        const ws = new WebSocket(url);
+        radioSpectrum.ws = ws;
+
+        ws.onopen = () => {
+          const meta = document.getElementById('radioSpectrumMeta');
+          if (meta) meta.textContent = 'Analyzer connected. Waiting for data…';
+        };
+
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(String(ev.data || ''));
+            if (msg.type === 'hello') return;
+            if (msg.type === 'status') {
+              const meta = document.getElementById('radioSpectrumMeta');
+              if (meta) {
+                if (msg.ok === false) {
+                  radioSpectrum.lastStatusWasError = true;
+                  meta.textContent = `Analyzer error: ${(msg.message || msg.error || msg.state || 'unknown')}`;
+                } else {
+                  // Don't overwrite a visible error with noisy intermediate states.
+                  if (radioSpectrum.lastStatusWasError && (msg.state === 'restarting' || msg.state === 'starting')) {
+                    return;
+                  }
+                  radioSpectrum.lastStatusWasError = false;
+                  meta.textContent = `Analyzer: ${msg.state || 'unknown'}`;
+                }
+              }
+              return;
+            }
+            if (msg.type === 'fft') {
+              radioSpectrum.lastFrame = msg;
+              radioSpectrum.lastFftAt = Date.now();
+              radioSpectrum.lastStatusWasError = false;
+              drawSpectrumFrame(msg);
+              drawWaterfallRow(msg);
+            }
+          } catch (_) {}
+        };
+
+        ws.onclose = () => {
+          const meta = document.getElementById('radioSpectrumMeta');
+          if (meta) meta.textContent = 'Analyzer disconnected.';
+          setTimeout(radioConnectSpectrumWs, 1000);
+        };
+      }
+
+      function startRadioAnalyzerWatchdog() {
+        // Close/reconnect if frames stall (common during hot retunes).
+        setInterval(() => {
+          const ws = radioSpectrum.ws;
+          if (!ws) {
+            radioConnectSpectrumWs();
+            return;
+          }
+          const now = Date.now();
+          const last = radioSpectrum.lastFftAt || 0;
+          if (ws.readyState === 1 && last && (now - last) > 4000) {
+            const meta = document.getElementById('radioSpectrumMeta');
+            if (meta) meta.textContent = 'Analyzer stalled. Reconnecting…';
+            try { ws.close(); } catch (_) {}
+          }
+          if (ws.readyState === 3) {
+            radioConnectSpectrumWs();
+          }
+        }, 1500);
+      }
+
+      function initRadioTab() {
+        if (radioAdmin.initialized) return;
+        radioAdmin.initialized = true;
+
+        syncRadioFreqDatalist();
+
+        const helpBtn = document.getElementById('radioHelpBtn');
+        const reloadBtn = document.getElementById('radioReloadBtn');
+        const saveBtn = document.getElementById('radioSaveBtn');
+        const saveRestartBtn = document.getElementById('radioSaveRestartBtn');
+        const modeSel = document.getElementById('radioMode');
+        const modelSel = document.getElementById('radioModel');
+        const planSel = document.getElementById('radioChannelPlan');
+        const applyPresetBtn = document.getElementById('radioApplyPresetBtn');
+        const applyAutoBtn = document.getElementById('radioApplyAutoBtn');
+        const autoVadEl = document.getElementById('radioAutoVadThreshold');
+        const autoGainEl = document.getElementById('radioAutoGain');
+        const autoPpmEl = document.getElementById('radioAutoPpm');
+        const autoDriftScopeEl = document.getElementById('radioAutoDriftScope');
+        const addBtn = document.getElementById('radioAddChannelBtn');
+        const activeSel = document.getElementById('radioActiveChannel');
+        const vadEl = document.getElementById('radioVadThreshold');
+        const hangEl = document.getElementById('radioHangoverMs');
+        const sqEl = document.getElementById('radioSquelch');
+        const sqdEl = document.getElementById('radioSquelchDelay');
+        const listenBtn = document.getElementById('radioListenBtn');
+        const stopBtn = document.getElementById('radioStopListenBtn');
+
+        const captureStartBtn = document.getElementById('radioCaptureStartBtn');
+        const captureStopBtn = document.getElementById('radioCaptureStopBtn');
+        const transStartBtn = document.getElementById('radioTranscriberStartBtn');
+        const transStopBtn = document.getElementById('radioTranscriberStopBtn');
+
+        if (helpBtn) helpBtn.classList.add('btn-circle');
+        if (helpBtn) helpBtn.addEventListener('click', () => {
+          alert(
+            'Radio Admin\n\n' +
+            '- Reload: re-fetch config from server\n' +
+            '- Save (Hot Apply): saves config; channel changes apply automatically\n' +
+            '- Save + Restart: saves config and restarts radio services (rarely needed)\n\n' +
+            'Modes:\n' +
+            '- Automatic: pick model + channel plan, then apply gain/drift/VAD quickly\n' +
+            '- Manual: edit channels one-by-one (freq, drift PPM, gain)'
+          );
+        });
+
+        if (reloadBtn) reloadBtn.addEventListener('click', loadRadioTab);
+
+        // Keep the tuned freq/band display fresh (supports live edits).
+        refreshRadioLiveOnce();
+        setInterval(refreshRadioLiveOnce, 1250);
+
+        // Keep analyzer connection healthy.
+        radioConnectSpectrumWs();
+        startRadioAnalyzerWatchdog();
+        if (saveBtn) saveBtn.addEventListener('click', () => saveRadioConfig({ restart: false, commit: true }));
+        if (saveRestartBtn) saveRestartBtn.addEventListener('click', () => saveRadioConfig({ restart: true, commit: true }));
+
+        if (modeSel) modeSel.addEventListener('change', () => {
+          if (!radioAdmin.config) return;
+          radioAdmin.config = { ...(radioAdmin.config || {}), radioMode: getRadioModeFromUi() };
+          applyRadioModeUi();
+          radioScheduleHotSave();
+        });
+        if (modelSel) modelSel.addEventListener('change', () => {
+          if (!radioAdmin.config) return;
+          radioAdmin.config = { ...(radioAdmin.config || {}), radioModel: (modelSel.value || 'generic').toString() };
+          radioScheduleHotSave();
+        });
+        if (planSel) planSel.addEventListener('change', () => {
+          if (!radioAdmin.config) return;
+          radioAdmin.config = { ...(radioAdmin.config || {}), radioChannelPlan: (planSel.value || 'custom').toString() };
+          radioScheduleHotSave();
+        });
+        if (applyPresetBtn) applyPresetBtn.addEventListener('click', () => {
+          applyPresetToConfig();
+        });
+        if (applyAutoBtn) applyAutoBtn.addEventListener('click', () => {
+          // Ensure the chosen plan is applied first, then tuning.
+          applyPresetToConfig({
+            gain: Number.isFinite(Number(autoGainEl?.value)) ? Number(autoGainEl.value) : null,
+            ppm: Number.isFinite(Number(autoPpmEl?.value)) ? Number(autoPpmEl.value) : null,
+            setVadThreshold: Number.isFinite(Number(autoVadEl?.value)) ? Number(autoVadEl.value) : null,
+          });
+          applyAutoTuningToChannels();
+        });
+        if (autoVadEl) autoVadEl.addEventListener('input', () => applyAutoTuningToChannels());
+        if (autoGainEl) autoGainEl.addEventListener('input', () => applyAutoTuningToChannels());
+        if (autoPpmEl) autoPpmEl.addEventListener('input', () => applyAutoTuningToChannels());
+        if (autoDriftScopeEl) autoDriftScopeEl.addEventListener('change', () => applyAutoTuningToChannels());
+
+        if (activeSel) activeSel.addEventListener('change', () => {
+          radioScheduleHotSave();
+        });
+        if (vadEl) vadEl.addEventListener('input', radioScheduleHotSave);
+        if (hangEl) hangEl.addEventListener('input', radioScheduleHotSave);
+        if (sqEl) sqEl.addEventListener('input', radioScheduleHotSave);
+        if (sqdEl) sqdEl.addEventListener('input', radioScheduleHotSave);
+
+        if (addBtn) addBtn.addEventListener('click', () => {
+          const label = (document.getElementById('radioNewChannelLabel')?.value || '').toString().trim();
+          const freq = (document.getElementById('radioNewChannelFreq')?.value || '').toString().trim();
+          if (!freq) {
+            showToast('Frequency is required', 'error');
+            return;
+          }
+          const baseId = radioSanitizeId(label || freq);
+          let id = baseId;
+          const existing = new Set((radioAdmin.config?.channels || []).map(c => c.id));
+          let n = 2;
+          while (existing.has(id)) {
+            id = `${baseId}-${n++}`;
+          }
+          radioAdmin.config = {
+            ...(radioAdmin.config || {}),
+            channels: [
+              ...(radioAdmin.config?.channels || []),
+              { id, label: label || id, freq, ppm: 0, gain: 0 },
+            ]
+          };
+          const labelEl = document.getElementById('radioNewChannelLabel');
+          const freqEl = document.getElementById('radioNewChannelFreq');
+          if (labelEl) labelEl.value = '';
+          if (freqEl) freqEl.value = '';
+          renderRadioConfig();
+          radioScheduleHotSave();
+        });
+
+        if (listenBtn) listenBtn.addEventListener('click', () => radioStartLiveListen());
+        if (stopBtn) stopBtn.addEventListener('click', () => radioStopLiveListen());
+
+        if (captureStartBtn) captureStartBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/start-radio'));
+        if (captureStopBtn) captureStopBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/stop-radio'));
+        if (transStartBtn) transStartBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/start-transcriber'));
+        if (transStopBtn) transStopBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/stop-transcriber'));
+
+        loadRadioTab();
+        radioConnectSpectrumWs();
+      }
+
+      // If user leaves the page without clicking Save, discard the live draft.
+      window.addEventListener('beforeunload', () => {
+        if (radioAdmin?.draft) discardRadioDraftBestEffort();
+      });
+
+      // --- Health ---
+      let healthTimer = null;
+
+      function fmtBytes(bytes) {
+        const n = Number(bytes);
+        if (!Number.isFinite(n) || n < 0) return '—';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let v = n;
+        let i = 0;
+        while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+        return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+      }
+
+      async function loadHealth() {
+        const metaEl = document.getElementById('healthMeta');
+        try {
+          const resp = await fetch('/api/admin/health', { credentials: 'include' });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error(data?.error || `Failed to load health (HTTP ${resp.status})`);
+
+          if (metaEl) metaEl.textContent = `🕒 Updated: ${new Date(data.ts).toLocaleString()} • 🖥️ Host: ${data.os?.hostname || '—'} • ⏱️ Uptime: ${Math.round(data.os?.uptimeSec || 0)}s`;
+
+          const cpuText = document.getElementById('healthCpuText');
+          if (cpuText) {
+            const la = Array.isArray(data.os?.loadavg) ? data.os.loadavg : [];
+            cpuText.textContent = `Cores: ${data.os?.cpuCores || '—'} • Load avg: ${la.map(x => Number(x).toFixed(2)).join(', ') || '—'}`;
+          }
+
+          const memText = document.getElementById('healthMemText');
+          if (memText) {
+            const total = data.os?.totalMemBytes;
+            const free = data.os?.freeMemBytes;
+            const used = (Number.isFinite(total) && Number.isFinite(free)) ? (total - free) : null;
+            memText.textContent = `OS: ${fmtBytes(used)} / ${fmtBytes(total)} • Process RSS: ${fmtBytes(data.process?.rssBytes)}`;
+          }
+
+          const gpuText = document.getElementById('healthGpuText');
+          if (gpuText) {
+            if (!data.gpu?.available) {
+              gpuText.textContent = 'Not available';
+            } else {
+              const g = (data.gpu.gpus || []).map(x => {
+                return `GPU ${x.index}: ${x.name} • ${x.utilGpuPercent}% • ${x.memUsedMiB}/${x.memTotalMiB} MiB • ${x.tempC}C`;
+              });
+              gpuText.textContent = g.join(' | ') || '—';
+            }
+          }
+
+          const usersText = document.getElementById('healthUsersText');
+          if (usersText) {
+            const windowMin = Math.round((data.users?.windowMs || 0) / 60000);
+            usersText.textContent = `${data.users?.activeCount ?? '—'} active (last ${windowMin || 0} min)`;
+          }
+
+          const diskText = document.getElementById('healthDiskText');
+          if (diskText) {
+            if (!data.disk?.available) {
+              diskText.textContent = 'Not available';
+            } else {
+              const used = data.disk?.usedBytes;
+              const total = data.disk?.totalBytes;
+              const pct = Number.isFinite(data.disk?.usePercent) ? `${data.disk.usePercent}%` : '—';
+              diskText.textContent = `${fmtBytes(used)} / ${fmtBytes(total)} used • ${pct} • Mount: ${data.disk?.mount || '—'}`;
+            }
+          }
+
+          const runtimeText = document.getElementById('healthRuntimeText');
+          if (runtimeText) {
+            const node = data.runtime?.versions?.node || data.process?.node || '—';
+            const nodeEnv = data.runtime?.env?.nodeEnv || '—';
+            const port = data.runtime?.env?.port || '—';
+            const plat = [data.os?.platform, data.os?.release, data.os?.arch].filter(Boolean).join(' ');
+            runtimeText.textContent = `Node: ${node} • Env: ${nodeEnv} • Port: ${port} • OS: ${plat || '—'}`;
+          }
+        } catch (e) {
+          if (metaEl) metaEl.textContent = e?.message || 'Failed to load health';
+        }
+      }
+
+      function startHealthPolling() {
+        const btn = document.getElementById('healthRefreshBtn');
+        if (btn && !btn.dataset.bound) {
+          btn.dataset.bound = '1';
+          btn.addEventListener('click', loadHealth);
+        }
+        if (healthTimer) return;
+        loadHealth();
+        healthTimer = window.setInterval(loadHealth, 5000);
+      }
+
+      function stopHealthPolling() {
+        if (!healthTimer) return;
+        window.clearInterval(healthTimer);
+        healthTimer = null;
+      }
 
       async function loadStoreRecoveryConfig() {
         const metaEl = document.getElementById('srConfigMeta');
@@ -1857,6 +3268,6 @@
 		    }
 		  </script>
     <div id="adminToast" class="admin-toast" style="display:none;"></div>
-  <script src="/js/shared-header.js?v=23"></script>
+  <script src="/js/shared-header.js?v=24"></script>
 </body>
 </html>

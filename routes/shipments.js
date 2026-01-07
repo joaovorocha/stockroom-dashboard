@@ -5,6 +5,50 @@ const path = require('path');
 const { getTrackingStatus } = require('../utils/upsApi');
 const dal = require('../utils/dal');
 
+function buildEmployeeIndex() {
+  const roster = dal.readJson(dal.paths.employeesFile, { employees: {} });
+  const index = new Map();
+  const groups = roster?.employees && typeof roster.employees === 'object' ? roster.employees : {};
+  for (const groupKey of Object.keys(groups)) {
+    const list = Array.isArray(groups[groupKey]) ? groups[groupKey] : [];
+    for (const e of list) {
+      const employeeId = (e?.employeeId || '').toString().trim();
+      const name = (e?.name || '').toString().trim();
+      if (!employeeId || !name) continue;
+      index.set(employeeId.toLowerCase(), {
+        name,
+        imageUrl: (e?.imageUrl || '').toString().trim()
+      });
+    }
+  }
+  return index;
+}
+
+function normalizeEmployeeId(raw) {
+  const s = (raw || '').toString().trim();
+  if (!s) return '';
+  return s
+    .replace(/\s+/g, '')
+    .replace(/reference$/i, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+}
+
+function enrichProcessorFields(shipment, employeeIndex) {
+  const next = { ...shipment };
+
+  const rawProcessedById = (next.processedById || '').toString().trim();
+  const key = normalizeEmployeeId(rawProcessedById);
+  const match = key ? employeeIndex.get(key) : null;
+
+  if (match?.name) {
+    next.processedByName = match.name;
+    if (match.imageUrl && !next.processedByImageUrl) next.processedByImageUrl = match.imageUrl;
+  }
+
+  return next;
+}
+
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 }
@@ -295,12 +339,16 @@ router.get('/', async (req, res) => {
   try {
     const shipments = loadShipments();
 
+    const employeeIndex = buildEmployeeIndex();
+
     // Enrich with latest UPS status if trackingNumber exists
     const enriched = await Promise.all(shipments.map(async (s) => {
       const apiStatus = s.trackingNumber ? await getTrackingStatus(s.trackingNumber) : '';
       const statusFromUPS = apiStatus || s.statusFromUPS || '';
       const effectiveStatus = computeEffectiveStatus(s, statusFromUPS);
-      return { ...s, rawStatus: s.status, status: effectiveStatus, statusFromUPS };
+
+      const withProcessor = enrichProcessorFields(s, employeeIndex);
+      return { ...withProcessor, rawStatus: s.status, status: effectiveStatus, statusFromUPS };
     }));
 
     return res.json(enriched);
@@ -415,7 +463,11 @@ router.post('/', async (req, res) => {
       source: 'employee-request'
     };
 
-    const { shipment } = upsertShipment(incoming, 'employee-request');
+    // Ensure the stored name matches the employee roster when processedById is available.
+    const employeeIndex = buildEmployeeIndex();
+    const incomingEnriched = enrichProcessorFields(incoming, employeeIndex);
+
+    const { shipment } = upsertShipment(incomingEnriched, 'employee-request');
     return res.json(shipment);
   } catch (error) {
     console.error('Error creating shipment:', error);
@@ -441,7 +493,12 @@ router.put('/:id', async (req, res) => {
     }
 
     const existing = shipments[index];
-    const next = { ...existing, ...updates };
+    let next = { ...existing, ...updates };
+
+    if (updates.processedById !== undefined || updates.referenceNumber1 !== undefined) {
+      const employeeIndex = buildEmployeeIndex();
+      next = enrichProcessorFields(next, employeeIndex);
+    }
 
     // Normalize phone updates into address.phone as well (only when address is structured)
     if (updates.phone !== undefined && getAddressObject(next)) {
