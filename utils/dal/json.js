@@ -110,6 +110,7 @@ function createJsonDAL({ dataDir }) {
     activityLogFile: path.join(dataDir, 'activity-log.json'),
     userUploadsDir: path.join(dataDir, 'user-uploads'),
     feedbackUploadsDir: path.join(dataDir, 'feedback-uploads'),
+    feedbackFile: path.join(dataDir, 'feedback.json'),
     gameplanDailyDir: path.join(dataDir, 'gameplan-daily'),
     storeMetricsDir: path.join(dataDir, 'store-metrics'),
     productImagesCacheFile: path.join(dataDir, 'product-images-cache.json'),

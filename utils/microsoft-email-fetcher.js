@@ -15,7 +15,9 @@ const path = require('path');
 const https = require('https');
 const AdmZip = require('adm-zip');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const { getDataDir } = require('./paths');
+
+const DATA_DIR = getDataDir();
 const FILES_DIR = path.join(__dirname, '..', 'files');
 const TOKEN_CACHE_FILE = path.join(DATA_DIR, 'ms-token-cache.json');
 

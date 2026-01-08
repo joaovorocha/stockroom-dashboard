@@ -1,26 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
-const path = require('path');
+const dal = require('../utils/dal');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const TIMEOFF_FILE = path.join(DATA_DIR, 'time-off.json');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const TIMEOFF_FILE = dal.paths.timeoffFile;
+const USERS_FILE = dal.paths.usersFile;
 
 function readJsonFile(filePath, defaultValue = {}) {
-  try {
-    if (fs.existsSync(filePath)) {
-      return JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    }
-  } catch (error) {
-    console.error(`Error reading ${filePath}:`, error);
-  }
-  return defaultValue;
+  return dal.readJson(filePath, defaultValue);
 }
 
 function writeJsonFile(filePath, data) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  dal.writeJsonAtomic(filePath, data, { pretty: true });
 }
 
 function getSessionUser(req) {

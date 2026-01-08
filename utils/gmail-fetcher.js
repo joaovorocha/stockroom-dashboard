@@ -3,7 +3,9 @@ const { simpleParser } = require('mailparser');
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const { getDataDir } = require('./paths');
+
+const DATA_DIR = getDataDir();
 const FILES_DIR = path.join(__dirname, '..', 'files');
 const METRICS_DIR = path.join(DATA_DIR, 'store-metrics');
 

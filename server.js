@@ -22,6 +22,7 @@ const radioRoutes = require('./routes/radio');
 const expensesRoutes = require('./routes/expenses');
 const storeRecoveryRoutes = require('./routes/storeRecovery');
 const authMiddleware = require('./middleware/auth');
+const dal = require('./utils/dal');
 const { getUPSScheduler } = require('./utils/ups-scheduler');
 const { markActive } = require('./utils/active-users');
 
@@ -259,12 +260,11 @@ app.use(express.static(path.join(__dirname, 'public'), {
 }));
 
 // Serve closing duties photos (auth required)
-app.use('/closing-duties', authMiddleware, express.static(path.join(__dirname, 'data/closing-duties')));
-
+app.use('/closing-duties', authMiddleware, express.static(dal.paths.closingDutiesDir));
 // Routes - Order matters! More specific routes before generic ones
-app.use('/api/auth', authRoutes);
+app.use('/feedback-uploads', authMiddleware, express.static(dal.paths.feedbackUploadsDir));
 app.use('/api/shipments', authMiddleware, shipmentsRoutes);
-app.use('/api/closing-duties', authMiddleware, closingDutiesRoutes);
+app.use('/user-uploads', authMiddleware, express.static(dal.paths.userUploadsDir));
 app.use('/api/lost-punch', authMiddleware, lostPunchRoutes);
 app.use('/api/gameplan', authMiddleware, gameplanRoutes);
 app.use('/api/timeoff', authMiddleware, timeoffRoutes);
@@ -274,12 +274,6 @@ app.use('/api/awards', authMiddleware, awardsRoutes);
 app.use('/api/radio', authMiddleware, radioRoutes);
 app.use('/api/expenses', authMiddleware, expensesRoutes);
 app.use('/api/store-recovery', authMiddleware, storeRecoveryRoutes);
-
-// Serve feedback uploads (auth required)
-app.use('/feedback-uploads', authMiddleware, express.static(path.join(__dirname, 'data/feedback-uploads')));
-
-// Serve user uploaded avatars (auth required)
-app.use('/user-uploads', authMiddleware, express.static(path.join(__dirname, 'data/user-uploads')));
 
 // Redirect old pages to new ones
 app.get('/login', (req, res) => {
@@ -795,7 +789,7 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`║  🖥️  STOCKROOM DASHBOARD SERVER                          ║`);
   console.log(`╠═══════════════════════════════════════════════════════════╣`);
   console.log(`║  Local:   http://localhost:${PORT}                        ║`);
-  console.log(`║  Network: http://192.168.12.103:${PORT}                   ║`);
+  console.log(`║  Network: http://<server-ip>:${PORT}                      ║`);
   console.log(`║  Press Ctrl+C to stop                                     ║`);
   console.log(`╚═══════════════════════════════════════════════════════════╝\n`);
 });

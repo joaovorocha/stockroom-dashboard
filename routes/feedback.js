@@ -4,15 +4,13 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { compressUploadedImages } = require('../utils/image-compressor');
+const dal = require('../utils/dal');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
-const UPLOADS_DIR = path.join(DATA_DIR, 'feedback-uploads');
+const FEEDBACK_FILE = dal.paths.feedbackFile;
+const UPLOADS_DIR = dal.paths.feedbackUploadsDir;
 
 // Ensure uploads directory exists
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+dal.ensureDir(UPLOADS_DIR);
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -40,9 +38,8 @@ const upload = multer({
 
 function readFeedback() {
   try {
-    if (fs.existsSync(FEEDBACK_FILE)) {
-      return JSON.parse(fs.readFileSync(FEEDBACK_FILE, 'utf8'));
-    }
+    const parsed = dal.readJson(FEEDBACK_FILE, []);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     console.error('Error reading feedback:', error);
   }
@@ -50,7 +47,7 @@ function readFeedback() {
 }
 
 function writeFeedback(feedback) {
-  fs.writeFileSync(FEEDBACK_FILE, JSON.stringify(feedback, null, 2));
+  dal.writeJsonAtomic(FEEDBACK_FILE, feedback, { pretty: true });
 }
 
 // GET /api/feedback - Get all feedback
@@ -129,7 +126,10 @@ router.delete('/:id', (req, res) => {
   const item = feedback[feedbackIndex];
   if (item.images) {
     item.images.forEach(img => {
-      const imgPath = path.join(__dirname, '..', 'data', img);
+      // Images are stored as URLs like `/feedback-uploads/<file>`.
+      // Convert to a filesystem path under the configured data dir.
+      const rel = String(img || '').replace(/^\/+/, '');
+      const imgPath = path.join(dal.paths.dataDir, rel);
       if (fs.existsSync(imgPath)) {
         fs.unlinkSync(imgPath);
       }

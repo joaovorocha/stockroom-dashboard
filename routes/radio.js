@@ -2,17 +2,22 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const dal = require('../utils/dal');
+const { getLogsDir } = require('../utils/paths');
 
 const router = express.Router();
 
-const TRANSCRIPTS_PATH = path.join(__dirname, '..', 'data', 'radio', 'transcripts.jsonl');
-const LAST_ID_PATH = path.join(__dirname, '..', 'data', 'radio', '_last_id.txt');
-const CONFIG_PATH = path.join(__dirname, '..', 'data', 'radio', 'config.json');
-const CONFIG_LIVE_PATH = path.join(__dirname, '..', 'data', 'radio', 'config.live.json');
-const SERVICE_PATH = path.join(__dirname, '..', 'data', 'radio', 'service.json');
-const RADIO_LOG_PATH = path.join(__dirname, '..', 'logs', 'radio.log');
-const TRANSCRIBE_LOG_PATH = path.join(__dirname, '..', 'logs', 'radio-transcriber.log');
-const ANALYZER_LOG_PATH = path.join(__dirname, '..', 'logs', 'radio-analyzer.log');
+const RADIO_DATA_DIR = path.join(dal.paths.dataDir, 'radio');
+const TRANSCRIPTS_PATH = path.join(RADIO_DATA_DIR, 'transcripts.jsonl');
+const LAST_ID_PATH = path.join(RADIO_DATA_DIR, '_last_id.txt');
+const CONFIG_PATH = path.join(RADIO_DATA_DIR, 'config.json');
+const CONFIG_LIVE_PATH = path.join(RADIO_DATA_DIR, 'config.live.json');
+const SERVICE_PATH = path.join(RADIO_DATA_DIR, 'service.json');
+
+const LOGS_DIR = getLogsDir();
+const RADIO_LOG_PATH = path.join(LOGS_DIR, 'radio.log');
+const TRANSCRIBE_LOG_PATH = path.join(LOGS_DIR, 'radio-transcriber.log');
+const ANALYZER_LOG_PATH = path.join(LOGS_DIR, 'radio-analyzer.log');
 
 function safeInt(value, fallback = 0) {
   const n = Number.parseInt(String(value ?? ''), 10);
@@ -66,6 +71,16 @@ function loadTranscripts({ afterId = 0, limit = 200 }) {
       const obj = JSON.parse(lines[i]);
       if (!obj || typeof obj !== 'object') continue;
       if (safeInt(obj.id, 0) <= afterId) continue;
+      // Backfill audio clip URL when older transcript entries lack it.
+      if (!obj.clipUrl) {
+        const id = safeInt(obj.id, 0);
+        if (id > 0) {
+          const guess = path.join(RADIO_DATA_DIR, 'clips', `${id}.wav`);
+          if (fs.existsSync(guess)) {
+            obj.clipUrl = `/api/radio/clips/${id}.wav`;
+          }
+        }
+      }
       items.push(obj);
     } catch {
       // ignore bad line
@@ -195,6 +210,14 @@ function loadConfigFrom(filePath) {
 
 function loadSavedConfig() {
   return loadConfigFrom(CONFIG_PATH) || normalizeConfig(null);
+}
+
+function ensureSavedConfigFile() {
+  // Service start/stop actions should not implicitly commit draft config.
+  // We only ensure the saved config file exists so PM2 processes have a stable --config path.
+  if (fs.existsSync(CONFIG_PATH)) return;
+  const cfg = loadSavedConfig();
+  saveConfigTo(CONFIG_PATH, cfg);
 }
 
 function loadEffectiveConfig() {
@@ -378,7 +401,7 @@ router.get('/status', (req, res) => {
 });
 
 router.get('/live', (req, res) => {
-  const livePath = path.join(__dirname, '..', 'data', 'radio', 'live.json');
+  const livePath = path.join(RADIO_DATA_DIR, 'live.json');
   if (!fs.existsSync(livePath)) return res.json({ ok: false, exists: false });
   try {
     const obj = JSON.parse(fs.readFileSync(livePath, 'utf8'));
@@ -390,7 +413,7 @@ router.get('/live', (req, res) => {
 
 // Near-real-time listen buffer (rolling WAV)
 router.get('/live-audio', (req, res) => {
-  const wavPath = path.join(__dirname, '..', 'data', 'radio', 'live-audio.wav');
+  const wavPath = path.join(RADIO_DATA_DIR, 'live-audio.wav');
   if (!fs.existsSync(wavPath)) return res.status(404).json({ ok: false, error: 'Live audio not available' });
   res.setHeader('Content-Type', 'audio/wav');
   res.setHeader('Cache-Control', 'no-store');
@@ -537,8 +560,7 @@ router.post('/service/start', (req, res) => {
 
     ensureDir(RADIO_LOG_PATH);
     ensureDir(TRANSCRIBE_LOG_PATH);
-    const cfg = loadConfig();
-    saveConfig(cfg);
+    ensureSavedConfigFile();
 
     // Start radio service (RTL-SDR -> live audio + analyzer + segments)
     const radioArgs = buildRadioStartArgs();
@@ -566,8 +588,7 @@ router.post('/service/start-radio', (req, res) => {
   if (!requirePrivileged(req, res)) return;
   (async () => {
     ensureDir(RADIO_LOG_PATH);
-    const cfg = loadSavedConfig();
-    saveConfig(cfg);
+    ensureSavedConfigFile();
 
     // Stop legacy processes that could still hold the dongle.
     try { await execPm2(['stop', 'radio-spectrum']); } catch {}
@@ -589,8 +610,7 @@ router.post('/service/start-capture', (req, res) => {
   if (!requirePrivileged(req, res)) return;
   (async () => {
     ensureDir(RADIO_LOG_PATH);
-    const cfg = loadConfig();
-    saveConfig(cfg);
+    ensureSavedConfigFile();
 
     try { await execPm2(['stop', 'radio-spectrum']); } catch {}
     try { await execPm2(['stop', 'radio-capture']); } catch {}
@@ -639,8 +659,7 @@ router.post('/service/start-transcriber', (req, res) => {
   if (!requirePrivileged(req, res)) return;
   (async () => {
     ensureDir(TRANSCRIBE_LOG_PATH);
-    const cfg = loadConfig();
-    saveConfig(cfg);
+    ensureSavedConfigFile();
 
     const started = await pm2EnsureStarted('radio-transcriber', buildTranscriberStartArgs());
     const procs = await getRadioProc();
@@ -713,7 +732,7 @@ router.get('/clips/:file', (req, res) => {
   if (!safe || safe.includes('..') || !safe.toLowerCase().endsWith('.wav')) {
     return res.status(400).json({ ok: false, error: 'Bad clip filename' });
   }
-  const clipPath = path.join(__dirname, '..', 'data', 'radio', 'clips', safe);
+  const clipPath = path.join(RADIO_DATA_DIR, 'clips', safe);
   if (!fs.existsSync(clipPath)) return res.status(404).json({ ok: false, error: 'Clip not found' });
   res.setHeader('Content-Type', 'audio/wav');
   // Accept range requests (browser seeking)
@@ -737,7 +756,7 @@ router.get('/events', (req, res) => {
 
   let afterId = safeInt(req.query.afterId, 0);
   let lastLiveMtime = 0;
-  const livePath = path.join(__dirname, '..', 'data', 'radio', 'live.json');
+  const livePath = path.join(RADIO_DATA_DIR, 'live.json');
 
   const writeEvent = (eventName, data) => {
     try {

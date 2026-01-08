@@ -87,6 +87,7 @@ Mounted in `server.js`:
 - `app.use('/api/awards', authMiddleware, awardsRoutes)` → `routes/awards.js`
 - `app.use('/api/radio', authMiddleware, radioRoutes)` → `routes/radio.js`
 - `app.use('/api/expenses', authMiddleware, expensesRoutes)` → `routes/expenses.js`
+- `app.use('/api/store-recovery', authMiddleware, storeRecoveryRoutes)` → `routes/storeRecovery.js`
 
 ### `/api/admin` (admin only) — `routes/admin.js`
 - `GET /api/admin/store-config`
@@ -160,6 +161,11 @@ Mounted in `server.js`:
   - `POST /api/expenses/orders/:orderId/notes`
   - `POST /api/expenses/orders/:orderId/attachments`
   - `GET /api/expenses/orders/:orderId/attachments/:attachmentId`
+
+### `/api/store-recovery` — `routes/storeRecovery.js`
+- `GET /api/store-recovery/recent`
+- `GET /api/store-recovery/lookup?epc=...&sku=...&ean=...`
+- `POST /api/store-recovery/scan` (persists scan + broadcasts SSE update)
 
 ### `/api/radio` — `routes/radio.js`
 - `GET /api/radio/status`

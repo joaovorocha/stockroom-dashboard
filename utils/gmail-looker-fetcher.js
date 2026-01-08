@@ -4,7 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const { getDataDir } = require('./paths');
+
+const DATA_DIR = getDataDir();
 const FILES_DIR = path.join(__dirname, '..', 'files');
 const METRICS_DIR = path.join(DATA_DIR, 'store-metrics');
 const GMAIL_IMPORTS_DIR = path.join(FILES_DIR, 'gmail-imports');
@@ -415,7 +417,7 @@ class GmailLookerFetcher {
 
   // Log import results
   logResults(results) {
-    const logDir = path.join(__dirname, '..', 'data', 'import-logs');
+    const logDir = path.join(DATA_DIR, 'import-logs');
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }

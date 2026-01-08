@@ -1,4 +1,5 @@
 const path = require('path');
+const { getDataDir } = require('./paths');
 
 function getStoreId(req) {
   // v1: single-store instance: env var; later can derive from hostname/subdomain.
@@ -9,7 +10,7 @@ function getStoreId(req) {
 }
 
 function getStoreDataDir(storeId) {
-  return path.join(__dirname, '..', 'data', 'stores', storeId);
+  return path.join(getDataDir(), 'stores', storeId);
 }
 
 module.exports = {

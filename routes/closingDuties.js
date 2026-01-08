@@ -3,17 +3,18 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const dal = require('../utils/dal');
+
+const CLOSING_DUTIES_DIR = dal.paths.closingDutiesDir;
+const CLOSING_DUTIES_LOG_FILE = dal.paths.closingDutiesLogFile;
+const EMPLOYEES_FILE = dal.paths.employeesFile;
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const date = req.body.date || new Date().toISOString().split('T')[0];
-    const uploadPath = path.join(__dirname, '../data/closing-duties', date);
-
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath, { recursive: true });
-    }
+    const uploadPath = path.join(CLOSING_DUTIES_DIR, date);
+    dal.ensureDir(uploadPath);
 
     cb(null, uploadPath);
   },
@@ -48,9 +49,7 @@ const upload = multer({
 // GET /api/closing-duties/employees - Get all employees
 router.get('/employees', (req, res) => {
   try {
-    const employeesPath = path.join(__dirname, '../data/employees.json');
-    const employeesData = fs.readFileSync(employeesPath, 'utf8');
-    const employees = JSON.parse(employeesData);
+    const employees = dal.readJson(EMPLOYEES_FILE, {});
 
     return res.json({
       success: true,
@@ -65,9 +64,7 @@ router.get('/employees', (req, res) => {
 // GET /api/closing-duties - Get all closing duties submissions
 router.get('/', (req, res) => {
   try {
-    const logPath = path.join(__dirname, '../data/closing-duties-log.json');
-    const logData = fs.readFileSync(logPath, 'utf8');
-    const submissions = JSON.parse(logData);
+    const submissions = dal.readJson(CLOSING_DUTIES_LOG_FILE, []);
 
     return res.json({
       success: true,
@@ -83,9 +80,7 @@ router.get('/', (req, res) => {
 router.get('/:date', (req, res) => {
   try {
     const { date } = req.params;
-    const logPath = path.join(__dirname, '../data/closing-duties-log.json');
-    const logData = fs.readFileSync(logPath, 'utf8');
-    const submissions = JSON.parse(logData);
+    const submissions = dal.readJson(CLOSING_DUTIES_LOG_FILE, []);
 
     const normalized = dateSubmissionsNormalized(submissions);
     const dateSubmissions = normalized.filter(sub => sub.date === date);
@@ -148,11 +143,9 @@ router.post('/submit', (req, res) => {
       };
 
       // Read existing log
-      const logPath = path.join(__dirname, '../data/closing-duties-log.json');
       let submissions = [];
       try {
-        const logData = fs.readFileSync(logPath, 'utf8');
-        submissions = JSON.parse(logData);
+        submissions = dal.readJson(CLOSING_DUTIES_LOG_FILE, []);
       } catch (e) {
         submissions = [];
       }
@@ -161,7 +154,7 @@ router.post('/submit', (req, res) => {
       submissions.push(submission);
 
       // Write back to log
-      fs.writeFileSync(logPath, JSON.stringify(submissions, null, 2));
+      dal.writeJsonAtomic(CLOSING_DUTIES_LOG_FILE, submissions, { pretty: true });
 
       return res.json({
         success: true,

@@ -10,7 +10,9 @@ const { simpleParser } = require('mailparser');
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const { getDataDir } = require('./paths');
+
+const DATA_DIR = getDataDir();
 const SHIPMENTS_FILE = path.join(DATA_DIR, 'shipments.json');
 
 // Gmail configuration (reuse from gmail-fetcher)

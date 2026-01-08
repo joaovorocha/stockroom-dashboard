@@ -11,8 +11,10 @@ const fs = require('fs');
 const path = require('path');
 const pdfParse = require('pdf-parse');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const FILES_DIR = path.join(__dirname, '..', 'files');
+const { getDataDir, getFilesDir } = require('./paths');
+
+const DATA_DIR = getDataDir();
+const FILES_DIR = getFilesDir();
 const METRICS_DIR = path.join(DATA_DIR, 'store-metrics');
 const EMPLOYEES_FILE = path.join(DATA_DIR, 'employees-v2.json');
 

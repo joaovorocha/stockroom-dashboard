@@ -12,7 +12,9 @@ const { LookerDataProcessor } = require('./looker-data-processor');
 const fs = require('fs');
 const path = require('path');
 
-const LOG_DIR = path.join(__dirname, '..', 'data', 'scheduler-logs');
+const dal = require('./dal');
+
+const LOG_DIR = path.join(dal.paths.dataDir, 'scheduler-logs');
 
 class LookerScheduler {
   constructor() {
@@ -123,7 +125,7 @@ class LookerScheduler {
 
   // Save sync results to JSON file
   saveResults(results) {
-    const resultsDir = path.join(__dirname, '..', 'data', 'sync-results');
+    const resultsDir = path.join(dal.paths.dataDir, 'sync-results');
     if (!fs.existsSync(resultsDir)) {
       fs.mkdirSync(resultsDir, { recursive: true });
     }

@@ -789,7 +789,33 @@
                     <button class="btn btn-outline btn-sm" type="button" id="radioTranscriberStartBtn">Start</button>
                     <button class="btn btn-outline btn-sm" type="button" id="radioTranscriberStopBtn">Stop</button>
                   </div>
-                  <div style="font-size:12px; color:#777; margin-top:8px;">Reads segments and produces transcripts (can be CPU-heavy).</div>
+                  <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px;">
+                    <div class="form-group" style="margin:0;">
+                      <label for="radioAsrModel">ASR Model</label>
+                      <select id="radioAsrModel" aria-label="Transcriber model">
+                        <option value="tiny">tiny (fastest)</option>
+                        <option value="base">base</option>
+                        <option value="small">small</option>
+                        <option value="medium">medium</option>
+                        <option value="large-v3">large-v3 (slowest)</option>
+                      </select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                      <label for="radioAsrDevice">Device</label>
+                      <select id="radioAsrDevice" aria-label="Transcriber device">
+                        <option value="cpu">cpu</option>
+                        <option value="cuda">cuda</option>
+                      </select>
+                    </div>
+                    <div class="form-group" style="margin:0;">
+                      <label for="radioAsrComputeType">Compute</label>
+                      <select id="radioAsrComputeType" aria-label="Transcriber compute type">
+                        <option value="int8">int8</option>
+                        <option value="float16">float16</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style="font-size:12px; color:#777; margin-top:8px;">Reads segments and produces transcripts (can be CPU-heavy). Changes hot-apply; model reloads in the worker.</div>
                 </div>
               </div>
             </div>
@@ -2422,6 +2448,11 @@
         const radioModel = (document.getElementById('radioModel')?.value || cfg.radioModel || 'generic').toString();
         const radioChannelPlan = (document.getElementById('radioChannelPlan')?.value || cfg.radioChannelPlan || 'custom').toString();
         const activeChannelId = (document.getElementById('radioActiveChannel')?.value || cfg.activeChannelId || '').toString();
+
+        // Transcriber (ASR) settings
+        const asrModel = (document.getElementById('radioAsrModel')?.value || cfg.model || 'tiny').toString();
+        const asrDevice = (document.getElementById('radioAsrDevice')?.value || cfg.device || 'cpu').toString();
+        const asrComputeType = (document.getElementById('radioAsrComputeType')?.value || cfg.computeType || 'int8').toString();
         const vadThresholdCfg = Number(cfg.vadThreshold);
         const vadThreshold = Number.isFinite(vadThresholdCfg) ? vadThresholdCfg : 0.03;
         const hangoverMs = Number(document.getElementById('radioHangoverMs')?.value);
@@ -2474,6 +2505,9 @@
           radioMode,
           radioModel,
           radioChannelPlan,
+          model: asrModel,
+          device: asrDevice,
+          computeType: asrComputeType,
           ppm: Number.isFinite(globalPpm) ? globalPpm : (cfg.ppm ?? 0),
           gain: Number.isFinite(globalGain) ? globalGain : (cfg.gain ?? 34),
           vadThreshold: Number.isFinite(vadThreshold) ? vadThreshold : (cfg.vadThreshold ?? 0.04),
@@ -2554,6 +2588,13 @@
         if (modelSel) modelSel.value = (cfg.radioModel || 'generic');
         const planSel = document.getElementById('radioChannelPlan');
         if (planSel) planSel.value = (cfg.radioChannelPlan || 'custom');
+
+        const asrModelEl = document.getElementById('radioAsrModel');
+        const asrDeviceEl = document.getElementById('radioAsrDevice');
+        const asrComputeEl = document.getElementById('radioAsrComputeType');
+        if (asrModelEl) asrModelEl.value = String(cfg.model || 'tiny');
+        if (asrDeviceEl) asrDeviceEl.value = String(cfg.device || 'cpu');
+        if (asrComputeEl) asrComputeEl.value = String(cfg.computeType || 'int8');
         
         const globalPpmEl = document.getElementById('radioGlobalPpm');
         if (globalPpmEl) globalPpmEl.value = String(cfg.ppm ?? 0);
@@ -3337,6 +3378,11 @@
         const planSel = document.getElementById('radioChannelPlan');
         const globalPpmEl = document.getElementById('radioGlobalPpm');
         const globalGainEl = document.getElementById('radioGlobalGain');
+
+        // Transcriber controls
+        const asrModelEl = document.getElementById('radioAsrModel');
+        const asrDeviceEl = document.getElementById('radioAsrDevice');
+        const asrComputeEl = document.getElementById('radioAsrComputeType');
         
         // Compressor controls
         const compEnabledEl = document.getElementById('radioCompressorEnabled');
@@ -3438,6 +3484,22 @@
           if (!radioAdmin.config) return;
           const val = Number(globalGainEl.value);
           radioAdmin.config = { ...(radioAdmin.config || {}), gain: Number.isFinite(val) ? val : 34 };
+          radioScheduleHotSave();
+        });
+
+        if (asrModelEl) asrModelEl.addEventListener('change', () => {
+          if (!radioAdmin.config) return;
+          radioAdmin.config = { ...(radioAdmin.config || {}), model: (asrModelEl.value || 'tiny').toString() };
+          radioScheduleHotSave();
+        });
+        if (asrDeviceEl) asrDeviceEl.addEventListener('change', () => {
+          if (!radioAdmin.config) return;
+          radioAdmin.config = { ...(radioAdmin.config || {}), device: (asrDeviceEl.value || 'cpu').toString() };
+          radioScheduleHotSave();
+        });
+        if (asrComputeEl) asrComputeEl.addEventListener('change', () => {
+          if (!radioAdmin.config) return;
+          radioAdmin.config = { ...(radioAdmin.config || {}), computeType: (asrComputeEl.value || 'int8').toString() };
           radioScheduleHotSave();
         });
         if (applyPresetBtn) applyPresetBtn.addEventListener('click', () => {

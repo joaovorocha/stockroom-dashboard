@@ -1,4 +1,5 @@
 const path = require('path');
+const { getDataDir } = require('../paths');
 const { getStoreDataDir } = require('../store-context');
 const { readJsonFile, writeJsonFile } = require('./fs-json');
 const { createJsonDAL } = require('./json');
@@ -30,7 +31,7 @@ function createStoreDal(storeId) {
 }
 
 // Default DAL (single-store) used by the app's existing routes.
-const defaultDataDir = path.join(__dirname, '..', '..', 'data');
+const defaultDataDir = getDataDir();
 const jsonDal = createJsonDAL({ dataDir: defaultDataDir });
 
 module.exports = {

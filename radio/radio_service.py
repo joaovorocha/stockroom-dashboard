@@ -1196,11 +1196,11 @@ def main() -> int:
                     )
                     start_rtl._last_debug_log = now_debug
 
-                chunk_bytes = out_pcm.tobytes()
-
                 # Broadcast over UDP for web monitor.
+                # This is the *post-processing* audio (compressor + gate), matching what
+                # we write to clips and what the transcriber will hear.
                 try:
-                    udp_sock.sendto(chunk_bytes, udp_addr)
+                    udp_sock.sendto(out_pcm.tobytes(), udp_addr)
                 except Exception:
                     pass
 
@@ -1220,23 +1220,24 @@ def main() -> int:
                 energy = rms_energy(out_pcm)
                 speech = bool(final_open) and (energy >= vad_threshold)
 
-                # VAD segmenting
-                if speech:
+                # Segmenting: cut clips by PTT (carrier gate) on/off.
+                # This produces one clip per push-to-talk transmission (including pauses).
+                if ptt_gate_open:
                     if not in_speech:
                         in_speech = True
-                        hangover_left = hangover_chunks
                         chunks = [out_pcm]
                     else:
                         chunks.append(out_pcm)
-                        hangover_left = hangover_chunks
+
+                    if len(chunks) >= max_chunks:
+                        flush_segment()
+                        chunks = []
+                        in_speech = True
                 else:
                     if in_speech:
-                        hangover_left -= 1
-                        chunks.append(out_pcm)
-                        if hangover_left <= 0 or len(chunks) >= max_chunks:
-                            in_speech = False
-                            flush_segment()
-                            chunks = []
+                        in_speech = False
+                        flush_segment()
+                        chunks = []
 
                 now2 = time.time()
                 if now2 - last_live_write >= 0.25:

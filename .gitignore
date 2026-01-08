@@ -21,6 +21,8 @@ ssl/
 *.crt
 
 # Sensitive data
+data
+data/
 data/users.json
 data/shipments.json
 data/activity-log.json
@@ -48,4 +50,5 @@ logs/
 
 # Uploads
 data/feedback-uploads/
+files
 files/

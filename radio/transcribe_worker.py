@@ -79,6 +79,51 @@ def resample_linear_int16_to_float32(audio_int16: np.ndarray, src_rate: int, dst
     return np.interp(dst_idx, src_idx, x).astype(np.float32)
 
 
+def transcribe_float32_chunked(model, audio_float32: np.ndarray, sample_rate: int, *, chunk_s: float = 20.0, overlap_s: float = 0.5) -> str:
+    if audio_float32 is None:
+        return ""
+    audio_float32 = np.asarray(audio_float32, dtype=np.float32).flatten()
+    if audio_float32.size == 0:
+        return ""
+    if sample_rate <= 0:
+        sample_rate = 16000
+
+    chunk_samples = int(max(1, round(float(chunk_s) * sample_rate)))
+    overlap_samples = int(max(0, round(float(overlap_s) * sample_rate)))
+    if chunk_samples <= 0:
+        chunk_samples = sample_rate * 20
+
+    def run_once(x: np.ndarray) -> str:
+        segments, _info = model.transcribe(x, vad_filter=False, beam_size=1)
+        parts = []
+        for s in segments:
+            try:
+                t = (s.text or "").strip()
+            except Exception:
+                t = ""
+            if t:
+                parts.append(t)
+        return " ".join(parts).strip()
+
+    if audio_float32.size <= chunk_samples:
+        return run_once(audio_float32)
+
+    out_parts = []
+    i = 0
+    n = audio_float32.size
+    step = max(1, chunk_samples - overlap_samples)
+    while i < n:
+        j = min(n, i + chunk_samples)
+        piece = audio_float32[i:j]
+        txt = run_once(piece)
+        if txt:
+            out_parts.append(txt)
+        if j >= n:
+            break
+        i += step
+    return " ".join(out_parts).strip()
+
+
 def iter_jsonl_new(path: Path, after_id: int) -> list[dict]:
     if not path.exists():
         return []
@@ -235,8 +280,11 @@ def main() -> int:
                 start = time.time()
                 if model is None:
                     raise RuntimeError("ASR model not loaded")
-                segments, _info = model.transcribe(audio_float32, vad_filter=False, beam_size=1)
-                text = " ".join([s.text.strip() for s in segments]).strip()
+                # Chunk long clips to avoid a single huge transcribe call that can appear to hang.
+                duration_s = float(audio_float32.size) / float(int(args.whisper_sample_rate) or 16000)
+                if duration_s > 25:
+                    print(f"[radio-transcriber] #{seg_id}: long clip {duration_s:.1f}s, chunking…", flush=True)
+                text = transcribe_float32_chunked(model, audio_float32, int(args.whisper_sample_rate), chunk_s=20.0, overlap_s=0.5)
                 if not text:
                     last_id = seg_id
                     write_last_id(meta_path, last_id)

@@ -29,7 +29,7 @@
     "mailparser": "^3.9.1",
     "multer": "^2.0.2",
     "node-cron": "^3.0.3",
-    "nodemailer": "^6.10.1",
+    "nodemailer": "^7.0.12",
     "pdf-parse": "^1.1.4",
     "sharp": "^0.34.5",
     "ws": "^8.18.3"

@@ -1,59 +1,60 @@
 #!/bin/bash
+set -euo pipefail
 
 # ========================================
 # Deploy Stockroom Dashboard to Server
 # Run this from your LOCAL machine
 # ========================================
 
-# Configuration - UPDATE THESE
-SERVER_USER="victor"           # Change to your server username
-SERVER_IP="10.201.40.178"   # Change to your server IP
-SERVER_PATH="/var/www/stockroom-dashboard"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Configuration (override via env vars)
+SERVER_USER="${SERVER_USER:-suit}"
+SERVER_IP="${SERVER_IP:-10.201.48.17}"
+SERVER_PATH="${SERVER_PATH:-/var/www/stockroom-dashboard}"
+
+TARBALL="${TARBALL_PATH:-/tmp/stockroom-deploy.tar.gz}"
 
 echo "=== Deploying Stockroom Dashboard ==="
-echo "Server: $SERVER_USER@$SERVER_IP"
-echo "Path: $SERVER_PATH"
+echo "Project: $PROJECT_ROOT"
+echo "Server:  $SERVER_USER@$SERVER_IP"
+echo "Path:    $SERVER_PATH"
 echo ""
 
-# Create tarball of the project (excluding node_modules)
 echo "Creating deployment package..."
-tar -czf /tmp/stockroom-deploy.tar.gz \
+tar -czf "$TARBALL" \
     --exclude='node_modules' \
     --exclude='.git' \
     --exclude='*.log' \
     --exclude='ssl' \
-    -C /Users/victor stockroom-dashboard
+    --exclude='.env' \
+    --exclude='data' \
+    --exclude='files' \
+    --exclude='logs' \
+    -C "$PROJECT_ROOT" .
 
-# Upload to server
 echo "Uploading to server..."
-scp /tmp/stockroom-deploy.tar.gz $SERVER_USER@$SERVER_IP:/tmp/
+scp "$TARBALL" "$SERVER_USER@$SERVER_IP:/tmp/"
 
-# Extract and setup on server
 echo "Setting up on server..."
-ssh $SERVER_USER@$SERVER_IP << 'ENDSSH'
-    # Create directory
-    sudo mkdir -p /var/www/stockroom-dashboard
-    sudo chown $USER:$USER /var/www/stockroom-dashboard
-    
-    # Extract files
-    cd /var/www
-    tar -xzf /tmp/stockroom-deploy.tar.gz
-    
-    # Install dependencies
-    cd /var/www/stockroom-dashboard
+ssh "$SERVER_USER@$SERVER_IP" "SERVER_PATH='$SERVER_PATH'" << 'ENDSSH'
+    set -euo pipefail
+
+    sudo mkdir -p "$SERVER_PATH"
+    sudo chown "$USER:$USER" "$SERVER_PATH"
+
+    tar -xzf /tmp/stockroom-deploy.tar.gz -C "$SERVER_PATH"
+
+    cd "$SERVER_PATH"
     npm install --production
-    
-    # Set permissions
-    chmod +x deploy/*.sh
-    
-    echo "Files deployed!"
+
+    chmod +x deploy/*.sh || true
+    echo "Files deployed to $SERVER_PATH"
 ENDSSH
 
 echo ""
 echo "=== Deployment complete! ==="
-echo ""
-echo "Next: SSH to server and run:"
-echo "  cd /var/www/stockroom-dashboard"
-echo "  pm2 start ecosystem.config.json"
-echo "  pm2 save"
-echo "  pm2 startup"
+echo "Next:"
+echo "  ssh $SERVER_USER@$SERVER_IP"
+echo "  cd $SERVER_PATH && pm2 reload ecosystem.config.json"

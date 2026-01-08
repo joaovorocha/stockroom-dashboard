@@ -1,10 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
-const fs = require('fs');
+const dal = require('../utils/dal');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const PUNCH_LOG_FILE = path.join(DATA_DIR, 'lost-punch-log.json');
+const PUNCH_LOG_FILE = dal.paths.lostPunchLogFile;
 
 function canManage(user) {
   return !!(user?.isAdmin || user?.isManager || user?.canManageLostPunch);
@@ -12,10 +10,8 @@ function canManage(user) {
 
 function readPunches() {
   try {
-    if (fs.existsSync(PUNCH_LOG_FILE)) {
-      const parsed = JSON.parse(fs.readFileSync(PUNCH_LOG_FILE, 'utf8'));
-      return Array.isArray(parsed) ? parsed : [];
-    }
+    const parsed = dal.readJson(PUNCH_LOG_FILE, []);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     console.error('Error reading punches:', error);
   }
@@ -23,8 +19,7 @@ function readPunches() {
 }
 
 function writePunches(punches) {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(PUNCH_LOG_FILE, JSON.stringify(punches, null, 2));
+  dal.writeJsonAtomic(PUNCH_LOG_FILE, punches, { pretty: true });
 }
 
 // GET /api/lost-punch - Get all punches
