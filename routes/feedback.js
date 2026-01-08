@@ -3,6 +3,7 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { compressUploadedImages } = require('../utils/image-compressor');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
@@ -26,7 +27,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB for iPhone photos
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (allowedTypes.includes(file.mimetype)) {
@@ -59,7 +60,7 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/feedback - Submit new feedback
-router.post('/', upload.array('images', 5), (req, res) => {
+router.post('/', upload.array('images', 5), compressUploadedImages({ maxWidth: 1920, maxHeight: 1920, quality: 80 }), (req, res) => {
   try {
     const { text, employeeName, employeeId, category } = req.body;
 

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const multer = require('multer');
 const dal = require('../utils/dal');
 const { LookerDataProcessor } = require('../utils/looker-data-processor');
+const { compressUploadedImages } = require('../utils/image-compressor');
 
 const router = express.Router();
 
@@ -343,7 +344,7 @@ const upload = multer({
       cb(null, `${id}_${safe}`);
     }
   }),
-  limits: { fileSize: 10 * 1024 * 1024, files: 5 }
+  limits: { fileSize: 20 * 1024 * 1024, files: 5 } // 20MB for iPhone photos
 });
 
 // GET /api/expenses/config - read-only config for UI (all authed users)
@@ -485,7 +486,7 @@ router.post('/orders/:orderId/notes', (req, res) => {
 });
 
 // POST /api/expenses/orders/:orderId/attachments - upload attachments
-router.post('/orders/:orderId/attachments', upload.array('files', 5), (req, res) => {
+router.post('/orders/:orderId/attachments', upload.array('files', 5), compressUploadedImages({ maxWidth: 1920, maxHeight: 1920, quality: 80 }), (req, res) => {
   const exp = getSavedExpenses();
   if (!exp) return res.status(404).json({ error: 'No expenses data available' });
 

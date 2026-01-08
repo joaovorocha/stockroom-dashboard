@@ -6,6 +6,7 @@ const multer = require('multer');
 const crypto = require('crypto');
 const dal = require('../utils/dal');
 const { sendPasswordResetEmail, getAppBaseUrl } = require('../utils/mailer');
+const { compressUploadedImages } = require('../utils/image-compressor');
 
 const DATA_DIR = dal.paths.dataDir;
 const USERS_FILE = dal.paths.usersFile;
@@ -30,7 +31,7 @@ const avatarStorage = multer.diskStorage({
 
 const avatarUpload = multer({
   storage: avatarStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB for iPhone photos
   fileFilter: (req, file, cb) => {
     const allowed = /jpeg|jpg|png|gif|webp/;
     const extname = allowed.test(path.extname(file.originalname).toLowerCase());
@@ -814,7 +815,7 @@ router.post('/users/:id/photo', (req, res, next) => {
     const message = err?.message || 'Upload failed';
     return res.status(400).json({ error: message });
   });
-}, (req, res) => {
+}, compressUploadedImages({ maxWidth: 800, maxHeight: 800, quality: 85 }), (req, res) => {
   const currentUser = getVerifiedSessionUser(req);
   if (!currentUser) return res.status(401).json({ error: 'Not authenticated' });
   if (!currentUser.isManager && !currentUser.isAdmin) {

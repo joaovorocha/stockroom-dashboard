@@ -66,8 +66,8 @@ function adminOnly(req, res, next) {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // Increased for large iPhone photos
+app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Increased for large iPhone photos
 app.use(cookieParser());
 
 function isRequestSecure(req) {
@@ -608,15 +608,24 @@ let radioSpectrumLastState = '';
 function broadcastRadioPcm(buf) {
   if (!buf || !buf.length) return;
   radioMonitorLastFrameAt = Date.now();
+  const clientCount = radioMonitorClients.size;
+  let sent = 0;
   for (const ws of radioMonitorClients) {
     if (!ws || ws.readyState !== 1) continue;
     // Drop frames for slow clients to avoid backpressure and memory growth.
     if (ws.bufferedAmount > 512 * 1024) continue;
     try {
       ws.send(buf);
+      sent++;
     } catch {
       // ignore
     }
+  }
+  // Log every 5 seconds
+  if (!broadcastRadioPcm._lastLog) broadcastRadioPcm._lastLog = 0;
+  if (Date.now() - broadcastRadioPcm._lastLog > 5000) {
+    console.log(`[radio-monitor] Clients: ${clientCount}, Sent: ${sent}, Buf: ${buf.length} bytes`);
+    broadcastRadioPcm._lastLog = Date.now();
   }
 }
 

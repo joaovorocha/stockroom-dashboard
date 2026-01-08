@@ -98,7 +98,7 @@ function defaultConfig() {
 
     // New: multi-channel support
     channels: [
-      { id: 'default', label: 'Default', freq: '446.01875M', ppm: 0, gain: 0 },
+      { id: 'default', label: 'Default', freq: '446.01875M', ppm: 0, gain: 0, ctcssHz: null, dcsCode: null },
     ],
     activeChannelId: 'default',
 
@@ -129,18 +129,24 @@ function normalizeChannels(channels) {
       const label = String(c?.label || id).trim();
       const freq = String(c?.freq || '').trim();
       if (!freq) return null;
+      const ctcssHzRaw = c?.ctcssHz ?? c?.ctcss ?? null;
+      const ctcssHz = Number.isFinite(Number(ctcssHzRaw)) ? Number(ctcssHzRaw) : null;
+      const dcsCodeRaw = c?.dcsCode ?? c?.dcs ?? null;
+      const dcsCode = (dcsCodeRaw == null || String(dcsCodeRaw).trim() === '') ? null : String(dcsCodeRaw).trim();
       return {
         id,
         label,
         freq,
         ppm: safeInt(c?.ppm, 0),
         gain: safeInt(c?.gain, 0),
+        ctcssHz: ctcssHz && ctcssHz > 0 ? ctcssHz : null,
+        dcsCode,
       };
     })
     .filter(Boolean);
 
   if (normalized.length === 0) {
-    return [{ id: 'default', label: 'Default', freq: '446.01875M', ppm: 0, gain: 0 }];
+    return [{ id: 'default', label: 'Default', freq: '446.01875M', ppm: 0, gain: 0, ctcssHz: null, dcsCode: null }];
   }
   return normalized;
 }
@@ -321,6 +327,12 @@ function buildTranscriberStartArgs() {
     'radio-transcriber',
     '--interpreter',
     'python3',
+    '--restart-delay',
+    '2000',
+    '--exp-backoff-restart-delay',
+    '2000',
+    '--max-memory-restart',
+    '1500M',
     '--output',
     TRANSCRIBE_LOG_PATH,
     '--error',
@@ -554,7 +566,7 @@ router.post('/service/start-radio', (req, res) => {
   if (!requirePrivileged(req, res)) return;
   (async () => {
     ensureDir(RADIO_LOG_PATH);
-    const cfg = loadConfig();
+    const cfg = loadSavedConfig();
     saveConfig(cfg);
 
     // Stop legacy processes that could still hold the dongle.

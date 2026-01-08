@@ -31,6 +31,7 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^6.10.1",
     "pdf-parse": "^1.1.4",
+    "sharp": "^0.34.5",
     "ws": "^8.18.3"
   },
   "overrides": {

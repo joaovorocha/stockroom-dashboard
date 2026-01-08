@@ -135,6 +135,69 @@ def extract_active_channel(cfg: dict) -> tuple[str | None, int, int, str]:
     return (str(freq).strip() if freq else None, int(ppm), int(gain), label)
 
 
+def get_channels(cfg: dict) -> list[dict]:
+    out: list[dict] = []
+    chans = cfg.get("channels") if isinstance(cfg.get("channels"), list) else []
+    for c in chans:
+        if not isinstance(c, dict):
+            continue
+        freq = str(c.get("freq") or "").strip()
+        if not freq:
+            continue
+        out.append(
+            {
+                "id": str(c.get("id") or "").strip() or freq,
+                "label": str(c.get("label") or "").strip(),
+                "freq": freq,
+                "freqHz": parse_freq_to_hz(freq),
+                "ppm": safe_int(c.get("ppm", 0), 0),
+                "gain": safe_int(c.get("gain", 0), 0),
+                "ctcssHz": safe_float(c.get("ctcssHz", c.get("ctcss", 0)) or 0, 0.0),
+                "dcsCode": str(c.get("dcsCode", c.get("dcs", "")) or "").strip(),
+            }
+        )
+    return out
+
+
+def find_channel(cfg: dict, channel_id: str | None) -> dict | None:
+    cid = str(channel_id or "").strip()
+    chans = get_channels(cfg)
+    if not chans:
+        return None
+    if cid:
+        for c in chans:
+            if str(c.get("id")) == cid:
+                return c
+    return chans[0]
+
+
+def goertzel_power(x: np.ndarray, fs_hz: float, f0_hz: float) -> float:
+    # Returns magnitude^2 proxy of tone at f0.
+    if x.size == 0:
+        return 0.0
+    fs = float(fs_hz)
+    f0 = float(f0_hz)
+    if fs <= 0 or f0 <= 0:
+        return 0.0
+    n = int(x.size)
+    k = int(0.5 + (n * f0 / fs))
+    if k <= 0:
+        return 0.0
+    w = 2.0 * math.pi * float(k) / float(n)
+    cw = math.cos(w)
+    coeff = 2.0 * cw
+    s0 = 0.0
+    s1 = 0.0
+    s2 = 0.0
+    # Ensure float32 to keep it fast.
+    xf = x.astype(np.float32)
+    for v in xf:
+        s0 = float(v) + coeff * s1 - s2
+        s2 = s1
+        s1 = s0
+    return float(s2 * s2 + s1 * s1 - coeff * s1 * s2)
+
+
 def pick_sdr_center_hz(cfg: dict, fallback_hz: int) -> int:
     """Pick a stable SDR center frequency.
 
@@ -170,6 +233,45 @@ def rms_energy(x: np.ndarray) -> float:
     # int16 PCM expected
     f = x.astype(np.float32) / 32768.0
     return float(np.sqrt(np.mean(f * f)))
+
+
+def apply_compressor(
+    audio_float: np.ndarray,
+    threshold_db: float = -20.0,
+    ratio: float = 4.0,
+    attack_s: float = 0.005,
+    release_s: float = 0.1,
+    makeup_gain_db: float = 12.0,
+    sample_rate: float = 24_000.0,
+) -> np.ndarray:
+    """Simple feed-forward compressor/limiter with envelope detector."""
+    if audio_float.size == 0:
+        return audio_float
+
+    threshold_lin = 10 ** (threshold_db / 20.0)
+    attack_coef = np.exp(-1.0 / max(sample_rate * max(attack_s, 1e-4), 1.0))
+    release_coef = np.exp(-1.0 / max(sample_rate * max(release_s, 1e-4), 1.0))
+
+    env = 0.0
+    out = np.zeros_like(audio_float, dtype=np.float32)
+    for i, sample in enumerate(audio_float):
+        level = abs(sample)
+        if level > env:
+            env = attack_coef * env + (1 - attack_coef) * level
+        else:
+            env = release_coef * env + (1 - release_coef) * level
+
+        gain = 1.0
+        if env > threshold_lin:
+            # Amount over threshold
+            over = env / max(threshold_lin, 1e-9)
+            compressed = threshold_lin * (over ** (1.0 / max(ratio, 1.0)))
+            gain = compressed / max(env, 1e-9)
+        out[i] = sample * gain
+
+    makeup = 10 ** (makeup_gain_db / 20.0)
+    out *= makeup
+    return np.clip(out, -1.0, 1.0)
 
 
 def make_fir_lowpass(num_taps: int, cutoff_hz: float, fs_hz: float) -> np.ndarray:
@@ -296,6 +398,19 @@ def main() -> int:
     cfg_obj, cfg_path = load_effective_config()
     freq_str, ppm, gain, channel_label = extract_active_channel(cfg_obj)
 
+    channels_cfg = get_channels(cfg_obj)
+    active_channel_id = str(cfg_obj.get("activeChannelId") or "").strip()
+    active_channel = find_channel(cfg_obj, active_channel_id)
+    active_ctcss_hz = float(active_channel.get("ctcssHz") or 0.0) if isinstance(active_channel, dict) else 0.0
+    active_dcs_code = str(active_channel.get("dcsCode") or "").strip() if isinstance(active_channel, dict) else ""
+
+    scan_enabled = str(cfg_obj.get("radioMode") or "").strip() == "automatic"
+    scan_delta_db = safe_float(cfg_obj.get("scanDeltaDb", 8.0), 8.0)
+    scan_hold_s = safe_float(cfg_obj.get("scanHoldS", 1.0), 1.0)
+    scan_selected_id = active_channel_id
+    scan_hold_until = 0.0
+    scan_last_best_db = None
+
     if not freq_str:
         freq_str = "446.01875M"
 
@@ -304,8 +419,14 @@ def main() -> int:
 
     # Keep rtl_sdr settings stable to avoid audible dropouts on live edits.
     # Per-channel ppm/gain are applied in software.
-    rtl_ppm = 0
-    rtl_gain = int(gain)
+    # Read global SDR PPM correction from config
+    rtl_ppm = int(cfg_obj.get("ppm", 0))
+    # Use the max configured gain to keep hardware stable; per-channel gain is in software.
+    try:
+        global_gain = int(cfg_obj.get("gain", gain))
+        rtl_gain = int(max([global_gain] + [int(c.get("gain") or 0) for c in channels_cfg] or [0]))
+    except Exception:
+        rtl_gain = int(gain)
     soft_gain = 1.0
 
     rtl_sdr_path = Path(args.rtl_sdr)
@@ -331,10 +452,22 @@ def main() -> int:
 
     # FM noise squelch (SDR++-like): mute idle hiss, open when carrier/voice present.
     # `squelch` is a noise threshold (0 disables). Lower values open more easily.
-    squelch = safe_float(cfg_obj.get("squelch", 0), 0.0)
+    squelch = max(0.0, min(0.1, safe_float(cfg_obj.get("squelch", 0), 0.0)))
     squelch_delay_s = safe_float(cfg_obj.get("squelchDelay", 1), 1.0)
     squelch_open = bool(float(squelch) <= 0.0)
     squelch_hold_until = 0.0
+    ptt_gate_open = False
+    ptt_hold_until = 0.0
+    noise_floor = 0.0015
+    level_floor = 0.0015
+    gate_state = {"last_signal_time": 0.0, "carrier_db": -100.0, "noise_floor_db": -100.0}  # Track carrier detection
+    
+    # Carrier detection settings (FFT-based squelch)
+    carrier_threshold_db = safe_float(cfg_obj.get("carrierThreshold", 18.0), 18.0)
+    gate_hold_time = safe_float(cfg_obj.get("gateHoldTime", 0.1), 0.1)
+
+    # Smooth gate edges to avoid end-of-PTT clicks/tail noise (seconds)
+    gate_edge_fade_s = 0.008
 
     audio_fs = int(args.audio_sample_rate)
     iq_fs = int(args.iq_sample_rate)
@@ -344,6 +477,13 @@ def main() -> int:
     decim = max(1, int(round(iq_fs / audio_fs)))
     # enforce exact output fs
     audio_fs = int(round(iq_fs / decim))
+
+    # CTCSS/DCS detection helpers (sub-audible filtering)
+    ctcss_lp = FirFilter(make_fir_lowpass(num_taps=161, cutoff_hz=300.0, fs_hz=audio_fs))
+    tone_hold_until = 0.0
+    tone_match = True
+    tone_ratio = 0.0
+    tone_power = 0.0
 
     udp_addr = (str(args.monitor_udp_host), int(args.monitor_udp_port))
     udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -530,8 +670,12 @@ def main() -> int:
     last_cfg_check = 0.0
 
     def maybe_reload_config() -> None:
+        nonlocal cfg_obj, cfg_path
         nonlocal sdr_center_hz, tune_hz, freq_str, ppm, gain, soft_gain, channel_label, vad_threshold, hangover_ms, hangover_chunks, proc
+        nonlocal channels_cfg, active_channel_id, active_ctcss_hz, active_dcs_code
+        nonlocal scan_enabled, scan_delta_db, scan_hold_s
         nonlocal squelch, squelch_delay_s
+        nonlocal carrier_threshold_db, gate_hold_time
         nonlocal last_saved_mtime, last_live_mtime, last_cfg_check
 
         now = time.time()
@@ -556,6 +700,20 @@ def main() -> int:
         cfg2, cfg_path2 = load_effective_config()
         if not isinstance(cfg2, dict):
             return
+
+        # Replace the shared config object so other code paths (e.g. compressor) hot-apply.
+        cfg_obj = cfg2
+        cfg_path = cfg_path2
+
+        channels_cfg = get_channels(cfg2)
+        active_channel_id = str(cfg2.get("activeChannelId") or "").strip()
+        ch = find_channel(cfg2, active_channel_id)
+        active_ctcss_hz = float(ch.get("ctcssHz") or 0.0) if isinstance(ch, dict) else 0.0
+        active_dcs_code = str(ch.get("dcsCode") or "").strip() if isinstance(ch, dict) else ""
+
+        scan_enabled = str(cfg2.get("radioMode") or "").strip() == "automatic"
+        scan_delta_db = safe_float(cfg2.get("scanDeltaDb", scan_delta_db), scan_delta_db)
+        scan_hold_s = safe_float(cfg2.get("scanHoldS", scan_hold_s), scan_hold_s)
         freq2, ppm2, gain2, label2 = extract_active_channel(cfg2)
         vad2 = safe_float(cfg2.get("vadThreshold", vad_threshold), vad_threshold)
         hang2 = safe_int(cfg2.get("hangoverMs", hangover_ms), hangover_ms)
@@ -566,8 +724,12 @@ def main() -> int:
         hangover_ms = int(hang2)
         hangover_chunks = max(1, int(hangover_ms / frame_ms))
 
-        squelch = float(sq2)
+        squelch = max(0.0, min(0.1, float(sq2)))
         squelch_delay_s = max(0.0, float(sqd2))
+        
+        # Carrier detection settings reload
+        carrier_threshold_db = safe_float(cfg2.get("carrierThreshold", carrier_threshold_db), carrier_threshold_db)
+        gate_hold_time = safe_float(cfg2.get("gateHoldTime", gate_hold_time), gate_hold_time)
 
         hz2 = parse_freq_to_hz(freq2) if freq2 else None
         if hz2 is None:
@@ -741,11 +903,77 @@ def main() -> int:
                 block = iq[:nfft]
                 spec = np.fft.fftshift(np.fft.fft(block * win))
                 p = 20.0 * np.log10(np.abs(spec) / nfft + 1e-12)
+
+                # Auto-scan: pick the strongest channel in the plan (Automatic mode).
+                if scan_enabled and channels_cfg:
+                    low_hz = float(int(sdr_center_hz - iq_fs / 2))
+                    step_hz = float(iq_fs) / float(nfft)
+                    noise_floor = float(np.median(p))
+                    best = None
+                    best_db = None
+                    half_bw_hz = 6250.0
+                    half_bins = max(1, int(round(half_bw_hz / step_hz)))
+                    for ch in channels_cfg:
+                        hz = ch.get("freqHz")
+                        if hz is None:
+                            hz = parse_freq_to_hz(str(ch.get("freq") or ""))
+                            ch["freqHz"] = hz
+                        if hz is None:
+                            continue
+                        idx = int(round((float(hz) - low_hz) / step_hz))
+                        i0 = max(0, idx - half_bins)
+                        i1 = min(nfft - 1, idx + half_bins)
+                        if i1 <= i0:
+                            continue
+                        v = float(np.mean(p[i0:i1]))
+                        if best_db is None or v > best_db:
+                            best_db = v
+                            best = ch
+
+                    if best is not None and best_db is not None:
+                        scan_last_best_db = float(best_db)
+                        should_pick = (now >= float(scan_hold_until)) and (float(best_db) >= float(noise_floor + scan_delta_db))
+                        if should_pick:
+                            scan_selected_id = str(best.get("id") or "")
+                            scan_hold_until = now + float(scan_hold_s)
+
+                            # Switch to the best channel without restarting.
+                            try:
+                                hz2 = int(best.get("freqHz") or 0)
+                                if hz2 > 0:
+                                    tune_hz = hz2
+                                    freq_str = str(best.get("freq") or freq_str)
+                                    channel_label = str(best.get("label") or "").strip()
+                                    ppm = safe_int(best.get("ppm", ppm), ppm)
+                                    gain = safe_int(best.get("gain", gain), gain)
+                                    active_ctcss_hz = float(best.get("ctcssHz") or 0.0)
+                                    active_dcs_code = str(best.get("dcsCode") or "").strip()
+                                    if int(rtl_gain) > 0 and int(gain) > 0:
+                                        soft_gain = float(10.0 ** ((float(gain) - float(rtl_gain)) / 20.0))
+                                    else:
+                                        soft_gain = 1.0
+                            except Exception:
+                                pass
                 # Shift to resemble [-120..-30] range used by UI
                 dbm = np.clip(p - 40.0, -140.0, -20.0).astype(np.float32)
                 low_hz = int(sdr_center_hz - iq_fs / 2)
                 high_hz = int(sdr_center_hz + iq_fs / 2)
                 step_hz = float(iq_fs) / float(nfft)
+                
+                # Carrier detection: measure power at tuned frequency vs noise floor
+                try:
+                    tune_idx = int(round((float(tune_hz) - float(low_hz)) / step_hz))
+                    half_bw = max(1, int(round(6250.0 / step_hz)))  # ~6.25kHz half-bandwidth for NFM
+                    i0 = max(0, tune_idx - half_bw)
+                    i1 = min(nfft - 1, tune_idx + half_bw)
+                    if i1 > i0:
+                        carrier_power_db = float(np.max(p[i0:i1]))  # Peak power at channel
+                        noise_floor_db = float(np.median(p))  # Overall noise floor
+                        gate_state["carrier_db"] = carrier_power_db
+                        gate_state["noise_floor_db"] = noise_floor_db
+                except Exception:
+                    pass
+                
                 msg = {
                     "type": "fft",
                     "lowHz": low_hz,
@@ -757,6 +985,12 @@ def main() -> int:
                     "channelLabel": channel_label,
                     "ppm": int(ppm),
                     "gain": int(gain),
+                    "scan": {
+                        "enabled": bool(scan_enabled),
+                        "selectedId": str(scan_selected_id or ""),
+                        "bestDb": float(scan_last_best_db) if scan_last_best_db is not None else None,
+                        "deltaDb": float(scan_delta_db),
+                    },
                     "dbm": dbm.tolist(),
                 }
                 try:
@@ -793,22 +1027,174 @@ def main() -> int:
                 audio_buf = audio_buf[frames_per_chunk:]
 
                 # Noise squelch: use high-frequency proxy (derivative RMS).
+                x = chunk_pcm.astype(np.float32) / 32768.0 if chunk_pcm.size else np.zeros(0, dtype=np.float32)
+                audio_level = float(np.sqrt(np.mean(x * x))) if x.size else 0.0
                 noise = 0.0
-                if float(squelch) > 0.0 and chunk_pcm.size >= 2:
-                    x = chunk_pcm.astype(np.float32) / 32768.0
+                if chunk_pcm.size >= 2:
                     d = x[1:] - x[:-1]
                     noise = float(np.sqrt(np.mean(d * d)))
-                    now_sq = time.time()
-                    if noise <= float(squelch):
-                        squelch_open = True
-                        squelch_hold_until = now_sq + float(squelch_delay_s)
-                    else:
-                        if now_sq >= float(squelch_hold_until):
-                            squelch_open = False
-                else:
-                    squelch_open = True
 
-                out_pcm = chunk_pcm if squelch_open else np.zeros_like(chunk_pcm)
+                # Track adaptive noise/level floors so high gain hiss can be treated as baseline.
+                # Manual override: if manual floors are set, use them instead of adaptive
+                adaptive_mode = bool(cfg_obj.get("adaptiveFloors", True))
+                manual_noise_floor = float(cfg_obj.get("manualNoiseFloor", 0.0))
+                manual_level_floor = float(cfg_obj.get("manualLevelFloor", 0.0))
+                
+                # GOAL: Silence when idle, voice when PTT pressed
+                # Use CARRIER DETECTION from FFT, not audio RMS
+                # Carrier = strong signal at tuned frequency above noise floor
+                
+                carrier_db_val = gate_state.get("carrier_db", -100.0)
+                noise_floor_db_val = gate_state.get("noise_floor_db", -100.0)
+                carrier_snr = carrier_db_val - noise_floor_db_val  # dB above noise floor
+                
+                # Carrier detected if signal is above threshold dB above noise floor (configurable)
+                has_carrier = bool(carrier_snr >= carrier_threshold_db)
+                
+                now_sq = time.time()
+                
+                # Update last signal time when carrier is detected
+                if has_carrier:
+                    gate_state["last_signal_time"] = now_sq
+                
+                # Hold time is configurable
+                time_since_signal = now_sq - gate_state["last_signal_time"]
+
+                voice_trigger = has_carrier
+                level_trigger = has_carrier
+
+                # Privacy squelch (CTCSS/DCS)
+                tone_ratio = 0.0
+                tone_power = 0.0
+                mode = "none"
+                target = None
+                if float(active_ctcss_hz or 0.0) > 0.0:
+                    mode = "ctcss"
+                    target = float(active_ctcss_hz)
+                    tone_match = False  # Start closed; open only when tone detected
+                    try:
+                        # Analyze unmuted chunk.
+                        xf = (chunk_pcm.astype(np.float32) / 32768.0)
+                        sub = ctcss_lp.process(xf)
+                        tp = goertzel_power(sub, audio_fs, float(active_ctcss_hz))
+                        nf = float(np.mean(sub.astype(np.float32) ** 2)) + 1e-9
+                        tone_power = float(tp)
+                        tone_ratio = float(tp / (nf * float(sub.size) + 1e-9))
+                        now_t = time.time()
+                        if (tp > 1e-4) and (tone_ratio > 0.08):
+                            tone_match = True
+                            tone_hold_until = now_t + 0.6
+                        else:
+                            tone_match = bool(now_t < float(tone_hold_until))
+                    except Exception:
+                        tone_match = True  # On error, fail open
+                elif str(active_dcs_code or "").strip():
+                    # Best-effort: DCS decode is non-trivial; treat as carrier squelch for now.
+                    mode = "dcs"
+                    target = str(active_dcs_code or "").strip()
+                    tone_match = True
+                else:
+                    # No privacy code configured = always open
+                    tone_match = True
+
+                # Gate gain: hold full audio for gate_hold_time, then close with a short fade.
+                hold = max(float(gate_hold_time), 0.0)
+                ptt_gate_gain = 1.0 if (has_carrier or (time_since_signal < hold)) else 0.0
+
+                ptt_gate_open = bool(ptt_gate_gain > 0.0)
+                # Simple squelch follows PTT gate
+                squelch_open = bool(ptt_gate_open)
+
+                gate_target_gain = float(ptt_gate_gain) if (bool(squelch_open) and bool(tone_match)) else 0.0
+                final_open = bool(gate_target_gain > 0.0)
+
+                # Build output audio AFTER plugins, so Listen Live + clips match what you hear.
+                if chunk_pcm.size == 0:
+                    out_pcm = chunk_pcm
+                else:
+                    comp_in_rms = 0.0
+                    comp_out_rms = 0.0
+                    comp_applied = False
+
+                    prev_gain = float(getattr(start_rtl, "_gate_gain_prev", 0.0))
+                    target_gain = float(gate_target_gain)
+                    if prev_gain <= 0.0 and target_gain <= 0.0:
+                        out_pcm = np.zeros_like(chunk_pcm)
+                    else:
+                        audio_float = chunk_pcm.astype(np.float32) / 32768.0
+
+                        # Smooth gain transitions to avoid clicks.
+                        fade_n = max(1, int(float(audio_fs) * float(gate_edge_fade_s)))
+                        if abs(target_gain - prev_gain) < 1e-6:
+                            gate_gain_vec = np.full((audio_float.size,), target_gain, dtype=np.float32)
+                        else:
+                            n = min(fade_n, int(audio_float.size))
+                            if n <= 1:
+                                gate_gain_vec = np.full((audio_float.size,), target_gain, dtype=np.float32)
+                            else:
+                                ramp = np.linspace(prev_gain, target_gain, n, dtype=np.float32)
+                                if audio_float.size > n:
+                                    gate_gain_vec = np.concatenate(
+                                        [ramp, np.full((audio_float.size - n,), target_gain, dtype=np.float32)]
+                                    )
+                                else:
+                                    gate_gain_vec = ramp
+
+                        # Compressor meters should reflect what we actually *output* (post gate).
+                        pre_comp_for_meter = audio_float * gate_gain_vec
+                        comp_in_rms = float(np.sqrt(np.mean(pre_comp_for_meter * pre_comp_for_meter))) if pre_comp_for_meter.size else 0.0
+                        comp_out_rms = comp_in_rms
+
+                        # Apply compressor/limiter only while carrier is present (avoid boosting end-of-PTT noise).
+                        comp_cfg = cfg_obj.get("compressor", {})
+                        if has_carrier and comp_cfg.get("enabled", True):
+                            threshold_db = float(comp_cfg.get("threshold", -20))
+                            ratio = float(comp_cfg.get("ratio", 4.0))
+                            attack_s = float(comp_cfg.get("attack", 0.005))
+                            release_s = float(comp_cfg.get("release", 0.1))
+                            makeup_gain_db = float(comp_cfg.get("makeupGain", 12))
+                            audio_float = apply_compressor(
+                                audio_float,
+                                threshold_db=threshold_db,
+                                ratio=ratio,
+                                attack_s=attack_s,
+                                release_s=release_s,
+                                makeup_gain_db=makeup_gain_db,
+                                sample_rate=audio_fs,
+                            )
+                            comp_applied = True
+                            post_comp_for_meter = audio_float * gate_gain_vec
+                            comp_out_rms = float(np.sqrt(np.mean(post_comp_for_meter * post_comp_for_meter))) if post_comp_for_meter.size else 0.0
+
+                        audio_float = audio_float * gate_gain_vec
+                        out_pcm = np.clip(audio_float * 32768.0, -32768, 32767).astype(np.int16)
+                    setattr(start_rtl, "_gate_gain_prev", float(target_gain))
+
+                    # Store latest compressor meter values for admin UI.
+                    try:
+                        gate_state["comp_in_rms"] = float(comp_in_rms)
+                        gate_state["comp_out_rms"] = float(comp_out_rms)
+                        gate_state["comp_applied"] = bool(comp_applied)
+                    except Exception:
+                        pass
+
+                # Debug: Log audio gate status every 2 seconds
+                now_debug = time.time()
+                if not hasattr(start_rtl, '_last_debug_log'):
+                    start_rtl._last_debug_log = 0.0
+                if now_debug - start_rtl._last_debug_log >= 2.0:
+                    pcm_rms = float(np.sqrt(np.mean((chunk_pcm.astype(np.float32) / 32768.0) ** 2)))
+                    out_rms = float(np.sqrt(np.mean((out_pcm.astype(np.float32) / 32768.0) ** 2)))
+                    carrier_db = gate_state.get("carrier_db", -100.0)
+                    noise_floor_db = gate_state.get("noise_floor_db", -100.0)
+                    carrier_snr = carrier_db - noise_floor_db
+                    print(
+                        f"[audio] final_open={final_open} ptt_gate={ptt_gate_open} | "
+                        f"carrier_snr={carrier_snr:.1f}dB carrier={carrier_db:.1f}dB floor={noise_floor_db:.1f}dB | "
+                        f"OUT_RMS={out_rms:.4f} hasCarrier={voice_trigger}",
+                        flush=True,
+                    )
+                    start_rtl._last_debug_log = now_debug
 
                 chunk_bytes = out_pcm.tobytes()
 
@@ -831,22 +1217,22 @@ def main() -> int:
                 except Exception:
                     pass
 
-                energy = rms_energy(chunk_pcm)
-                speech = bool(squelch_open) and (energy >= vad_threshold)
+                energy = rms_energy(out_pcm)
+                speech = bool(final_open) and (energy >= vad_threshold)
 
                 # VAD segmenting
                 if speech:
                     if not in_speech:
                         in_speech = True
                         hangover_left = hangover_chunks
-                        chunks = [chunk_pcm]
+                        chunks = [out_pcm]
                     else:
-                        chunks.append(chunk_pcm)
+                        chunks.append(out_pcm)
                         hangover_left = hangover_chunks
                 else:
                     if in_speech:
                         hangover_left -= 1
-                        chunks.append(chunk_pcm)
+                        chunks.append(out_pcm)
                         if hangover_left <= 0 or len(chunks) >= max_chunks:
                             in_speech = False
                             flush_segment()
@@ -854,6 +1240,9 @@ def main() -> int:
 
                 now2 = time.time()
                 if now2 - last_live_write >= 0.25:
+                    comp_in_rms = float(gate_state.get("comp_in_rms", 0.0) or 0.0)
+                    comp_out_rms = float(gate_state.get("comp_out_rms", 0.0) or 0.0)
+                    comp_applied = bool(gate_state.get("comp_applied", False))
                     write_json_atomic(
                         live_path,
                         {
@@ -861,15 +1250,35 @@ def main() -> int:
                             "energy": float(energy),
                             "noise": float(noise),
                             "threshold": float(vad_threshold),
+                            "voiceTrigger": bool(voice_trigger),
                             "speech": bool(speech),
                             "squelchOpen": bool(squelch_open),
+                            "pttGateOpen": bool(ptt_gate_open),
                             "squelch": float(squelch),
                             "squelchDelay": float(squelch_delay_s),
+                            "privacy": {
+                                "mode": mode,
+                                "target": target,
+                                "match": bool(tone_match),
+                                "ratio": float(tone_ratio),
+                                "power": float(tone_power),
+                            },
+                            "scan": {
+                                "enabled": bool(scan_enabled),
+                                "selectedId": str(scan_selected_id or ""),
+                                "bestDb": float(scan_last_best_db) if scan_last_best_db is not None else None,
+                                "deltaDb": float(scan_delta_db),
+                            },
                             "freq": str(freq_str),
                             "ppm": int(ppm),
                             "gain": int(gain),
                             "channelLabel": channel_label,
                             "audioSampleRate": audio_fs,
+                            "compressorMeters": {
+                                "inRms": comp_in_rms,
+                                "outRms": comp_out_rms,
+                                "applied": bool(comp_applied),
+                            },
                         },
                     )
                     last_live_write = now2

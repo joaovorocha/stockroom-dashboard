@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import time
 import wave
 from pathlib import Path
@@ -112,9 +113,21 @@ def main() -> int:
     args = parser.parse_args()
 
     cfg_path = Path(args.config)
+    live_cfg_path = cfg_path.with_name(cfg_path.stem + ".live" + cfg_path.suffix)
     seg_path = Path(args.segments)
     out_path = Path(args.out)
     meta_path = Path(args.meta)
+
+    # Be a good citizen: keep this worker from starving the capture/server under load.
+    try:
+        if hasattr(os, "nice"):
+            os.nice(10)
+    except Exception:
+        pass
+
+    # Reduce thread fan-out in BLAS/OpenMP stacks (best-effort).
+    for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+        os.environ.setdefault(k, "1")
 
     # Lazy import so capture can run without ASR deps.
     try:
@@ -128,17 +141,34 @@ def main() -> int:
     device = "cpu"
     compute_type = "int8"
 
+    def load_effective_config() -> dict:
+        cfg = load_json(live_cfg_path) if live_cfg_path.exists() else {}
+        if isinstance(cfg, dict) and cfg:
+            return cfg
+        cfg2 = load_json(cfg_path)
+        return cfg2 if isinstance(cfg2, dict) else {}
+
     # Initial config
-    cfg = load_json(cfg_path)
+    cfg = load_effective_config()
     if isinstance(cfg, dict):
         model_name = str(cfg.get("model") or model_name)
         device = str(cfg.get("device") or device)
         compute_type = str(cfg.get("computeType") or compute_type)
 
-    print(f"[radio-transcriber] Loading model {model_name} ({device}/{compute_type})", flush=True)
-    model = WhisperModel(model_name, device=device, compute_type=compute_type)
+    model = None
+    backoff_s = 2.0
+    while model is None:
+        try:
+            print(f"[radio-transcriber] Loading model {model_name} ({device}/{compute_type})", flush=True)
+            model = WhisperModel(model_name, device=device, compute_type=compute_type)
+        except Exception as e:
+            # Don't crash the overall system if ASR load fails under CPU/RAM pressure.
+            print(f"[radio-transcriber] Model load failed: {e}", flush=True)
+            time.sleep(backoff_s)
+            backoff_s = min(60.0, backoff_s * 1.7)
 
     last_cfg_mtime = 0.0
+    last_cfg_live_mtime = 0.0
     last_cfg_check = 0.0
 
     last_id = read_last_id(meta_path)
@@ -150,14 +180,20 @@ def main() -> int:
         if now - last_cfg_check >= 1.0:
             last_cfg_check = now
             try:
-                st = cfg_path.stat()
-                m = float(st.st_mtime)
+                m_saved = float(cfg_path.stat().st_mtime) if cfg_path.exists() else 0.0
             except Exception:
-                m = 0.0
+                m_saved = 0.0
+            try:
+                m_live = float(live_cfg_path.stat().st_mtime) if live_cfg_path.exists() else 0.0
+            except Exception:
+                m_live = 0.0
 
-            if m > last_cfg_mtime:
-                last_cfg_mtime = m
-                cfg2 = load_json(cfg_path)
+            if m_saved <= last_cfg_mtime and m_live <= last_cfg_live_mtime:
+                pass
+            else:
+                last_cfg_mtime = m_saved
+                last_cfg_live_mtime = m_live
+                cfg2 = load_effective_config()
                 if isinstance(cfg2, dict):
                     next_model = str(cfg2.get("model") or model_name)
                     next_device = str(cfg2.get("device") or device)
@@ -165,7 +201,11 @@ def main() -> int:
                     if (next_model, next_device, next_compute) != (model_name, device, compute_type):
                         model_name, device, compute_type = next_model, next_device, next_compute
                         print(f"[radio-transcriber] Reloading model {model_name} ({device}/{compute_type})", flush=True)
-                        model = WhisperModel(model_name, device=device, compute_type=compute_type)
+                        try:
+                            model = WhisperModel(model_name, device=device, compute_type=compute_type)
+                        except Exception as e:
+                            print(f"[radio-transcriber] Model reload failed: {e}", flush=True)
+                            # Keep running with the previous model if reload fails.
 
         items = iter_jsonl_new(seg_path, last_id)
         if not items:
@@ -193,6 +233,8 @@ def main() -> int:
                 audio_float32 = resample_linear_int16_to_float32(audio_int16, src_sr, int(args.whisper_sample_rate)).flatten()
 
                 start = time.time()
+                if model is None:
+                    raise RuntimeError("ASR model not loaded")
                 segments, _info = model.transcribe(audio_float32, vad_filter=False, beam_size=1)
                 text = " ".join([s.text.strip() for s in segments]).strip()
                 if not text:

@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-01-06",
+  "lastUpdated": "2026-01-07",
   "store": {
     "name": "San Francisco",
     "code": "SR-US-SanFrancisco-Maiden"
@@ -117,7 +117,7 @@
     },
     {
       "id": "cs-5",
-      "name": "Ties"
+      "name": "Tie Wall"
     },
     {
       "id": "cs-6",
@@ -125,7 +125,7 @@
     },
     {
       "id": "cs-7",
-      "name": "Socks - Belts"
+      "name": "Accessories"
     },
     {
       "id": "cs-8",
@@ -133,43 +133,31 @@
     },
     {
       "id": "closingSections-1766187026074",
-      "name": "1º Wave"
+      "name": "Back Wave"
     },
     {
       "id": "closingSections-1766187033873",
-      "name": "2º Wave"
+      "name": "Front Wave"
     },
     {
       "id": "closingSections-1766259268717",
-      "name": "Pocket Square's"
-    },
-    {
-      "id": "closingSections-1766259285334",
-      "name": "Shoes Display's"
-    },
-    {
-      "id": "closingSections-1766259307012",
-      "name": "Rack's (Outwear Jackets)"
-    },
-    {
-      "id": "closingSections-1766259328620",
-      "name": "BOH - Alteration"
-    },
-    {
-      "id": "closingSections-1767724634265",
       "name": "BOH - Trash"
     },
     {
-      "id": "closingSections-1767724660100",
-      "name": "BOH - 2º STOCKROOM"
+      "id": "closingSections-1766259285334",
+      "name": "BOH - Pickups of Tomorrow"
     },
     {
-      "id": "closingSections-1767724672411",
-      "name": "BOH - 4º STOCKROOM"
+      "id": "closingSections-1766259307012",
+      "name": "BOH- TBA Rack"
     },
     {
-      "id": "closingSections-1767724705198",
-      "name": "BOH - Pickups TM"
+      "id": "closingSections-1766259328620",
+      "name": "BOH - 4º Floor"
+    },
+    {
+      "id": "closingSections-1767813481496",
+      "name": "Front Shoes / Racks"
     }
   ],
   "managementRoles": [
