@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Pickup Status - Stockroom Dashboard</title>
+    
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+    <link rel="manifest" href="/manifest.webmanifest">
+    
+    <link rel="stylesheet" href="/css/bottom-nav.css?v=1">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 70px) env(safe-area-inset-left);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #1a5490;
+            font-size: 24px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .last-update {
+            color: #666;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .sync-btn {
+            background: #1a5490;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .sync-btn:active {
+            transform: scale(0.95);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .stat-card.ready .stat-number { color: #10b981; }
+        .stat-card.production .stat-number { color: #f59e0b; }
+        .stat-card.overdue .stat-number { color: #ef4444; }
+        .stat-card.orphaned .stat-number { color: #8b5cf6; }
+
+        .alert-banner {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert-banner.show {
+            display: block;
+        }
+
+        .alert-banner.critical {
+            background: #fee2e2;
+            border-left-color: #ef4444;
+        }
+
+        .alert-banner-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-banner-content {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 5px;
+        }
+
+        .tab {
+            background: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab.active {
+            background: #1a5490;
+            color: white;
+            box-shadow: 0 4px 8px rgba(26, 84, 144, 0.3);
+        }
+
+        .tab .badge {
+            display: inline-block;
+            background: #e5e7eb;
+            color: #374151;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+
+        .tab.active .badge {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+
+        .pickups-container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .pickup-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.2s;
+        }
+
+        .pickup-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+
+        .pickup-card.alert-card {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .pickup-card.alert-card.critical {
+            border-left-color: #ef4444;
+        }
+
+        .pickup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .customer-info h3 {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .customer-info .phone {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .status-badge.ready {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-badge.production {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.overdue {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-badge.orphaned {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .items-list {
+            margin: 15px 0;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 8px;
+        }
+
+        .item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .item:last-child {
+            margin-bottom: 0;
+        }
+
+        .item-desc {
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .item-service {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .pickup-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .days-waiting {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .days-waiting.warning {
+            color: #f59e0b;
+        }
+
+        .days-waiting.danger {
+            color: #ef4444;
+        }
+
+        .pickup-alert {
+            background: #fef3c7;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pickup-alert.critical {
+            background: #fee2e2;
+        }
+
+        .pickup-notes {
+            margin-top: 10px;
+            padding: 10px;
+            background: #eff6ff;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1e40af;
+        }
+
+        .estimated-ready {
+            color: #6b7280;
+            font-size: 13px;
+            font-style: italic;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6b7280;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .spinner {
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #1a5490;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
+
+            .stat-number {
+                font-size: 28px;
+            }
+
+            .pickup-header {
+                flex-direction: column;
+            }
+
+            .tabs {
+                gap: 8px;
+            }
+
+            .tab {
+                padding: 10px 16px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📦 Pickup Status Dashboard</h1>
+            <div class="last-update">
+                <span id="lastUpdate">Last updated: --</span>
+                <button class="sync-btn" onclick="syncNow()">
+                    🔄 Refresh Now
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card ready">
+                <div class="stat-number" id="statReady">--</div>
+                <div class="stat-label">Ready</div>
+            </div>
+            <div class="stat-card production">
+                <div class="stat-number" id="statProduction">--</div>
+                <div class="stat-label">In Production</div>
+            </div>
+            <div class="stat-card overdue">
+                <div class="stat-number" id="statOverdue">--</div>
+                <div class="stat-label">Overdue</div>
+            </div>
+            <div class="stat-card orphaned">
+                <div class="stat-number" id="statOrphaned">--</div>
+                <div class="stat-label">Orphaned</div>
+            </div>
+        </div>
+
+        <!-- Alert Banner -->
+        <div class="alert-banner" id="alertBanner">
+            <div class="alert-banner-title">
+                ⚠️ <span id="alertTitle">Items Need Attention</span>
+            </div>
+            <div class="alert-banner-content" id="alertContent"></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-filter="all" onclick="switchTab('all')">
+                All <span class="badge" id="badgeAll">0</span>
+            </button>
+            <button class="tab" data-filter="ready" onclick="switchTab('ready')">
+                ✅ Ready <span class="badge" id="badgeReady">0</span>
+            </button>
+            <button class="tab" data-filter="in_production" onclick="switchTab('in_production')">
+                ⏳ In Production <span class="badge" id="badgeProduction">0</span>
+            </button>
+            <button class="tab" data-filter="overdue" onclick="switchTab('overdue')">
+                🔴 Overdue <span class="badge" id="badgeOverdue">0</span>
+            </button>
+            <button class="tab" data-filter="orphaned" onclick="switchTab('orphaned')">
+                ⚠️ Orphaned <span class="badge" id="badgeOrphaned">0</span>
+            </button>
+        </div>
+
+        <!-- Pickups List -->
+        <div class="pickups-container">
+            <div id="pickupsList">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading pickups...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="/dashboard.html" class="nav-item">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">Home</span>
+        </a>
+        <a href="/gameplan-edit.html" class="nav-item">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">Game Plan</span>
+        </a>
+        <a href="/pickup-status.html" class="nav-item active">
+            <span class="nav-icon">📦</span>
+            <span class="nav-label">Pickups</span>
+        </a>
+        <a href="/lost-punch.html" class="nav-item">
+            <span class="nav-icon">⏰</span>
+            <span class="nav-label">Punch</span>
+        </a>
+        <a href="/time-off.html" class="nav-item">
+            <span class="nav-icon">📅</span>
+            <span class="nav-label">Time Off</span>
+        </a>
+    </nav>
+
+    <script src="/js/touch-gestures.js?v=1"></script>
+    <script>
+        let allPickups = [];
+        let currentFilter = 'all';
+
+        // Load pickups on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPickups();
+            // Auto-refresh every 5 minutes
+            setInterval(loadPickups, 5 * 60 * 1000);
+        });
+
+        async function loadPickups() {
+            try {
+                const response = await fetch('/api/pickups');
+                const data = await response.json();
+                
+                if (data.success) {
+                    allPickups = data.pickups;
+                    updateStats(data.stats);
+                    updateLastSync(data.lastSync);
+                    checkAlerts(data.pickups);
+                    displayPickups(allPickups);
+                } else {
+                    showError('Failed to load pickups');
+                }
+            } catch (error) {
+                console.error('Error loading pickups:', error);
+                showError('Error loading pickup data');
+            }
+        }
+
+        function updateStats(stats) {
+            document.getElementById('statReady').textContent = stats.ready;
+            document.getElementById('statProduction').textContent = stats.inProduction;
+            document.getElementById('statOverdue').textContent = stats.overdue;
+            document.getElementById('statOrphaned').textContent = stats.orphaned;
+
+            // Update badges
+            document.getElementById('badgeAll').textContent = stats.total;
+            document.getElementById('badgeReady').textContent = stats.ready;
+            document.getElementById('badgeProduction').textContent = stats.inProduction;
+            document.getElementById('badgeOverdue').textContent = stats.overdue;
+            document.getElementById('badgeOrphaned').textContent = stats.orphaned;
+        }
+
+        function updateLastSync(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMinutes = Math.floor((now - date) / (1000 * 60));
+            
+            let timeStr;
+            if (diffMinutes < 1) timeStr = 'Just now';
+            else if (diffMinutes === 1) timeStr = '1 minute ago';
+            else if (diffMinutes < 60) timeStr = `${diffMinutes} minutes ago`;
+            else timeStr = date.toLocaleTimeString();
+            
+            document.getElementById('lastUpdate').textContent = `Last updated: ${timeStr}`;
+        }
+
+        function checkAlerts(pickups) {
+            const alertPickups = pickups.filter(p => p.alert);
+            const criticalAlerts = alertPickups.filter(p => p.alert.severity === 'critical');
+            
+            if (alertPickups.length > 0) {
+                const banner = document.getElementById('alertBanner');
+                banner.classList.add('show');
+                
+                if (criticalAlerts.length > 0) {
+                    banner.classList.add('critical');
+                    document.getElementById('alertTitle').textContent = `${criticalAlerts.length} CRITICAL ITEMS NEED IMMEDIATE ATTENTION`;
+                } else {
+                    document.getElementById('alertTitle').textContent = `${alertPickups.length} Items Need Attention`;
+                }
+                
+                const details = [];
+                if (criticalAlerts.length > 0) {
+                    details.push(`• ${criticalAlerts.length} items at 90+ days (return to shelf required)`);
+                }
+                const overdueAlerts = alertPickups.filter(p => p.alert.type.includes('OVERDUE') && p.alert.severity !== 'critical');
+                if (overdueAlerts.length > 0) {
+                    details.push(`• ${overdueAlerts.length} items overdue for pickup`);
+                }
+                const orphanedAlerts = alertPickups.filter(p => p.alert.type === 'ORPHANED');
+                if (orphanedAlerts.length > 0) {
+                    details.push(`• ${orphanedAlerts.length} orphaned pickups (not in system)`);
+                }
+                
+                document.getElementById('alertContent').innerHTML = details.join('<br>');
+            }
+        }
+
+        function switchTab(filter) {
+            currentFilter = filter;
+            
+            // Update active tab
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.dataset.filter === filter) {
+                    tab.classList.add('active');
+                }
+            });
+            
+            // Filter and display
+            let filtered = allPickups;
+            if (filter !== 'all') {
+                if (filter === 'overdue') {
+                    filtered = allPickups.filter(p => p.status.startsWith('overdue'));
+                } else {
+                    filtered = allPickups.filter(p => p.status === filter || p.status.startsWith(filter));
+                }
+            }
+            
+            displayPickups(filtered);
+        }
+
+        function displayPickups(pickups) {
+            const container = document.getElementById('pickupsList');
+            
+            if (pickups.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <h3>No pickups found</h3>
+                        <p>There are no items matching your current filter.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = pickups.map(pickup => {
+                const hasAlert = pickup.alert !== null;
+                const alertClass = hasAlert && pickup.alert.severity === 'critical' ? 'critical' : '';
+                
+                let statusBadge = '';
+                let statusClass = '';
+                if (pickup.status === 'ready') {
+                    statusBadge = '✅ Ready';
+                    statusClass = 'ready';
+                } else if (pickup.status === 'in_production') {
+                    statusBadge = '⏳ In Production';
+                    statusClass = 'production';
+                } else if (pickup.status.startsWith('overdue')) {
+                    statusBadge = '🔴 Overdue';
+                    statusClass = 'overdue';
+                } else if (pickup.status === 'orphaned') {
+                    statusBadge = '⚠️ Orphaned';
+                    statusClass = 'orphaned';
+                }
+                
+                let daysClass = '';
+                if (pickup.daysWaiting >= 90) daysClass = 'danger';
+                else if (pickup.daysWaiting >= 30) daysClass = 'warning';
+                
+                const itemsHtml = pickup.items.map(item => `
+                    <div class="item">
+                        <div>
+                            <div class="item-desc">${item.description}</div>
+                            <div class="item-service">${item.service}</div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                let alertHtml = '';
+                if (hasAlert) {
+                    alertHtml = `
+                        <div class="pickup-alert ${alertClass}">
+                            ⚠️ ${pickup.alert.message}
+                        </div>
+                    `;
+                }
+                
+                let notesHtml = '';
+                if (pickup.notes) {
+                    notesHtml = `
+                        <div class="pickup-notes">
+                            📝 ${pickup.notes}
+                        </div>
+                    `;
+                }
+                
+                let estimatedHtml = '';
+                if (pickup.estimatedReady) {
+                    const estDate = new Date(pickup.estimatedReady);
+                    estimatedHtml = `<div class="estimated-ready">Est. ready: ${estDate.toLocaleDateString()}</div>`;
+                }
+                
+                return `
+                    <div class="pickup-card ${hasAlert ? 'alert-card ' + alertClass : ''}">
+                        <div class="pickup-header">
+                            <div class="customer-info">
+                                <h3>${pickup.customer}</h3>
+                                <div class="phone">${pickup.phone}</div>
+                            </div>
+                            <span class="status-badge ${statusClass}">${statusBadge}</span>
+                        </div>
+                        
+                        <div class="items-list">
+                            ${itemsHtml}
+                        </div>
+                        
+                        <div class="pickup-meta">
+                            <div class="days-waiting ${daysClass}">
+                                ${pickup.daysWaiting} ${pickup.daysWaiting === 1 ? 'day' : 'days'} waiting
+                            </div>
+                            ${estimatedHtml}
+                        </div>
+                        
+                        ${alertHtml}
+                        ${notesHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function syncNow() {
+            const btn = document.querySelector('.sync-btn');
+            btn.textContent = '⏳ Syncing...';
+            btn.disabled = true;
+            
+            try {
+                await fetch('/api/pickups/sync', { method: 'POST' });
+                await loadPickups();
+                btn.textContent = '✅ Synced!';
+                setTimeout(() => {
+                    btn.innerHTML = '🔄 Refresh Now';
+                    btn.disabled = false;
+                }, 2000);
+            } catch (error) {
+                btn.textContent = '❌ Error';
+                setTimeout(() => {
+                    btn.innerHTML = '🔄 Refresh Now';
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('pickupsList').innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚠️</div>
+                    <h3>Error</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

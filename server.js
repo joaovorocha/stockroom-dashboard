@@ -21,6 +21,7 @@ const awardsRoutes = require('./routes/awards');
 const radioRoutes = require('./routes/radio');
 const expensesRoutes = require('./routes/expenses');
 const storeRecoveryRoutes = require('./routes/storeRecovery');
+const pickupsRoutes = require('./routes/pickups');
 const authMiddleware = require('./middleware/auth');
 const dal = require('./utils/dal');
 const { getUPSScheduler } = require('./utils/ups-scheduler');
@@ -276,6 +277,7 @@ app.use('/api/awards', authMiddleware, awardsRoutes);
 app.use('/api/radio', authMiddleware, radioRoutes);
 app.use('/api/expenses', authMiddleware, expensesRoutes);
 app.use('/api/store-recovery', authMiddleware, storeRecoveryRoutes);
+app.use('/api/pickups', authMiddleware, pickupsRoutes);
 
 // Redirect old pages to new ones
 app.get('/login', (req, res) => {
