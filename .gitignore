@@ -52,3 +52,10 @@ logs/
 data/feedback-uploads/
 files
 files/
+
+# Personal/temporary documentation (not for permanent codebase)
+PLAN_*.md
+PHASE*.md
+*_SUMMARY_*.txt
+*_SUMMARY_*.md
+*_PACKAGE.md
