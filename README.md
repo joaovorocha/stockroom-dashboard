@@ -10,14 +10,14 @@ A Progressive Web Application for managing daily store operations, including gam
 - **Daily Game Planning** - Set goals and track employee assignments
 - **Shipment Tracking** - Monitor deliveries with real-time UPS integration
 - **Lost Punch Management** - Process and approve time corrections
-- **Time Off Requests** - Manage employee leave
+- **Time Off Requests** - Public Calendar employee leave
 - **Mobile-First Design** - Works on all devices (iOS, Android, desktop)
 - **Offline Support** - Progressive Web App with Service Workers
 - **Real-time Updates** - WebSocket support for live data sync
 
 ## 📊 Business Impact
 
-**Potential Savings:** $1M+/year for 150 stores
+**Potential Savings:** $4M+/year for 150 stores
 - **Labor:** 54,750 hours/year saved across store operations
 - **Errors:** Reduced through digital tracking and automation
 - **Efficiency:** Centralized management dashboard
