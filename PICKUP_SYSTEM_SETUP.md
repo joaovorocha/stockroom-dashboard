@@ -1,5 +1,8 @@
 # Real-Time Pickup Tracking System - Setup Guide
 
+**Developer:** Victor Rocha, Stockroom Manager @ Suit Supply  
+**Date:** January 10, 2026
+
 ## Overview
 
 This is the **REAL production system** for tracking customer pickups with live integrations:

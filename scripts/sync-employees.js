@@ -10,6 +10,9 @@
  *   node scripts/sync-employees.js
  */
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const fs = require('fs');
 const path = require('path');
 const pgDal = require('../utils/dal/pg');

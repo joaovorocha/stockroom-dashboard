@@ -25,7 +25,7 @@ DROP TABLE IF EXISTS sync_log CASCADE;
 -- ============================================================================
 CREATE TABLE employees (
   id SERIAL PRIMARY KEY,
-  user_id INTEGER UNIQUE NOT NULL,  -- ID from users.json
+  user_id VARCHAR(100) UNIQUE NOT NULL,  -- ID from users.json (e.g. "user-001")
   email VARCHAR(255) UNIQUE NOT NULL,
   name VARCHAR(255) NOT NULL,
   role VARCHAR(50) NOT NULL,  -- 'SA', 'Tailor', 'BOH', 'Manager', 'Admin'

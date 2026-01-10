@@ -216,7 +216,7 @@ See [DEPLOYMENT.md > Troubleshooting](docs/DEPLOYMENT.md#troubleshooting) for mo
 
 ## 👥 Team
 
-- **Victor Rocha** - Original developer
+- **Victor Rocha** - Stockroom Manager @ Suit Supply, Original Developer
 - **Your Team** - Production support
 
 ## 🔄 Roadmap
@@ -242,5 +242,6 @@ See [DEPLOYMENT.md > Troubleshooting](docs/DEPLOYMENT.md#troubleshooting) for mo
 ---
 
 **Last Updated:** January 10, 2026  
-**Maintainer:** Victor Rocha  
+**Developer:** Victor Rocha, Stockroom Manager @ Suit Supply  
+**Organization:** Suit Supply Operations  
 **Status:** Active Development
