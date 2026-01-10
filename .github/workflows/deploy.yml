@@ -1,0 +1,52 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:  # Manual trigger via GitHub UI
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Deploy to ${{ github.event.inputs.environment }}
+      run: |
+        echo "Deploying to ${{ github.event.inputs.environment }}..."
+        
+        # Example deployment using SSH
+        # Replace with your actual deployment command
+        if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+          echo "Deploying to production..."
+          # ssh -i ${{ secrets.DEPLOY_KEY }} user@prod.example.com './scripts/deploy-prod.sh'
+        else
+          echo "Deploying to staging..."
+          # ssh -i ${{ secrets.DEPLOY_KEY }} user@staging.example.com './scripts/deploy-staging.sh'
+        fi
+      env:
+        DEPLOY_ENV: ${{ github.event.inputs.environment }}
+    
+    - name: Run post-deployment tests
+      run: |
+        echo "Running post-deployment health checks..."
+        # curl https://${{ github.event.inputs.environment }}.example.com/health
+        # Run smoke tests here
+    
+    - name: Notify deployment status
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: 'Deployment to ${{ github.event.inputs.environment }} completed'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      continue-on-error: true

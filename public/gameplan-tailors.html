@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="/css/theme.css?v=14">
 	  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
-  <link rel="stylesheet" href="/css/mobile.css?v=3">
+  <link rel="stylesheet" href="/css/mobile.css?v=7">
   <script src="/vendor/chart.umd.min.js?v=1" defer></script>
 </head>
 <body>
@@ -152,62 +152,6 @@
         </div>
       </section>
 
-      <!-- Last Week Store Overview -->
-      <section class="section metrics-section" id="metricsSection">
-        <div class="section-header">
-          <h2>Week to Date Store Overview</h2>
-          <div class="section-actions">
-            <button class="btn btn-sm btn-outline" id="toggleMetrics">Hide</button>
-          </div>
-        </div>
-        <div class="metrics-content" id="metricsContent">
-          <div class="metrics-row">
-            <div class="metric-card highlight">
-              <span class="metric-label">WTD Sales</span>
-              <span class="metric-value" id="wtdSales">--</span>
-              <span class="metric-change" id="wtdChange">--</span>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">Target</span>
-              <span class="metric-value" id="targetAmount">--</span>
-              <span class="metric-change" id="vsTarget">--</span>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">SPH</span>
-              <span class="metric-value" id="sph">--</span>
-              <span class="metric-change" id="sphChange">--</span>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">IPC</span>
-              <span class="metric-value" id="ipc">--</span>
-              <span class="metric-change" id="ipcChange">--</span>
-            </div>
-            <div class="metric-card">
-              <span class="metric-label">Drop-offs</span>
-              <span class="metric-value" id="dropoffs">--</span>
-            </div>
-            <div class="metric-card warning clickable" id="loansCard" onclick="showLoansModal()">
-              <span class="metric-label">Loans Overdue</span>
-              <span class="metric-value" id="loansOverdueTotal">0</span>
-              <span class="metric-change" id="loansOverdueNames">--</span>
-              <span class="metric-hint">Click for details</span>
-            </div>
-          </div>
-          <div class="product-mix-row">
-            <span class="mix-label">Occasion Mix:</span>
-            <span class="mix-item formal"><span id="formalPct">--</span> Formal</span>
-            <span class="mix-item casual"><span id="casualPct">--</span> Casual</span>
-            <span class="mix-item tuxedo"><span id="tuxedoPct">--</span> Tuxedo</span>
-            <span class="mix-total">= 100%</span>
-          </div>
-          <div class="product-mix-row" style="margin-top: 8px;">
-            <span class="mix-label">Production Type:</span>
-            <span class="mix-item rtw"><span id="rtwPct">--</span> RTW</span>
-            <span class="mix-item cm"><span id="cmPct">--</span> CM</span>
-            <span class="mix-total">= 100%</span>
-          </div>
-        </div>
-      </section>
 
       <!-- Sales Associates -->
       <section class="section" id="saSection">
@@ -253,11 +197,6 @@
 	            <div class="ops-subsection">
 	              <h4 class="ops-subsection-title">Health Metrics</h4>
 	              <div class="metrics-row">
-	                <div class="metric-card" id="tailorProdCard">
-	                  <span class="metric-label">Tailor Productivity</span>
-	                  <span class="metric-value" id="tailorProductivity">--</span>
-	                  <span class="metric-change neutral">Current Week</span>
-	                </div>
 	                <div class="metric-card" id="ontimeCard">
 	                  <span class="metric-label">On-Time Alterations</span>
 	                  <span class="metric-value" id="ontimeAlterations">--</span>
@@ -311,29 +250,6 @@
               <div class="scan-log-grid" id="scanLogGrid">
                 <!-- Populated by JS with employee photos -->
               </div>
-            </div>
-          </div>
-
-          <!-- Tailor Productivity Trend -->
-          <div class="ops-subsection">
-            <h4 class="ops-subsection-title">Tailor Productivity Trend 
-              <span class="trend-legend">
-                <span class="legend-item"><span class="legend-color y2024"></span>2024</span>
-                <span class="legend-item"><span class="legend-color y2025"></span>2025</span>
-              </span>
-            </h4>
-            <div class="trend-summary">
-              <div class="trend-stat">
-                <span class="trend-value" id="ytdAvg2024">--</span>
-                <span class="trend-label">2024 YTD Avg</span>
-              </div>
-              <div class="trend-stat highlight">
-                <span class="trend-value" id="ytdAvg2025">--</span>
-                <span class="trend-label">2025 YTD Avg</span>
-              </div>
-            </div>
-            <div class="trend-chart-container">
-              <canvas id="tailorTrendChart" height="200"></canvas>
             </div>
           </div>
 
@@ -549,21 +465,7 @@
   </div>
 
   <!-- Loans Detail Modal -->
-  <div class="modal-overlay" id="loansModal">
-    <div class="modal" style="max-width: 600px;">
-      <div class="modal-header">
-        <h3>Loans Overdue Details</h3>
-        <button class="modal-close" id="closeLoans">&times;</button>
-      </div>
-      <div class="modal-body" id="loansModalBody">
-        <p style="color: var(--text-muted);">No overdue loans.</p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" onclick="document.getElementById('loansModal').classList.remove('active')">Close</button>
-      </div>
-    </div>
-  </div>
-<script src="/js/dashboard.js?v=23"></script>
+<script src="/js/dashboard.js?v=24"></script>
     <script src="/js/shared-header.js?v=24"></script>
     <script>
       (async () => {

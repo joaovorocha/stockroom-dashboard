@@ -106,6 +106,84 @@ If you see it running too frequently:
 - Started by the web server (`server.js`) at runtime.
 - Controlled by `UPS_EMAIL_IMPORT_CRON` (defaults to business-hours schedule if unset).
 
+## Tailscale Access
+
+This host is already joined to the tailnet.
+
+### Verify status
+
+- `tailscale status`
+- `tailscale ip -4`
+
+Expected on this server:
+- MagicDNS name: `suitserver`
+- Tailscale IPv4: `100.84.243.127`
+
+### Access the dashboard over Tailscale
+
+Option A (direct port, HTTP):
+- From any tailnet device: `http://100.84.243.127:3000`
+
+Option B (recommended: HTTPS via Tailscale Serve)
+
+This gives you an HTTPS URL inside the tailnet (best default; no public exposure).
+
+1) Enable Serve (background):
+- `sudo tailscale serve --bg 3000`
+
+2) Confirm:
+- `tailscale serve status`
+
+3) Access from tailnet devices:
+- `https://suitserver/` (if MagicDNS is enabled)
+
+To disable Serve:
+- `sudo tailscale serve reset`
+
+### Share access with other devices/users
+
+- Add the user/device to the same tailnet (Tailscale admin console).
+- Ensure the user is allowed by ACLs to reach this node/service.
+
+### Lock-down suggestions (ACLs)
+
+Recommended approach:
+- Tag this server (e.g., `tag:stockroom-dashboard`) and restrict who can connect.
+
+Example policy shape (edit in Tailscale admin console):
+- Allow only `group:ops` → `tag:stockroom-dashboard:443` (Serve)
+- Allow only admins → SSH (`tag:stockroom-dashboard:22`)
+
+## Public / Internet Exposure (Optional)
+
+Default recommendation: **do not expose publicly** unless you have a clear need.
+
+### Option 1: Tailscale Funnel (public URL)
+
+This exposes the service on the public internet.
+
+- Enable (background): `sudo tailscale funnel --bg 3000`
+- Check: `tailscale funnel status`
+- Disable: `sudo tailscale funnel reset`
+
+If you use Funnel, treat it as public production:
+- Ensure strong passwords and admin-only controls.
+- Consider IP allowlisting upstream where possible.
+
+### Option 2: Nginx + Let’s Encrypt (public domain)
+
+Use this only if you have a real DNS name pointing at this host and can open inbound 80/443.
+
+High-level steps:
+- Install nginx + certbot
+- Configure reverse proxy to `http://127.0.0.1:3000`
+- Enable automatic renewals
+
+### Option 3: Cloudflare Tunnel (public domain with Cloudflare Access)
+
+Best when you need public access but want SSO/auth at the edge.
+- Requires Cloudflare account + domain.
+
 ## Backups / Restore
 
 ### What to back up

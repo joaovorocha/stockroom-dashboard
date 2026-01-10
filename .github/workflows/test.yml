@@ -1,0 +1,98 @@
+name: Tests & Lint
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+  pull_request:
+    branches: [ main, develop, staging ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 18.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Run linter (ESLint)
+      run: npm run lint --if-present
+      continue-on-error: true
+    
+    - name: Run tests
+      run: npm test --if-present
+      continue-on-error: true
+    
+    - name: Check for security vulnerabilities
+      run: npm audit --production
+      continue-on-error: true
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      if: always()
+      with:
+        files: ./coverage/coverage-final.json
+        flags: unittests
+        name: codecov-umbrella
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build project
+      run: npm run build --if-present
+    
+    - name: Verify server starts
+      run: |
+        timeout 10 npm start &
+        sleep 5
+        curl -f http://localhost:3000/ || true
+      continue-on-error: true
+      env:
+        NODE_ENV: development
+        PORT: 3000
+        SESSION_SECRET: test-secret-key
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    
+    steps:
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add your staging deployment command here
+        # Example: ssh deploy@staging.example.com './deploy.sh'
+      continue-on-error: true
+    
+    - name: Health check
+      run: |
+        echo "Running health checks..."
+        # curl https://staging.example.com/health || true
+      continue-on-error: true

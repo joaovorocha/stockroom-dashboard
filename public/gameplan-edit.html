@@ -25,11 +25,8 @@
     }
 
     .edit-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
       border-bottom: 1px solid var(--border);
     }
 
@@ -52,22 +49,25 @@
       font-size: 20px;
     }
 
-	    .edit-actions {
-	      display: flex;
-	      gap: 12px;
-	      flex-wrap: wrap;
-	    }
-
 	    @media (max-width: 600px) {
-	      .edit-header {
+	      .edit-header > div {
 	        flex-direction: column;
-	        align-items: stretch;
+	        align-items: flex-start !important;
 	        gap: 12px;
 	      }
-
+	      
 	      .edit-actions {
-	        order: -1; /* buttons first, summary text below */
+	        width: 100%;
 	        justify-content: space-between;
+	        flex-wrap: wrap;
+	        gap: 6px !important;
+	      }
+
+	      .edit-actions .btn {
+	        font-size: 11px !important;
+	        padding: 8px 10px !important;
+	        white-space: nowrap;
+	        flex: 1 1 auto;
 	      }
 
 	      #weeklyGoalGrid {
@@ -455,6 +455,87 @@
 
     .weekly-goal-slider {
       width: 100%;
+      height: 40px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    /* Slider Track Styling */
+    .weekly-goal-slider::-webkit-slider-track {
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(to right, #e5e7eb 0%, #3b82f6 50%, #22c55e 100%);
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+    }
+
+    .weekly-goal-slider::-moz-range-track {
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(to right, #e5e7eb 0%, #3b82f6 50%, #22c55e 100%);
+      border-radius: 4px;
+      border: 1px solid #d1d5db;
+    }
+
+    /* Slider Thumb Styling */
+    .weekly-goal-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      background: #fff;
+      border: 3px solid #2563eb;
+      border-radius: 50%;
+      cursor: grab;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      margin-top: -8px;
+    }
+
+    .weekly-goal-slider::-moz-range-thumb {
+      width: 24px;
+      height: 24px;
+      background: #fff;
+      border: 3px solid #2563eb;
+      border-radius: 50%;
+      cursor: grab;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+      border: none;
+    }
+
+    .weekly-goal-slider:active::-webkit-slider-thumb {
+      cursor: grabbing;
+      transform: scale(1.1);
+      border-color: #1d4ed8;
+    }
+
+    .weekly-goal-slider:active::-moz-range-thumb {
+      cursor: grabbing;
+      transform: scale(1.1);
+      border: 3px solid #1d4ed8;
+    }
+
+    .weekly-goal-slider:disabled::-webkit-slider-thumb {
+      background: #d1d5db;
+      border-color: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .weekly-goal-slider:disabled::-moz-range-thumb {
+      background: #d1d5db;
+      border-color: #9ca3af;
+      cursor: not-allowed;
+    }
+
+    .weekly-goal-slider:disabled::-webkit-slider-track {
+      background: #e5e7eb;
+      opacity: 0.5;
+    }
+
+    .weekly-goal-slider:disabled::-moz-range-track {
+      background: #e5e7eb;
+      opacity: 0.5;
     }
 
 	    .off-badge {
@@ -779,16 +860,22 @@
 
   <div class="edit-container">
 	    <div class="edit-header">
-	      <div>
-	        <h2>Edit Game Plan</h2>
-	        <span id="lastEditedBy" style="font-size: 12px; color: var(--text-secondary);"></span>
-	        <div id="targetPerSaInfo" style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;"></div>
-	      </div>
-        <div class="edit-actions">
-            <button class="btn btn-sm" id="copyYesterdayBtn">📋 Templates</button>
-	        <button class="btn btn-secondary" id="clearAllBtn" style="background:#f87171;">Clear All</button>
-	        <a href="/dashboard" class="btn btn-secondary">Cancel</a>
-	        <button class="btn btn-primary" id="saveAllBtn">Publish</button>
+	      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+	        <div>
+	          <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Daily Operations</div>
+	          <h2 style="margin: 0; font-size: 18px;">Edit Game Plan</h2>
+	          <div style="display: flex; gap: 12px; margin-top: 4px; font-size: 11px; color: var(--text-secondary);">
+	            <span id="lastEditedBy"></span>
+	            <span id="targetPerSaInfo"></span>
+	          </div>
+	        </div>
+	        
+	        <div class="edit-actions" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+	            <button class="btn btn-sm" id="copyYesterdayBtn" style="padding: 6px 12px; font-size: 13px;">📋 Templates</button>
+		        <button class="btn btn-sm" id="clearAllBtn" style="background:#f87171; color: white; padding: 6px 12px; font-size: 13px;">Clear All</button>
+		        <a href="/dashboard" class="btn btn-sm" style="padding: 6px 12px; font-size: 13px;">Cancel</a>
+		        <button class="btn btn-primary btn-sm" id="saveAllBtn" style="padding: 6px 16px; font-size: 13px;">Publish</button>
+	        </div>
 	      </div>
 	    </div>
 
@@ -796,24 +883,35 @@
       <section class="section-card" id="weeklyGoalSection" style="margin-bottom: 0;">
 	      <div class="section-title" style="margin-bottom: 10px;">
 	        <h3 style="margin:0;">Weekly Goal Distribution</h3>
-	        <div style="display:flex; gap:10px; align-items:center;">
-	          <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); text-transform:none;">
-	            <input type="checkbox" id="weeklyGoalEnabled">
-	            Use sliders
+	      </div>
+	      
+	      <!-- Goal Controls Grid -->
+	      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; align-items: stretch;">
+	        <!-- Manual Goal Card -->
+	        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column;">
+	          <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-secondary); text-transform:none; font-weight: 600; margin-bottom: 8px; height: 20px;">
+	            <input type="checkbox" id="manualWeeklyGoalEnabled">
+	            Manual Goal
 	          </label>
-
-                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary);">
-                      <span>Retail week target</span>
-                      <input id="retailWeekTargetDisplay" type="text" value="--" disabled style="width: 110px;">
-                    </div>
-
-                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); text-transform:none;">
-                      <input type="checkbox" id="manualWeeklyGoalEnabled">
-                      Manual weekly goal
-                    </label>
-                    <input id="manualWeeklyGoalValue" type="number" inputmode="decimal" min="0" step="0.01" placeholder="148.00" disabled style="width: 120px;">
-	          <button class="btn btn-sm btn-outline" type="button" id="weeklyGoalNormalizeBtn">Normalize</button>
-	          <button class="btn btn-sm btn-primary" type="button" id="weeklyGoalSaveBtn">Save</button>
+	          <input id="manualWeeklyGoalValue" type="number" inputmode="decimal" min="0" step="0.01" placeholder="148.00" disabled style="width: 100%; font-size: 14px; height: 38px;">
+	        </div>
+	        
+	        <!-- Auto Target Card -->
+	        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column;">
+	          <div style="font-size:12px; color:var(--text-secondary); font-weight: 600; margin-bottom: 8px; height: 20px; display: flex; align-items: center;">Auto Target</div>
+	          <input id="retailWeekTargetDisplay" type="text" value="--" disabled style="width: 100%; background: #f9fafb; cursor: not-allowed; font-size: 14px; height: 38px;">
+	        </div>
+	        
+	        <!-- Day Sliders Card -->
+	        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column;">
+	          <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-secondary); text-transform:none; font-weight: 600; margin-bottom: 8px; height: 20px;">
+	            <input type="checkbox" id="weeklyGoalEnabled">
+	            Day Sliders
+	          </label>
+	          <div style="display: flex; gap: 6px; height: 38px;">
+	            <button class="btn btn-sm btn-outline" type="button" id="weeklyGoalNormalizeBtn" style="flex: 1; font-size: 11px; padding: 6px; height: 100%;">Normalize</button>
+	            <button class="btn btn-sm btn-primary" type="button" id="weeklyGoalSaveBtn" style="flex: 1; font-size: 11px; padding: 6px; height: 100%;">Save</button>
+	          </div>
 	        </div>
 	      </div>
 	      <div id="weeklyGoalMeta" style="font-size:12px; color:var(--text-secondary); margin-bottom: 10px;"></div>
@@ -890,8 +988,7 @@
       </div>
       </div>
     </section>
-
-	    </div>
+    </div>
 
     <!-- Templates / Copy Modal -->
     <div class="modal-overlay" id="copyModalOverlay">

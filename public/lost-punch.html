@@ -106,6 +106,15 @@
       color: var(--text-secondary);
       font-size: 13px;
     }
+    @media (max-width: 600px) {
+      .punch-card .btn {
+        flex: 1;
+        min-width: 120px;
+      }
+      .punch-card > div[style*="display: flex"] {
+        flex-wrap: wrap;
+      }
+    }
   </style>
 </head>
 <body>
@@ -113,6 +122,11 @@
   <div id="shared-header-mount"></div>
   <div class="dashboard-layout" style="grid-template-columns: minmax(0, 1fr);">
     <main class="main-content">
+      <div class="page-header" style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Daily Operations</div>
+        <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 8px;">🕒 Lost Punch</h1>
+        <p style="font-size: 14px; color: var(--text-secondary); margin: 0;">Submit and review time clock correction requests.</p>
+      </div>
       <section class="section">
         <div class="punch-form" style="padding:0; border:none;">
           <div class="punch-tabs" style="margin:0 24px; padding-top:16px;">
@@ -324,12 +338,12 @@
 	      if (pendingPunches.length) {
 	        html += `
 	          <h4 style="margin: 8px 0 12px;">Pending</h4>
-	          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px; background: var(--surface); border-radius: 6px;">
-	            <label style="display: flex; align-items: center; gap: 8px;">
+	          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 12px; background: var(--surface); border-radius: 6px; gap: 12px; flex-wrap: wrap;">
+	            <label style="display: flex; align-items: center; gap: 8px; min-width: 150px;">
 	              <input type="checkbox" id="selectAllPending" onchange="toggleSelectAll('pending')">
 	              <span>Select All (${pendingPunches.length})</span>
 	            </label>
-	            <div style="display: flex; gap: 8px;">
+	            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
 	              <button class="btn btn-sm btn-secondary" onclick="approveAllPending()">Approve All</button>
 	              <button class="btn btn-sm btn-primary" onclick="batchApprove()">Approve Selected</button>
 	              <button class="btn btn-sm btn-danger" onclick="batchDeny()">Deny Selected</button>
@@ -352,7 +366,7 @@
             <div><label>Submitted</label><br>${p.submittedAt ? new Date(p.submittedAt).toLocaleDateString() : '-'}</div>
           </div>
           <p style="margin-top: 8px; font-size: 13px;">${p.reason}</p>
-          <div style="margin-top: 12px; display: flex; gap: 8px;">
+          <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="btn btn-sm btn-primary" onclick="approvePunch('${p.id}')">Approve</button>
             <button class="btn btn-sm btn-danger" onclick="denyPunch('${p.id}')">Deny</button>
           </div>

@@ -354,8 +354,9 @@ function applyUnpublishedVisibility() {
 }
 
 function renderRetailWeekStoreInfo() {
-  const content = document.getElementById('metricsContent');
-  if (!content) return;
+  // Find the welcome KPIs row (Week to Date Store Overview section)
+  const kpisRow = document.getElementById('welcomeKpisRow');
+  if (!kpisRow) return;
 
   const retailWeek = metrics?.retailWeek;
   if (!retailWeek || !retailWeek.weekNumber) return;
@@ -364,13 +365,14 @@ function renderRetailWeekStoreInfo() {
   if (!box) {
     box = document.createElement('div');
     box.id = 'retailWeekInfo';
-    box.style.marginTop = '10px';
-    box.style.padding = '10px 12px';
+    box.style.marginTop = '16px';
+    box.style.padding = '12px 16px';
     box.style.background = 'var(--surface)';
     box.style.border = '1px solid var(--border)';
     box.style.borderRadius = '8px';
     box.style.fontSize = '13px';
-    content.appendChild(box);
+    // Insert after the KPIs row in the welcome section
+    kpisRow.insertAdjacentElement('afterend', box);
   }
 
   const perPerson = getRetailWeekTargetPerPerson();
@@ -403,56 +405,13 @@ function renderRetailWeekStoreInfo() {
 }
 
 function renderRetailWeekWelcomeInfo() {
-  const detailsEl = document.getElementById('welcomeDetails');
-  if (!detailsEl) return;
-
-  const retailWeek = metrics?.retailWeek;
-  if (!retailWeek || !retailWeek.weekNumber) return;
-
-  let box = document.getElementById('retailWeekWelcomeInfo');
-  if (!box) {
-    box = document.createElement('div');
-    box.id = 'retailWeekWelcomeInfo';
-    box.style.marginTop = '10px';
-    box.style.padding = '10px 12px';
-    box.style.background = 'var(--surface)';
-    box.style.border = '1px solid var(--border)';
-    box.style.borderRadius = '8px';
-    box.style.fontSize = '13px';
-    // Insert directly below the Role/Shift/Lunch details.
-    detailsEl.insertAdjacentElement('afterend', box);
+  // This function is now deprecated - retail week info is shown in renderRetailWeekStoreInfo
+  // which places it in the Week to Date Store Overview section
+  // Remove any old duplicate boxes
+  const oldBox = document.getElementById('retailWeekWelcomeInfo');
+  if (oldBox) {
+    oldBox.remove();
   }
-
-  const perPerson = getRetailWeekTargetPerPerson();
-  const saLine = perPerson
-    ? `<span><strong>Target / SA Today:</strong> ${formatCurrencyOrDash(perPerson)}</span>
-       <span style="color:var(--text-muted);">(${getWorkingSACount()} SA working)</span>`
-    : `<span><strong>Target / SA Today:</strong> --</span>
-       <span style="color:var(--text-muted);">(assign shifts to calculate)</span>`;
-
-  const weekSalesText = formatCurrencyFieldOrDash(retailWeek, 'salesAmount');
-  const weekTargetText = formatCurrencyFieldOrDash(retailWeek, 'target');
-  const dailyTarget = getDailyTargetValue();
-  const dailyTargetText = Number.isFinite(Number(dailyTarget)) ? formatCurrencyOrDash(dailyTarget) : '--';
-
-  // Always show sources in the duplicated welcome box.
-  const sources = metrics?.dataSources || {
-    wtdSales: 'files/dashboard-stores_performance/sales.csv',
-    retailWeek: 'files/dashboard-stores_performance/sales_by_retail_weeks.csv'
-  };
-  const sourcesHint = `<span style="color:var(--text-muted);">Sources: WTD cards = ${sources.wtdSales}; Retail week = ${sources.retailWeek}</span>`;
-
-  box.innerHTML = `
-    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-      <strong>Retail Week ${retailWeek.weekNumber}</strong>
-      <span style="color:var(--text-secondary);">${retailWeek.weekStart} → ${retailWeek.weekEnd}</span>
-      <span>${weekSalesText}</span>
-      <span><strong>Retail Week Target:</strong> ${weekTargetText}</span>
-      <span><strong>Daily Target (Today):</strong> ${dailyTargetText}</span>
-      ${saLine}
-      ${sourcesHint}
-    </div>
-  `;
 }
 
 function formatZones(emp) {
@@ -1089,6 +1048,8 @@ function checkLoansOverdue() {
 
 function showLoansModal() {
   const modalBody = document.getElementById('loansModalBody');
+  const modalEl = document.getElementById('loansModal');
+  if (!modalBody || !modalEl) return;
 
   if (!loansData.overdue || loansData.overdue.length === 0) {
     modalBody.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 20px;">No overdue loans at this time.</p>';
@@ -1128,12 +1089,15 @@ function showLoansModal() {
     modalBody.innerHTML = html;
   }
 
-  document.getElementById('loansModal').classList.add('active');
+  modalEl.classList.add('active');
 
   // Add close button listener
-  document.getElementById('closeLoans').onclick = () => {
-    document.getElementById('loansModal').classList.remove('active');
-  };
+  const closeBtn = document.getElementById('closeLoans');
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      modalEl.classList.remove('active');
+    };
+  }
 }
 
 // Setup Welcome Section
@@ -1267,8 +1231,8 @@ function setupWelcomeSection() {
   // Ensure game plan is hidden for employees if not published
   applyUnpublishedVisibility();
 
-  // Duplicated Retail Week box directly below Role/Shift/Lunch row
-  renderRetailWeekWelcomeInfo();
+  // Show Retail Week info in the Week to Date Store Overview section
+  renderRetailWeekStoreInfo();
 
   // Lunch timeline should show for everyone (not only SA).
   setupLunchTimeline(userEmployee || null);
@@ -1845,8 +1809,8 @@ function renderAll() {
   updateNotesPreview();
   updateLastSyncTime(); // Update sidebar sync time
 
-  // Keep the welcome-level Retail Week box up to date.
-  renderRetailWeekWelcomeInfo();
+  // Keep the Retail Week info in the Week to Date Store Overview up to date.
+  renderRetailWeekStoreInfo();
 
   const setDisplay = (id, value) => {
     const el = document.getElementById(id);
@@ -1979,6 +1943,9 @@ function updateWorkingToday() {
 function updateMetricsDisplay() {
   if (!metrics.wtd) return;
 
+  // Some pages (e.g. role-based gameplan views) intentionally omit the WTD section.
+  const wtdSalesEl = document.getElementById('wtdSales');
+
   const setVsPyEl = (el, value) => {
     if (!el) return;
     const num = Number(value);
@@ -1991,37 +1958,52 @@ function updateMetricsDisplay() {
     el.className = `metric-change ${num >= 0 ? 'positive' : 'negative'}`;
   };
 
-  document.getElementById('wtdSales').textContent = formatCurrency(metrics.wtd.salesAmount);
+  if (wtdSalesEl) wtdSalesEl.textContent = formatCurrency(metrics.wtd.salesAmount);
   const wtdChange = document.getElementById('wtdChange');
-  wtdChange.textContent = `${metrics.wtd.salesVsPY >= 0 ? '+' : ''}${metrics.wtd.salesVsPY}% vs PY`;
-  wtdChange.className = `metric-change ${metrics.wtd.salesVsPY >= 0 ? 'positive' : 'negative'}`;
+  if (wtdChange) {
+    wtdChange.textContent = `${metrics.wtd.salesVsPY >= 0 ? '+' : ''}${metrics.wtd.salesVsPY}% vs PY`;
+    wtdChange.className = `metric-change ${metrics.wtd.salesVsPY >= 0 ? 'positive' : 'negative'}`;
+  }
 
-  document.getElementById('targetAmount').textContent = formatCurrency(metrics.wtd.target);
+  const targetEl = document.getElementById('targetAmount');
+  if (targetEl) targetEl.textContent = formatCurrency(metrics.wtd.target);
   const vsTarget = document.getElementById('vsTarget');
-  vsTarget.textContent = `${metrics.wtd.vsTarget}% vs Target`;
-  vsTarget.className = `metric-change ${metrics.wtd.vsTarget >= 0 ? 'positive' : 'negative'}`;
+  if (vsTarget) {
+    vsTarget.textContent = `${metrics.wtd.vsTarget}% vs Target`;
+    vsTarget.className = `metric-change ${metrics.wtd.vsTarget >= 0 ? 'positive' : 'negative'}`;
+  }
 
   if (metrics.metrics) {
-    document.getElementById('sph').textContent = `$${metrics.metrics.salesPerHour}`;
+    const sphEl = document.getElementById('sph');
+    if (sphEl) sphEl.textContent = `$${metrics.metrics.salesPerHour}`;
     const sphChange = document.getElementById('sphChange');
-    sphChange.textContent = `${metrics.metrics.sphVsPY}% vs PY`;
-    sphChange.className = `metric-change ${metrics.metrics.sphVsPY >= 0 ? 'positive' : 'negative'}`;
+    if (sphChange) {
+      sphChange.textContent = `${metrics.metrics.sphVsPY}% vs PY`;
+      sphChange.className = `metric-change ${metrics.metrics.sphVsPY >= 0 ? 'positive' : 'negative'}`;
+    }
 
-    document.getElementById('ipc').textContent = metrics.metrics.itemsPerCustomer;
+    const ipcEl = document.getElementById('ipc');
+    if (ipcEl) ipcEl.textContent = metrics.metrics.itemsPerCustomer;
     const ipcChange = document.getElementById('ipcChange');
-    ipcChange.textContent = `${metrics.metrics.ipcVsPY}% vs PY`;
-    ipcChange.className = `metric-change ${metrics.metrics.ipcVsPY >= 0 ? 'positive' : 'negative'}`;
+    if (ipcChange) {
+      ipcChange.textContent = `${metrics.metrics.ipcVsPY}% vs PY`;
+      ipcChange.className = `metric-change ${metrics.metrics.ipcVsPY >= 0 ? 'positive' : 'negative'}`;
+    }
 
-    document.getElementById('dropoffs').textContent = `${metrics.metrics.dropOffs}%`;
+    const dropoffsEl = document.getElementById('dropoffs');
+    if (dropoffsEl) dropoffsEl.textContent = `${metrics.metrics.dropOffs}%`;
 
     const dropoffsChange = document.getElementById('dropoffsChange');
     if (dropoffsChange) setVsPyEl(dropoffsChange, metrics.metrics.dropOffsVsPY);
   }
 
   if (metrics.lastWeekSales) {
-    document.getElementById('formalPct').textContent = `${metrics.lastWeekSales.formal}%`;
-    document.getElementById('casualPct').textContent = `${metrics.lastWeekSales.casual}%`;
-    document.getElementById('tuxedoPct').textContent = `${metrics.lastWeekSales.tuxedo}%`;
+    const formalEl = document.getElementById('formalPct');
+    const casualEl = document.getElementById('casualPct');
+    const tuxedoEl = document.getElementById('tuxedoPct');
+    if (formalEl) formalEl.textContent = `${metrics.lastWeekSales.formal}%`;
+    if (casualEl) casualEl.textContent = `${metrics.lastWeekSales.casual}%`;
+    if (tuxedoEl) tuxedoEl.textContent = `${metrics.lastWeekSales.tuxedo}%`;
   }
 
   if (metrics.productMixCmRtw) {

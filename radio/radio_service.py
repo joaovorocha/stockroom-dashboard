@@ -407,9 +407,12 @@ def main() -> int:
     scan_enabled = str(cfg_obj.get("radioMode") or "").strip() == "automatic"
     scan_delta_db = safe_float(cfg_obj.get("scanDeltaDb", 8.0), 8.0)
     scan_hold_s = safe_float(cfg_obj.get("scanHoldS", 1.0), 1.0)
+    scan_confirm_n = safe_int(cfg_obj.get("scanConfirmN", 3), 3)
     scan_selected_id = active_channel_id
     scan_hold_until = 0.0
     scan_last_best_db = None
+    scan_confirm_id = ""
+    scan_confirm_count = 0
 
     if not freq_str:
         freq_str = "446.01875M"
@@ -673,7 +676,7 @@ def main() -> int:
         nonlocal cfg_obj, cfg_path
         nonlocal sdr_center_hz, tune_hz, freq_str, ppm, gain, soft_gain, channel_label, vad_threshold, hangover_ms, hangover_chunks, proc
         nonlocal channels_cfg, active_channel_id, active_ctcss_hz, active_dcs_code
-        nonlocal scan_enabled, scan_delta_db, scan_hold_s
+        nonlocal scan_enabled, scan_delta_db, scan_hold_s, scan_confirm_n
         nonlocal squelch, squelch_delay_s
         nonlocal carrier_threshold_db, gate_hold_time
         nonlocal last_saved_mtime, last_live_mtime, last_cfg_check
@@ -714,6 +717,7 @@ def main() -> int:
         scan_enabled = str(cfg2.get("radioMode") or "").strip() == "automatic"
         scan_delta_db = safe_float(cfg2.get("scanDeltaDb", scan_delta_db), scan_delta_db)
         scan_hold_s = safe_float(cfg2.get("scanHoldS", scan_hold_s), scan_hold_s)
+        scan_confirm_n = safe_int(cfg2.get("scanConfirmN", scan_confirm_n), scan_confirm_n)
         freq2, ppm2, gain2, label2 = extract_active_channel(cfg2)
         vad2 = safe_float(cfg2.get("vadThreshold", vad_threshold), vad_threshold)
         hang2 = safe_int(cfg2.get("hangoverMs", hangover_ms), hangover_ms)
@@ -914,6 +918,9 @@ def main() -> int:
                     half_bw_hz = 6250.0
                     half_bins = max(1, int(round(half_bw_hz / step_hz)))
                     for ch in channels_cfg:
+                        # Skip channels disabled for scanning (Auto mode checkbox)
+                        if ch.get("scanEnabled") is False:
+                            continue
                         hz = ch.get("freqHz")
                         if hz is None:
                             hz = parse_freq_to_hz(str(ch.get("freq") or ""))
@@ -932,10 +939,24 @@ def main() -> int:
 
                     if best is not None and best_db is not None:
                         scan_last_best_db = float(best_db)
-                        should_pick = (now >= float(scan_hold_until)) and (float(best_db) >= float(noise_floor + scan_delta_db))
+
+                        best_id = str(best.get("id") or "")
+                        strong_enough = float(best_db) >= float(noise_floor + scan_delta_db)
+                        can_switch = now >= float(scan_hold_until)
+
+                        # Confirmation logic: require the same best channel for N frames
+                        # before switching. This reduces rapid hopping on noise.
+                        if best_id and best_id == scan_confirm_id:
+                            scan_confirm_count += 1
+                        else:
+                            scan_confirm_id = best_id
+                            scan_confirm_count = 1
+
+                        should_pick = can_switch and strong_enough and (scan_confirm_count >= max(1, int(scan_confirm_n)))
                         if should_pick:
-                            scan_selected_id = str(best.get("id") or "")
+                            scan_selected_id = best_id
                             scan_hold_until = now + float(scan_hold_s)
+                            scan_confirm_count = 0
 
                             # Switch to the best channel without restarting.
                             try:

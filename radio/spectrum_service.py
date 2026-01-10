@@ -334,7 +334,9 @@ def main() -> int:
             except Exception:
                 pass
             # Backoff to avoid tight loops.
-            backoff_s = min(max(1.0, backoff_s * 1.5), 10.0)
+            # If the dongle is busy (common with single-dongle setups), back off more
+            # aggressively to reduce log spam.
+            backoff_s = min(max(1.0, backoff_s * 1.5), 60.0)
             had_error = True
         else:
             backoff_s = 0.5

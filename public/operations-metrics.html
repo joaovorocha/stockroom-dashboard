@@ -16,7 +16,7 @@
   <link rel="stylesheet" href="/css/theme.css?v=14">
 	  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
-  <link rel="stylesheet" href="/css/mobile.css?v=5">
+  <link rel="stylesheet" href="/css/mobile.css?v=6">
   <script src="/vendor/chart.umd.min.js?v=1" defer></script>
 </head>
 <body data-page-type="ops_metrics">
@@ -24,7 +24,12 @@
   <div id="shared-header-mount"></div>
 <main class="dashboard-layout dashboard-layout--single">
     <section class="section operations-section" id="operationsSection" style="margin-top: 20px;">
-      <div class="section-header">
+      <div class="page-header" style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+        <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Daily Operations</div>
+        <h2 style="font-size: 24px; font-weight: 600; margin: 0 0 8px;">📊 Operations Overview</h2>
+        <p style="font-size: 14px; color: var(--text-secondary); margin: 0;">Track key performance metrics and operational data for your store.</p>
+      </div>
+      <div class="section-header" style="display: none;">
         <h2>📊 Operations Overview</h2>
       </div>
       <div class="operations-content" id="operationsContent">
@@ -389,7 +394,7 @@
       </div>
     </section>
   </main>
-<script src="/js/dashboard.js?v=21"></script>
+<script src="/js/dashboard.js?v=24"></script>
   <script src="/js/shared-header.js?v=24"></script>
 </body>
 </html>

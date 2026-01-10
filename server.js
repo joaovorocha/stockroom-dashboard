@@ -263,12 +263,14 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.use('/closing-duties', authMiddleware, express.static(dal.paths.closingDutiesDir));
 // Routes - Order matters! More specific routes before generic ones
 app.use('/feedback-uploads', authMiddleware, express.static(dal.paths.feedbackUploadsDir));
+app.use('/api/auth', authRoutes);
 app.use('/api/shipments', authMiddleware, shipmentsRoutes);
 app.use('/user-uploads', authMiddleware, express.static(dal.paths.userUploadsDir));
 app.use('/api/lost-punch', authMiddleware, lostPunchRoutes);
 app.use('/api/gameplan', authMiddleware, gameplanRoutes);
 app.use('/api/timeoff', authMiddleware, timeoffRoutes);
 app.use('/api/feedback', authMiddleware, feedbackRoutes);
+app.use('/api/closing-duties', authMiddleware, closingDutiesRoutes);
 app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
 app.use('/api/awards', authMiddleware, awardsRoutes);
 app.use('/api/radio', authMiddleware, radioRoutes);
@@ -541,7 +543,7 @@ function validateSessionFromCookie(cookieHeader) {
     return null;
   }
 
-  const usersFile = path.join(__dirname, 'data', 'users.json');
+  const usersFile = dal.paths.usersFile;
   try {
     if (!fs.existsSync(usersFile)) return null;
     const usersData = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
@@ -595,7 +597,10 @@ function logAnalyzer(event, details) {
 }
 
 let radioMonitorLastFrameAt = 0;
-let radioSpectrumLastFrameAt = 0;
+let radioSpectrumLastUdpAt = 0;
+let radioSpectrumLastFftAt = 0;
+let radioSpectrumLastErrorAt = 0;
+let radioSpectrumLastErrorMessage = '';
 let radioSpectrumLastParseErrorAt = 0;
 let radioSpectrumLastState = '';
 
@@ -669,7 +674,14 @@ radioSpectrumUdp.on('message', (msg) => {
   try {
     const s = msg.toString('utf8');
     const obj = JSON.parse(s);
-    radioSpectrumLastFrameAt = Date.now();
+    radioSpectrumLastUdpAt = Date.now();
+    if (obj?.type === 'fft') {
+      radioSpectrumLastFftAt = radioSpectrumLastUdpAt;
+    }
+    if (obj?.type === 'status' && obj?.ok === false) {
+      radioSpectrumLastErrorAt = radioSpectrumLastUdpAt;
+      radioSpectrumLastErrorMessage = (obj?.message || obj?.error || '').toString();
+    }
     broadcastRadioSpectrum(obj);
   } catch {
     radioSpectrumLastParseErrorAt = Date.now();
@@ -706,15 +718,38 @@ wssRadioSpectrum.on('connection', (ws, req) => {
 function broadcastRadioSpectrumStatus() {
   if (radioSpectrumClients.size === 0) return;
   const now = Date.now();
-  const ageMs = radioSpectrumLastFrameAt ? (now - radioSpectrumLastFrameAt) : null;
+  const fftAgeMs = radioSpectrumLastFftAt ? (now - radioSpectrumLastFftAt) : null;
+
+  // If the spectrum producer reported an error recently and we have no fresh FFT,
+  // surface that error to the UI instead of flapping waiting/stalled.
+  const hasRecentError = radioSpectrumLastErrorAt && (now - radioSpectrumLastErrorAt) < 20_000;
+  const hasFreshFft = radioSpectrumLastFftAt && fftAgeMs != null && fftAgeMs <= 3000;
+  if (hasRecentError && !hasFreshFft) {
+    const status = {
+      type: 'status',
+      ok: false,
+      state: 'error',
+      message: radioSpectrumLastErrorMessage || 'Spectrum source error',
+    };
+    const stateKey = `${status.ok ? 'ok' : 'bad'}:${status.state}`;
+    if (stateKey !== radioSpectrumLastState) {
+      radioSpectrumLastState = stateKey;
+      logAnalyzer('stream-state', { ok: status.ok, state: status.state, ageMs: null, clients: radioSpectrumClients.size });
+    }
+    broadcastRadioSpectrum(status);
+    return;
+  }
 
   let status = { type: 'status', ok: true, state: 'streaming' };
-  if (!radioSpectrumLastFrameAt) {
+  if (!radioSpectrumLastFftAt && !radioSpectrumLastUdpAt) {
     status = { type: 'status', ok: true, state: 'waiting' };
-  } else if (ageMs != null && ageMs > 3000) {
-    status = { type: 'status', ok: false, state: 'stalled', ageMs };
-  } else if (ageMs != null) {
-    status = { type: 'status', ok: true, state: 'streaming', ageMs };
+  } else if (!radioSpectrumLastFftAt && radioSpectrumLastUdpAt) {
+    // Producer is alive (sending status), but no FFT yet.
+    status = { type: 'status', ok: true, state: 'waiting' };
+  } else if (fftAgeMs != null && fftAgeMs > 3000) {
+    status = { type: 'status', ok: false, state: 'stalled', ageMs: fftAgeMs };
+  } else if (fftAgeMs != null) {
+    status = { type: 'status', ok: true, state: 'streaming', ageMs: fftAgeMs };
   }
 
   if (radioSpectrumLastParseErrorAt && (now - radioSpectrumLastParseErrorAt) < 3000) {

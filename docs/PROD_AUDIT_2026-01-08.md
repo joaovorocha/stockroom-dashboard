@@ -56,6 +56,103 @@ High-level:
 - Pages: `/dashboard`, `/gameplan-*`, `/ops-dashboard`, `/shipments`, `/radio`, `/radio-transcripts`, `/closing-duties`, `/lost-punch`, `/time-off`, `/awards`, `/expenses`, `/admin`, plus auth pages.
 - APIs: `/api/auth`, `/api/gameplan`, `/api/shipments`, `/api/closing-duties`, `/api/lost-punch`, `/api/timeoff`, `/api/feedback`, `/api/admin`, `/api/awards`, `/api/radio`, `/api/expenses`.
 
+## Website Map (Full Web Surface)
+
+This is the deployed web surface on the new server. For the authoritative route list, see `SERVER_MAP.md`.
+
+### Public pages (no auth)
+
+- `GET /` → redirects to `/login` unless session cookie exists
+- `GET /login` → `public/login-v2.html`
+- `GET /login-v2` → redirects to `/login`
+- `GET /forgot-password` → `public/forgot-password.html`
+- `GET /reset-password` → `public/reset-password.html`
+- `GET /manifest.webmanifest`, `GET /sw.js`, `GET /favicon.ico`
+
+### Public static assets (no auth)
+
+- `GET /css/*`, `/js/*`, `/images/*`, `/icons/*`, `/vendor/*`, `/downloads/*`
+
+### Auth-gated pages (HTML)
+
+- `GET /home` → `public/app.html`
+- `GET /dashboard` → role-based redirect to one of:
+  - `/gameplan-sa`, `/gameplan-boh`, `/gameplan-tailors`, `/gameplan-management`
+- `GET /gameplan-edit` → requires gameplan editor or manager/admin
+- `GET /ops-dashboard`, `/operations-metrics`, `/shipments`, `/scanner`, `/qr-decode`
+- `GET /store-recovery`, `/employee-discount` (alias: `/expenses`)
+- `GET /radio`, `/radio-transcripts` (admin-only controls via admin UI)
+- `GET /closing-duties`, `/lost-punch`, `/time-off`, `/awards`, `/feedback`
+- `GET /admin` → admin only
+
+### Auth-gated static folders
+
+- `GET /closing-duties/*` → serves images from `data/closing-duties/<date>/...`
+- `GET /feedback-uploads/*` → serves images from `data/feedback-uploads/...`
+- `GET /user-uploads/*` → serves user avatars from `data/user-uploads/...`
+
+### Real-time endpoints
+
+- `GET /api/sse/updates` → Server-Sent Events (SSE) for UI updates (auth required)
+- WebSockets (auth via cookie validation against `data/users.json`):
+  - `GET /ws/radio-monitor` → PCM audio frames (UDP→WS bridge)
+  - `GET /ws/radio-spectrum` → spectrum JSON frames (UDP→WS bridge)
+
+### Internal APIs (Express routers)
+
+The server mounts routers under `/api/*` (see `SERVER_MAP.md` for the complete list). Key read/write surfaces:
+
+- `/api/auth` → reads/writes:
+  - `data/users.json`, `data/employees-v2.json`, `data/activity-log.json`
+  - `data/password-reset-tokens.json`
+  - `data/user-uploads/` (avatars)
+- `/api/gameplan` → reads/writes:
+  - `data/gameplan-daily/<date>.json`
+  - `data/employees-v2.json`, `data/users.json`
+  - `data/store-metrics/<date>.json`
+  - `data/scan-performance-history/<date>.json`
+  - `data/product-images-cache.json`
+  - `data/work-expenses-config.json`
+  - `data/weekly-goal-distributions.json`, `data/notes-templates.json`, `data/gameplan-templates.json`
+  - `data/dashboard-data.json` (read via LookerDataProcessor)
+- `/api/shipments` → reads/writes:
+  - `data/shipments.json` (with backups in `data/shipments-backups/`)
+  - Reads `data/employees-v2.json` for enrichment
+  - Calls UPS status lookup (`utils/upsApi.js`)
+- `/api/closing-duties` → reads/writes:
+  - `data/closing-duties-log.json`
+  - `data/closing-duties/<date>/...` (uploaded photos)
+  - Reads `data/employees-v2.json`
+- `/api/lost-punch` → reads/writes `data/lost-punch-log.json`
+- `/api/timeoff` → reads/writes `data/time-off.json` (normalized to `{ entries: [...] }`)
+- `/api/feedback` → reads/writes:
+  - `data/feedback.json`
+  - `data/feedback-uploads/...` (uploaded images)
+- `/api/expenses` → reads/writes:
+  - Reads `data/dashboard-data.json` (workRelatedExpenses)
+  - Reads/writes `data/expense-order-notes.json`
+  - Writes `data/expense-order-uploads/<orderId>/...`
+- `/api/store-recovery` → reads/writes:
+  - `data/store-recovery-scan-log.json`
+  - `data/store-recovery-config.json` (also editable via admin API)
+- `/api/radio` → reads/writes:
+  - `data/radio/config.json`, `data/radio/config.live.json`, `data/radio/service.json`
+  - `data/radio/transcripts.jsonl`
+  - `data/radio/clips/*.wav` (recorded clips)
+  - Logs under `logs/` (radio.log, radio-transcriber.log, radio-analyzer.log)
+- `/api/admin` (admin-only) → reads/writes:
+  - `data/store-config.json`
+  - `data/awards-config.json`
+  - `data/work-expenses-config.json`
+  - `data/store-recovery-config.json`
+  - Exports/backups via `backup.zip` / `export.zip`
+- `/api/awards` → reads:
+  - `data/awards-config.json`
+  - `data/lost-punch-log.json`
+  - `data/closing-duties-log.json`
+  - `data/gameplan-daily/<date>.json`
+  - `data/settings.json`
+
 ## Findings and Actions
 
 ### 1) Looker scheduler misfire (CRITICAL)
@@ -123,4 +220,76 @@ High-level:
 
 - If you want a GitHub mirror, do **not** push runtime `data/` / `files/` contents. Remove tracked artifacts and ensure `.gitignore` is enforced.
 - Decide on nodemailer upgrade strategy and schedule a small maintenance window to validate email flows.
+
+## Data Flow Map
+
+### Looker → dashboard data (primary)
+
+1) `looker-scheduler` runs via `node-cron` (default `30 6 * * *`, America/Los_Angeles).
+2) `utils/gmail-looker-fetcher.js` downloads attachments from Gmail IMAP and writes them under `files/`:
+  - `files/dashboard-stores_performance/`, `files/dashboard-work_related_expenses/`, etc.
+3) `utils/looker-data-processor.js` reads those CSV/PDF artifacts and writes:
+  - `data/dashboard-data.json` (frontend consumes this indirectly through APIs)
+  - `data/store-metrics/<date>.json`
+  - `data/employees-v2.json` updates (employee metrics)
+  - `data/scan-performance-history/<date>.json`
+
+Frontend consumption:
+- Gameplan + Ops dashboards call `/api/gameplan/*`, `/api/expenses/*`, etc.
+- Those route handlers load derived JSON from `data/` and return JSON to browser JS under `public/js/*`.
+
+### Shipments (UPS email → shipments.json)
+
+- `server.js` starts the UPS email scheduler in-process at runtime.
+- `utils/ups-email-parser.js` (invoked by `utils/ups-scheduler.js`) imports shipments from Gmail and updates `data/shipments.json`.
+- UI uses `/api/shipments` to view/manage shipments.
+
+### Radio (SDR capture → clips/transcripts)
+
+- Admin actions via `/api/radio/service/*` start/stop Python services under `radio/` via PM2.
+- Audio clips and transcripts are persisted under `data/radio/*`, and logs under `logs/*`.
+- Live audio/spectrum streams are delivered via `/ws/radio-monitor` and `/ws/radio-spectrum`.
+
+## Tailscale State (2026-01-08)
+
+- Tailscale is installed and connected.
+- Node name: `suitserver`
+- Tailscale IPv4: `100.84.243.127`
+
+## HTTPS Exposure Strategy (Recommended)
+
+Safest + simplest for this environment: **Tailscale Serve** (HTTPS inside the tailnet; no public internet exposure).
+
+Rationale:
+- Avoids opening inbound ports on the LAN/WAN.
+- Automatic TLS within tailnet; pairs well with MagicDNS.
+- Keeps auth and cookies working cleanly because the app already supports reverse proxies (`trust proxy` is enabled).
+
+## GitHub Hygiene
+
+- Repo is git-initialized.
+- `.gitignore` already excludes `node_modules/`, `.env*`, `data/`, `files/`, `logs/`, and `ssl/`.
+- Do not commit symlink targets (runtime state under `/var/lib/stockroom-dashboard`).
+
+### Post-migration commit plan (no secrets)
+
+Goal: capture *code + docs* only.
+
+1) Sanity check tracked secrets/state (should be empty):
+  - `git ls-files | rg -n "^(data/|files/|logs/|ssl/|\.env|ecosystem\.config\.json)$" || true`
+
+2) If anything under runtime dirs is tracked, untrack it (keeps files on disk):
+  - `git rm -r --cached data files logs ssl || true`
+  - `git rm --cached .env ecosystem.config.json || true`
+
+3) Add/verify `.gitignore` (already present) and re-check:
+  - `git status --porcelain=v1`
+
+4) Commit in two safe chunks:
+  - Commit A: “Post-migration docs/runbook updates”
+  - Commit B: “Path normalization and scheduler fixes”
+
+5) Before pushing anywhere remote:
+  - `git grep -n "GMAIL_APP_PASSWORD\|SMTP_PASS\|tskey-auth\|BEGIN PRIVATE KEY" -- . || true`
+  - Confirm `data/` and `files/` are not tracked.
 

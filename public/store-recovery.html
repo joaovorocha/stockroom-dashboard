@@ -2,12 +2,257 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Store Recovery</title>
-    <link rel="stylesheet" href="/css/theme.css" />
-    <link rel="stylesheet" href="/css/dashboard.css" />
-    <script src="/js/shared-header.js?v=23"></script>
-    <script src="/js/dashboard.js?v=21"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="view-transition" content="same-origin" />
+    <title>Store Recovery | Suitsupply</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Daily Operations">
+    <link rel="stylesheet" href="/css/theme.css?v=14" />
+    <link rel="stylesheet" href="/css/shared-header.css?v=22">
+    <link rel="stylesheet" href="/css/dashboard.css?v=17" />
+    <link rel="stylesheet" href="/css/mobile.css?v=3">
+    <style>
+      .recovery-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .page-header {
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .page-header-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+      }
+
+      .page-header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        margin: 0 0 8px;
+      }
+
+      .page-header-description {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin: 0;
+      }
+
+      .section-card {
+        background: #f1f3f7;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+        margin-bottom: 24px;
+        padding: 20px;
+      }
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 12px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .section-description {
+        font-size: 13px;
+        color: var(--text-secondary);
+        margin: 0 0 16px;
+      }
+
+      .input-group {
+        display: flex;
+        gap: 12px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
+      .input-field {
+        flex: 1;
+        min-width: 240px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .input-field label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+
+      .input-field input,
+      .input-field select {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font-size: 14px;
+        background: var(--background);
+        transition: all 0.15s ease;
+      }
+
+      .input-field input:focus,
+      .input-field select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 20px;
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        text-decoration: none;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+        min-height: 44px;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: #fff;
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        background: #1a1a1a;
+      }
+
+      .btn-secondary {
+        background: var(--surface);
+        color: var(--text);
+        border-color: var(--border);
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        background: #e5e5e5;
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .btn-group {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .status-text {
+        font-size: 13px;
+        color: var(--text-secondary);
+        padding: 8px 0;
+      }
+
+      .camera-wrap {
+        margin-top: 16px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 2px solid var(--border);
+        background: #000;
+      }
+
+      .camera-wrap video {
+        width: 100%;
+        display: block;
+      }
+
+      .result-box {
+        margin-top: 16px;
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--background);
+        font-family: 'Courier New', monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .result-box:empty {
+        display: none;
+      }
+
+      .filter-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        align-items: flex-end;
+      }
+
+      .info-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--primary);
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .info-link:hover {
+        text-decoration: underline;
+      }
+
+      @media (max-width: 768px) {
+        .recovery-container {
+          padding: 12px;
+        }
+
+        .section-card {
+          padding: 16px;
+        }
+
+        .input-group {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .input-field {
+          min-width: 100%;
+        }
+
+        .btn {
+          width: 100%;
+        }
+
+        .filter-form {
+          grid-template-columns: 1fr;
+        }
+
+        .btn-group {
+          flex-direction: column;
+        }
+      }
+    </style>
+    <script src="/js/shared-header.js?v=24"></script>
+    <script src="/js/dashboard.js?v=24"></script>
     <script>
       (async () => {
         try { await SharedHeader.init(); } catch (e) {}
@@ -16,75 +261,103 @@
   </head>
   <body>
     <div id="shared-header-mount"></div>
-    <main class="container" style="max-width: 700px; margin: 0 auto;">
-      <h1>Store Recovery</h1>
-      <p>Scan RFID tags to check if items are in the correct spot. Filter by product type and size/model.</p>
-
-      <div class="card" style="padding: 14px; margin: 14px 0 18px;">
-        <h3 style="margin: 0 0 8px;">Identify Product (EPC / DataMatrix / SKU)</h3>
-        <p style="margin: 0 0 10px; color: var(--muted);">
-          Paste an EPC/SKU, upload a barcode image, or scan live with the camera (DataMatrix/QR). Uses the configured Store Recovery API.
-        </p>
-
-        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
-          <label style="flex:1; min-width:260px;">
-            Code (EPC or SKU):
-            <input type="text" id="srLookupInput" placeholder="Paste EPC or SKU" style="width:100%;" />
-          </label>
-          <button type="button" id="srLookupBtn">Lookup</button>
-        </div>
-
-        <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap; margin-top: 10px;">
-          <label style="flex:1; min-width:260px;">
-            Barcode image:
-            <input type="file" id="srLookupImage" accept="image/*" style="width:100%;" />
-          </label>
-          <button type="button" id="srDecodeImageBtn">Decode Image</button>
-        </div>
-
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top: 10px;">
-          <button type="button" id="srStartCameraBtn">Start Camera</button>
-          <button type="button" id="srStopCameraBtn" disabled>Stop Camera</button>
-          <div id="srLookupStatus" style="color: var(--muted);"></div>
-        </div>
-
-        <div id="srCameraWrap" style="margin-top: 10px; display:none;">
-          <video id="srCameraVideo" playsinline autoplay muted style="width:100%; border-radius: 10px; border: 1px solid var(--border);"></video>
-        </div>
-
-        <pre id="srLookupResult" style="margin-top: 12px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); white-space: pre-wrap; word-break: break-word;"></pre>
+    
+    <main class="recovery-container">
+      <div class="page-header">
+        <div class="page-header-title">Daily Operations</div>
+        <h1>📦 Store Recovery</h1>
+        <p class="page-header-description">Scan RFID tags to verify product locations and ensure items are in their correct spots.</p>
       </div>
 
-      <form id="filterForm" style="margin-bottom: 18px;">
-        <label>Product Type:
-          <select id="productType">
-            <option value="NOOS">NOOS</option>
-            <option value="Tux">Tux</option>
-            <option value="Casual">Casual</option>
-            <option value="Overcoat">Overcoat</option>
-            <option value="Other">Other</option>
-          </select>
-        </label>
-        <label>Size:
-          <input type="text" id="sizeInput" placeholder="e.g. 38R, M, L" />
-        </label>
-        <label>Model:
-          <input type="text" id="modelInput" placeholder="e.g. Havana, Lazio" />
-        </label>
-        <button type="submit">Apply Filter</button>
-      </form>
-      <div id="scanStatus" style="margin-bottom: 12px; color: var(--muted);"></div>
+      <!-- Product Identification Section -->
+      <section class="section-card">
+        <h2 class="section-title">🔍 Identify Product</h2>
+        <p class="section-description">
+          Look up products by EPC/SKU, decode barcodes from images, or scan live with your camera (DataMatrix/QR codes).
+        </p>
+
+        <div class="input-group">
+          <div class="input-field">
+            <label for="srLookupInput">Code (EPC or SKU)</label>
+            <input type="text" id="srLookupInput" placeholder="Paste EPC or SKU code" />
+          </div>
+          <button type="button" id="srLookupBtn" class="btn btn-primary">Lookup</button>
+        </div>
+
+        <div class="input-group">
+          <div class="input-field">
+            <label for="srLookupImage">Barcode Image</label>
+            <input type="file" id="srLookupImage" accept="image/*" />
+          </div>
+          <button type="button" id="srDecodeImageBtn" class="btn btn-secondary">Decode Image</button>
+        </div>
+
+        <div class="btn-group">
+          <button type="button" id="srStartCameraBtn" class="btn btn-primary">📷 Start Camera</button>
+          <button type="button" id="srStopCameraBtn" class="btn btn-secondary" disabled>⏹ Stop Camera</button>
+        </div>
+
+        <div id="srLookupStatus" class="status-text"></div>
+
+        <div id="srCameraWrap" class="camera-wrap" style="display:none;">
+          <video id="srCameraVideo" playsinline autoplay muted></video>
+        </div>
+
+        <pre id="srLookupResult" class="result-box"></pre>
+      </section>
+
+      <!-- Filter Section -->
+      <section class="section-card">
+        <h2 class="section-title">🎯 Filter Products</h2>
+        <p class="section-description">
+          Apply filters to narrow down your search by product type, size, and model.
+        </p>
+
+        <form id="filterForm" class="filter-form">
+          <div class="input-field">
+            <label for="productType">Product Type</label>
+            <select id="productType">
+              <option value="NOOS">NOOS</option>
+              <option value="Tux">Tux</option>
+              <option value="Casual">Casual</option>
+              <option value="Overcoat">Overcoat</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="input-field">
+            <label for="sizeInput">Size</label>
+            <input type="text" id="sizeInput" placeholder="e.g. 38R, M, L" />
+          </div>
+          <div class="input-field">
+            <label for="modelInput">Model</label>
+            <input type="text" id="modelInput" placeholder="e.g. Havana, Lazio" />
+          </div>
+          <button type="submit" class="btn btn-primary">Apply Filter</button>
+        </form>
+      </section>
+
+      <!-- Scan Results -->
+      <div id="scanStatus" class="status-text"></div>
       <div id="scanResults"></div>
-      <div id="rfidConnectOptions" style="margin-top: 24px;">
-        <h3>RFID Reader Connection</h3>
-        <p style="margin-top: 6px; color: var(--muted);">
-          Need the API URL from the Avery Dennison setup QR? Use <a href="/qr-decode">QR Decode</a>.
+
+      <!-- RFID Connection Section -->
+      <section class="section-card">
+        <h2 class="section-title">📡 RFID Reader Connection</h2>
+        <p class="section-description">
+          Connect your RFID reader via Bluetooth or USB to start scanning.
+          <br>
+          Need the API URL from the Avery Dennison setup QR? <a href="/qr-decode" class="info-link">Use QR Decode →</a>
         </p>
-        <button id="connectBluetooth">Connect via Bluetooth</button>
-        <button id="connectUSB">Connect via USB</button>
-        <div id="rfidStatus" style="margin-top: 8px; color: var(--muted);"></div>
-      </div>
+
+        <div class="btn-group">
+          <button id="connectBluetooth" class="btn btn-primary">🔵 Connect via Bluetooth</button>
+          <button id="connectUSB" class="btn btn-primary">🔌 Connect via USB</button>
+        </div>
+
+        <div id="rfidStatus" class="status-text"></div>
+      </section>
     </main>
+    <script src="/js/shared-header.js?v=24"></script>
     <script src="/js/store-recovery.js?v=1"></script>
   </body>
 </html>
