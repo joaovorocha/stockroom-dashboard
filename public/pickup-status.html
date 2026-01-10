@@ -434,25 +434,44 @@
                 </div>
             </div>
 
+            <!-- Search Box -->
+            <div style="margin-bottom: 20px;">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="🔍 Search by customer name, phone, SKU, or tailor..." 
+                    style="width: 100%; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 14px; background: var(--card-bg);"
+                    oninput="handleSearch()"
+                />
+            </div>
+
             <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="stat-card ready">
-                <div class="stat-number" id="statReady">--</div>
-                <div class="stat-label">Ready</div>
+            <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));">
+                <div class="stat-card ready">
+                    <div class="stat-number" id="statReady">--</div>
+                    <div class="stat-label">Ready</div>
+                </div>
+                <div class="stat-card production">
+                    <div class="stat-number" id="statProduction">--</div>
+                    <div class="stat-label">In Production</div>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid #3b82f6;">
+                    <div class="stat-number" id="statInRack" style="color: #3b82f6;">--</div>
+                    <div class="stat-label">In Rack</div>
+                </div>
+                <div class="stat-card" style="border-left: 4px solid #f97316;">
+                    <div class="stat-number" id="statNeedsMeasurement" style="color: #f97316;">--</div>
+                    <div class="stat-label">Needs Measuring</div>
+                </div>
+                <div class="stat-card overdue">
+                    <div class="stat-number" id="statOverdue">--</div>
+                    <div class="stat-label">Overdue</div>
+                </div>
+                <div class="stat-card orphaned">
+                    <div class="stat-number" id="statOrphaned">--</div>
+                    <div class="stat-label">Orphaned</div>
+                </div>
             </div>
-            <div class="stat-card production">
-                <div class="stat-number" id="statProduction">--</div>
-                <div class="stat-label">In Production</div>
-            </div>
-            <div class="stat-card overdue">
-                <div class="stat-number" id="statOverdue">--</div>
-                <div class="stat-label">Overdue</div>
-            </div>
-            <div class="stat-card orphaned">
-                <div class="stat-number" id="statOrphaned">--</div>
-                <div class="stat-label">Orphaned</div>
-            </div>
-        </div>
 
         <!-- Alert Banner -->
         <div class="alert-banner" id="alertBanner">
@@ -552,6 +571,14 @@
             document.getElementById('statProduction').textContent = stats.inProduction;
             document.getElementById('statOverdue').textContent = stats.overdue;
             document.getElementById('statOrphaned').textContent = stats.orphaned;
+            
+            // New stats
+            if (document.getElementById('statInRack')) {
+                document.getElementById('statInRack').textContent = stats.inRack || 0;
+            }
+            if (document.getElementById('statNeedsMeasurement')) {
+                document.getElementById('statNeedsMeasurement').textContent = stats.needsMeasurement || 0;
+            }
 
             // Update badges
             document.getElementById('badgeAll').textContent = stats.total;
@@ -559,6 +586,32 @@
             document.getElementById('badgeProduction').textContent = stats.inProduction;
             document.getElementById('badgeOverdue').textContent = stats.overdue;
             document.getElementById('badgeOrphaned').textContent = stats.orphaned;
+        }
+
+        function handleSearch() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            if (!searchTerm) {
+                // No search term, show current filter
+                switchTab(currentFilter);
+                return;
+            }
+            
+            // Search across all pickups
+            const filtered = allPickups.filter(pickup => {
+                return pickup.customer.toLowerCase().includes(searchTerm) ||
+                       (pickup.phone && pickup.phone.toLowerCase().includes(searchTerm)) ||
+                       (pickup.styleAdvisor && pickup.styleAdvisor.toLowerCase().includes(searchTerm)) ||
+                       (pickup.tailor && pickup.tailor.toLowerCase().includes(searchTerm)) ||
+                       (pickup.bohContact && pickup.bohContact.toLowerCase().includes(searchTerm)) ||
+                       (pickup.items && pickup.items.some(item => 
+                           item.description.toLowerCase().includes(searchTerm) ||
+                           item.sku.toLowerCase().includes(searchTerm)
+                       )) ||
+                       (pickup.notes && pickup.notes.toLowerCase().includes(searchTerm));
+            });
+            
+            displayPickups(filtered);
         }
 
         function updateLastSync(timestamp) {
@@ -724,6 +777,56 @@
                     waitwhileLink = `<a href="${pickup.waitwhileUrl}" target="_blank" class="waitwhile-link">View in WaitWhile →</a>`;
                 }
                 
+                // Add pickup location info
+                let locationHtml = '';
+                if (pickup.pickupLocation) {
+                    const loc = pickup.pickupLocation;
+                    if (loc.inRack) {
+                        locationHtml = `
+                            <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: #dbeafe; border-radius: 8px; font-size: 13px; margin-top: 8px;">
+                                📍 <strong>Rack: ${loc.rackPosition}</strong>
+                                ${loc.assignedForPickup ? '<span style="color: #10b981;">✓ Assigned</span>' : '<span style="color: #f59e0b;">⚠ Not Assigned</span>'}
+                            </div>
+                        `;
+                    } else {
+                        locationHtml = `<div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; background: #fef3c7; border-radius: 8px; font-size: 13px; margin-top: 8px;">📦 Not in pickup rack</div>`;
+                    }
+                }
+                
+                // Add alteration workflow info
+                let workflowHtml = '';
+                if (pickup.alterationWorkflow) {
+                    const wf = pickup.alterationWorkflow;
+                    const stageLabels = {
+                        'received': '📥 Received',
+                        'measuring': '📐 Measuring',
+                        'production': '✂️ Production',
+                        'quality_check': '✅ Quality Check',
+                        'ready': '🎉 Ready'
+                    };
+                    
+                    const stageLabel = stageLabels[wf.stage] || wf.stage;
+                    let stageColor = '#6b7280';
+                    if (wf.stage === 'ready') stageColor = '#10b981';
+                    else if (wf.stage === 'quality_check') stageColor = '#3b82f6';
+                    else if (wf.stage === 'production') stageColor = '#f59e0b';
+                    
+                    workflowHtml = `
+                        <div style="margin-top: 8px; padding: 8px 12px; background: var(--card-bg); border-left: 3px solid ${stageColor}; border-radius: 6px;">
+                            <div style="font-size: 13px; font-weight: 600; color: ${stageColor}; margin-bottom: 4px;">${stageLabel}</div>
+                            ${wf.currentStep ? `<div style="font-size: 12px; color: var(--text-secondary);">${wf.currentStep}</div>` : ''}
+                            ${wf.needsMeasurement ? '<div style="font-size: 12px; color: #f97316; margin-top: 4px;">⚠️ <strong>Needs Customer Measurement</strong></div>' : ''}
+                            ${wf.assignedTailor ? `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Tailor: ${wf.assignedTailor}</div>` : ''}
+                        </div>
+                    `;
+                }
+                
+                // Add BOH contact
+                let bohHtml = '';
+                if (pickup.bohContact) {
+                    bohHtml = `<div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">📦 BOH: ${pickup.bohContact}</div>`;
+                }
+                
                 return `
                     <div class="pickup-card ${hasAlert ? 'alert-card ' + alertClass : ''}">
                         <div class="pickup-header">
@@ -738,6 +841,10 @@
                         <div class="items-list">
                             ${itemsHtml}
                         </div>
+                        
+                        ${locationHtml}
+                        ${workflowHtml}
+                        ${bohHtml}
                         
                         <div class="pickup-meta">
                             <div class="days-waiting ${daysClass}">
