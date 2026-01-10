@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Offline - Stockroom Daily Operations</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .offline-container {
+      background: white;
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
+    .offline-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    
+    h1 {
+      font-size: 28px;
+      color: #1a1a1a;
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+    
+    p {
+      color: #666;
+      font-size: 16px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    
+    .offline-status {
+      background: #f5f5f5;
+      border-left: 4px solid #ff6b6b;
+      padding: 12px;
+      text-align: left;
+      margin: 24px 0;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #555;
+    }
+    
+    .offline-tips {
+      text-align: left;
+      background: #f9f9f9;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    
+    .offline-tips h3 {
+      font-size: 14px;
+      color: #1a1a1a;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    
+    .offline-tips ul {
+      list-style: none;
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .offline-tips li {
+      padding: 6px 0;
+      padding-left: 24px;
+      position: relative;
+    }
+    
+    .offline-tips li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #51cf66;
+      font-weight: bold;
+    }
+    
+    .offline-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    
+    button {
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-retry {
+      background: #1a5490;
+      color: white;
+    }
+    
+    .btn-retry:active {
+      transform: scale(0.98);
+      opacity: 0.9;
+    }
+    
+    .btn-home {
+      background: #f0f0f0;
+      color: #1a1a1a;
+    }
+    
+    .btn-home:active {
+      background: #e0e0e0;
+    }
+    
+    .offline-cached {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 16px;
+    }
+    
+    @media (max-width: 480px) {
+      .offline-container {
+        border-radius: 8px;
+        padding: 30px 16px;
+      }
+      
+      h1 {
+        font-size: 24px;
+      }
+      
+      p {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="offline-container">
+    <div class="offline-icon">📡</div>
+    <h1>You're Offline</h1>
+    <p>No internet connection detected</p>
+    
+    <div class="offline-status">
+      The Stockroom Daily Operations app works offline, but you need to be online to sync changes with the server.
+    </div>
+    
+    <div class="offline-tips">
+      <h3>What you can do:</h3>
+      <ul>
+        <li>View cached pages from previous visits</li>
+        <li>Make changes locally (will sync when online)</li>
+        <li>Check game plans, shipments & reports</li>
+      </ul>
+    </div>
+    
+    <div class="offline-cached">
+      💾 Your recent pages are saved locally and available offline
+    </div>
+    
+    <div class="offline-buttons">
+      <button class="btn-retry" onclick="retryConnection()">
+        🔄 Retry Now
+      </button>
+      <button class="btn-home" onclick="goHome()">
+        🏠 Go Home
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // Check connection status periodically
+    window.addEventListener('online', () => {
+      console.log('Back online!');
+      showNotification('You\'re back online! Data will sync now.');
+      // Trigger background sync
+      if ('serviceWorker' in navigator && 'SyncManager' in window) {
+        navigator.serviceWorker.ready.then(registration => {
+          registration.sync.register('sync-data').catch(() => {});
+        });
+      }
+    });
+
+    window.addEventListener('offline', () => {
+      console.log('Now offline');
+    });
+
+    function retryConnection() {
+      // Try to fetch something to see if we're back online
+      fetch('/api/store', { method: 'HEAD' })
+        .then(() => {
+          // We're online!
+          window.location.href = '/home';
+        })
+        .catch(() => {
+          showNotification('Still offline. Please check your connection.');
+        });
+    }
+
+    function goHome() {
+      // Try to load home from cache
+      window.location.href = '/home';
+    }
+
+    function showNotification(message) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Stockroom', { body: message });
+      }
+    }
+
+    // Service Worker registration
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.error('SW registration failed:', err));
+    }
+  </script>
+</body>
+</html>

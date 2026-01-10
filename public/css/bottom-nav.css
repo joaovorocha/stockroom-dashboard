@@ -1,0 +1,260 @@
+/* Bottom Navigation - iOS-like Tab Bar */
+
+:root {
+  --nav-height: 60px;
+  --nav-safe-area: max(60px, env(safe-area-inset-bottom));
+  --primary-color: #1a5490;
+  --text-color: #333;
+  --inactive-text: #999;
+  --border-color: #e0e0e0;
+  --highlight-color: #ff6b6b;
+}
+
+/* Adjust body/main content for bottom nav */
+body {
+  padding-bottom: var(--nav-safe-area);
+}
+
+main, .main-content, .container {
+  padding-bottom: var(--nav-safe-area);
+}
+
+/* Bottom Navigation Bar */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--nav-safe-area);
+  background: white;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 1000;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  /* Safe area for notched phones */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@supports (backdrop-filter: blur(10px)) {
+  .bottom-nav {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+  }
+}
+
+/* Individual Nav Items */
+.nav-item {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--inactive-text);
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  -webkit-user-select: none;
+  user-select: none;
+  position: relative;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+.nav-item:active {
+  transform: scale(0.95);
+  opacity: 0.7;
+}
+
+.nav-item-icon {
+  font-size: 24px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.nav-item-label {
+  font-size: 11px;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Active State */
+.nav-item.active {
+  color: var(--primary-color);
+}
+
+.nav-item.active .nav-item-icon {
+  transform: scale(1.2);
+}
+
+/* Badge Support (for notifications) */
+.nav-item-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: var(--highlight-color);
+  color: white;
+  border-radius: 10px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 20px;
+}
+
+/* Haptic Feedback Support */
+.nav-item:active {
+  /* iOS haptic feedback via active state */
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.05);
+}
+
+/* Touch Target Sizing (min 44x44px for accessibility) */
+.nav-item {
+  min-height: 50px;
+  min-width: 50px;
+}
+
+/* Landscape Mode - More Compact */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --nav-height: 50px;
+  }
+  
+  .bottom-nav {
+    height: 50px;
+  }
+  
+  .nav-item-icon {
+    font-size: 20px;
+  }
+  
+  .nav-item-label {
+    font-size: 10px;
+  }
+}
+
+/* Mobile Devices - Full Width */
+@media (max-width: 768px) {
+  .bottom-nav {
+    height: var(--nav-safe-area);
+  }
+  
+  /* Adjust main content on mobile */
+  body {
+    padding-bottom: var(--nav-safe-area);
+  }
+}
+
+/* Tablet - Condensed Navigation */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .nav-item-label {
+    font-size: 12px;
+  }
+}
+
+/* Desktop Fallback - Hidden on desktop */
+@media (min-width: 1024px) {
+  .bottom-nav {
+    display: none;
+  }
+  
+  body {
+    padding-bottom: 0;
+  }
+  
+  main, .main-content, .container {
+    padding-bottom: 0;
+  }
+}
+
+/* Animation for nav transitions */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.bottom-nav {
+  animation: slide-up 0.3s ease;
+}
+
+/* Loading State */
+.nav-item.loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.nav-item.loading .nav-item-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Focus State for Accessibility */
+.nav-item:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -2px;
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: more) {
+  .bottom-nav {
+    border-top: 2px solid var(--text-color);
+  }
+  
+  .nav-item {
+    border: 1px solid transparent;
+  }
+  
+  .nav-item.active {
+    border: 1px solid var(--primary-color);
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .nav-item {
+    transition: none;
+  }
+  
+  .nav-item-icon {
+    transition: none;
+  }
+  
+  .bottom-nav {
+    animation: none;
+  }
+  
+  .nav-item.loading .nav-item-icon {
+    animation: none;
+    opacity: 0.6;
+  }
+}

@@ -2,21 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <meta name="view-transition" content="same-origin">
-  <title>Edit Game Plan - San Francisco | Suitsupply</title>
+  <meta name="description" content="Edit daily game plan for your store">
+  <title>Edit Game Plan - Stockroom Daily Operations</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-  <meta name="theme-color" content="#ffffff">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/icons/apple-touch-icon-144.png">
+  <meta name="theme-color" content="#1a5490">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Daily Operations">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <meta name="apple-itunes-app" content="app-id=123456789">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="format-detection" content="email=no">
+  <meta name="apple-mobile-web-app-icon-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="/css/theme.css?v=14">
 	  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
   <link rel="stylesheet" href="/css/mobile.css?v=3">
+  <link rel="stylesheet" href="/css/bottom-nav.css?v=1">
   <style>
     .edit-container {
       max-width: 1400px;
@@ -3244,6 +3252,18 @@
       }
 
 	    }
+  </script>
+  
+  <!-- Touch gestures & native iOS interactions -->
+  <script src="/js/touch-gestures.js?v=1"></script>
+  
+  <!-- Service Worker registration for PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('Service Worker registered'))
+        .catch(err => console.error('Service Worker registration failed:', err));
+    }
   </script>
 </body>
 </html>
