@@ -29,6 +29,7 @@ const SharedHeader = {
     '/closing-duties': 'Closing Duties',
     '/time-off': 'Time Off',
     '/ops-dashboard': 'Looker Dashboards',
+    '/enterprise-plan': 'Enterprise Integration Plan',
     '/admin': 'Admin Console',
     '/feedback': 'Feedback'
   },
@@ -93,6 +94,7 @@ const SharedHeader = {
       { href: '/closing-duties', label: 'Closing Duties', id: 'navClosingDuties' },
       { href: '/time-off', label: 'Time Off', id: 'navTimeOff' },
       { href: '/ops-dashboard', label: 'Looker Dashboards', id: 'navOpsDashboard' },
+      { href: '/enterprise-plan', label: 'Enterprise Plan', id: 'navEnterprisePlan' },
       { href: '/admin', label: 'Admin', id: 'navAdmin', adminOnly: true }
     ];
 
