@@ -2,15 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Pickup Status - Stockroom Dashboard</title>
-    
-    <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="view-transition" content="same-origin">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Pickup Status - Stockroom Dashboard | San Francisco | Suitsupply</title>
     <link rel="manifest" href="/manifest.webmanifest">
-    
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Daily Operations">
+    <link rel="stylesheet" href="/css/theme.css?v=14">
+    <link rel="stylesheet" href="/css/shared-header.css?v=22">
     <link rel="stylesheet" href="/css/bottom-nav.css?v=1">
     <style>
         * {
@@ -226,6 +233,23 @@
         .customer-info .phone {
             color: #6b7280;
             font-size: 14px;
+        }
+
+        .pickup-team {
+            color: #6b7280;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .waitwhile-link {
+            color: var(--primary, #1a5490);
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .waitwhile-link:hover {
+            text-decoration: underline;
         }
 
         .status-badge {
@@ -498,17 +522,32 @@
     <script>
         let allPickups = [];
         let currentFilter = 'all';
+        let currentUser = null;
 
         // Load pickups on page load
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
             loadPickups();
             // Auto-refresh every 5 minutes
             setInterval(loadPickups, 5 * 60 * 1000);
         });
 
+        async function checkAuth() {
+            const response = await fetch('/api/auth/check', { credentials: 'include' });
+            const data = await response.json();
+            if (!data.authenticated) {
+                window.location.href = '/login';
+                return;
+            }
+            currentUser = {
+                ...data.user,
+                userId: data.user?.userId || data.user?.id || ''
+            };
+        }
+
         async function loadPickups() {
             try {
-                const response = await fetch('/api/pickups');
+                const response = await fetch('/api/pickups', { credentials: 'include' });
                 const data = await response.json();
                 
                 if (data.success) {
@@ -681,12 +720,35 @@
                     estimatedHtml = `<div class="estimated-ready">Est. ready: ${estDate.toLocaleDateString()}</div>`;
                 }
                 
+                // Add SA/Tailor info
+                let teamHtml = '';
+                const teamParts = [];
+                if (pickup.styleAdvisor) {
+                    teamParts.push(`👔 SA: ${pickup.styleAdvisor}`);
+                }
+                if (pickup.tailor) {
+                    teamParts.push(`✂️ Tailor: ${pickup.tailor}`);
+                }
+                if (pickup.productionTeam) {
+                    teamParts.push(`🏭 ${pickup.productionTeam}`);
+                }
+                if (teamParts.length > 0) {
+                    teamHtml = `<div class="pickup-team">${teamParts.join(' • ')}</div>`;
+                }
+
+                // Add WaitWhile link
+                let waitwhileLink = '';
+                if (pickup.waitwhileUrl) {
+                    waitwhileLink = `<a href="${pickup.waitwhileUrl}" target="_blank" class="waitwhile-link">View in WaitWhile →</a>`;
+                }
+                
                 return `
                     <div class="pickup-card ${hasAlert ? 'alert-card ' + alertClass : ''}">
                         <div class="pickup-header">
                             <div class="customer-info">
                                 <h3>${pickup.customer}</h3>
                                 <div class="phone">${pickup.phone}</div>
+                                ${teamHtml}
                             </div>
                             <span class="status-badge ${statusClass}">${statusBadge}</span>
                         </div>
@@ -700,6 +762,7 @@
                                 ${pickup.daysWaiting} ${pickup.daysWaiting === 1 ? 'day' : 'days'} waiting
                             </div>
                             ${estimatedHtml}
+                            ${waitwhileLink}
                         </div>
                         
                         ${alertHtml}
