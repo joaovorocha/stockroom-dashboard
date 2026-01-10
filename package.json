@@ -31,10 +31,12 @@
     "node-cron": "^3.0.3",
     "nodemailer": "^7.0.12",
     "pdf-parse": "^1.1.4",
-    "sharp": "^0.34.5",
     "ws": "^8.18.3"
   },
   "overrides": {
     "semver": "^7.6.3"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
   }
 }

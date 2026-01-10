@@ -2,14 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <meta name="view-transition" content="same-origin" />
     <title>Daily Game Plan</title>
     <meta http-equiv="refresh" content="0;url=/dashboard" />
-  </head>
+  
+  <!-- iOS PWA Support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/icons/apple-touch-icon-144.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="/icons/apple-touch-icon-120.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="/icons/apple-touch-icon-76.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#1a5490">
+  <link rel="stylesheet" href="/css/bottom-nav.css?v=1">
+</head>
   <body>
     <script>
       window.location.replace('/dashboard');
     </script>
-  </body>
+  
+  <!-- Touch gestures & native iOS interactions -->
+  <script src="/js/touch-gestures.js?v=1"></script>
+  
+  <!-- Service Worker registration for PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => console.log('Service Worker registered'))
+        .catch(err => console.error('Service Worker registration failed:', err));
+    }
+  </script>
+</body>
 </html>
