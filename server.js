@@ -1,4 +1,9 @@
 require("dotenv").config();
+
+// Validate environment configuration before starting server
+const { validateEnvironment } = require('./utils/env-validator');
+validateEnvironment({ exitOnError: true, warnOnMissing: true });
+
 const express = require('express');
 const http = require('http');
 const https = require('https');
@@ -299,6 +304,38 @@ app.use('/api/logs', clientLogsRoutes);
 app.use('/api/printers', authMiddleware, printersRoutes);
 // Mock API routes - no auth required for testing
 app.use('/api/mock', mockApiRoutes);
+
+// Health check endpoint (no auth required)
+app.get('/api/health', (req, res) => {
+  const { getEnvironmentInfo, isProduction } = require('./utils/env-validator');
+  const { query: pgQuery } = require('./utils/dal/pg');
+  
+  const health = {
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    version: require('./package.json').version
+  };
+
+  // Check database connection (if configured)
+  if (process.env.DATABASE_URL || process.env.DB_HOST) {
+    pgQuery('SELECT 1')
+      .then(() => {
+        health.database = 'connected';
+        res.json(health);
+      })
+      .catch(err => {
+        health.status = 'degraded';
+        health.database = 'disconnected';
+        health.databaseError = err.message;
+        res.status(503).json(health);
+      });
+  } else {
+    health.database = 'not configured';
+    res.json(health);
+  }
+});
 
 // Test endpoint for mock data (no auth)
 app.get('/test-mock-status', (req, res) => {
@@ -884,6 +921,107 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`║  Press Ctrl+C to stop                                     ║`);
   console.log(`╚═══════════════════════════════════════════════════════════╝\n`);
 });
+
+// Graceful shutdown handling
+const gracefulShutdown = (signal) => {
+  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  
+  // Stop accepting new connections
+  server.close(() => {
+    console.log('✓ HTTP server closed');
+    
+    // Close WebSocket connections
+    const closeWebSockets = () => {
+      return new Promise((resolve) => {
+        let closed = 0;
+        const total = radioMonitorClients.size + radioSpectrumClients.size;
+        
+        if (total === 0) {
+          console.log('✓ No WebSocket connections to close');
+          return resolve();
+        }
+        
+        const checkClosed = () => {
+          closed++;
+          if (closed >= total) {
+            console.log('✓ All WebSocket connections closed');
+            resolve();
+          }
+        };
+        
+        radioMonitorClients.forEach(ws => {
+          try {
+            ws.close();
+            checkClosed();
+          } catch (err) {
+            checkClosed();
+          }
+        });
+        
+        radioSpectrumClients.forEach(ws => {
+          try {
+            ws.close();
+            checkClosed();
+          } catch (err) {
+            checkClosed();
+          }
+        });
+        
+        // Force close after 5 seconds
+        setTimeout(() => {
+          if (closed < total) {
+            console.warn(`⚠ Forced close of ${total - closed} WebSocket connections`);
+            resolve();
+          }
+        }, 5000);
+      });
+    };
+    
+    // Close database connections
+    const closeDatabase = () => {
+      return new Promise((resolve) => {
+        const { pool } = require('./utils/dal/pg');
+        if (pool) {
+          pool.end()
+            .then(() => {
+              console.log('✓ Database connections closed');
+              resolve();
+            })
+            .catch(err => {
+              console.error('✗ Error closing database:', err.message);
+              resolve(); // Resolve anyway to continue shutdown
+            });
+        } else {
+          resolve();
+        }
+      });
+    };
+    
+    // Execute shutdown tasks
+    Promise.all([
+      closeWebSockets(),
+      closeDatabase()
+    ])
+      .then(() => {
+        console.log('✓ Graceful shutdown complete');
+        process.exit(0);
+      })
+      .catch(err => {
+        console.error('✗ Error during shutdown:', err);
+        process.exit(1);
+      });
+  });
+  
+  // Force shutdown after 30 seconds
+  setTimeout(() => {
+    console.error('✗ Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 30000);
+};
+
+// Handle shutdown signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Global error handlers to prevent silent crashes
 process.on('uncaughtException', (err) => {
