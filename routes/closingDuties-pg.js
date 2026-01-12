@@ -43,7 +43,7 @@ const upload = multer({
 });
 
 // GET /api/closing-duties - Get all closing duty submissions
-router.get('/api/closing-duties', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
@@ -69,7 +69,7 @@ router.get('/api/closing-duties', async (req, res) => {
 });
 
 // GET /api/closing-duties/:date - Get submissions for a specific date
-router.get('/api/closing-duties/:date', async (req, res) => {
+router.get('/:date', async (req, res) => {
   try {
     const { date } = req.params;
     
@@ -99,7 +99,7 @@ router.get('/api/closing-duties/:date', async (req, res) => {
 });
 
 // GET /api/closing-duties/:id - Get single closing duty submission with photos
-router.get('/api/closing-duties/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -135,7 +135,7 @@ router.get('/api/closing-duties/:id', async (req, res) => {
 });
 
 // POST /api/closing-duties - Create new closing duty submission
-router.post('/api/closing-duties', upload.array('photos', 10), async (req, res) => {
+router.post('/', upload.array('photos', 10), async (req, res) => {
   const client = await pool.connect();
   
   try {
@@ -215,7 +215,7 @@ router.post('/api/closing-duties', upload.array('photos', 10), async (req, res) 
 });
 
 // PUT /api/closing-duties/:id - Update closing duty submission
-router.put('/api/closing-duties/:id', async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
@@ -245,7 +245,7 @@ router.put('/api/closing-duties/:id', async (req, res) => {
 });
 
 // DELETE /api/closing-duties/:id - Delete closing duty submission
-router.delete('/api/closing-duties/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
   const client = await pool.connect();
   
   try {
@@ -298,7 +298,7 @@ router.delete('/api/closing-duties/:id', async (req, res) => {
 });
 
 // POST /api/closing-duties/:id/photos - Add photos to existing closing duty
-router.post('/api/closing-duties/:id/photos', upload.array('photos', 10), async (req, res) => {
+router.post('/:id/photos', upload.array('photos', 10), async (req, res) => {
   const client = await pool.connect();
   
   try {
@@ -361,7 +361,7 @@ router.post('/api/closing-duties/:id/photos', upload.array('photos', 10), async 
 });
 
 // DELETE /api/closing-duties/:dutyId/photos/:photoId - Delete a photo
-router.delete('/api/closing-duties/:dutyId/photos/:photoId', async (req, res) => {
+router.delete('/:dutyId/photos/:photoId', async (req, res) => {
   const client = await pool.connect();
   
   try {

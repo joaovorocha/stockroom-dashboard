@@ -563,6 +563,237 @@ async function getLastRFIDScan(sgtin) {
 }
 
 // ============================================================================
+// SHIPMENTS
+// ============================================================================
+
+/**
+ * Get shipments with filters
+ */
+async function getShipments(filters = {}) {
+  let sql = `
+    SELECT s.*
+    FROM shipments s
+    WHERE 1=1
+  `;
+  
+  const params = [];
+  let paramCount = 0;
+  
+  if (filters.status) {
+    paramCount++;
+    sql += ` AND s.status = $${paramCount}`;
+    params.push(filters.status);
+  }
+  
+  if (filters.customer_email) {
+    paramCount++;
+    sql += ` AND s.customer_email = $${paramCount}`;
+    params.push(filters.customer_email);
+  }
+  
+  if (filters.order_number) {
+    paramCount++;
+    sql += ` AND s.order_number = $${paramCount}`;
+    params.push(filters.order_number);
+  }
+  
+  if (filters.tracking_number) {
+    paramCount++;
+    sql += ` AND s.tracking_number = $${paramCount}`;
+    params.push(filters.tracking_number);
+  }
+  
+  sql += ` ORDER BY s.created_at DESC`;
+  
+  if (filters.limit) {
+    paramCount++;
+    sql += ` LIMIT $${paramCount}`;
+    params.push(filters.limit);
+  }
+  
+  const result = await query(sql, params);
+  return result.rows;
+}
+
+/**
+ * Get shipment by ID
+ */
+async function getShipmentById(id) {
+  const sql = `SELECT * FROM shipments WHERE id = $1`;
+  const result = await query(sql, [id]);
+  return result.rows[0];
+}
+
+/**
+ * Get shipment items
+ */
+async function getShipmentItems(shipmentId) {
+  const sql = `
+    SELECT si.*
+    FROM shipment_items si
+    WHERE si.shipment_id = $1
+    ORDER BY si.created_at ASC
+  `;
+  const result = await query(sql, [shipmentId]);
+  return result.rows;
+}
+
+/**
+ * Get shipment scan events
+ */
+async function getShipmentScanEvents(shipmentId) {
+  const sql = `
+    SELECT sse.*
+    FROM shipment_scan_events sse
+    WHERE sse.shipment_id = $1
+    ORDER BY sse.scanned_at DESC
+  `;
+  const result = await query(sql, [shipmentId]);
+  return result.rows;
+}
+
+/**
+ * Create shipment
+ */
+async function createShipment(shipment) {
+  const sql = `
+    INSERT INTO shipments (
+      order_number, tracking_number, carrier, customer_name, customer_email,
+      customer_phone, shipping_address, status, notes
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING *
+  `;
+  
+  const values = [
+    shipment.order_number || null,
+    shipment.tracking_number || null,
+    shipment.carrier || 'UPS',
+    shipment.customer_name || null,
+    shipment.customer_email || null,
+    shipment.customer_phone || null,
+    shipment.shipping_address ? JSON.stringify(shipment.shipping_address) : null,
+    shipment.status || 'pending',
+    shipment.notes || null
+  ];
+  
+  const result = await query(sql, values);
+  return result.rows[0];
+}
+
+/**
+ * Update shipment
+ */
+async function updateShipment(id, updates) {
+  const fields = [];
+  const values = [];
+  let paramCount = 0;
+  
+  const allowedFields = ['order_number', 'tracking_number', 'carrier', 'customer_name', 
+    'customer_email', 'customer_phone', 'shipping_address', 'status', 'notes', 'shipped_at'];
+  
+  for (const field of allowedFields) {
+    if (updates[field] !== undefined) {
+      paramCount++;
+      fields.push(`${field} = $${paramCount}`);
+      values.push(field === 'shipping_address' && typeof updates[field] === 'object' 
+        ? JSON.stringify(updates[field]) 
+        : updates[field]);
+    }
+  }
+  
+  if (fields.length === 0) {
+    return getShipmentById(id);
+  }
+  
+  fields.push(`updated_at = NOW()`);
+  paramCount++;
+  values.push(id);
+  
+  const sql = `UPDATE shipments SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+  const result = await query(sql, values);
+  return result.rows[0];
+}
+
+/**
+ * Create shipment item
+ */
+async function createShipmentItem(item) {
+  const sql = `
+    INSERT INTO shipment_items (
+      shipment_id, sku, description, quantity, sgtin
+    ) VALUES ($1, $2, $3, $4, $5)
+    RETURNING *
+  `;
+  
+  const values = [
+    item.shipment_id,
+    item.sku || null,
+    item.description || null,
+    item.quantity || 1,
+    item.sgtin || null
+  ];
+  
+  const result = await query(sql, values);
+  return result.rows[0];
+}
+
+/**
+ * Update shipment item
+ */
+async function updateShipmentItem(id, updates) {
+  const fields = [];
+  const values = [];
+  let paramCount = 0;
+  
+  const allowedFields = ['sku', 'description', 'quantity', 'sgtin', 'picked_at', 'packed_at'];
+  
+  for (const field of allowedFields) {
+    if (updates[field] !== undefined) {
+      paramCount++;
+      fields.push(`${field} = $${paramCount}`);
+      values.push(updates[field]);
+    }
+  }
+  
+  if (fields.length === 0) {
+    const result = await query('SELECT * FROM shipment_items WHERE id = $1', [id]);
+    return result.rows[0];
+  }
+  
+  fields.push(`updated_at = NOW()`);
+  paramCount++;
+  values.push(id);
+  
+  const sql = `UPDATE shipment_items SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+  const result = await query(sql, values);
+  return result.rows[0];
+}
+
+/**
+ * Record shipment scan event
+ */
+async function recordShipmentScan(scan) {
+  const sql = `
+    INSERT INTO shipment_scan_events (
+      shipment_id, sgtin, event_type, scanned_by, scanned_at, notes
+    ) VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *
+  `;
+  
+  const values = [
+    scan.shipment_id,
+    scan.sgtin || null,
+    scan.event_type || 'scan',
+    scan.scanned_by || null,
+    scan.scanned_at || new Date(),
+    scan.notes || null
+  ];
+  
+  const result = await query(sql, values);
+  return result.rows[0];
+}
+
+// ============================================================================
 // SYNC LOG
 // ============================================================================
 
@@ -624,6 +855,17 @@ module.exports = {
   
   // Pickup Items
   createPickupItem,
+  
+  // Shipments
+  getShipments,
+  getShipmentById,
+  getShipmentItems,
+  getShipmentScanEvents,
+  createShipment,
+  updateShipment,
+  createShipmentItem,
+  updateShipmentItem,
+  recordShipmentScan,
   
   // Production Stages
   recordProductionStage,
