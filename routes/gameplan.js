@@ -610,10 +610,13 @@ router.post('/save', requireManager, (req, res) => {
     Object.keys(gameplan.assignments).forEach(id => {
       const assignment = gameplan.assignments[id];
       for (const type of Object.keys(employees.employees)) {
-        const index = employees.employees[type].findIndex(e => e.id === id);
+        // Use employeeId field since employees don't have 'id' field
+        const index = employees.employees[type].findIndex(e => 
+          e.employeeId === id || e.id === id
+        );
         if (index >= 0) {
           // Update only daily assignment fields, not metrics
-          const dailyFields = ['zones', 'zone', 'fittingRoom', 'scheduledLunch', 'closingSections',
+          const dailyFields = ['isOff', 'zones', 'zone', 'fittingRoom', 'scheduledLunch', 'closingSections',
                               'shift', 'lunch', 'taskOfTheDay', 'role', 'station'];
           dailyFields.forEach(field => {
             if (assignment[field] !== undefined) {

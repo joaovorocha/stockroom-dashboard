@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head><title>Error Logger Test</title></head>
+<body>
+<h1>Error Logger Test</h1>
+<p>Open browser console and check for error logger initialization message.</p>
+<button onclick="testError()">Test Error</button>
+<button onclick="testPromiseRejection()">Test Promise Rejection</button>
+<button onclick="testConsoleError()">Test console.error</button>
+<script src="/js/shared-header.js"></script>
+<script>
+function testError() {
+  throw new Error("Test error from button click");
+}
+function testPromiseRejection() {
+  Promise.reject(new Error("Test promise rejection"));
+}
+function testConsoleError() {
+  console.error("Test console.error message", { detail: "extra info" });
+}
+</script>
+</body>
+</html>
