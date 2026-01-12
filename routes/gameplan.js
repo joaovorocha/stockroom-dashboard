@@ -1730,4 +1730,138 @@ router.post('/employees/move', requireManager, (req, res) => {
   res.json({ success: true });
 });
 
+// GET /api/gameplan/unified - Unified game plan endpoint with role-based filtering
+router.get('/unified', async (req, res) => {
+  try {
+    const { date, view } = req.query;
+    const targetDate = date || getTodayDate();
+    const user = req.user;
+    
+    // Determine which view to show based on user role and query param
+    let filterType = view;
+    if (!filterType) {
+      // Auto-select based on user role
+      if (user?.role === 'BOH') filterType = 'boh';
+      else if (user?.role === 'SA') filterType = 'sa';
+      else if (user?.role === 'TAILOR') filterType = 'tailors';
+      else if (user?.role === 'MANAGEMENT' || user?.isManager || user?.isAdmin) filterType = 'all';
+      else filterType = 'all';
+    }
+    
+    // Read employees data
+    const employeesData = readJsonFile(EMPLOYEES_FILE, { employees: {} });
+    
+    // Read game plan for the date
+    const gameplanFile = path.join(GAMEPLAN_DIR, `${targetDate}.json`);
+    const gameplan = readJsonFile(gameplanFile, { date: targetDate, employees: [] });
+    
+    // Read metrics
+    const metricsFile = path.join(METRICS_DIR, `${targetDate}.json`);
+    const metrics = readJsonFile(metricsFile, {});
+    
+    // Filter employees based on view
+    let employees = gameplan.employees || [];
+    if (filterType !== 'all') {
+      const typeMap = {
+        'boh': 'BOH',
+        'sa': 'SA',
+        'tailors': 'TAILOR',
+        'management': 'MANAGEMENT'
+      };
+      const targetType = typeMap[filterType];
+      if (targetType) {
+        employees = employees.filter(e => e.type === targetType || e.role === targetType);
+      }
+    }
+    
+    // Enrich employee data with real-time performance
+    const enrichedEmployees = employees.map(emp => {
+      const actual = emp.actual || {};
+      const goals = emp.goals || {};
+      
+      // Calculate progress
+      const salesProgress = goals.sales ? (actual.sales || 0) / goals.sales : 0;
+      const unitsProgress = goals.units ? (actual.units || 0) / goals.units : 0;
+      const apptProgress = goals.appointments ? (actual.appointments || 0) / goals.appointments : 0;
+      
+      return {
+        ...emp,
+        performance: {
+          salesProgress: Math.round(salesProgress * 100) / 100,
+          unitsProgress: Math.round(unitsProgress * 100) / 100,
+          appointmentsProgress: Math.round(apptProgress * 100) / 100,
+          onTrack: salesProgress >= 0.5, // 50% of goal halfway through day
+          lastUpdate: emp.lastUpdate || new Date().toISOString()
+        },
+        actual: {
+          sales: actual.sales || 0,
+          units: actual.units || 0,
+          appointments: actual.appointments || 0,
+          tasksCompleted: actual.tasksCompleted || 0
+        }
+      };
+    });
+    
+    // Get appointments
+    const appointments = gameplan.appointments || [];
+    
+    // Get best sellers
+    const bestSellers = metrics.bestSellers || [];
+    
+    // Build response
+    const response = {
+      date: targetDate,
+      store: 'SF', // TODO: Make this dynamic
+      view: filterType,
+      canEdit: user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT',
+      metrics: {
+        traffic: metrics.traffic || 0,
+        conversion: metrics.conversion || 0,
+        avgBasket: metrics.avgBasket || 0,
+        totalSales: metrics.totalSales || 0,
+        appointments: appointments.length
+      },
+      employees: enrichedEmployees,
+      appointments: appointments,
+      bestSellers: bestSellers.slice(0, 10), // Top 10
+      availableViews: getAvailableViews(user),
+      lastUpdated: gameplan.lastUpdated || metrics.lastUpdated || new Date().toISOString()
+    };
+    
+    res.json(response);
+    
+  } catch (error) {
+    console.error('[GAMEPLAN] Unified endpoint error:', error);
+    res.status(500).json({ 
+      error: 'Failed to load game plan',
+      message: error.message 
+    });
+  }
+});
+
+// Helper function to determine available views based on user role
+function getAvailableViews(user) {
+  const views = [];
+  
+  if (user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT') {
+    views.push(
+      { id: 'all', label: 'All Employees', icon: '👥' },
+      { id: 'boh', label: 'Back of House', icon: '📦' },
+      { id: 'sa', label: 'Sales Associates', icon: '👔' },
+      { id: 'tailors', label: 'Tailors', icon: '✂️' },
+      { id: 'management', label: 'Management', icon: '👨‍💼' }
+    );
+  } else if (user?.role === 'BOH') {
+    views.push({ id: 'boh', label: 'Back of House', icon: '📦' });
+  } else if (user?.role === 'SA') {
+    views.push({ id: 'sa', label: 'Sales Associates', icon: '👔' });
+  } else if (user?.role === 'TAILOR') {
+    views.push({ id: 'tailors', label: 'Tailors', icon: '✂️' });
+  } else {
+    views.push({ id: 'all', label: 'All Employees', icon: '👥' });
+  }
+  
+  return views;
+}
+
 module.exports = router;
