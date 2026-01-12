@@ -14,7 +14,7 @@ async function syncEmployeesFromDB() {
       WHERE is_active = true 
       ORDER BY role, name
     `);
-    
+
     
     console.log(`✅ Found ${result.rows.length} active users`);
     
@@ -64,7 +64,13 @@ async function syncEmployeesFromDB() {
       syncedUserCount: result.rows.length
     };
     
-    const employeesFile = path.join(__dirname, 'data', 'employees.json');
+    // Write to the location that DAL uses (/var/lib/stockroom-dashboard/data/employees-v2.json)
+    const employeesFile = process.env.NODE_ENV === 'production' 
+      ? '/var/lib/stockroom-dashboard/data/employees-v2.json'
+      : path.join(__dirname, 'data', 'employees.json');
+    
+    // Ensure directory exists
+    fs.mkdirSync(path.dirname(employeesFile), { recursive: true });
     fs.writeFileSync(employeesFile, JSON.stringify(employeesData, null, 2), 'utf8');
     
     console.log('✅ Employees file synced:');
