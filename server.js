@@ -314,11 +314,12 @@ app.use('/api/printers', authMiddleware, printersRoutes);
 // Mock API routes - no auth required for testing
 app.use('/api/mock', mockApiRoutes);
 
+// Import modules for health check (avoid repeated loading in route handler)
+const { getEnvironmentInfo, isProduction } = require('./utils/env-validator');
+const { query: pgHealthCheck } = require('./utils/dal/pg');
+
 // Health check endpoint (no auth required)
 app.get('/api/health', (req, res) => {
-  const { getEnvironmentInfo, isProduction } = require('./utils/env-validator');
-  const { query: pgQuery } = require('./utils/dal/pg');
-  
   const health = {
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -329,7 +330,7 @@ app.get('/api/health', (req, res) => {
 
   // Check database connection (if configured)
   if (process.env.DATABASE_URL || process.env.DB_HOST) {
-    pgQuery('SELECT 1')
+    pgHealthCheck('SELECT 1')
       .then(() => {
         health.database = 'connected';
         res.json(health);
@@ -937,6 +938,9 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`╚═══════════════════════════════════════════════════════════╝\n`);
 });
 
+// Import database pool for shutdown (avoid repeated loading)
+const { pool: dbPool } = require('./utils/dal/pg');
+
 // Graceful shutdown handling
 const gracefulShutdown = (signal) => {
   console.log(`\n${signal} received. Starting graceful shutdown...`);
@@ -995,9 +999,8 @@ const gracefulShutdown = (signal) => {
     // Close database connections
     const closeDatabase = () => {
       return new Promise((resolve) => {
-        const { pool } = require('./utils/dal/pg');
-        if (pool) {
-          pool.end()
+        if (dbPool) {
+          dbPool.end()
             .then(() => {
               console.log('✓ Database connections closed');
               resolve();

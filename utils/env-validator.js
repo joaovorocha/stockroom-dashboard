@@ -84,9 +84,25 @@ function validateEnvironment(options = {}) {
 
   // Production-specific checks
   if (process.env.NODE_ENV === 'production') {
-    if (process.env.SESSION_SECRET === 'your-random-secret-here-change-this') {
-      errors.push('SESSION_SECRET must be changed from default value in production');
+    const weakSecrets = [
+      'your-random-secret-here-change-this',
+      'secret',
+      'password',
+      'changeme',
+      'default',
+      '12345678',
+      'secretkey'
+    ];
+    
+    const secretLower = (process.env.SESSION_SECRET || '').toLowerCase();
+    if (weakSecrets.includes(secretLower)) {
+      errors.push('SESSION_SECRET must be changed from default/weak value in production');
     }
+    
+    if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length < 32) {
+      errors.push('SESSION_SECRET must be at least 32 characters in production');
+    }
+    
     if (!process.env.FORCE_HTTPS || process.env.FORCE_HTTPS !== 'true') {
       warnings.push('FORCE_HTTPS should be enabled in production');
     }

@@ -256,7 +256,7 @@ function sanitizeObjectKeys(input, allowedKeys) {
   const result = {};
   
   for (const key of allowedKeys) {
-    if (input.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(input, key)) {
       result[key] = input[key];
     }
   }

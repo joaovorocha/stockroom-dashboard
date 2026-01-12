@@ -96,7 +96,7 @@ function logRequest(req, res) {
       url: req.originalUrl || req.url,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
-      ip: req.ip || req.connection.remoteAddress,
+      ip: req.ip || (req.socket && req.socket.remoteAddress),
       user: req.user ? req.user.employeeId : 'anonymous'
     };
 
