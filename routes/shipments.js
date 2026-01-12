@@ -14,7 +14,7 @@ const predictSpring = require('../utils/predictspring-client');
 const upsClient = require('../utils/ups-client');
 
 // Middleware: Require authentication (reuse existing auth)
-const authMiddleware = require('../middleware/auth');
+const authMiddleware = require('../middleware/auth-pg');
 router.use(authMiddleware);
 
 // ============================================================================

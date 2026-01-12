@@ -1,4 +1,15 @@
 // Dashboard JavaScript
+// Auto-add credentials: 'include' to all fetch requests
+(function() {
+  const originalFetch = window.fetch;
+  window.fetch = function(url, options = {}) {
+    if (typeof url === 'string' && url.startsWith('/')) {
+      options.credentials = options.credentials || 'include';
+    }
+    return originalFetch(url, options);
+  };
+})();
+
 let currentUser = null;
 let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
 let metrics = {};
@@ -664,7 +675,7 @@ function setCurrentDate() {
 // Data loading functions
 async function loadEmployees() {
   try {
-    const response = await fetch('/api/gameplan/employees');
+    const response = await fetch('/api/gameplan/employees', { credentials: 'include' });
     const data = await response.json();
     employees = data.employees || { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
     
@@ -692,7 +703,7 @@ async function loadEmployees() {
 async function loadMetrics() {
   try {
     debugLog('[DEBUG] Loading metrics...');
-    const response = await fetch('/api/gameplan/metrics');
+    const response = await fetch('/api/gameplan/metrics', { credentials: 'include' });
     metrics = await response.json();
     debugLog('[DEBUG] Metrics loaded:', metrics);
     await loadWeeklyGoalDistributionFromMetrics();
@@ -739,7 +750,7 @@ async function loadMetrics() {
 
 async function loadSettings() {
   try {
-    const response = await fetch('/api/gameplan/settings');
+    const response = await fetch('/api/gameplan/settings', { credentials: 'include' });
     settings = await response.json();
   } catch (error) {
     console.error('Error loading settings:', error);
@@ -749,7 +760,7 @@ async function loadSettings() {
 
 async function loadStoreConfig() {
   try {
-    const response = await fetch('/api/gameplan/store-config');
+    const response = await fetch('/api/gameplan/store-config', { credentials: 'include' });
     storeConfig = response.ok ? await response.json() : storeConfig;
   } catch (_) {
     // keep defaults
@@ -854,7 +865,7 @@ function resetAllEmployeesDailyFields() {
 
 async function getStoreDayInfo() {
   try {
-    const resp = await fetch('/api/gameplan/today');
+    const resp = await fetch('/api/gameplan/today', { credentials: 'include' });
     const data = resp.ok ? await resp.json() : null;
     if (data?.date) storeDayInfo = data;
     return data;
@@ -865,7 +876,7 @@ async function getStoreDayInfo() {
 
 async function loadLoansData() {
   try {
-    const response = await fetch('/api/gameplan/loans');
+    const response = await fetch('/api/gameplan/loans', { credentials: 'include' });
     if (response.ok) {
       loansData = await response.json();
       checkLoansOverdue();

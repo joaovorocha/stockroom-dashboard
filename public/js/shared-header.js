@@ -134,7 +134,6 @@ const SharedHeader = {
       { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' },
       { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' },
       { href: '/shipments', label: 'Shipments', id: 'navShipments', badge: 'shipmentsBadge' },
-      { href: '/boh-shipments', label: 'BOH Shipments', id: 'navBohShipments' },
       { href: '/printer-manager', label: 'Printer Manager', id: 'navPrinterManager' },
       { href: '/rfid-scanner', label: 'RFID Scanner', id: 'navRfidScanner' },
       { href: '/scanner', label: 'Scanner', id: 'navScanner' },
@@ -163,6 +162,10 @@ const SharedHeader = {
         <h1>${pageTitle}</h1>
         <span class="location">San Francisco</span>
       </div>
+    </div>
+
+    <div class="header-center-logo">
+      <img src="https://cdn.freebiesupply.com/logos/large/2x/suitsupply-logo-logo-svg-vector.svg" alt="Suitsupply" class="suitsupply-logo">
     </div>
 
     <nav class="header-nav">

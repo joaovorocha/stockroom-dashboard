@@ -59,52 +59,32 @@
         .grid { grid-template-columns: 1fr; }
       }
       .row { margin-top: 12px; }
-      .btn {
-        width: 100%;
-        margin-top: 14px;
-        padding: 12px 14px;
-        border-radius: 10px;
-        border: 1px solid rgba(59, 130, 246, 0.25);
-        background: linear-gradient(180deg, rgba(59, 130, 246, 0.95), rgba(37, 99, 235, 0.95));
-        color: white;
-        font-weight: 600;
-        cursor: pointer;
-      }
-      .btn:disabled { opacity: 0.7; cursor: not-allowed; }
-      .msg {
-        margin-top: 12px;
-        padding: 10px 12px;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        color: var(--muted);
-        display: none;
-      }
-      .msg.error { color: #fecaca; border-color: rgba(239, 68, 68, 0.35); }
-      .check {
-        margin-top: 12px;
+      .row.check {
         display: flex;
         gap: 10px;
         align-items: center;
         color: var(--muted);
         font-size: 14px;
       }
+      .row.check input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+      }
+      .row.check label {
+        margin: 0;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
     <div class="card">
       <h1>Finish setting up your account</h1>
-      <p>Confirm your email and phone number, then choose a new password to continue.</p>
+      <p>Confirm your email and choose a new password to continue.</p>
 
       <form id="form">
-        <div class="grid">
-          <div class="row">
-            <label for="email">Email</label>
-            <input id="email" type="email" autocomplete="email" required />
-          </div>
-          <div class="row">
-            <label for="phone">Phone</label>
-            <input id="phone" type="tel" autocomplete="tel" required />
-          </div>
+        <div class="row">
+          <label for="email">Email</label>
+          <input id="email" type="email" autocomplete="email" required />
         </div>
 
         <div class="row">
@@ -112,7 +92,7 @@
           <input id="password" type="password" autocomplete="new-password" required />
         </div>
 
-        <div class="check">
+        <div class="row check">
           <input id="rememberDevice" type="checkbox" />
           <label for="rememberDevice" style="margin: 0;">Remember this device for 30 days</label>
         </div>
@@ -142,7 +122,6 @@
             return;
           }
           document.getElementById('email').value = data.user?.email || '';
-          document.getElementById('phone').value = data.user?.phone || '';
         } catch (e) {
           // ignore
         }
@@ -153,7 +132,6 @@
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('email').value.trim();
-        const phone = document.getElementById('phone').value.trim();
         const password = document.getElementById('password').value;
         const rememberDevice = document.getElementById('rememberDevice').checked;
 
@@ -164,7 +142,7 @@
           const res = await fetch('/api/auth/profile/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, phone, password, rememberDevice }),
+            body: JSON.stringify({ email, password, rememberDevice }),
             credentials: 'include'
           });
           const data = await res.json().catch(() => ({}));

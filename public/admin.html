@@ -1378,10 +1378,6 @@
               </div>
             </div>
           </div>
-          <div class="form-group">
-            <label>Phone</label>
-            <input type="text" class="form-control" id="userPhone" placeholder="Phone number">
-          </div>
         </div>
 	        <div class="form-row">
 	          <div class="form-group">
@@ -1891,7 +1887,6 @@
 	      document.getElementById('userFullName').value = '';
 	      document.getElementById('userEmployeeId').value = '';
 	      document.getElementById('userEmail').value = '';
-	      document.getElementById('userPhone').value = '';
 	      // New users need a password; default to 1234.
 	      document.getElementById('userPassword').value = '1234';
 	      document.getElementById('userPassword').dataset.resetArmed = 'true';
@@ -1918,7 +1913,6 @@
 	      document.getElementById('userFullName').value = user.name || '';
 	      document.getElementById('userEmployeeId').value = user.employeeId || '';
 	      document.getElementById('userEmail').value = user.email || '';
-	      document.getElementById('userPhone').value = user.phone || '';
 	      // Never show or prefill password; only send when reset is requested.
 	      document.getElementById('userPassword').value = '';
 	      document.getElementById('userPassword').dataset.resetArmed = 'false';
@@ -2037,7 +2031,6 @@
 		        name: document.getElementById('userFullName').value,
 		        employeeId: document.getElementById('userEmployeeId').value,
 		        email: document.getElementById('userEmail').value,
-		        phone: document.getElementById('userPhone').value,
 		        role: document.getElementById('userRole').value,
 		        imageUrl: photoMode === 'url' ? document.getElementById('userPhotoUrl').value : '',
 		        isManager: document.getElementById('userIsManager').checked,
@@ -5131,30 +5124,6 @@
 		  </script>
     <div id="adminToast" class="admin-toast" style="display:none;"></div>
   <script src="/js/shared-header.js?v=24"></script>
-
-  <!-- Bottom Navigation (iOS-like Tab Bar) -->
-  <nav class="bottom-nav">
-    <a href="/home" class="nav-item">
-      <div class="nav-item-icon">🏠</div>
-      <div class="nav-item-label">Home</div>
-    </a>
-    <a href="/gameplan-edit.html" class="nav-item">
-      <div class="nav-item-icon">📋</div>
-      <div class="nav-item-label">Game Plan</div>
-    </a>
-    <a href="/shipments.html" class="nav-item">
-      <div class="nav-item-icon">📦</div>
-      <div class="nav-item-label">Shipments</div>
-    </a>
-    <a href="/lost-punch.html" class="nav-item">
-      <div class="nav-item-icon">⏰</div>
-      <div class="nav-item-label">Punch</div>
-    </a>
-    <a href="/time-off.html" class="nav-item">
-      <div class="nav-item-icon">📅</div>
-      <div class="nav-item-label">Time Off</div>
-    </a>
-  </nav>
 
 </body>
 </html>

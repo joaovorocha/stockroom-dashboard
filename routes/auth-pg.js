@@ -63,10 +63,16 @@ function verifyPassword(plain, stored) {
   if (!storedStr) return false;
 
   if (storedStr.startsWith('scrypt$')) {
-    const parts = storedStr.split('$');
-    if (parts.length !== 3) return false;
-    const salt = Buffer.from(parts[1], 'base64');
-    const expected = Buffer.from(parts[2], 'base64');
+    // Split only on the first two $ characters: scrypt$salt$hash
+    const firstDollar = storedStr.indexOf('$');
+    const secondDollar = storedStr.indexOf('$', firstDollar + 1);
+    if (firstDollar === -1 || secondDollar === -1) return false;
+    
+    const saltB64 = storedStr.substring(firstDollar + 1, secondDollar);
+    const hashB64 = storedStr.substring(secondDollar + 1);
+    
+    const salt = Buffer.from(saltB64, 'base64');
+    const expected = Buffer.from(hashB64, 'base64');
     const derived = crypto.scryptSync(password, salt, expected.length);
     return crypto.timingSafeEqual(expected, derived);
   }
@@ -86,13 +92,14 @@ function isRequestSecure(req) {
 // Cookie options
 function getUserSessionCookieOptions(req, { maxAge } = {}) {
   const secure = isRequestSecure(req);
-  // Always use 'lax' for better compatibility - 'none' requires HTTPS everywhere
+  console.log('[COOKIE] isRequestSecure:', secure, 'req.secure:', req.secure, 'x-forwarded-proto:', req.get('x-forwarded-proto'));
+  // Force insecure for testing
   return {
-    httpOnly: true,
+    httpOnly: false,  // Allow JavaScript access for debugging
     path: '/',
     maxAge,
     sameSite: 'lax',
-    secure
+    secure: false  // Force false for now to fix cookie issues
   };
 }
 
@@ -184,14 +191,13 @@ async function logUserAudit(userId, action, changes = {}, req) {
 
 // Format user for response
 function formatUserResponse(user) {
-  const needsProfileCompletion = !String(user.email || '').trim() || !String(user.phone || '').trim();
+  const needsProfileCompletion = !String(user.email || '').trim();
   
   return {
     userId: user.id,
     employeeId: user.employee_id,
     name: user.name,
     email: user.email || '',
-    phone: user.phone || '',
     role: user.role,
     imageUrl: user.image_url,
     isManager: user.is_manager,
@@ -514,15 +520,11 @@ router.post('/profile/complete', async (req, res) => {
     }
 
     const email = (req.body?.email || '').toString().trim();
-    const phone = (req.body?.phone || '').toString().trim();
     const password = (req.body?.password || '').toString();
     const rememberDevice = !!req.body?.rememberDevice;
 
     if (!email || !email.includes('@')) {
       return res.status(400).json({ success: false, error: 'Valid email is required' });
-    }
-    if (!phone) {
-      return res.status(400).json({ success: false, error: 'Phone is required' });
     }
     if (!password || password.length < 4) {
       return res.status(400).json({ success: false, error: 'Password must be at least 4 characters' });
@@ -530,12 +532,12 @@ router.post('/profile/complete', async (req, res) => {
 
     const newHash = hashPassword(password);
 
-    // Update user
+    // Update user (phone is optional now)
     await query(`
       UPDATE users 
-      SET email = $1, phone = $2, password_hash = $3, must_change_password = false, updated_at = NOW() 
-      WHERE id = $4
-    `, [email, phone, newHash, currentUser.userId]);
+      SET email = $1, password_hash = $2, must_change_password = false, updated_at = NOW() 
+      WHERE id = $3
+    `, [email, newHash, currentUser.userId]);
 
     // Log audit
     await logUserAudit(currentUser.userId, 'PROFILE_COMPLETED', {}, req);
@@ -602,7 +604,6 @@ router.get('/users', async (req, res) => {
       loginAlias: u.login_alias,
       name: u.name,
       email: u.email,
-      phone: u.phone,
       role: u.role,
       imageUrl: u.image_url,
       isManager: u.is_manager,
@@ -645,7 +646,6 @@ router.post('/users', async (req, res) => {
       canConfigRadio,
       canManageLostPunch,
       email,
-      phone,
       mustChangePassword
     } = req.body;
 
@@ -669,10 +669,10 @@ router.post('/users', async (req, res) => {
     const result = await query(`
       INSERT INTO users (
         store_id, employee_id, name, password_hash, role, 
-        email, phone, image_url,
+        email, image_url,
         is_manager, is_admin, can_edit_gameplan, can_config_radio, can_manage_lost_punch,
         must_change_password
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
     `, [
       storeId,
@@ -681,7 +681,6 @@ router.post('/users', async (req, res) => {
       passwordHash,
       role,
       email || '',
-      phone || '',
       imageUrl || '',
       !!isManager,
       !!isAdmin,
@@ -707,7 +706,6 @@ router.post('/users', async (req, res) => {
         name: newUser.name,
         role: newUser.role,
         email: newUser.email,
-        phone: newUser.phone,
         imageUrl: newUser.image_url,
         isManager: newUser.is_manager,
         isAdmin: newUser.is_admin,
@@ -772,7 +770,6 @@ router.put('/users/:id', async (req, res) => {
       name: 'name',
       role: 'role',
       email: 'email',
-      phone: 'phone',
       imageUrl: 'image_url',
       isManager: 'is_manager',
       isAdmin: 'is_admin',

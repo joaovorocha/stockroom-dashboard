@@ -461,19 +461,6 @@ async function initPage() {
     await SharedHeader.init();
     currentUser = SharedHeader.currentUser;
   }
-  
-  // Tab switching between Tracking and Pick & Pack
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tab = btn.dataset.tab;
-      if (tab === 'tracking') {
-        window.location.href = '/shipments';
-        return;
-      }
-      // Default: stay on pick & pack view
-    });
-  });
-  
   await loadShipments();
   
   // Setup real-time updates

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Offline - Stockroom Daily Operations</title>
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <style>
     * {
       margin: 0;
@@ -165,6 +166,8 @@
   </style>
 </head>
 <body>
+  <!-- Shared Header Mount -->
+  <div id="shared-header-mount"></div>
   <div class="offline-container">
     <div class="offline-icon">📡</div>
     <h1>You're Offline</h1>
@@ -244,5 +247,6 @@
         .catch(err => console.error('SW registration failed:', err));
     }
   </script>
+  <script src="/js/shared-header.js?v=24"></script>
 </body>
 </html>

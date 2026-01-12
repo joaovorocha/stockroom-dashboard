@@ -1,7 +1,7 @@
 const authMiddleware = (req, res, next) => {
   const xfProto = (req.get('x-forwarded-proto') || '').toString().toLowerCase();
   const isSecure = !!req.secure || xfProto.split(',')[0].trim() === 'https';
-  const clearCookieOptions = { path: '/', sameSite: isSecure ? 'none' : 'lax', secure: isSecure };
+  const clearCookieOptions = { path: '/', sameSite: 'lax', secure: false };
 
   const originalUrl = req.originalUrl || req.url || '';
   const baseUrl = req.baseUrl || '';
@@ -50,7 +50,7 @@ const authMiddleware = (req, res, next) => {
     }
 
     // Attach normalized user data to request
-    const needsProfileCompletion = !String(currentUser.email || '').trim() || !String(currentUser.phone || '').trim();
+    const needsProfileCompletion = false; // No longer requiring email - moving to SSO
     const mustChangePassword = !!currentUser.mustChangePassword;
 
     const roleStr = String(currentUser.role || userData.role || '').trim().toLowerCase();
@@ -80,8 +80,8 @@ const authMiddleware = (req, res, next) => {
       mustChangePassword
     };
 
-    // For page requests, force profile completion before accessing the app.
-    if (!isApiRequest && (needsProfileCompletion || mustChangePassword)) {
+    // For page requests, force password change if required
+    if (!isApiRequest && mustChangePassword) {
       if (!originalUrl.startsWith('/complete-profile')) {
         return res.redirect('/complete-profile');
       }

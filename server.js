@@ -484,8 +484,9 @@ app.get('/feedback', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'feedback.html'));
 });
 
+// BOH Shipments merged into main /shipments page
 app.get('/boh-shipments', authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'boh-shipments.html'));
+  res.redirect('/shipments');
 });
 
 app.get('/printer-manager', authMiddleware, (req, res) => {

@@ -91,9 +91,8 @@ function getUserSessionCookieOptions(req, { maxAge } = {}) {
     httpOnly: true,
     path: '/',
     maxAge,
-    // Builder.io (iframe) requires SameSite=None + Secure; fall back to Lax for plain HTTP local dev.
-    sameSite: secure ? 'none' : 'lax',
-    secure
+    sameSite: 'lax',
+    secure: false
   };
 }
 
@@ -301,7 +300,17 @@ router.post('/login', (req, res) => {
 
     const isFirstLogin = !user?.lastLogin;
 
-    if (!user || !verifyPassword(password, user.password)) {
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Invalid Employee ID or password' });
+    }
+    
+    console.log('[LOGIN-DEBUG] User:', user.name, user.employeeId);
+    console.log('[LOGIN-DEBUG] Stored password:', user.password?.substring(0, 50) + '...');
+    console.log('[LOGIN-DEBUG] Trying password:', password);
+    const passwordMatches = verifyPassword(password, user.password);
+    console.log('[LOGIN-DEBUG] Password matches:', passwordMatches);
+    
+    if (!passwordMatches) {
       return res.status(401).json({ success: false, error: 'Invalid Employee ID or password' });
     }
 
@@ -315,7 +324,7 @@ router.post('/login', (req, res) => {
     if (normalized.changed) usersData.lastUpdated = dal.getBusinessDate();
     writeJsonFile(USERS_FILE, usersData);
 
-    const needsProfileCompletion = !String(user.email || '').trim() || !String(user.phone || '').trim();
+    const needsProfileCompletion = false; // No longer requiring email
     // Force password change on first login (especially when initial password is 1234).
     const mustChangePassword = !!user.mustChangePassword || isFirstLogin;
 
@@ -340,7 +349,8 @@ router.post('/login', (req, res) => {
 
     // Set cookie
     const maxAge = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 30 days or 1 day
-    res.cookie('userSession', JSON.stringify(sessionData), getUserSessionCookieOptions(req, { maxAge }));
+    const cookieOptions = getUserSessionCookieOptions(req, { maxAge });
+    res.cookie('userSession', JSON.stringify(sessionData), cookieOptions);
 
     logActivity('LOGIN_SUCCESS', user.id, user.name, { role: user.role });
 
@@ -479,7 +489,7 @@ router.post('/password-reset/confirm', (req, res) => {
       isAdmin: !!user.isAdmin,
       isManager: !!(user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
       canEditGameplan: !!(user.canEditGameplan || user.isManager || user.isAdmin || user.role === 'MANAGEMENT'),
-      needsProfileCompletion: !String(user.email || '').trim() || !String(user.phone || '').trim(),
+      needsProfileCompletion: false,
       mustChangePassword: false
     };
 
@@ -537,7 +547,7 @@ router.get('/check', (req, res) => {
       canEditGameplan: !!(currentUser.canEditGameplan || currentUser.isManager || currentUser.isAdmin),
       canConfigRadio: !!(currentUser.canConfigRadio || currentUser.isManager || currentUser.isAdmin),
       canManageLostPunch: !!(currentUser.canManageLostPunch || currentUser.isManager || currentUser.isAdmin),
-      needsProfileCompletion: !String(currentUser.email || '').trim() || !String(currentUser.phone || '').trim(),
+      needsProfileCompletion: false,
       mustChangePassword: !!currentUser.mustChangePassword
     };
     return res.json({

@@ -47,15 +47,9 @@
 <body>
   <div id="shared-header-mount"></div>
   <div class="page-wrap">
-    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
-      <div>
-        <h1 style="margin:0;">📦 Shipments</h1>
-        <p style="margin:4px 0 0;">Pick, pack, and ship customer orders</p>
-      </div>
-      <div class="tab-switcher" style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:8px;border:1px solid var(--border);">
-        <button class="tab-btn" data-tab="tracking" style="padding:6px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-secondary);">UPS Tracking</button>
-        <button class="tab-btn active" data-tab="pickpack" style="padding:6px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;background:var(--primary);color:#fff;">Pick & Pack</button>
-      </div>
+    <div class="page-header">
+      <h1>📦 BOH Shipments</h1>
+      <p>Pick, pack, and ship customer orders</p>
     </div>
     <div class="summary-row">
       <div class="summary-card" id="summaryPending"></div>

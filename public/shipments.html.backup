@@ -121,10 +121,6 @@
           <h2 style="margin:0;">Shipments</h2>
         </div>
         <div class="controls">
-          <div class="tab-switcher" style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:8px;border:1px solid var(--border);">
-            <button class="tab-btn active" data-tab="tracking" style="padding:6px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;background:var(--primary);color:#fff;">UPS Tracking</button>
-            <button class="tab-btn" data-tab="pickpack" style="padding:6px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-secondary);">Pick & Pack</button>
-          </div>
           <div class="small-note" id="autoRefreshNote">Auto-refreshing…</div>
         </div>
       </div>
@@ -392,27 +388,6 @@
 
       document.getElementById('searchInput').addEventListener('input', renderShipments);
       document.getElementById('statusFilter').addEventListener('change', renderShipments);
-
-      // Tab switching
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const tab = btn.dataset.tab;
-          if (tab === 'pickpack') {
-            // Redirect to BOH shipments page (will be integrated later)
-            window.location.href = '/boh-shipments';
-            return;
-          }
-          // Default: stay on tracking view
-          document.querySelectorAll('.tab-btn').forEach(b => {
-            b.classList.remove('active');
-            b.style.background = 'transparent';
-            b.style.color = 'var(--text-secondary)';
-          });
-          btn.classList.add('active');
-          btn.style.background = 'var(--primary)';
-          btn.style.color = '#fff';
-        });
-      });
 
       await loadShipments({ showLoader: true });
 

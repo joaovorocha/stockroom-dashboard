@@ -15,6 +15,11 @@
   <meta name="apple-mobile-web-app-title" content="Daily Operations">
   <link rel="stylesheet" href="/css/theme.css?v=14">
   <style>
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
     body {
       display: flex;
       min-height: 100vh;
@@ -199,6 +204,24 @@
   </div>
 
   <script>
+    // Global error handler for login page
+    window.ErrorHandler = {
+      showError(message, duration = 5000) {
+        const existing = document.getElementById('globalErrorBox');
+        if (existing) existing.remove();
+        const errorBox = document.createElement('div');
+        errorBox.id = 'globalErrorBox';
+        errorBox.style.cssText = 'position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:16px 20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;max-width:500px;font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;word-wrap:break-word;animation:slideIn 0.3s ease-out;';
+        errorBox.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;"><div style="flex:1;"><strong style="display:block;margin-bottom:4px;">Error</strong><div>'+message+'</div></div><button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;padding:0;width:24px;height:24px;">×</button></div>';
+        document.body.appendChild(errorBox);
+        if (duration > 0) setTimeout(() => { if (errorBox.parentElement) errorBox.remove(); }, duration);
+      },
+      logError(context, error) {
+        const message = error?.message || error?.error || String(error);
+        this.showError(context + ': ' + message);
+      }
+    };
+    
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const employeeId = document.getElementById('employeeId').value;
@@ -228,13 +251,17 @@
 	        } else {
 	          console.error('Login failed:', data.error);
 	          const errorEl = document.getElementById('loginError');
-	          errorEl.textContent = data.error || 'Login failed. Please try again.';
-	          errorEl.classList.add('show');
-	        }
+          const errorMsg = data.error || 'Login failed. Please try again.';
+          errorEl.textContent = errorMsg;
+          errorEl.classList.add('show');
+          window.ErrorHandler.showError(errorMsg, 6000);
+        }
       } catch (error) {
         console.error('Login error:', error);
-        document.getElementById('loginError').textContent = 'Connection error. Please try again.';
+        const errorMsg = 'Connection error. Please try again.';
+        document.getElementById('loginError').textContent = errorMsg;
         document.getElementById('loginError').classList.add('show');
+        window.ErrorHandler.logError('Login', error);
       }
     });
   </script>
