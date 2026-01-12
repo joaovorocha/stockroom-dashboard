@@ -38,12 +38,11 @@ class SimpleMCPServer:
 
                 if name in self.tools:
                     result = await self.tools[name]["handler"](args)
+                    # Return the raw result so clients receive structured JSON
                     return {
                         "jsonrpc": "2.0",
                         "id": data.get("id"),
-                        "result": {
-                            "content": [{"type": "text", "text": json.dumps(result, indent=2)}]
-                        }
+                        "result": result
                     }
                 else:
                     return {

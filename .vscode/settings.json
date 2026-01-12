@@ -6,4 +6,40 @@
     "builder.launchType": "desktop",
     "chat.agent.maxRequests": 200,
     "claudeCode.preferredLocation": "sidebar"
+    ,
+    "github.copilot.chat.mcp": {
+        "mcpServers": {
+            "stockroom-inventory": {
+                "command": "node",
+                "args": ["inventory-server.js"],
+                "cwd": "/var/www/stockroom-dashboard/mcp-servers",
+                "env": {
+                    "STOCKROOM_DATA_DIR": "/var/lib/stockroom-dashboard/data",
+                    "STOCKROOM_FILES_DIR": "/var/lib/stockroom-dashboard/files"
+                }
+            },
+            "stockroom-shipments": {
+                "command": "node",
+                "args": ["shipments-server.js"],
+                "cwd": "/var/www/stockroom-dashboard/mcp-servers",
+                "env": {
+                    "STOCKROOM_DATA_DIR": "/var/lib/stockroom-dashboard/data"
+                }
+            },
+            "stockroom-radio": {
+                "command": "python3",
+                "args": ["radio-server.py"],
+                "cwd": "/var/www/stockroom-dashboard/mcp-servers",
+                "env": {
+                    "PYTHONPATH": "/var/www/stockroom-dashboard"
+                }
+            }
+        }
+    },
+    "chat.tools.terminal.autoApprove": {
+        "/^echo '\\{\"jsonrpc\":\"2\\.0\",\"id\":6,\"method\":\"tools/call\",\"params\":\\{\"name\":\"get_radio_status\",\"arguments\":\\{\\}\\}\\}' \\| python3 mcp-servers/radio-server\\.py$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
 }

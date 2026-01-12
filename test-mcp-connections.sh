@@ -54,7 +54,7 @@ echo ""
 # Test 5: Radio Server - List Tools
 echo "5️⃣  Testing Radio Server - List Tools"
 echo "   Request: tools/list"
-RESULT=$(echo '{"jsonrpc":"2.0","id":5,"method":"tools/list"}' | python mcp-servers/radio-server.py 2>/dev/null | grep -o '"result"')
+RESULT=$(echo '{"jsonrpc":"2.0","id":5,"method":"tools/list"}' | python3 mcp-servers/radio-server.py 2>/dev/null | grep -o '"result"')
 if [ -n "$RESULT" ]; then
     echo "   ✅ SUCCESS - Server responded with tools list"
 else
@@ -65,7 +65,7 @@ echo ""
 # Test 6: Radio Server - Call Tool
 echo "6️⃣  Testing Radio Server - Call Tool"
 echo "   Request: get_radio_status"
-RESULT=$(echo '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_radio_status","arguments":{}}}' | python mcp-servers/radio-server.py 2>/dev/null | grep -o '"active"')
+RESULT=$(echo '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_radio_status","arguments":{}}}' | python3 mcp-servers/radio-server.py 2>/dev/null | grep -o '"active"')
 if [ -n "$RESULT" ]; then
     echo "   ✅ SUCCESS - Tool executed and returned data"
 else
@@ -76,7 +76,7 @@ echo ""
 # Test 7: Radio Server - Call with Arguments
 echo "7️⃣  Testing Radio Server - Call with Arguments"
 echo "   Request: get_radio_transcripts(limit=5)"
-RESULT=$(echo '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_radio_transcripts","arguments":{"limit":5}}}' | python mcp-servers/radio-server.py 2>/dev/null | grep -o '"transcript"')
+RESULT=$(echo '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_radio_transcripts","arguments":{"limit":5}}}' | python3 mcp-servers/radio-server.py 2>/dev/null | grep -o '"transcript"')
 if [ -n "$RESULT" ]; then
     echo "   ✅ SUCCESS - Tool executed with arguments"
 else

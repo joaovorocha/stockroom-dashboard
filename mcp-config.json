@@ -16,7 +16,7 @@
       }
     },
     "stockroom-radio": {
-      "command": "python",
+      "command": "python3",
       "args": ["/var/www/stockroom-dashboard/mcp-servers/radio-server.py"],
       "env": {
         "PYTHONPATH": "/var/www/stockroom-dashboard"
