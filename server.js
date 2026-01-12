@@ -279,13 +279,22 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// Serve closing duties photos (auth required)
-app.use('/closing-duties', authMiddleware, express.static(dal.paths.closingDutiesDir));
 // Routes - Order matters! More specific routes before generic ones
+app.use('/closing-duties', authMiddleware, express.static(dal.paths.closingDutiesDir));
 app.use('/feedback-uploads', authMiddleware, express.static(dal.paths.feedbackUploadsDir));
+app.use('/user-uploads', authMiddleware, express.static(dal.paths.userUploadsDir));
+
+// Import error handling middleware
+const { errorHandler, notFoundHandler } = require('./middleware/error-handler');
+const logger = require('./utils/logger');
+
+// Request logging (non-intrusive, doesn't log successful requests in production)
+if (process.env.LOG_HTTP_REQUESTS !== 'false') {
+  app.use(logger.requestLogger);
+}
+
 app.use('/api/auth', authRoutes);
 app.use('/api/shipments', authMiddleware, shipmentsRoutes);
-app.use('/user-uploads', authMiddleware, express.static(dal.paths.userUploadsDir));
 app.use('/api/lost-punch', authMiddleware, lostPunchRoutes);
 app.use('/api/gameplan', authMiddleware, gameplanRoutes);
 app.use('/api/timeoff', authMiddleware, timeoffRoutes);
@@ -545,6 +554,12 @@ app.get('/', (req, res) => {
   if (hasSession(req)) return redirectToHome(req, res);
   return res.redirect('/login');
 });
+
+// 404 Not Found handler - must be after all routes
+app.use(notFoundHandler);
+
+// Error handler - must be last
+app.use(errorHandler);
 
 // ===== Server-Sent Events (SSE) for Real-Time Updates =====
 let sseClients = [];
