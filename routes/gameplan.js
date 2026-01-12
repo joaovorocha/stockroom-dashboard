@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { LookerDataProcessor } = require('../utils/looker-data-processor');
 const dal = require('../utils/dal');
+const { query: pgQuery } = require('../utils/dal/pg');
 
 const DATA_DIR = dal.paths.dataDir;
 const USERS_FILE = dal.paths.usersFile;
@@ -242,9 +243,31 @@ function normalizeName(value) {
   return (value || '').toString().trim().toLowerCase();
 }
 
-function pruneEmployeesFile() {
+async function fetchUsersFromDB() {
+  try {
+    const result = await pgQuery('SELECT id, employee_id, name, email, role, image_url, is_active FROM users WHERE is_active = true ORDER BY role, name');
+    return result.rows.map(row => ({
+      id: row.id,
+      employeeId: row.employee_id,
+      name: row.name,
+      email: row.email,
+      role: row.role,
+      imageUrl: row.image_url,
+      isActive: row.is_active
+    }));
+  } catch (error) {
+    console.error('[GAMEPLAN] Error fetching users from database:', error);
+    return [];
+  }
+}
+
+async function pruneEmployeesFile() {
   const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
-  const usersData = readJsonFile(USERS_FILE, { users: [] });
+  
+  // Fetch users from PostgreSQL database instead of users.json
+  const dbUsers = await fetchUsersFromDB();
+  const usersData = { users: dbUsers };
+  
   const today = getTodayDate();
   // We want each new store day to start clean until a game plan is published for today.
   // This also avoids UTC/local mismatches from older versions.
@@ -389,15 +412,15 @@ function maybeBackfillLastWeekOverview(metrics) {
 }
 
 // GET /api/gameplan/employees - Get all employees
-router.get('/employees', (req, res) => {
-  const employees = pruneEmployeesFile();
+router.get('/employees', async (req, res) => {
+  const employees = await pruneEmployeesFile();
   res.json(employees);
 });
 
 // GET /api/gameplan/employees/:type - Get employees by type
-router.get('/employees/:type', (req, res) => {
+router.get('/employees/:type', async (req, res) => {
   const { type } = req.params;
-  const employees = pruneEmployeesFile();
+  const employees = await pruneEmployeesFile();
   const typeEmployees = employees.employees[type.toUpperCase()] || [];
   res.json(typeEmployees);
 });

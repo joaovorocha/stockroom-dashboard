@@ -13,9 +13,7 @@ const pgDal = require('../utils/dal/pg');
 const predictSpring = require('../utils/predictspring-client');
 const upsClient = require('../utils/ups-client');
 
-// Middleware: Require authentication (reuse existing auth)
-const authMiddleware = require('../middleware/auth-pg');
-router.use(authMiddleware);
+// Note: Auth middleware applied at server.js level for this route
 
 // ============================================================================
 // GET /api/shipments - List shipments (with filters)
