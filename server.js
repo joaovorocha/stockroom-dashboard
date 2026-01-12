@@ -25,6 +25,7 @@ const pickupsRoutes = require('./routes/pickups');
 const waitwhileRoutes = require('./routes/waitwhile');
 const manhattanRoutes = require('./routes/manhattan');
 const rfidRoutes = require('./routes/rfid');
+const clientLogsRoutes = require('./routes/clientLogs');
 const printersRoutes = require('./routes/printers');
 const mockApiRoutes = require('./routes/mock-api');
 const authMiddleware = require('./middleware/auth-pg');
@@ -294,6 +295,7 @@ app.use('/api/pickups', authMiddleware, pickupsRoutes);
 app.use('/api/waitwhile', authMiddleware, waitwhileRoutes);
 app.use('/api/manhattan', authMiddleware, manhattanRoutes);
 app.use('/api/rfid', authMiddleware, rfidRoutes);
+app.use('/api/logs', clientLogsRoutes);
 app.use('/api/printers', authMiddleware, printersRoutes);
 // Mock API routes - no auth required for testing
 app.use('/api/mock', mockApiRoutes);

@@ -360,7 +360,9 @@
       try {
         const resp = await fetch('/api/shipments', { credentials: 'include' });
         if (!resp.ok) throw new Error('Failed to load shipments');
-        allShipments = await resp.json();
+        const data = await resp.json();
+        // API returns { shipments: [] }, extract the array
+        allShipments = Array.isArray(data) ? data : (data.shipments || []);
         lastRefreshAt = new Date();
         setAutoRefreshMessage(`Updated ${formatRefreshTime(lastRefreshAt)} • Refreshes every 60s`);
       } catch (e) {

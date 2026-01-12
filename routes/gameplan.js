@@ -262,10 +262,19 @@ async function fetchUsersFromDB() {
 }
 
 async function pruneEmployeesFile() {
+  console.log('[GAMEPLAN] Reading employees from:', EMPLOYEES_FILE);
   const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
+  const empCounts = {
+    SA: (employees.employees?.SA || []).length,
+    BOH: (employees.employees?.BOH || []).length,
+    MANAGEMENT: (employees.employees?.MANAGEMENT || []).length,
+    TAILOR: (employees.employees?.TAILOR || []).length
+  };
+  console.log('[GAMEPLAN] Read from file - SA:', empCounts.SA, 'BOH:', empCounts.BOH, 'MGMT:', empCounts.MANAGEMENT, 'TAILOR:', empCounts.TAILOR);
   
   // Fetch users from PostgreSQL database instead of users.json
   const dbUsers = await fetchUsersFromDB();
+  console.log('[GAMEPLAN] Fetched', dbUsers.length, 'users from database');
   const usersData = { users: dbUsers };
   
   const today = getTodayDate();
@@ -282,6 +291,7 @@ async function pruneEmployeesFile() {
     if (u.employeeId) usersByEmployeeId.set(u.employeeId.toString().trim(), u);
     if (u.name) usersByName.set(normalizeName(u.name), u);
   });
+  console.log('[GAMEPLAN] Created maps: usersByEmployeeId size=', usersByEmployeeId.size, 'usersByName size=', usersByName.size);
 
   const roleToType = {
     SA: 'SA',
@@ -316,8 +326,11 @@ async function pruneEmployeesFile() {
   // Start from existing employee records, but:
   // - drop employees that no longer exist in users.json
   // - re-group employees by the user's current role (prevents ADMIN showing under SA, etc.)
+  let processedCount = 0;
+  let skippedCount = 0;
   for (const bucket of Object.keys(employees.employees || {})) {
     const list = employees.employees[bucket] || [];
+    console.log('[GAMEPLAN] Processing bucket', bucket, 'with', list.length, 'employees');
     for (const emp of list) {
       const employeeIdRaw = (emp?.employeeId || '').toString().trim();
       const employeeIdLower = employeeIdRaw.toLowerCase();
@@ -327,7 +340,12 @@ async function pruneEmployeesFile() {
       if (employeeIdLower === 'admin' || nameKey === 'admin') continue;
 
       const user = (employeeIdRaw && usersByEmployeeId.get(employeeIdRaw)) || (nameKey && usersByName.get(nameKey)) || null;
-      if (!user) continue;
+      if (!user) {
+        console.log('[GAMEPLAN] Skipping employee', emp.name, '(ID:', employeeIdRaw, ') - not found in DB');
+        skippedCount++;
+        continue;
+      }
+      processedCount++;
 
       const targetType = roleToType[(user.role || '').toString().toUpperCase()] || 'SA';
       const targetList = canonical[targetType] || canonical.SA;
@@ -351,6 +369,8 @@ async function pruneEmployeesFile() {
       });
     }
   }
+  console.log('[GAMEPLAN] Processed', processedCount, 'employees, skipped', skippedCount);
+  console.log('[GAMEPLAN] Canonical counts: SA=', canonical.SA.length, 'BOH=', canonical.BOH.length, 'MANAGEMENT=', canonical.MANAGEMENT.length, 'TAILOR=', canonical.TAILOR.length);
 
   const next = { ...employees, employees: canonical };
   if (shouldResetDailyAssignments) {

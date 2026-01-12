@@ -15,6 +15,7 @@ async function syncEmployeesFromDB() {
       ORDER BY role, name
     `);
     
+    
     console.log(`✅ Found ${result.rows.length} active users`);
     
     // Group employees by role

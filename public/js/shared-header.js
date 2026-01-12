@@ -41,6 +41,14 @@ if (!document.getElementById('errorHandlerStyles')) {
   };
 })();
 
+// Load error logger script
+(function() {
+  const script = document.createElement('script');
+  script.src = '/js/error-logger.js?v=1';
+  script.async = true;
+  document.head.appendChild(script);
+})();
+
 const SharedHeader = {
   currentUser: null,
   shipmentsBadgeTimer: null,
