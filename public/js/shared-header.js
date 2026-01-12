@@ -1,6 +1,46 @@
 // Shared Header Component for Daily Operations
 // Standardized header with consistent navigation across all pages
 
+// Global error handler and notification system
+window.ErrorHandler = {
+  showError(message, duration = 5000) {
+    const existing = document.getElementById('globalErrorBox');
+    if (existing) existing.remove();
+    const errorBox = document.createElement('div');
+    errorBox.id = 'globalErrorBox';
+    errorBox.style.cssText = `position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:16px 20px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;max-width:500px;font-family:system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.5;word-wrap:break-word;animation:slideIn 0.3s ease-out;`;
+    errorBox.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;"><div style="flex:1;"><strong style="display:block;margin-bottom:4px;">Error</strong><div>${message}</div></div><button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;padding:0;width:24px;height:24px;">×</button></div>`;
+    document.body.appendChild(errorBox);
+    if (duration > 0) setTimeout(() => { if (errorBox.parentElement) errorBox.remove(); }, duration);
+  },
+  logError(context, error) {
+    const message = error?.message || error?.error || String(error);
+    this.showError(`${context}: ${message}`);
+  }
+};
+
+// Add animation CSS if not already added
+if (!document.getElementById('errorHandlerStyles')) {
+  const style = document.createElement('style');
+  style.id = 'errorHandlerStyles';
+  style.textContent = '@keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }';
+  document.head.appendChild(style);
+}
+
+// Global fetch interceptor to ensure credentials are always included
+(function() {
+  const originalFetch = window.fetch;
+  window.fetch = function(url, options = {}) {
+    if (!options.credentials) {
+      options.credentials = 'include';
+    }
+    return originalFetch(url, options).catch(error => {
+      window.ErrorHandler?.logError('Network Error', error);
+      throw error;
+    });
+  };
+})();
+
 const SharedHeader = {
   currentUser: null,
   shipmentsBadgeTimer: null,
@@ -22,6 +62,9 @@ const SharedHeader = {
     '/expenses': 'Employee Discount',
     '/employee-discount': 'Employee Discount',
     '/shipments': 'Shipments',
+    '/boh-shipments': 'BOH Shipments',
+    '/printer-manager': 'Printer Manager',
+    '/rfid-scanner': 'RFID Scanner',
     '/scanner': 'Scanner',
     '/radio': 'Radio Transcription',
     '/radio-transcripts': 'Radio Transcripts',
@@ -29,7 +72,6 @@ const SharedHeader = {
     '/closing-duties': 'Closing Duties',
     '/time-off': 'Time Off',
     '/ops-dashboard': 'Looker Dashboards',
-    '/enterprise-plan.html': 'Enterprise Integration Plan',
     '/admin': 'Admin Console',
     '/feedback': 'Feedback'
   },
@@ -44,6 +86,9 @@ const SharedHeader = {
     '/expenses': '💳',
     '/employee-discount': '💳',
     '/shipments': '📦',
+    '/boh-shipments': '📦',
+    '/printer-manager': '🖨️',
+    '/rfid-scanner': '📡',
     '/scanner': '📷',
     '/radio': '🎙️',
     '/radio-transcripts': '📝',
@@ -89,12 +134,14 @@ const SharedHeader = {
       { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' },
       { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' },
       { href: '/shipments', label: 'Shipments', id: 'navShipments', badge: 'shipmentsBadge' },
+      { href: '/boh-shipments', label: 'BOH Shipments', id: 'navBohShipments' },
+      { href: '/printer-manager', label: 'Printer Manager', id: 'navPrinterManager' },
+      { href: '/rfid-scanner', label: 'RFID Scanner', id: 'navRfidScanner' },
       { href: '/scanner', label: 'Scanner', id: 'navScanner' },
       { href: '/lost-punch', label: 'Lost Punch', id: 'navLostPunch' },
       { href: '/closing-duties', label: 'Closing Duties', id: 'navClosingDuties' },
       { href: '/time-off', label: 'Time Off', id: 'navTimeOff' },
       { href: '/ops-dashboard', label: 'Looker Dashboards', id: 'navOpsDashboard' },
-      { href: '/enterprise-plan.html', label: 'Enterprise Plan', id: 'navEnterprisePlan' },
       { href: '/admin', label: 'Admin', id: 'navAdmin', adminOnly: true }
     ];
 

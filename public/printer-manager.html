@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
+  <title>Printer Manager | Suitsupply BOH</title>
+  
+  <!-- PWA Support -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#1a5490">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  
+  <!-- System Stylesheets -->
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
+  <link rel="stylesheet" href="/css/mobile.css?v=7">
+  
+  <style>
+    /* Page-specific styles */
+    .printer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    
+    .printer-card {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      transition: all 0.2s;
+      position: relative;
+    }
+    
+    .printer-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    .printer-card.online {
+      border-left: 4px solid var(--success);
+    }
+    
+    .printer-card.offline {
+      border-left: 4px solid var(--danger);
+      opacity: 0.7;
+    }
+    
+    .printer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 12px;
+    }
+    
+    .printer-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    
+    .printer-status {
+      padding: 4px 12px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .status-online {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+    
+    .status-offline {
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+    
+    .printer-details {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    
+    .printer-details div {
+      margin-bottom: 6px;
+    }
+    
+    .printer-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    
+    .label-templates {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    
+    .template-card {
+      background: linear-gradient(135deg, var(--primary) 0%, #0056b3 100%);
+      color: white;
+      padding: 24px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .template-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(26, 84, 144, 0.3);
+    }
+    
+    .template-card h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    
+    .template-card p {
+      font-size: 14px;
+      opacity: 0.95;
+      line-height: 1.4;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+    
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+    
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .modal.show {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: var(--background);
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    
+    .modal-header h2 {
+      font-size: 22px;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+    }
+    
+    .modal-footer {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+    
+    @media (max-width: 768px) {
+      .printer-grid,
+      .label-templates {
+        grid-template-columns: 1fr;
+      }
+      
+      .section-header .actions {
+        flex-direction: column;
+        width: 100%;
+      }
+      
+      .section-header .actions .btn {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Shared Header -->
+  <div id="shared-header-mount"></div>
+
+  <!-- Main Content -->
+  <div class="dashboard-layout dashboard-layout--single">
+    <main class="main-content">
+      
+      <!-- Header Section -->
+      <section class="section">
+        <div class="section-header">
+          <h1>🖨️ Printer Manager</h1>
+          <div class="actions">
+            <button class="btn btn-primary" onclick="discoverPrinters()">
+              🔍 Auto-Discover
+            </button>
+            <button class="btn btn-primary" onclick="showAddPrinterModal()">
+              ➕ Add Printer
+            </button>
+            <button class="btn btn-outline" onclick="refreshPrinters()">
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Registered Printers -->
+      <section class="section">
+        <div class="card">
+          <h2>Registered Printers</h2>
+          <div id="printer-list" class="printer-grid">
+            <div class="loading">Loading printers...</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Label Templates -->
+      <section class="section">
+        <div class="card">
+          <h2>Label Templates</h2>
+          <p class="text-secondary" style="margin-bottom: 16px;">
+            Quick print common label types. Select a template to configure and print.
+          </p>
+          <div class="label-templates">
+            <div class="template-card" onclick="showLabelModal('product')">
+              <h3>📦 Product Label</h3>
+              <p>Barcode labels for inventory items</p>
+            </div>
+            <div class="template-card" onclick="showLabelModal('shelf')">
+              <h3>🏷️ Shelf Label</h3>
+              <p>Location labels for stockroom</p>
+            </div>
+            <div class="template-card" onclick="showLabelModal('rfid')">
+              <h3>📡 RFID Tag</h3>
+              <p>RFID-encoded product tags</p>
+            </div>
+            <div class="template-card" onclick="showLabelModal('shipping')">
+              <h3>📮 Shipping Label</h3>
+              <p>UPS/FedEx shipping labels</p>
+            </div>
+            <div class="template-card" onclick="showReceiptModal()">
+              <h3>🧾 Receipt</h3>
+              <p>Order receipt reprint by PSU</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hardware Info -->
+      <section class="section">
+        <div class="card">
+          <h2>Supported Hardware</h2>
+          <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 16px;">
+            <div style="padding: 16px; background: var(--surface-hover); border-radius: 8px;">
+              <strong style="display: block; margin-bottom: 8px;">Network Printers</strong>
+              <div style="font-size: 14px; color: var(--text-secondary);">
+                Zebra ZD420, ZT410, ZQ520<br>
+                Auto-discovery via network broadcast
+              </div>
+            </div>
+            <div style="padding: 16px; background: var(--surface-hover); border-radius: 8px;">
+              <strong style="display: block; margin-bottom: 8px;">USB Printers</strong>
+              <div style="font-size: 14px; color: var(--text-secondary);">
+                Zebra ZP450 (via StarTech PM1115U2)<br>
+                Manual IP registration required
+              </div>
+            </div>
+            <div style="padding: 16px; background: var(--surface-hover); border-radius: 8px;">
+              <strong style="display: block; margin-bottom: 8px;">Receipt Printers</strong>
+              <div style="font-size: 14px; color: var(--text-secondary);">
+                Epson TM-T88 series<br>
+                ESC/POS thermal printers
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Add Printer Modal -->
+  <div id="add-printer-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add Printer</h2>
+      </div>
+      <div class="form-group">
+        <label>IP Address</label>
+        <input type="text" class="form-control" id="printer-ip" placeholder="10.201.40.100">
+        <small class="form-text">Enter the printer's network IP address</small>
+      </div>
+      <div class="form-group">
+        <label>Printer Type</label>
+        <select class="form-control" id="printer-type">
+          <option value="zebra_zpl">Zebra ZPL (ZD420, ZT410, ZQ520)</option>
+          <option value="zebra_usb">Zebra USB (ZP450 via print server)</option>
+          <option value="epson_escpos">Epson ESC/POS (Receipt Printer)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Model/Name (Optional)</label>
+        <input type="text" class="form-control" id="printer-model" placeholder="Zebra ZQ520">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('add-printer-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="addPrinter()">Add Printer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Print Label Modal -->
+  <div id="label-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="label-modal-title">Print Label</h2>
+      </div>
+      <div id="label-form"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('label-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="printLabel()">Print</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/shared-header.js?v=1"></script>
+  <script src="/js/printer-manager.js?v=1"></script>
+</body>
+</html>

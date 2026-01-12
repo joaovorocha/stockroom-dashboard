@@ -552,4 +552,55 @@ router.post('/sync/customer-orders', requireManhattan, async (req, res) => {
   }
 });
 
+// ==========================================================================
+// TEST - Verify Manhattan Connection
+// ==========================================================================
+
+/**
+ * GET /api/manhattan/test
+ * Test Manhattan API connection and authentication
+ */
+router.get('/test', async (req, res) => {
+  try {
+    const client = getManhattanClient();
+    
+    if (!client.isConfigured()) {
+      return res.status(503).json({
+        success: false,
+        configured: false,
+        message: 'Manhattan API not configured. Add credentials to .env file.',
+        required: [
+          'MANHATTAN_CLIENT_ID',
+          'MANHATTAN_CLIENT_SECRET',
+          'MANHATTAN_TENANT_ID',
+          'MANHATTAN_BASE_URL',
+          'MANHATTAN_AUTH_URL'
+        ]
+      });
+    }
+    
+    // Test authentication by making a simple API call
+    await client.ensureAuthenticated();
+    
+    res.json({
+      success: true,
+      configured: true,
+      authenticated: true,
+      tenant: client.tenantId,
+      baseURL: client.baseURL,
+      message: 'Manhattan API connection successful! ✅'
+    });
+    
+  } catch (error) {
+    console.error('Manhattan test failed:', error);
+    res.status(500).json({
+      success: false,
+      configured: true,
+      authenticated: false,
+      error: error.message,
+      message: 'Failed to authenticate with Manhattan API. Check your credentials.'
+    });
+  }
+});
+
 module.exports = router;

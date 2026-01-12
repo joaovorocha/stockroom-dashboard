@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
+  <title>RFID Scanner | Suitsupply BOH</title>
+  
+  <!-- PWA Support -->
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#1a5490">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  
+  <!-- System Stylesheets -->
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
+  <link rel="stylesheet" href="/css/mobile.css?v=7">
+  
+  <style>
+    /* Page-specific styles */
+    .scanner-status {
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      font-size: 16px;
+      font-weight: 500;
+      text-align: center;
+      transition: all 0.3s;
+    }
+    
+    .scanner-status.idle {
+      background: var(--surface-hover);
+      color: var(--text-secondary);
+    }
+    
+    .scanner-status.scanning {
+      background: linear-gradient(135deg, var(--primary), #0056b3);
+      color: white;
+      animation: pulse 2s infinite;
+    }
+    
+    .scanner-status.success {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+    
+    .scanner-status.error {
+      background: var(--danger-bg);
+      color: var(--danger);
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    .scan-controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    
+    .scan-controls .btn {
+      flex: 1;
+      min-width: 150px;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    
+    .stat-card {
+      background: var(--surface-hover);
+      padding: 20px;
+      border-radius: 12px;
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--primary);
+      display: block;
+      margin-bottom: 8px;
+    }
+    
+    .stat-label {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    
+    .scanned-items {
+      margin-top: 24px;
+    }
+    
+    .item-list {
+      max-height: 500px;
+      overflow-y: auto;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    
+    .item-row {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s;
+    }
+    
+    .item-row:last-child {
+      border-bottom: none;
+    }
+    
+    .item-row:hover {
+      background: var(--surface-hover);
+    }
+    
+    .item-row.new {
+      background: var(--success-bg);
+      animation: fadeIn 0.5s;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    
+    .item-info {
+      flex: 1;
+    }
+    
+    .item-epc {
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+    
+    .item-details {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    
+    .item-timestamp {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      white-space: nowrap;
+    }
+    
+    .zone-selector {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+    
+    .zone-btn {
+      padding: 10px 20px;
+      border: 2px solid var(--border);
+      background: var(--surface);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .zone-btn:hover {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: white;
+    }
+    
+    .zone-btn.active {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: white;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+    
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+    
+    .hardware-note {
+      background: var(--warning-bg);
+      border-left: 4px solid var(--warning);
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    
+    .hardware-note strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--warning);
+    }
+    
+    .hardware-note p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    
+    @media (max-width: 768px) {
+      .scan-controls {
+        flex-direction: column;
+      }
+      
+      .scan-controls .btn {
+        width: 100%;
+      }
+      
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Shared Header -->
+  <div id="shared-header-mount"></div>
+
+  <!-- Main Content -->
+  <div class="dashboard-layout dashboard-layout--single">
+    <main class="main-content">
+      
+      <!-- Header Section -->
+      <section class="section">
+        <div class="section-header">
+          <h1>📡 RFID Scanner</h1>
+          <div class="actions">
+            <button class="btn btn-outline" onclick="showHistory()">
+              📊 View History
+            </button>
+            <button class="btn btn-outline" onclick="exportData()">
+              📥 Export
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hardware Note (shown until scanner is connected) -->
+      <section class="section" id="hardware-note">
+        <div class="hardware-note">
+          <strong>⚠️ RFID Scanner Not Connected</strong>
+          <p>
+            This interface is ready for Zebra RFD40+ or similar RFID handheld scanners.
+            The scanner will connect automatically when powered on and paired.
+            API endpoints are ready for testing with mock data.
+          </p>
+        </div>
+      </section>
+
+      <!-- Scanner Status -->
+      <section class="section">
+        <div class="card">
+          <div class="scanner-status idle" id="scanner-status">
+            Scanner Ready - Press "Start Scanning" to begin
+          </div>
+          
+          <!-- Zone Selector -->
+          <div class="form-group">
+            <label>Current Zone</label>
+            <div class="zone-selector">
+              <button class="zone-btn active" data-zone="COG" onclick="selectZone('COG')">
+                🚪 COG (Customer Order Goods)
+              </button>
+              <button class="zone-btn" data-zone="BOH" onclick="selectZone('BOH')">
+                📦 BOH (Back of House)
+              </button>
+              <button class="zone-btn" data-zone="FLOOR" onclick="selectZone('FLOOR')">
+                👔 Sales Floor
+              </button>
+              <button class="zone-btn" data-zone="FITTING" onclick="selectZone('FITTING')">
+                🚪 Fitting Rooms
+              </button>
+              <button class="zone-btn" data-zone="RACK" onclick="selectZone('RACK')">
+                🏷️ Rack
+              </button>
+            </div>
+          </div>
+          
+          <!-- Scan Controls -->
+          <div class="scan-controls">
+            <button class="btn btn-primary" id="start-btn" onclick="startScanning()">
+              ▶️ Start Scanning
+            </button>
+            <button class="btn btn-danger" id="stop-btn" onclick="stopScanning()" style="display:none;">
+              ⏹️ Stop Scanning
+            </button>
+            <button class="btn btn-secondary" onclick="clearScans()">
+              🗑️ Clear List
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Statistics -->
+      <section class="section">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-value" id="stat-total">0</span>
+            <span class="stat-label">Total Items Scanned</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-unique">0</span>
+            <span class="stat-label">Unique Items</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-rate">0/sec</span>
+            <span class="stat-label">Scan Rate</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-duration">00:00</span>
+            <span class="stat-label">Session Duration</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scanned Items List -->
+      <section class="section">
+        <div class="card">
+          <h2>Scanned Items</h2>
+          <div class="scanned-items">
+            <div class="item-list" id="item-list">
+              <div class="empty-state">
+                <div class="empty-state-icon">📡</div>
+                <p>No items scanned yet</p>
+                <p style="font-size: 13px; margin-top: 8px;">Start scanning to see items appear here</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RFID Info -->
+      <section class="section">
+        <div class="card">
+          <h2>About RFID Scanning</h2>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 16px;">
+            <div>
+              <strong style="display: block; margin-bottom: 8px;">📊 Inventory Accuracy</strong>
+              <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                RFID scanning provides 95%+ inventory accuracy compared to 80-85% with manual counts.
+                Scan 200+ items per second with handheld readers.
+              </p>
+            </div>
+            <div>
+              <strong style="display: block; margin-bottom: 8px;">🎯 Use Cases</strong>
+              <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                • Inventory counts (10x faster)<br>
+                • Item location tracking<br>
+                • Shipment verification<br>
+                • Theft prevention
+              </p>
+            </div>
+            <div>
+              <strong style="display: block; margin-bottom: 8px;">⚡ Performance</strong>
+              <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                Full stockroom inventory count: 2 hours → 15 minutes.
+                Real-time location tracking through store zones.
+                Zero line-of-sight required.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hardware Specs -->
+      <section class="section">
+        <div class="card">
+          <h2>Recommended Hardware</h2>
+          <div style="padding: 16px; background: var(--surface-hover); border-radius: 8px; margin-top: 16px;">
+            <strong style="display: block; margin-bottom: 12px;">Zebra RFD40+ RFID Sled</strong>
+            <div style="font-size: 14px; color: var(--text-secondary); line-height: 1.8;">
+              <div><strong>Read Rate:</strong> 900 tags/second</div>
+              <div><strong>Range:</strong> Up to 30 feet</div>
+              <div><strong>Compatibility:</strong> iPhone 12-15 Pro/Pro Max</div>
+              <div><strong>Battery:</strong> 7 hours continuous scanning</div>
+              <div><strong>Price:</strong> ~$3,000 (one-time investment)</div>
+              <div><strong>ROI:</strong> 5-6 months (labor savings)</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/shared-header.js?v=1"></script>
+  <script src="/js/rfid-scanner.js?v=1"></script>
+  
+  <script>
+    // Initialize page
+    let currentZone = 'COG';
+    let scanning = false;
+    let scannedItems = new Map();
+    let startTime = null;
+    let sessionTimer = null;
+    
+    function selectZone(zone) {
+      currentZone = zone;
+      document.querySelectorAll('.zone-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.zone === zone);
+      });
+    }
+    
+    function startScanning() {
+      scanning = true;
+      startTime = Date.now();
+      document.getElementById('start-btn').style.display = 'none';
+      document.getElementById('stop-btn').style.display = 'block';
+      document.getElementById('scanner-status').className = 'scanner-status scanning';
+      document.getElementById('scanner-status').textContent = 'Scanning in progress...';
+      
+      // Start session timer
+      sessionTimer = setInterval(updateSessionDuration, 1000);
+      
+      // TODO: Connect to actual RFID scanner WebSocket
+      // For now, hide hardware note when scanning starts
+      const note = document.getElementById('hardware-note');
+      if (note) note.style.display = 'none';
+    }
+    
+    function stopScanning() {
+      scanning = false;
+      document.getElementById('start-btn').style.display = 'block';
+      document.getElementById('stop-btn').style.display = 'none';
+      document.getElementById('scanner-status').className = 'scanner-status idle';
+      document.getElementById('scanner-status').textContent = 'Scanner paused - Press "Start" to resume';
+      
+      if (sessionTimer) {
+        clearInterval(sessionTimer);
+        sessionTimer = null;
+      }
+    }
+    
+    function clearScans() {
+      if (!confirm('Clear all scanned items?')) return;
+      scannedItems.clear();
+      updateItemList();
+      updateStats();
+    }
+    
+    function updateSessionDuration() {
+      if (!startTime) return;
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      document.getElementById('stat-duration').textContent = 
+        `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+    
+    function updateStats() {
+      document.getElementById('stat-total').textContent = scannedItems.size;
+      document.getElementById('stat-unique').textContent = scannedItems.size;
+      
+      if (startTime && scannedItems.size > 0) {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const rate = (scannedItems.size / elapsed).toFixed(1);
+        document.getElementById('stat-rate').textContent = `${rate}/sec`;
+      }
+    }
+    
+    function updateItemList() {
+      const list = document.getElementById('item-list');
+      
+      if (scannedItems.size === 0) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📡</div>
+            <p>No items scanned yet</p>
+            <p style="font-size: 13px; margin-top: 8px;">Start scanning to see items appear here</p>
+          </div>
+        `;
+        return;
+      }
+      
+      const items = Array.from(scannedItems.values()).reverse();
+      list.innerHTML = items.map(item => `
+        <div class="item-row">
+          <div class="item-info">
+            <div class="item-epc">${item.epc}</div>
+            <div class="item-details">${item.description || 'Unknown Item'} • Zone: ${item.zone}</div>
+          </div>
+          <div class="item-timestamp">${item.time}</div>
+        </div>
+      `).join('');
+    }
+    
+    function showHistory() {
+      alert('History view coming soon!');
+    }
+    
+    function exportData() {
+      if (scannedItems.size === 0) {
+        alert('No data to export');
+        return;
+      }
+      // TODO: Implement CSV export
+      alert('Export functionality coming soon!');
+    }
+  </script>
+</body>
+</html>

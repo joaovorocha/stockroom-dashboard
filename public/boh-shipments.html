@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>BOH Shipments | Suit Supply</title>
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
+  <link rel="stylesheet" href="/css/mobile.css?v=6">
+  <style>
+    /* BOH-specific styles */
+    .summary-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 10px 0 14px; }
+    .summary-card { background: var(--surface); padding: 14px; border-radius: 10px; border: 1px solid var(--border); text-align: center; min-height: 60px; }
+    .shipment-list { display: grid; gap: 12px; margin-top: 10px; }
+    .shipment-card { background: var(--background); border: 2px solid var(--border); border-radius: 10px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); position: relative; }
+    .shipment-card[data-priority="2"] { border-color: #f44336; }
+    .shipment-card[data-priority="1"] { border-color: #ff9800; }
+    .shipment-card .status-badge { display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; margin-left: 8px; }
+    .status-REQUESTED { background: #9c27b0; color: #fff; }
+    .status-PICKING { background: #2196f3; color: #fff; }
+    .status-READY_TO_PACK { background: #ff9800; color: #fff; }
+    .status-PACKING { background: #ffc107; color: #222; }
+    .status-PACKED { background: #4caf50; color: #fff; }
+    .shipment-card .card-actions { margin-top: 10px; display: flex; gap: 10px; }
+    .empty-state { padding: 18px; border: 1px dashed var(--border); border-radius: 10px; background: var(--surface); color: var(--text-secondary); text-align: center; }
+    @media (max-width: 900px) { .summary-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 600px) { .summary-row { grid-template-columns: 1fr; } .shipment-list { gap: 8px; } }
+    .modal-overlay { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.25); align-items: center; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: #fff; border-radius: 12px; max-width: 600px; width: 95vw; box-shadow: 0 4px 32px rgba(0,0,0,0.18); padding: 0; overflow: hidden; }
+    .modal-large { max-width: 800px; }
+    .modal-header { padding: 18px 24px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .modal-body { padding: 18px 24px; }
+    .modal-footer { padding: 12px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+    .modal-close { background: none; border: none; font-size: 28px; color: #888; cursor: pointer; }
+    .btn { padding: 8px 18px; border-radius: 6px; border: none; font-weight: 600; font-size: 15px; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary { background: #eee; color: #222; }
+    .btn:active { opacity: 0.8; }
+    .filter-bar { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+    .filter-bar input, .filter-bar select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: var(--surface); color: var(--text-primary); }
+    .filter-bar input { flex: 1; min-width: 180px; }
+    @media (max-width: 600px) { .filter-bar { flex-direction: column; gap: 6px; } }
+  </style>
+</head>
+<body>
+  <div id="shared-header-mount"></div>
+  <div class="page-wrap">
+    <div class="page-header">
+      <h1>📦 BOH Shipments</h1>
+      <p>Pick, pack, and ship customer orders</p>
+    </div>
+    <div class="summary-row">
+      <div class="summary-card" id="summaryPending"></div>
+      <div class="summary-card" id="summaryPicking"></div>
+      <div class="summary-card" id="summaryReadyToPack"></div>
+      <div class="summary-card" id="summaryUrgent"></div>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="searchInput" placeholder="Search shipment, customer, order...">
+      <select id="statusFilter">
+        <option value="">All statuses</option>
+        <option value="REQUESTED">Requested</option>
+        <option value="PICKING">Picking</option>
+        <option value="READY_TO_PACK">Ready to Pack</option>
+        <option value="PACKING">Packing</option>
+      </select>
+      <select id="priorityFilter">
+        <option value="">All priorities</option>
+        <option value="2">Rush</option>
+        <option value="1">Urgent</option>
+        <option value="0">Normal</option>
+      </select>
+    </div>
+    <div class="shipment-list" id="shipmentList"></div>
+    <div class="empty-state" id="emptyState" style="display:none;">No shipments match your filters.</div>
+  </div>
+  <div class="modal-overlay" id="shipmentDetailModal">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3 id="modalShipmentNumber">Shipment Details</h3>
+        <button class="modal-close" id="closeDetailModal">&times;</button>
+      </div>
+      <div class="modal-body" id="modalShipmentBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="closeDetailBtn">Close</button>
+        <button class="btn btn-primary" id="modalActionBtn">Action</button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-overlay" id="scanModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Scan Items</h3>
+        <button class="modal-close" id="closeScanModal">&times;</button>
+      </div>
+      <div class="modal-body" id="scanModalBody"></div>
+    </div>
+  </div>
+  <script src="/js/shared-header.js?v=24"></script>
+  <script src="/js/boh-shipments.js?v=1"></script>
+  <nav class="bottom-nav">
+    <a href="/home" class="nav-item">
+      <div class="nav-item-icon">🏠</div>
+      <div class="nav-item-label">Home</div>
+    </a>
+    <a href="/gameplan-boh.html" class="nav-item">
+      <div class="nav-item-icon">📋</div>
+      <div class="nav-item-label">Game Plan</div>
+    </a>
+    <a href="/boh-shipments.html" class="nav-item active">
+      <div class="nav-item-icon">📦</div>
+      <div class="nav-item-label">Shipments</div>
+    </a>
+    <a href="/scanner.html" class="nav-item">
+      <div class="nav-item-icon">📷</div>
+      <div class="nav-item-label">Scanner</div>
+    </a>
+  </nav>
+</body>
+</html>

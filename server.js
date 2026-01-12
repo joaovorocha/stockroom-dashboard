@@ -9,13 +9,13 @@ const cors = require('cors');
 const dgram = require('dgram');
 const { WebSocketServer } = require('ws');
 
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth-pg');
 const shipmentsRoutes = require('./routes/shipments');
-const closingDutiesRoutes = require('./routes/closingDuties');
-const lostPunchRoutes = require('./routes/lostPunch');
+const closingDutiesRoutes = require('./routes/closingDuties-pg');
+const lostPunchRoutes = require('./routes/lostPunch-pg');
 const gameplanRoutes = require('./routes/gameplan');
-const timeoffRoutes = require('./routes/timeoff');
-const feedbackRoutes = require('./routes/feedback');
+const timeoffRoutes = require('./routes/timeoff-pg');
+const feedbackRoutes = require('./routes/feedback-pg');
 const adminRoutes = require('./routes/admin');
 const awardsRoutes = require('./routes/awards');
 const radioRoutes = require('./routes/radio');
@@ -25,7 +25,9 @@ const pickupsRoutes = require('./routes/pickups');
 const waitwhileRoutes = require('./routes/waitwhile');
 const manhattanRoutes = require('./routes/manhattan');
 const rfidRoutes = require('./routes/rfid');
-const authMiddleware = require('./middleware/auth');
+const printersRoutes = require('./routes/printers');
+const mockApiRoutes = require('./routes/mock-api');
+const authMiddleware = require('./middleware/auth-pg');
 const dal = require('./utils/dal');
 const { getUPSScheduler } = require('./utils/ups-scheduler');
 const { markActive } = require('./utils/active-users');
@@ -70,7 +72,12 @@ function adminOnly(req, res, next) {
 }
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: true, // Allow all origins (will echo the request origin)
+  credentials: true, // Allow cookies to be sent
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '50mb' })); // Increased for large iPhone photos
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Increased for large iPhone photos
 app.use(cookieParser());
@@ -198,6 +205,9 @@ app.use((req, res, next) => {
 
   // Auth routes are public (they handle their own checks).
   if (p.startsWith('/api/auth')) return next();
+  
+  // Mock API routes - public for testing
+  if (p.startsWith('/api/mock') || p === '/test-mock-status') return next();
 
   // Public static assets.
   const publicPrefixes = [
@@ -284,10 +294,29 @@ app.use('/api/pickups', authMiddleware, pickupsRoutes);
 app.use('/api/waitwhile', authMiddleware, waitwhileRoutes);
 app.use('/api/manhattan', authMiddleware, manhattanRoutes);
 app.use('/api/rfid', authMiddleware, rfidRoutes);
+app.use('/api/printers', authMiddleware, printersRoutes);
+// Mock API routes - no auth required for testing
+app.use('/api/mock', mockApiRoutes);
+
+// Test endpoint for mock data (no auth)
+app.get('/test-mock-status', (req, res) => {
+  const { mockClient: psMock, MOCK_ENABLED: PS_MOCK } = require('./utils/mock-predictspring-client');
+  const { mockClient: mhMock, MOCK_ENABLED: MH_MOCK } = require('./utils/mock-manhattan-client');
+  
+  res.json({
+    predictSpring: { enabled: PS_MOCK, sampleOrders: PS_MOCK ? 3 : 0 },
+    manhattan: { enabled: MH_MOCK, sampleInventory: MH_MOCK ? 6 : 0 },
+    message: 'Mock clients are loaded and ready',
+    usage: {
+      getPredictSpringOrder: 'psMock.getOrder("PSU12345")',
+      getManhattanInventory: 'mhMock.getInventoryBySKU("SUIT-BLK-42R")'
+    }
+  });
+});
 
 // Redirect old pages to new ones
 app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login-v2.html'));
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 // Public password reset pages (no auth)
@@ -453,6 +482,22 @@ app.get('/admin', authMiddleware, adminOnly, (req, res) => {
 
 app.get('/feedback', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'feedback.html'));
+});
+
+app.get('/boh-shipments', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'boh-shipments.html'));
+});
+
+app.get('/printer-manager', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'printer-manager.html'));
+});
+
+app.get('/rfid-scanner', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'rfid-scanner.html'));
+});
+
+app.get('/pickup-status', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'pickup-status.html'));
 });
 
 app.get('/', (req, res) => {

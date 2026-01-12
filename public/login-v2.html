@@ -226,8 +226,10 @@
 	            window.location.replace('/home');
 	          }
 	        } else {
-	          console.log('Login failed:', data.error);
-	          document.getElementById('loginError').classList.add('show');
+	          console.error('Login failed:', data.error);
+	          const errorEl = document.getElementById('loginError');
+	          errorEl.textContent = data.error || 'Login failed. Please try again.';
+	          errorEl.classList.add('show');
 	        }
       } catch (error) {
         console.error('Login error:', error);
