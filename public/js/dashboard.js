@@ -32,6 +32,7 @@ const DEBUG = false;
 let storeDayInfo = null;
 let weeklyGoalDistribution = null;
 let weeklyGoalWeekKey = null;
+let renderAllTimer = null;
 
 function isDesktopViewport() {
   try {
@@ -597,11 +598,11 @@ function handleSSEUpdate(update) {
       if (update.data?.lastEditedBy && update.data.lastEditedBy !== currentUser?.name) {
         showNotification(`Game Plan updated by ${update.data.lastEditedBy}`);
       }
-      loadGameplan().then(() => renderAll());
+      loadGameplan().then(() => debouncedRenderAll());
       break;
     
     case 'metrics_updated':
-      loadMetrics().then(() => renderAll());
+      loadMetrics().then(() => debouncedRenderAll());
       showNotification('Metrics updated from Looker');
       break;
 
@@ -609,12 +610,12 @@ function handleSSEUpdate(update) {
       if (update.data?.weekKey && weeklyGoalWeekKey && update.data.weekKey !== weeklyGoalWeekKey) break;
       loadWeeklyGoalDistributionFromMetrics().then(() => {
         renderRetailWeekStoreInfo();
-        renderAll();
+        debouncedRenderAll();
       });
       break;
     
     case 'employee_updated':
-      loadEmployees().then(() => renderAll());
+      loadEmployees().then(() => debouncedRenderAll());
       break;
     
     default:
@@ -679,16 +680,19 @@ async function loadEmployees() {
     const data = await response.json();
     employees = data.employees || { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
     
-    // Deduplicate employees by ID within each type
+    // Deduplicate employees by a stable key within each type (prefer employeeId, then id, then name)
     for (const type of Object.keys(employees)) {
       const seen = new Set();
-      employees[type] = employees[type].filter(emp => {
-        if (seen.has(emp.id)) {
-          return false;
+      const filtered = [];
+      (employees[type] || []).forEach((emp, idx) => {
+        const key = emp?.employeeId ? String(emp.employeeId).trim()
+                    : (emp?.id ? String(emp.id).trim() : (emp?.name ? String(emp.name).trim().toLowerCase() : `__idx_${idx}`));
+        if (!seen.has(key)) {
+          seen.add(key);
+          filtered.push(emp);
         }
-        seen.add(emp.id);
-        return true;
       });
+      employees[type] = filtered;
     }
 
     // Normalize daily assignment fields
@@ -1250,6 +1254,90 @@ function setupWelcomeSection() {
 
   // Employee discount policy tracking (remaining retail value).
   setupEmployeeDiscountStatus();
+
+  // Populate welcome metrics boxes (retail week, daily targets, etc.)
+  populateWelcomeMetricsBoxes(userEmployee);
+}
+
+async function populateWelcomeMetricsBoxes(userEmployee) {
+  const retailWeek = metrics?.retailWeek;
+
+  // Update Retail Week Box
+  if (retailWeek && retailWeek.weekNumber) {
+    const weekHeader = document.getElementById('retailWeekHeader');
+    const weekDates = document.getElementById('retailWeekDates');
+    const weekActual = document.getElementById('retailWeekActual');
+    const weekTarget = document.getElementById('retailWeekTarget');
+
+    if (weekHeader) weekHeader.textContent = `Retail Week ${retailWeek.weekNumber}`;
+    if (weekDates) weekDates.textContent = `${retailWeek.weekStart} → ${retailWeek.weekEnd}`;
+    if (weekActual) weekActual.textContent = formatCurrencyOrDash(retailWeek.salesAmount);
+    if (weekTarget) weekTarget.textContent = `Retail Week Target: ${formatCurrencyOrDash(retailWeek.target)}`;
+  }
+
+  // Update Daily Target Box
+  const dailyTarget = getDailyTargetValue();
+  const dailyTargetEl = document.getElementById('dailyTarget');
+  if (dailyTargetEl) {
+    dailyTargetEl.textContent = Number.isFinite(Number(dailyTarget)) ? formatCurrencyOrDash(dailyTarget) : '--';
+  }
+
+  const perPerson = (!userEmployee?.isOff) ? getRetailWeekTargetPerPerson() : null;
+  const saCount = getWorkingSACount();
+  const targetPerSAEl = document.getElementById('targetPerSA');
+  if (targetPerSAEl) {
+    if (perPerson) {
+      targetPerSAEl.textContent = `Target / SA: ${formatCurrencyOrDash(perPerson)} (${saCount} SA working)`;
+    } else {
+      targetPerSAEl.textContent = `Target / SA: -- (assign shifts to calculate)`;
+    }
+  }
+
+  // Update Employee Discount Box
+  try {
+    const resp = await fetch('/api/expenses/status', { credentials: 'include' });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data?.available) {
+        const yearly = data?.status?.yearly || {};
+        if (Number.isFinite(Number(yearly.limit))) {
+          const used = Number(yearly.used || 0);
+          const remaining = Number(yearly.remaining || 0);
+          const limit = Number(yearly.limit || 0);
+          const percent = Number.isFinite(Number(yearly.percentUsed)) ? Number(yearly.percentUsed).toFixed(0) : 0;
+
+          const discountEl = document.getElementById('employeeDiscount');
+          const discountLabelEl = document.getElementById('employeeDiscountLabel');
+
+          if (discountEl) {
+            discountEl.textContent = `$${Math.round(remaining)}`;
+            discountEl.style.color = remaining <= 250 ? '#f59e0b' : 'var(--primary)';
+          }
+          if (discountLabelEl) {
+            discountLabelEl.textContent = `$${Math.round(remaining)} remaining (of $${Math.round(limit)} · ${percent}% used)`;
+          }
+        }
+      }
+    }
+  } catch (_) {
+    // Quiet fail - keep default values
+  }
+
+  // Update Daily Scan Box
+  if (isPrivilegedUser() && userEmployee) {
+    const scan = getDailyScanStatsForEmployee(userEmployee);
+    const pct = scan?.accuracy;
+    const hasPct = Number.isFinite(pct);
+    const pctText = hasPct ? `${pct}%` : '--';
+
+    const dailyScanEl = document.getElementById('dailyScan');
+    if (dailyScanEl) {
+      dailyScanEl.textContent = pctText;
+      if (hasPct) {
+        dailyScanEl.style.color = pct >= 99.5 ? 'var(--success)' : pct >= 99 ? '#f59e0b' : 'var(--danger)';
+      }
+    }
+  }
 }
 
 async function setupEmployeeDiscountStatus() {
@@ -1815,6 +1903,12 @@ function updateNotesPreview() {
   }
 }
 
+// Debounced render to prevent rapid re-renders
+function debouncedRenderAll(delay = 50) {
+  if (renderAllTimer) clearTimeout(renderAllTimer);
+  renderAllTimer = setTimeout(() => renderAll(), delay);
+}
+
 // Render functions
 function renderAll() {
   updateNotesPreview();
@@ -2104,6 +2198,7 @@ function formatCurrency(amount) {
 }
 
 function getInitials(name) {
+  if (!name || typeof name !== 'string') return '??';
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 }
 
@@ -2414,9 +2509,10 @@ function renderManagementSection() {
   grid.innerHTML = '';
 
   // Working vs day off (driven by Game Plan Edit toggle)
-  const scheduledMgmt = employees.MANAGEMENT.filter(e => !e?.isOff);
-  const dayOffMgmt = employees.MANAGEMENT.filter(e => !!e?.isOff);
-  count.textContent = employees.MANAGEMENT.length;
+  const mgmtEmployees = employees.MANAGEMENT || [];
+  const scheduledMgmt = mgmtEmployees.filter(e => !e?.isOff);
+  const dayOffMgmt = mgmtEmployees.filter(e => !!e?.isOff);
+  count.textContent = mgmtEmployees.length;
 
   const currentUserEmp = findCurrentUserEmployee('MANAGEMENT');
   let displayedEmployees = [...scheduledMgmt];
@@ -2439,7 +2535,8 @@ function renderManagementSection() {
 
   // Render scheduled managers
   displayedEmployees.forEach(emp => {
-    grid.appendChild(createManagementCard(emp, emp.id === currentUserEmp?.id, false));
+    const isCurrentEmp = emp.employeeId === currentUserEmp?.employeeId || emp.id === currentUserEmp?.id;
+    grid.appendChild(createManagementCard(emp, isCurrentEmp, false));
   });
 
   // Render day off managers (collapsed)
@@ -2447,43 +2544,78 @@ function renderManagementSection() {
 }
 
 function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
-  const card = document.createElement('div');
-  card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
+  try {
+    const card = document.createElement('div');
+    card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
-  const photoHtml = emp.imageUrl
-    ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
-    : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
+    const empName = emp?.name || 'Unknown';
+    const photoHtml = emp.imageUrl
+      ? `<img src="${emp.imageUrl}" alt="${empName}" class="employee-photo">`
+      : `<div class="employee-photo placeholder">${getInitials(empName)}</div>`;
 
-  const loanWarning = hasLoanOverdue(emp.name)
-    ? '<div class="loan-warning">Loan Overdue</div>'
-    : '';
+    const loanWarning = hasLoanOverdue(empName)
+      ? '<div class="loan-warning">Loan Overdue</div>'
+      : '';
 
-  if (isDayOff) {
-    card.innerHTML = `
-      <div class="card-header">
-        ${photoHtml}
-        <div class="employee-info">
-          <h4>${emp.name}</h4>
-          <span class="role day-off-badge">Day Off</span>
+    if (isDayOff) {
+      card.innerHTML = `
+        <div class="card-header">
+          ${photoHtml}
+          <div class="employee-info">
+            <h4>${empName}</h4>
+            <span class="role day-off-badge">Day Off</span>
+          </div>
         </div>
-      </div>
-    `;
-  } else {
+      `;
+      return card;
+    }
+    
     const scan = getDailyScanStatsForEmployee(emp);
     const scanRow = Number.isFinite(scan?.accuracy)
       ? `
         <div class="card-field">
-          <span class="field-label">Scan Accuracy</span>
+          <span class="field-label">Scan %</span>
           <span class="field-value ${scan.accuracy >= 99.5 ? 'positive' : scan.accuracy >= 99 ? 'warning' : 'negative'}">${scan.accuracy}%</span>
         </div>
       `
       : '';
+
+    // Employee discount or expense info (if available)
+    const discount = emp.metrics?.discountLc || emp.metrics?.employeeDiscount || emp.discount || null;
+    const discountRow = (discount !== null && discount !== undefined && Number.isFinite(Number(discount)))
+      ? `
+        <div class="card-field">
+          <span class="field-label">Employee Discount</span>
+          <span class="field-value">${formatCurrency(Number(discount))}</span>
+        </div>
+      ` : '';
+
+    // IPC / sales if available
+    const ipc = emp.metrics?.ipc ?? emp.ipc ?? null;
+    const sales = emp.metrics?.salesAmount ?? (emp.metrics?.sales ?? null);
+    const hasIpc = ipc !== null && ipc !== undefined && Number.isFinite(Number(ipc));
+    const hasSales = sales !== null && sales !== undefined && Number.isFinite(Number(sales));
+    const ipcSalesRow = (hasIpc || hasSales)
+      ? `
+        <div class="card-field">
+          <span class="field-label">IPC</span>
+          <span class="field-value">${hasIpc ? ipc : '--'}</span>
+        </div>
+        <div class="card-field">
+          <span class="field-label">Sales</span>
+          <span class="field-value">${hasSales ? formatCurrency(sales) : '--'}</span>
+        </div>
+      ` : '';
+
+    const position = emp.role || emp.position || emp.taskOfTheDay || '';
+    const lunch = emp.scheduledLunch || emp.lunch || '-';
+
     card.innerHTML = `
       <div class="card-header">
         ${photoHtml}
         <div class="employee-info">
           <h4>${emp.name}</h4>
-          <span class="role">${emp.role || 'Management'}</span>
+          <span class="role">${position || 'Management'}</span>
         </div>
       </div>
       <div class="card-body">
@@ -2493,14 +2625,22 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
         </div>
         <div class="card-field">
           <span class="field-label">Lunch</span>
-          <span class="field-value">${emp.lunch || '-'}</span>
+          <span class="field-value">${lunch}</span>
         </div>
         ${scanRow}
+        ${discountRow}
+        ${ipcSalesRow}
       </div>
       ${loanWarning}
     `;
+    return card;
+  } catch (error) {
+    console.error('Error creating management card:', error, emp);
+    const errorCard = document.createElement('div');
+    errorCard.className = 'employee-card';
+    errorCard.innerHTML = '<div class="card-header"><div class="employee-info"><h4>Error loading card</h4></div></div>';
+    return errorCard;
   }
-  return card;
 }
 
 // Tailors Section - Collapsed by default, show Day Off for unscheduled

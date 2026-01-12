@@ -360,7 +360,7 @@ function setupSSE() {
   sseConnection = new EventSource('/api/sse/updates');
   
   sseConnection.onopen = () => {
-    console.log('✅ Real-time updates connected');
+    // Real-time updates connected
   };
   
   sseConnection.onmessage = (event) => {
@@ -386,7 +386,7 @@ function setupSSE() {
 function handleSSEUpdate(update) {
   switch (update.type) {
     case 'connected':
-      console.log('SSE:', update.message);
+      // Connection established
       break;
       
     case 'heartbeat':
@@ -427,13 +427,13 @@ function handleSSEUpdate(update) {
       break;
       
     default:
-      console.log('Unknown SSE update:', update.type);
+      // Unknown update type
+      break;
   }
 }
 
 function showNotification(title, message) {
   // Simple notification (can be enhanced with a proper notification UI)
-  console.log(`🔔 ${title}${message ? ': ' + message : ''}`);
   
   // Optional: Use browser notifications if permitted
   if ('Notification' in window && Notification.permission === 'granted') {

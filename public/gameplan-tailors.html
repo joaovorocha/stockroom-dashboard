@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <meta name="theme-color" content="#ffffff">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Daily Operations">
   <link rel="stylesheet" href="/css/theme.css?v=14">
@@ -18,6 +18,81 @@
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
   <link rel="stylesheet" href="/css/mobile.css?v=7">
   <script src="/vendor/chart.umd.min.js?v=1" defer></script>
+  <style>
+    /* Retail Week Metrics */
+    .metric-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metric-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .metric-subheader {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .metric-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Edit Button Styling */
+    .btn-edit-calendar {
+      background: var(--success) !important;
+      color: white !important;
+      border: none !important;
+    }
+
+    /* Prominent Edit Button */
+    .prominent-edit-section {
+      display: flex;
+      justify-content: center;
+      margin: 24px 0;
+    }
+
+    .prominent-edit-container {
+      background: linear-gradient(135deg, var(--success), #22c55e);
+      border-radius: 12px;
+      padding: 2px;
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    }
+
+    .btn-prominent-edit {
+      display: inline-block;
+      background: white;
+      color: var(--success);
+      padding: 16px 32px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 16px;
+      transition: all 0.2s ease;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-prominent-edit:hover {
+      background: #f8f9fa;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+    }
+  </style>
 </head>
 <body>
   <!-- Shared Header Mount -->
@@ -49,7 +124,7 @@
 	            </div>
             <div class="welcome-right">
               <div class="welcome-action-row" id="welcomeActionRow" style="display:none;">
-                <a href="/gameplan-edit" class="btn btn-primary">Edit Game Plan</a>
+                <a href="/gameplan-calendar.html" class="btn btn-primary btn-edit-calendar">📅 View Game Plan</a>
               </div>
               <!-- Data Import Status (nested inside welcome box) -->
               <div class="import-status-card import-status-card--welcome" id="importStatusCardWelcome" style="display:none;">
@@ -64,6 +139,16 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Retail Week Info -->
+          <div class="metric-box">
+            <div class="metric-header">Retail Week 2</div>
+            <div class="metric-subheader">2026-01-11 → 2026-01-17</div>
+            <div class="metric-value">$229.4K</div>
+            <div class="metric-label">Retail Week Target: $237.7K</div>
+            <div class="metric-label">Daily Target (Today): $34.0K</div>
+            <div class="metric-label">Target / SA Today: --</div>
           </div>
 
           <!-- SA KPIs Row (shown on top for SA) -->
@@ -141,6 +226,15 @@
           </div>
         </div>
       </section>
+
+      <!-- Prominent View Button -->
+      <div class="prominent-edit-section">
+        <div class="prominent-edit-container">
+          <a href="/gameplan-calendar.html" class="btn btn-prominent-edit">
+            📅 View Game Plans
+          </a>
+        </div>
+      </div>
 
       <!-- Management & BOH Section - Quick reference for who's on duty -->
       <section class="section management-quick-section" id="managementQuickSection">

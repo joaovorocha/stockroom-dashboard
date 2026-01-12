@@ -10,7 +10,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <meta name="theme-color" content="#ffffff">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Daily Operations">
   <link rel="stylesheet" href="/css/theme.css?v=14">
@@ -18,6 +18,119 @@
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
   <link rel="stylesheet" href="/css/mobile.css?v=7">
   <script src="/vendor/chart.umd.min.js?v=1" defer></script>
+  <style>
+    .upcoming-plans-content {
+      display: grid;
+      gap: 8px;
+    }
+    
+    .upcoming-plan-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+    
+    .upcoming-plan-item:hover {
+      border-color: var(--primary);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .upcoming-plan-info {
+      flex: 1;
+    }
+    
+    .upcoming-plan-date {
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+      font-size: 13px;
+    }
+    
+    .upcoming-plan-status {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      display: inline-block;
+      font-weight: 500;
+    }
+    
+    .upcoming-plan-status.draft {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    .upcoming-plan-status.published {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    .upcoming-plan-status.locked {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    
+    .upcoming-plan-actions {
+      display: flex;
+      gap: 6px;
+    }
+    
+    .upcoming-plan-actions .btn {
+      font-size: 12px;
+      padding: 6px 12px;
+    }
+    
+    .upcoming-plans-loading {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-secondary);
+    }
+    
+    .upcoming-plans-empty {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-secondary);
+    }
+
+    /* Edit Button Styling */
+    .welcome-action-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    /* Small desktop screens */
+    @media (max-width: 1366px) {
+      .upcoming-plans-content {
+        gap: 6px;
+      }
+      
+      .upcoming-plan-item {
+        padding: 10px;
+        border-radius: 4px;
+      }
+      
+      .upcoming-plan-date {
+        font-size: 12px;
+      }
+      
+      .upcoming-plan-status {
+        font-size: 10px;
+        padding: 1px 5px;
+      }
+    }
+
+    .btn-edit-calendar {
+      background: var(--success) !important;
+      color: white !important;
+      border: none !important;
+    }
+  </style>
 </head>
 <body>
   <div id="shared-header-mount"></div>
@@ -49,8 +162,9 @@
 	            </div>
             <div class="welcome-right">
               <div class="welcome-action-row" id="welcomeActionRow" style="display:none;">
-                <a href="/gameplan-edit" class="btn btn-primary">Edit Game Plan</a>
+                <a href="/gameplan-calendar.html" class="btn btn-primary btn-edit-calendar">📅 Edit Game Plan</a>
               </div>
+
               <!-- Data Import Status (nested inside welcome box) -->
               <div class="import-status-card import-status-card--welcome" id="importStatusCardWelcome" style="display:none;">
                 <h4>📊 Data Import</h4>
@@ -92,6 +206,16 @@
               <span class="kpi-value" id="kpiTarget">--</span>
               <span class="kpi-label">Today's Target</span>
             </div>
+          </div>
+
+          <!-- Retail Week Info -->
+          <div class="metric-box">
+            <div class="metric-header">Retail Week 2</div>
+            <div class="metric-subheader">2026-01-11 → 2026-01-17</div>
+            <div class="metric-value">$229.4K</div>
+            <div class="metric-label">Retail Week Target: $237.7K</div>
+            <div class="metric-label">Daily Target (Today): $34.0K</div>
+            <div class="metric-label">Target / SA Today: --</div>
           </div>
 
           <div class="welcome-details" id="welcomeDetails">
@@ -142,6 +266,19 @@
         </div>
       </section>
 
+      <!-- Upcoming Game Plans Widget -->
+      <section class="section upcoming-plans-section" id="upcomingPlansSection">
+        <div class="section-header">
+          <h2>📅 Upcoming Game Plans</h2>
+          <div class="section-actions">
+            <a href="/gameplan-calendar.html" class="btn btn-sm">View Calendar</a>
+          </div>
+        </div>
+        <div class="upcoming-plans-content" id="upcomingPlansContent">
+          <div class="upcoming-plans-loading">Loading upcoming plans...</div>
+        </div>
+      </section>
+
       <!-- Management & BOH Section - Quick reference for who's on duty -->
       <section class="section management-quick-section" id="managementQuickSection">
         <div class="section-header">
@@ -189,6 +326,18 @@
           </div>
         </div>
         <div class="employee-grid" id="tailorGrid"></div>
+      </section>
+
+      <!-- Managers -->
+      <section class="section" id="managementSection">
+        <div class="section-header">
+          <h2>Managers</h2>
+          <div class="section-actions">
+            <button class="btn btn-sm" id="expandMgmt">Show All</button>
+            <span class="section-count" id="mgmtCount">0</span>
+          </div>
+        </div>
+        <div class="employee-grid" id="mgmtGrid"></div>
       </section>
 
       <!-- Operations Dashboard - Consolidated -->
@@ -474,9 +623,95 @@
     <script src="/js/shared-header.js?v=24"></script>
     <script src="/js/dashboard.js?v=24"></script>
     <script>
+      // Authenticated fetch function
+      function authFetch(url, options = {}) {
+        const merged = { credentials: 'include', ...options };
+        if (options && options.headers) merged.headers = options.headers;
+        return fetch(url, merged);
+      }
+      // Upcoming Plans Widget
+      async function loadUpcomingPlans() {
+        const content = document.getElementById('upcomingPlansContent');
+        if (!content) return;
+        
+        try {
+          // Get current date and next 7 days
+          const today = new Date();
+          const endDate = new Date();
+          endDate.setDate(today.getDate() + 7);
+          
+          const year = today.getFullYear();
+          const month = today.getMonth() + 1; // JS months are 0-based
+          
+          const response = await authFetch(`/api/gameplan/calendar/${year}/${month}`);
+          if (!response.ok) throw new Error('Failed to load calendar data');
+          
+          const data = await response.json();
+          
+          // Filter for upcoming dates (today + next 6 days)
+          const upcomingDates = [];
+          for (let i = 0; i < 7; i++) {
+            const date = new Date(today);
+            date.setDate(today.getDate() + i);
+            const dateStr = date.toISOString().slice(0, 10);
+            upcomingDates.push(dateStr);
+          }
+          
+          // Handle both response formats: data.days array or data.upcomingPlans array
+          const daysArray = data.days || data.upcomingPlans || [];
+          const upcomingPlans = daysArray.filter(day => 
+            upcomingDates.includes(day.date) && day.hasPlan
+          );
+          
+          if (upcomingPlans.length === 0) {
+            content.innerHTML = '<div class="upcoming-plans-empty">No upcoming game plans scheduled</div>';
+            return;
+          }
+          
+          const plansHtml = upcomingPlans.map(plan => {
+            const date = new Date(plan.date + 'T12:00:00');
+            const dateStr = date.toLocaleDateString('en-US', { 
+              weekday: 'short', 
+              month: 'short', 
+              day: 'numeric' 
+            });
+            
+            let statusClass = 'draft';
+            let statusText = 'Draft';
+            if (plan.published) {
+              statusClass = 'published';
+              statusText = 'Published';
+            } else if (plan.locked) {
+              statusClass = 'locked';
+              statusText = 'Locked';
+            }
+            
+            return `
+              <div class="upcoming-plan-item">
+                <div class="upcoming-plan-info">
+                  <div class="upcoming-plan-date">${dateStr}</div>
+                  <span class="upcoming-plan-status ${statusClass}">${statusText}</span>
+                </div>
+                <div class="upcoming-plan-actions">
+                  <a href="/gameplan-edit.html?date=${plan.date}" class="btn btn-sm btn-outline">Edit</a>
+                </div>
+              </div>
+            `;
+          }).join('');
+          
+          content.innerHTML = plansHtml;
+          
+        } catch (error) {
+          console.error('Failed to load upcoming plans:', error);
+          content.innerHTML = '<div class="upcoming-plans-loading">Failed to load upcoming plans</div>';
+        }
+      }
+
       (async () => {
         try {
           await SharedHeader.init();
+          // Load data after header init
+          await loadUpcomingPlans();
         } catch (e) {
           console.warn('[Gameplan] SharedHeader.init failed', e);
         }

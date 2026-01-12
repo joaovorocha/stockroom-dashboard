@@ -138,7 +138,6 @@ function setupEventStream() {
     console.error('EventSource error:', error);
     // Auto-reconnect
     setTimeout(() => {
-      console.log('Reconnecting to RFID events...');
       setupEventStream();
     }, 5000);
   };
@@ -226,8 +225,6 @@ async function loadStats() {
   try {
     const response = await fetch('/api/rfid/stats');
     const stats = await response.json();
-    
-    console.log('RFID Stats:', stats);
   } catch (error) {
     console.error('Failed to load stats:', error);
   }
@@ -256,7 +253,6 @@ function updateUI(state) {
 // ============================================================================
 
 function showSuccess(message) {
-  console.log('✅', message);
   // You can add a toast notification here
 }
 

@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "stockroom-inventory": {
+      "command": "node",
+      "args": ["/var/www/stockroom-dashboard/mcp-servers/inventory-server.js"],
+      "env": {
+        "STOCKROOM_DATA_DIR": "/var/lib/stockroom-dashboard/data",
+        "STOCKROOM_FILES_DIR": "/var/lib/stockroom-dashboard/files"
+      }
+    },
+    "stockroom-shipments": {
+      "command": "node",
+      "args": ["/var/www/stockroom-dashboard/mcp-servers/shipments-server.js"],
+      "env": {
+        "STOCKROOM_DATA_DIR": "/var/lib/stockroom-dashboard/data"
+      }
+    },
+    "stockroom-radio": {
+      "command": "python",
+      "args": ["/var/www/stockroom-dashboard/mcp-servers/radio-server.py"],
+      "env": {
+        "PYTHONPATH": "/var/www/stockroom-dashboard"
+      }
+    }
+  }
+}

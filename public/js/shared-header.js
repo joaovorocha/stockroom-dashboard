@@ -830,7 +830,6 @@ const SharedHeader = {
     }
 
     let logoutBtn = document.getElementById('logoutBtn');
-    console.log('[SharedHeader] Looking for #logoutBtn:', logoutBtn);
     if (!logoutBtn) {
       console.warn('[SharedHeader] #logoutBtn not found, attempting to create or convert.');
       // Convert any existing single-action link (e.g., "Switch User") to Logout.
@@ -848,7 +847,6 @@ const SharedHeader = {
 
     logoutBtn.textContent = 'Logout';
     logoutBtn.href = '#';
-    console.log('[SharedHeader] #logoutBtn ready:', logoutBtn);
 
     // Keep dropdown clean: logout only.
     dropdown.querySelectorAll('a').forEach((a) => {
@@ -857,7 +855,6 @@ const SharedHeader = {
 
     // Avoid double-binding if some page also re-initializes.
     if (!logoutBtn.dataset.bound) {
-      console.log('[SharedHeader] Attaching logout event to #logoutBtn');
       // Replace node to drop any previously-attached handlers from page-specific scripts.
       const clean = logoutBtn.cloneNode(true);
       clean.dataset.bound = 'true';
@@ -865,12 +862,10 @@ const SharedHeader = {
       logoutBtn = clean;
 
       logoutBtn.addEventListener('click', async (e) => {
-        console.log('[SharedHeader] Logout button clicked');
         e.preventDefault();
         e.stopPropagation();
         try {
           const resp = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-          console.log('[SharedHeader] Logout request sent, response:', resp);
         } catch (err) {
           console.error('[SharedHeader] Logout request failed:', err);
         }

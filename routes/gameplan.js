@@ -554,6 +554,15 @@ router.post('/save', requireManager, (req, res) => {
   const today = gameplan.date || getTodayDate();
   const gameplanFile = path.join(GAMEPLAN_DIR, `${today}.json`);
 
+  // Check if the gameplan is locked by another user
+  const existingGameplan = readJsonFile(gameplanFile, null);
+  if (existingGameplan && existingGameplan.locked && existingGameplan.lockedBy !== req.user?.name) {
+    return res.status(409).json({
+      error: 'Game plan is currently locked by another user',
+      lockedBy: existingGameplan.lockedBy
+    });
+  }
+
   // LEGACY SUPPORT: Normalize assignments for backward compatibility:
   // - zones: array (employees can have 1+ zones)
   // - zone: keep first zone for legacy UIs
@@ -600,7 +609,25 @@ router.post('/save', requireManager, (req, res) => {
   }
 
   gameplan.savedAt = new Date().toISOString();
-  gameplan.published = true; // Mark as published when saved from edit page
+  gameplan.lastEditedBy = req.user?.name || 'Unknown';
+
+  // Handle publish/draft state
+  if (req.body.publish === true) {
+    gameplan.published = true;
+    gameplan.publishedAt = new Date().toISOString();
+    gameplan.publishedBy = req.user?.name || 'Unknown';
+  } else if (req.body.publish === false) {
+    gameplan.published = false;
+  } else {
+    // Default: if it's today, publish; if future, save as draft
+    const isToday = today === getTodayDate();
+    gameplan.published = isToday;
+  }
+
+  // Remove lock when saving
+  gameplan.locked = false;
+  gameplan.lockedBy = null;
+
   writeJsonFile(gameplanFile, gameplan);
 
   // Also update the main employees file with assignments
@@ -643,6 +670,65 @@ router.post('/save', requireManager, (req, res) => {
   }
 
   res.json({ success: true, date: today });
+});
+
+// POST /api/gameplan/lock/:date - Lock a gameplan for editing
+router.post('/lock/:date', requireManager, (req, res) => {
+  const { date } = req.params;
+  const gameplanFile = path.join(GAMEPLAN_DIR, `${date}.json`);
+
+  // Validate date format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+  }
+
+  const gameplan = readJsonFile(gameplanFile, {});
+
+  // Check if already locked by someone else
+  if (gameplan.locked && gameplan.lockedBy !== req.user?.name) {
+    return res.status(409).json({
+      error: 'Game plan is already locked by another user',
+      lockedBy: gameplan.lockedBy
+    });
+  }
+
+  // Lock the gameplan
+  gameplan.locked = true;
+  gameplan.lockedBy = req.user?.name || 'Unknown';
+  gameplan.lockedAt = new Date().toISOString();
+
+  writeJsonFile(gameplanFile, gameplan);
+
+  res.json({ success: true, lockedBy: gameplan.lockedBy });
+});
+
+// POST /api/gameplan/unlock/:date - Unlock a gameplan
+router.post('/unlock/:date', requireManager, (req, res) => {
+  const { date } = req.params;
+  const gameplanFile = path.join(GAMEPLAN_DIR, `${date}.json`);
+
+  // Validate date format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+  }
+
+  const gameplan = readJsonFile(gameplanFile, {});
+
+  // Check if locked by current user or allow force unlock for managers
+  if (gameplan.locked && gameplan.lockedBy !== req.user?.name && !req.body.force) {
+    return res.status(403).json({
+      error: 'Cannot unlock game plan locked by another user'
+    });
+  }
+
+  // Unlock the gameplan
+  gameplan.locked = false;
+  gameplan.lockedBy = null;
+  gameplan.lockedAt = null;
+
+  writeJsonFile(gameplanFile, gameplan);
+
+  res.json({ success: true });
 });
 
 // GET /api/gameplan/date/:date - Get gameplan for a specific date
@@ -1909,5 +1995,83 @@ function getAvailableViews(user) {
   
   return views;
 }
+
+// GET /api/gameplan/calendar/:year/:month - Get calendar data for a month
+router.get('/calendar/:year/:month', (req, res) => {
+  const { year, month } = req.params;
+
+  // Validate parameters
+  const yearNum = parseInt(year);
+  const monthNum = parseInt(month) - 1; // JS months are 0-based
+
+  if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 0 || monthNum > 11) {
+    return res.status(400).json({ error: 'Invalid year or month' });
+  }
+
+  try {
+    const plans = {};
+    const stats = { total: 0, published: 0, drafts: 0, upcoming: 0 };
+    const upcomingPlans = [];
+
+    // Get all game plan files for the month
+    const fs = require('fs');
+    const path = require('path');
+
+    // Calculate date range for the month
+    const startDate = new Date(yearNum, monthNum, 1);
+    const endDate = new Date(yearNum, monthNum + 1, 0);
+
+    // Check each day of the month
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+      const gameplanFile = path.join(GAMEPLAN_DIR, `${dateStr}.json`);
+
+      try {
+        if (fs.existsSync(gameplanFile)) {
+          const gameplan = JSON.parse(fs.readFileSync(gameplanFile, 'utf8'));
+          plans[dateStr] = {
+            date: dateStr,
+            published: gameplan.published || false,
+            lastEditedAt: gameplan.savedAt,
+            lastEditedBy: gameplan.lastEditedBy,
+            locked: gameplan.locked || false,
+            lockedBy: gameplan.lockedBy
+          };
+
+          stats.total++;
+
+          if (gameplan.published) {
+            stats.published++;
+          } else {
+            stats.drafts++;
+          }
+
+          // Check if it's upcoming (future date)
+          if (new Date(dateStr) > new Date()) {
+            stats.upcoming++;
+            upcomingPlans.push(plans[dateStr]);
+          }
+        }
+      } catch (error) {
+        console.error(`Error reading gameplan for ${dateStr}:`, error);
+      }
+    }
+
+    // Sort upcoming plans by date
+    upcomingPlans.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    res.json({
+      year: yearNum,
+      month: monthNum + 1,
+      plans,
+      stats,
+      upcomingPlans: upcomingPlans.slice(0, 10) // Limit to next 10
+    });
+
+  } catch (error) {
+    console.error('Error loading calendar data:', error);
+    res.status(500).json({ error: 'Failed to load calendar data' });
+  }
+});
 
 module.exports = router;

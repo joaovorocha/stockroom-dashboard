@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="view-transition" content="same-origin">
+  <meta name="description" content="Calendar view for advance game plan management">
+  <title>Game Plan Calendar - Stockroom Daily Operations</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="/icons/apple-touch-icon-144.png">
+  <meta name="theme-color" content="#1a5490">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Stockroom">
+  <meta name="apple-itunes-app" content="app-id=123456789">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="format-detection" content="email=no">
+  <meta name="apple-mobile-web-app-icon-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
+  <link rel="stylesheet" href="/css/mobile.css?v=3">
+  <style>
+    .calendar-container {
+      max-width: 100%;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .calendar-nav {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .calendar-nav h2 {
+      margin: 0;
+      font-size: 24px;
+      color: var(--text);
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .nav-btn:hover {
+      background: var(--hover);
+    }
+
+    .view-toggle {
+      display: flex;
+      gap: 8px;
+    }
+
+    .view-btn {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .view-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      background: var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .calendar-day {
+      background: white;
+      min-height: 100px;
+      padding: 6px;
+      position: relative;
+    }
+
+    .calendar-day.today {
+      background: #f0f9ff;
+    }
+
+    .calendar-day.other-month {
+      background: #f8fafc;
+      color: var(--text-secondary);
+    }
+
+    .day-number {
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+
+    .day-plans {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .plan-indicator {
+      padding: 3px 5px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 500;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .plan-indicator:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .plan-draft {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #f59e0b;
+    }
+
+    .plan-published {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #10b981;
+    }
+
+    .plan-locked {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #ef4444;
+    }
+
+    .weekday-header {
+      background: var(--surface);
+      padding: 12px 8px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .upcoming-plans {
+      margin-top: 30px;
+      padding: 20px;
+      background: var(--surface);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .upcoming-plans h3 {
+      margin: 0 0 15px 0;
+      color: var(--text);
+    }
+
+    .plans-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .plan-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .plan-info h4 {
+      margin: 0 0 4px 0;
+      font-size: 16px;
+      color: var(--text);
+    }
+
+    .plan-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .plan-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .action-btn:hover {
+      background: var(--hover);
+    }
+
+    .action-btn.primary {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+    }
+
+    .quick-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 768px) {
+      .quick-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .stat-card {
+      background: var(--surface);
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .stat-number {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Calendar and Plans Side by Side */
+    .calendar-plans-container {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 24px;
+      margin-top: 20px;
+      width: 100%;
+      min-height: 500px;
+    }
+
+    .calendar-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .upcoming-plans-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .upcoming-plans-section h3 {
+      margin: 0 0 15px 0;
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    /* Mobile: Stack calendar and plans vertically */
+    @media (max-width: 1024px) {
+      .calendar-plans-container {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+    }
+
+    /* Small desktop screens */
+    @media (max-width: 1366px) {
+      .calendar-container {
+        padding: 16px;
+      }
+      
+      .calendar-header {
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+      }
+      
+      .calendar-nav h2 {
+        font-size: 20px;
+      }
+      
+      .calendar-day {
+        min-height: 85px;
+        padding: 5px;
+      }
+      
+      .day-number {
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+      
+      .plan-indicator {
+        font-size: 9px;
+        padding: 2px 4px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .calendar-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+      }
+
+      .calendar-nav {
+        justify-content: space-between;
+      }
+
+      .calendar-grid {
+        grid-template-columns: repeat(7, 1fr);
+        font-size: 12px;
+      }
+
+      .calendar-day {
+        min-height: 80px;
+        padding: 4px;
+      }
+
+      .day-number {
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+
+      .plan-indicator {
+        font-size: 10px;
+        padding: 2px 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Shared Header Mount -->
+  <div id="shared-header-mount"></div>
+
+  <div class="calendar-container">
+    <div class="calendar-header">
+      <div class="calendar-nav">
+        <h2 id="current-month">January 2026</h2>
+        <div class="nav-buttons">
+          <button class="nav-btn" id="prev-month">‹</button>
+          <button class="nav-btn" id="today-btn">Today</button>
+          <button class="nav-btn" id="next-month">›</button>
+        </div>
+      </div>
+      <div class="view-toggle">
+        <a href="/dashboard" class="btn btn-sm" style="margin-right: 10px;">← Dashboard</a>
+        <button class="btn btn-primary btn-sm" id="create-new-plan-btn" style="margin-right: 10px;">+ Create New Plan</button>
+        <button class="view-btn active" data-view="month">Month</button>
+        <button class="view-btn" data-view="week">Week</button>
+      </div>
+    </div>
+
+    <div class="quick-stats">
+      <div class="stat-card">
+        <div class="stat-number" id="total-plans">0</div>
+        <div class="stat-label">Total Plans</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="published-plans">0</div>
+        <div class="stat-label">Published</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="draft-plans">0</div>
+        <div class="stat-label">Drafts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="upcoming-plans-count">0</div>
+        <div class="stat-label">Upcoming</div>
+      </div>
+    </div>
+
+    <div class="calendar-plans-container">
+      <div class="calendar-section" style="height: 100%; width: 100%;">
+        <div class="calendar-grid" id="calendar-grid">
+          <!-- Calendar days will be populated by JavaScript -->
+        </div>
+      </div>
+
+      <div class="upcoming-plans-section" style="height: 100%; width: 100%;">
+        <h3>📋 Future Daily Plans</h3>
+        <div class="plans-list" id="upcoming-plans-list">
+          <!-- Upcoming plans will be populated by JavaScript -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Calendar functionality
+    let currentDate = new Date();
+    let currentView = 'month';
+
+    // Initialize calendar
+    document.addEventListener('DOMContentLoaded', function() {
+      loadCalendar();
+      setupEventListeners();
+    });
+
+    function setupEventListeners() {
+      // Navigation buttons
+      document.getElementById('prev-month').addEventListener('click', () => {
+        if (currentView === 'week') {
+          currentDate.setDate(currentDate.getDate() - 7);
+        } else {
+          currentDate.setMonth(currentDate.getMonth() - 1);
+        }
+        loadCalendar();
+      });
+
+      document.getElementById('next-month').addEventListener('click', () => {
+        if (currentView === 'week') {
+          currentDate.setDate(currentDate.getDate() + 7);
+        } else {
+          currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+        loadCalendar();
+      });
+
+      document.getElementById('today-btn').addEventListener('click', () => {
+        currentDate = new Date();
+        loadCalendar();
+      });
+
+      // Create New Plan button
+      document.getElementById('create-new-plan-btn').addEventListener('click', () => {
+        // Get today's date in YYYY-MM-DD format
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0];
+        window.location.href = `/gameplan-edit.html?date=${dateStr}`;
+      });
+
+      // View toggle buttons
+      document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+          currentView = this.dataset.view;
+          loadCalendar();
+        });
+      });
+    }
+
+    async function loadCalendar() {
+      try {
+        // Update month/week header
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+
+        if (currentView === 'week') {
+          const weekStart = new Date(currentDate);
+          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 6);
+
+          const startMonth = monthNames[weekStart.getMonth()];
+          const endMonth = monthNames[weekEnd.getMonth()];
+          const year = weekStart.getFullYear();
+
+          if (startMonth === endMonth) {
+            document.getElementById('current-month').textContent =
+              `${startMonth} ${weekStart.getDate()}-${weekEnd.getDate()}, ${year}`;
+          } else {
+            document.getElementById('current-month').textContent =
+              `${startMonth} ${weekStart.getDate()} - ${endMonth} ${weekEnd.getDate()}, ${year}`;
+          }
+        } else {
+          document.getElementById('current-month').textContent =
+            `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+        }
+
+        // Load game plan data for the month
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
+        const response = await fetch(`/api/gameplan/calendar/${year}/${month}`);
+        const data = await response.json();
+
+        renderCalendar(data);
+        renderUpcomingPlans(data.upcomingPlans || []);
+        updateStats(data.stats || {});
+
+      } catch (error) {
+        console.error('Error loading calendar:', error);
+      }
+    }
+
+    function renderCalendar(data) {
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      // Add weekday headers
+      const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      weekdays.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'weekday-header';
+        header.textContent = day;
+        grid.appendChild(header);
+      });
+
+      // Calculate calendar days
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const startDate = new Date(firstDay);
+      startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+      // Determine how many weeks to render
+      const weeksToRender = currentView === 'week' ? 1 : 6;
+
+      // If week view, start from the week containing today
+      if (currentView === 'week') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        startDate.setTime(today.getTime());
+        startDate.setDate(startDate.getDate() - today.getDay());
+      }
+
+      // Render weeks
+      for (let week = 0; week < weeksToRender; week++) {
+        for (let day = 0; day < 7; day++) {
+          const date = new Date(startDate);
+          date.setDate(startDate.getDate() + (week * 7) + day);
+
+          const dayDiv = document.createElement('div');
+          dayDiv.className = 'calendar-day';
+
+          if (date.getMonth() !== month) {
+            dayDiv.classList.add('other-month');
+          }
+
+          if (date.toDateString() === new Date().toDateString()) {
+            dayDiv.classList.add('today');
+          }
+
+          dayDiv.innerHTML = `
+            <div class="day-number">${date.getDate()}</div>
+            <div class="day-plans" id="plans-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}">
+              <!-- Plans will be added here -->
+            </div>
+          `;
+
+          grid.appendChild(dayDiv);
+        }
+      }
+
+      // Add plan indicators
+      if (data.plans) {
+        Object.entries(data.plans).forEach(([dateStr, plan]) => {
+          const plansDiv = document.getElementById(`plans-${dateStr}`);
+          if (plansDiv) {
+            const indicator = document.createElement('div');
+            indicator.className = `plan-indicator ${getPlanClass(plan)}`;
+            indicator.textContent = getPlanText(plan);
+            indicator.onclick = () => openGamePlan(dateStr);
+            plansDiv.appendChild(indicator);
+          }
+        });
+      }
+    }
+
+    function getPlanClass(plan) {
+      if (plan.locked) return 'plan-locked';
+      if (plan.published) return 'plan-published';
+      return 'plan-draft';
+    }
+
+    function getPlanText(plan) {
+      if (plan.locked) return '🔒 Locked';
+      if (plan.published) return '✅ Published';
+      return '📝 Draft';
+    }
+
+    function renderUpcomingPlans(plans) {
+      const list = document.getElementById('upcoming-plans-list');
+      list.innerHTML = '';
+
+      if (plans.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">No upcoming game plans</p>';
+        return;
+      }
+
+      plans.forEach(plan => {
+        const item = document.createElement('div');
+        item.className = 'plan-item';
+
+        const date = new Date(plan.date);
+        const formattedDate = date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
+        });
+
+        item.innerHTML = `
+          <div class="plan-info">
+            <h4>${formattedDate}</h4>
+            <div class="plan-meta">
+              ${plan.published ? 'Published' : 'Draft'} •
+              Last edited: ${plan.lastEditedAt ? new Date(plan.lastEditedAt).toLocaleString() : 'Never'}
+              ${plan.lastEditedBy ? ` by ${plan.lastEditedBy}` : ''}
+            </div>
+          </div>
+          <div class="plan-actions">
+            <a href="/gameplan-edit.html?date=${plan.date}" class="action-btn primary">Edit</a>
+            <button class="action-btn" onclick="viewPlan('${plan.date}')">View</button>
+          </div>
+        `;
+
+        list.appendChild(item);
+      });
+    }
+
+    function updateStats(stats) {
+      document.getElementById('total-plans').textContent = stats.total || 0;
+      document.getElementById('published-plans').textContent = stats.published || 0;
+      document.getElementById('draft-plans').textContent = stats.drafts || 0;
+      document.getElementById('upcoming-plans-count').textContent = stats.upcoming || 0;
+    }
+
+    function openGamePlan(date) {
+      window.location.href = `/gameplan-edit.html?date=${date}`;
+    }
+
+    function viewPlan(date) {
+      // Open in read-only mode
+      window.open(`/gameplan-edit.html?date=${date}&readonly=true`, '_blank');
+    }
+  </script>
+
+  <script src="/js/shared-header.js?v=24"></script>
+  <script>
+    (async () => {
+      try {
+        await SharedHeader.init();
+      } catch (e) {
+        console.warn('[Calendar] SharedHeader.init failed', e);
+      }
+    })();
+  </script>
+</body>
+</html>

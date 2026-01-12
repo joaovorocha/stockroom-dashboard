@@ -13,13 +13,16 @@
   <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon-152.png">
   <link rel="apple-touch-icon" sizes="144x144" href="/icons/apple-touch-icon-144.png">
   <meta name="theme-color" content="#1a5490">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Stockroom">
   <meta name="apple-itunes-app" content="app-id=123456789">
   <meta name="format-detection" content="telephone=no">
   <meta name="format-detection" content="email=no">
   <meta name="apple-mobile-web-app-icon-status-bar-style" content="black-translucent">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <link rel="stylesheet" href="/css/theme.css?v=14">
 	  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
@@ -40,13 +43,26 @@
     /* Weekly goals + notes: side-by-side on desktop */
     .edit-goal-notes-row {
       display: grid;
-      grid-template-columns: 1.35fr 0.65fr;
-      gap: 16px;
-      align-items: start;
-      margin-bottom: 18px;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 20px;
+      align-items: stretch;
+      margin-bottom: 20px;
     }
 
-    @media (max-width: 1024px) {
+    @media (min-width: 1600px) {
+      .edit-goal-notes-row {
+        grid-template-columns: 1fr 500px;
+      }
+    }
+
+    @media (max-width: 1400px) {
+      .edit-goal-notes-row {
+        grid-template-columns: 1fr 400px;
+        gap: 16px;
+      }
+    }
+
+    @media (max-width: 1200px) {
       .edit-goal-notes-row {
         grid-template-columns: 1fr;
       }
@@ -56,29 +72,86 @@
       font-size: 20px;
     }
 
-	    @media (max-width: 600px) {
-	      .edit-header > div {
-	        flex-direction: column;
-	        align-items: flex-start !important;
-	        gap: 12px;
-	      }
-	      
-	      .edit-actions {
-	        width: 100%;
-	        justify-content: space-between;
-	        flex-wrap: wrap;
-	        gap: 6px !important;
+	    @media (max-width: 768px) {
+	      .edit-container {
+	        padding: 12px;
 	      }
 
-	      .edit-actions .btn {
-	        font-size: 11px !important;
-	        padding: 8px 10px !important;
+	      .edit-header > div {
+	        flex-direction: column;
+	        align-items: stretch !important;
+	        gap: 16px;
+	      }
+
+	      .edit-header > div > div:last-child {
+	        flex-direction: column;
+	        align-items: stretch !important;
+	        gap: 12px;
+	      }
+
+	      .edit-header h2 {
+	        font-size: 18px !important;
+	      }
+
+	      .edit-header input[type="date"] {
+	        width: 100% !important;
+	        padding: 12px !important;
+	        font-size: 14px !important;
+	        min-height: 44px;
+	      }
+
+	      .edit-header label[for="datePicker"] {
+	        font-size: 13px !important;
+	      }
+
+	      .edit-actions {
+	        width: 100%;
+	        justify-content: stretch;
+	        flex-wrap: wrap;
+	        gap: 8px !important;
+	      }
+
+	      .edit-actions .btn,
+	      .edit-actions a {
+	        font-size: 13px !important;
+	        padding: 12px 16px !important;
 	        white-space: nowrap;
-	        flex: 1 1 auto;
+	        flex: 1 1 calc(50% - 4px);
+	        justify-content: center;
+	        min-height: 48px;
+	        text-align: center;
+	      }
+
+	      .edit-goal-notes-row {
+	        grid-template-columns: 1fr !important;
+	        gap: 20px;
 	      }
 
 	      #weeklyGoalGrid {
-	        grid-template-columns: 70px 1fr 56px 90px !important;
+	        grid-template-columns: 55px 1fr 50px 85px !important;
+	        gap: 8px !important;
+	        font-size: 13px;
+	      }
+
+	      .weekly-goal-step-btn {
+	        width: 40px !important;
+	        height: 40px !important;
+	        font-size: 20px !important;
+	      }
+
+	      .weekly-goal-slider {
+	        height: 44px !important;
+	      }
+
+	      /* Make target cards stack on mobile */
+	      .edit-goal-notes-row > section:first-child > div:first-of-type {
+	        grid-template-columns: 1fr !important;
+	      }
+
+	      /* Notes editor improvements for mobile */
+	      .notes-toolbar {
+	        overflow-x: auto;
+	        -webkit-overflow-scrolling: touch;
 	      }
 	    }
 
@@ -164,19 +237,45 @@
     }
 
     .section-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      display: flex;
       gap: 16px;
       margin-bottom: 32px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 8px;
+      scroll-behavior: smooth;
     }
 
-    /* Collapsible employee sections */
+    .section-grid::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .section-grid::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.05);
+      border-radius: 4px;
+    }
+
+    .section-grid::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+    }
+
+    .section-grid::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,0,0,0.3);
+    }
+
+    /* Employee sections - always visible */
     .section-card {
-      background: #f1f3f7;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
-      margin-bottom: 32px;
-      padding: 18px 18px 0 18px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+      margin-bottom: 0;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
     }
 
     .section-title {
@@ -210,23 +309,7 @@
     }
 
     .toggle-btn {
-      width: 34px;
-      height: 34px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: none;
-      border-radius: 8px;
-      background: #e0e3ea;
-      color: #111827;
-      font-size: 16px;
-      line-height: 1;
-      cursor: pointer;
-      padding: 0;
-    }
-
-    .toggle-btn:hover {
-      background: #d2d6df;
+      display: none; /* Hide collapse/expand button */
     }
 
     .collapsed-section .section-grid {
@@ -236,6 +319,8 @@
     /* When section is collapsed, keep left/right layout but center vertically in the card */
     .collapsed-section.section-card {
       padding-bottom: 18px; /* match top padding for vertical centering */
+      min-height: auto;
+      height: auto;
     }
 
     .collapsed-section .section-title {
@@ -299,25 +384,54 @@
     }
 
     .edit-card {
-      background: var(--background);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px;
+      flex: 0 0 auto;
+      width: 280px;
+      max-width: 100vw;
+      scroll-snap-align: start;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+      transition: box-shadow 0.2s ease;
+    }
+
+    .edit-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    @media (min-width: 768px) {
+      .edit-card {
+        width: 300px;
+      }
+    }
+
+    @media (min-width: 1200px) {
+      .edit-card {
+        width: 320px;
+      }
+    }
+
+    @media (min-width: 1600px) {
+      .edit-card {
+        width: 340px;
+      }
     }
 
     .edit-card-header {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
     }
 
     .edit-card-photo {
-      width: 48px;
-      height: 48px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       object-fit: cover;
-      background: var(--surface);
+      background: #f3f4f6;
     }
 
     .edit-card-photo.placeholder {
@@ -330,19 +444,21 @@
     }
 
     .edit-card-info h4 {
-      font-size: 15px;
-      margin: 0 0 4px;
+      font-size: 14px;
+      margin: 0 0 2px;
+      font-weight: 600;
+      color: #111827;
     }
 
     .edit-card-info span {
-      font-size: 13px;
-      color: var(--text-secondary);
+      font-size: 12px;
+      color: #6b7280;
     }
 
     .edit-card-fields {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 8px;
     }
 
     .edit-card.off {
@@ -444,105 +560,131 @@
     }
 
     .weekly-goal-step-btn {
-      width: 34px;
-      height: 34px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      font-size: 18px;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: white;
+      font-size: 22px;
       font-weight: 700;
       line-height: 1;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+      flex-shrink: 0;
+    }
+
+    .weekly-goal-step-btn:hover:not(:disabled) {
+      background: #f3f4f6;
+      border-color: var(--primary);
+      transform: scale(1.05);
+    }
+
+    .weekly-goal-step-btn:active:not(:disabled) {
+      transform: scale(0.95);
+      background: #e5e7eb;
     }
 
     .weekly-goal-step-btn:disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       cursor: not-allowed;
     }
 
     .weekly-goal-slider {
       width: 100%;
-      height: 40px;
+      height: 48px;
       -webkit-appearance: none;
       appearance: none;
       background: transparent;
       cursor: pointer;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
     /* Slider Track Styling */
     .weekly-goal-slider::-webkit-slider-track {
       width: 100%;
-      height: 8px;
-      background: linear-gradient(to right, #e5e7eb 0%, #3b82f6 50%, #22c55e 100%);
-      border-radius: 4px;
-      border: 1px solid #d1d5db;
+      height: 12px;
+      background: linear-gradient(to right, #ef4444 0%, #f59e0b 30%, #22c55e 60%, #3b82f6 100%);
+      border-radius: 8px;
+      border: none;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
     }
 
     .weekly-goal-slider::-moz-range-track {
       width: 100%;
-      height: 8px;
-      background: linear-gradient(to right, #e5e7eb 0%, #3b82f6 50%, #22c55e 100%);
-      border-radius: 4px;
-      border: 1px solid #d1d5db;
+      height: 12px;
+      background: linear-gradient(to right, #ef4444 0%, #f59e0b 30%, #22c55e 60%, #3b82f6 100%);
+      border-radius: 8px;
+      border: none;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
     }
 
     /* Slider Thumb Styling */
     .weekly-goal-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       background: #fff;
-      border: 3px solid #2563eb;
+      border: 4px solid #3b82f6;
       border-radius: 50%;
       cursor: grab;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      margin-top: -8px;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+      margin-top: -10px;
+      transition: all 0.2s ease;
     }
 
     .weekly-goal-slider::-moz-range-thumb {
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       background: #fff;
-      border: 3px solid #2563eb;
+      border: 4px solid #3b82f6;
       border-radius: 50%;
       cursor: grab;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-      border: none;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
     }
 
     .weekly-goal-slider:active::-webkit-slider-thumb {
       cursor: grabbing;
-      transform: scale(1.1);
+      transform: scale(1.15);
       border-color: #1d4ed8;
+      box-shadow: 0 4px 12px rgba(59,130,246,0.4);
     }
 
     .weekly-goal-slider:active::-moz-range-thumb {
       cursor: grabbing;
-      transform: scale(1.1);
-      border: 3px solid #1d4ed8;
+      transform: scale(1.15);
+      border: 4px solid #1d4ed8;
+      box-shadow: 0 4px 12px rgba(59,130,246,0.4);
     }
 
     .weekly-goal-slider:disabled::-webkit-slider-thumb {
-      background: #d1d5db;
+      background: #e5e7eb;
       border-color: #9ca3af;
       cursor: not-allowed;
+      box-shadow: none;
     }
 
     .weekly-goal-slider:disabled::-moz-range-thumb {
-      background: #d1d5db;
+      background: #e5e7eb;
       border-color: #9ca3af;
       cursor: not-allowed;
+      box-shadow: none;
     }
 
     .weekly-goal-slider:disabled::-webkit-slider-track {
       background: #e5e7eb;
-      opacity: 0.5;
+      opacity: 0.4;
     }
 
     .weekly-goal-slider:disabled::-moz-range-track {
       background: #e5e7eb;
-      opacity: 0.5;
+      opacity: 0.4;
     }
 
 	    .off-badge {
@@ -575,24 +717,35 @@
     .edit-field {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
     }
 
     .edit-field label {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
       text-transform: uppercase;
+      letter-spacing: 0.025em;
     }
 
     .edit-field select,
     .edit-field input,
     .edit-field textarea {
       width: 100%;
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      font-size: 14px;
+      padding: 7px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+      transition: all 0.15s ease;
+    }
+
+    .edit-field select:focus,
+    .edit-field input:focus,
+    .edit-field textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
     .section-title {
@@ -715,6 +868,14 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    #notesEditor {
+      min-height: 300px;
+      flex: 1;
     }
 
     .notes-toolbar {
@@ -824,12 +985,23 @@
       to { opacity: 1; transform: translateY(0); }
     }
   
-    .notes-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 32px; overflow: hidden; }
+    .notes-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 0;
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      min-height: 600px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+    }
     .notes-card-header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
     .notes-card-header:hover { background: #f5f5f5; }
     .notes-card-toggle { transition: color 0.15s ease; }
     .notes-card.collapsed .notes-card-body { display: none; }
-    .notes-card-body { padding: 20px; }
+    .notes-card-body { padding: 20px; flex: 1; display: flex; flex-direction: column; }
     .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; }
     .modal-overlay.show { opacity: 1; visibility: visible; }
     .modal { background: var(--background); border-radius: 12px; padding: 24px; width: 90%; max-width: 450px; }
@@ -854,9 +1026,9 @@
       background: transparent !important;
     }
     .zone-taken {
-      color: #a16207 !important;
-      border-color: #fde68a !important;
-      box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.14) !important;
+      color: #dc2626 !important;
+      border-color: #fecaca !important;
+      box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.12) !important;
       background: transparent !important;
     }
   </style>
@@ -869,19 +1041,30 @@
 	    <div class="edit-header">
 	      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
 	        <div>
-	          <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">Daily Operations</div>
-	          <h2 style="margin: 0; font-size: 18px;">Edit Game Plan</h2>
-	          <div style="display: flex; gap: 12px; margin-top: 4px; font-size: 11px; color: var(--text-secondary);">
-	            <span id="lastEditedBy"></span>
-	            <span id="targetPerSaInfo"></span>
+	          <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Daily Operations</div>
+	          <h2 style="margin: 0 0 6px 0; font-size: 20px; font-weight: 700;">Edit Game Plan</h2>
+	          <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 0; font-size: 13px; color: var(--text-secondary); align-items: center;">
+	            <span id="retailWeekInfo" style="font-weight: 600; color: var(--text);"></span>
+	            <span id="currentDate" style="font-weight: 500;"></span>
+	            <span id="lastEditedBy" style="font-weight: 400;"></span>
+	            <span id="targetPerSaInfo" style="font-weight: 500;"></span>
 	          </div>
 	        </div>
 	        
-	        <div class="edit-actions" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+	        <div style="display: flex; gap: 12px; align-items: center;">
+	          <!-- Date Picker Widget -->
+	          <div style="display: flex; align-items: center; gap: 8px;">
+	            <label for="datePicker" style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Date:</label>
+	            <input type="date" id="datePicker" class="btn btn-sm" style="padding: 4px 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); width: 130px;">
+	          </div>
+	          
+	          <div class="edit-actions" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+	            <a href="/gameplan-calendar.html" class="btn btn-sm" style="background: var(--primary); color: white; padding: 6px 12px; font-size: 13px; text-decoration: none;">📅 View Calendar</a>
 	            <button class="btn btn-sm" id="copyYesterdayBtn" style="padding: 6px 12px; font-size: 13px;">📋 Templates</button>
 		        <button class="btn btn-sm" id="clearAllBtn" style="background:#f87171; color: white; padding: 6px 12px; font-size: 13px;">Clear All</button>
 		        <a href="/dashboard" class="btn btn-sm" style="padding: 6px 12px; font-size: 13px;">Cancel</a>
 		        <button class="btn btn-primary btn-sm" id="saveAllBtn" style="padding: 6px 16px; font-size: 13px;">Publish</button>
+	          </div>
 	        </div>
 	      </div>
 	    </div>
@@ -893,39 +1076,42 @@
 	      </div>
 	      
 	      <!-- Goal Controls Grid -->
-	      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; align-items: stretch;">
-	        <!-- Manual Goal Card -->
-	        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column;">
-	          <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-secondary); text-transform:none; font-weight: 600; margin-bottom: 8px; height: 20px;">
-	            <input type="checkbox" id="manualWeeklyGoalEnabled">
-	            Manual Goal
+	      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+	        <!-- Manual Target Card -->
+	        <div style="background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+	          <label style="display:flex; align-items:center; gap:10px; font-size:14px; color:var(--text); font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+	            <input type="checkbox" id="manualWeeklyGoalEnabled" style="width: 20px; height: 20px; cursor: pointer;">
+	            <span>Manual Target</span>
 	          </label>
-	          <input id="manualWeeklyGoalValue" type="number" inputmode="decimal" min="0" step="0.01" placeholder="148.00" disabled style="width: 100%; font-size: 14px; height: 38px;">
+	          <input id="manualWeeklyGoalValue" type="text" inputmode="decimal" placeholder="$148,000.00" disabled style="width: 100%; font-size: 16px; height: 48px; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-weight: 600;">
+	          <input id="manualWeeklyGoalValueRaw" type="hidden">
 	        </div>
-	        
+
 	        <!-- Auto Target Card -->
-	        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column;">
-	          <div style="font-size:12px; color:var(--text-secondary); font-weight: 600; margin-bottom: 8px; height: 20px; display: flex; align-items: center;">Auto Target</div>
-	          <input id="retailWeekTargetDisplay" type="text" value="--" disabled style="width: 100%; background: #f9fafb; cursor: not-allowed; font-size: 14px; height: 38px;">
-	        </div>
-	        
-	        <!-- Day Sliders Card -->
-	        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column;">
-	          <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-secondary); text-transform:none; font-weight: 600; margin-bottom: 8px; height: 20px;">
-	            <input type="checkbox" id="weeklyGoalEnabled">
-	            Day Sliders
-	          </label>
-	          <div style="display: flex; gap: 6px; height: 38px;">
-	            <button class="btn btn-sm btn-outline" type="button" id="weeklyGoalNormalizeBtn" style="flex: 1; font-size: 11px; padding: 6px; height: 100%;">Normalize</button>
-	            <button class="btn btn-sm btn-primary" type="button" id="weeklyGoalSaveBtn" style="flex: 1; font-size: 11px; padding: 6px; height: 100%;">Save</button>
-	          </div>
+	        <div style="background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+	          <div style="font-size:14px; color:var(--text); font-weight: 600; height: 28px; display: flex; align-items: center;">Auto Target</div>
+	          <input id="retailWeekTargetDisplay" type="text" value="--" disabled style="width: 100%; background: #f3f4f6; cursor: not-allowed; font-size: 16px; height: 48px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-weight: 600; color: var(--text-secondary);">
 	        </div>
 	      </div>
-	      <div id="weeklyGoalMeta" style="font-size:12px; color:var(--text-secondary); margin-bottom: 10px;"></div>
-	      <div id="weeklyGoalGrid" style="display:grid; grid-template-columns: 100px 1fr 70px 120px; gap: 10px; align-items:center;"></div>
-	      <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border);">
-	        <div style="font-size:13px; color:var(--text-secondary);">Total</div>
-	        <div id="weeklyGoalTotal" style="font-weight:700;">100%</div>
+
+	      <!-- Sliders Section -->
+	      <div style="background: #f8f9fa; border: 2px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 0;">
+	        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+	          <label style="display:flex; align-items:center; gap:10px; font-size:14px; color:var(--text); font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+	            <input type="checkbox" id="weeklyGoalEnabled" style="width: 20px; height: 20px; cursor: pointer;">
+	            <span>Adjust Daily %</span>
+	          </label>
+	          <div style="display: flex; gap: 8px;">
+	            <button class="btn btn-sm btn-outline" type="button" id="weeklyGoalNormalizeBtn" style="font-size: 13px; padding: 10px 16px; height: 44px; border-radius: 8px; min-width: 100px; -webkit-tap-highlight-color: transparent;">Normalize</button>
+	            <button class="btn btn-sm btn-primary" type="button" id="weeklyGoalSaveBtn" style="font-size: 13px; padding: 10px 16px; height: 44px; border-radius: 8px; min-width: 100px; -webkit-tap-highlight-color: transparent;">Save</button>
+	          </div>
+	        </div>
+	        <div id="weeklyGoalMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom: 12px;"></div>
+	        <div id="weeklyGoalGrid" style="display:grid; grid-template-columns: 80px 1fr 60px 100px; gap: 12px; align-items:center;"></div>
+	        <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 16px; padding-top: 16px; border-top: 2px solid var(--border);">
+	          <div style="font-size:15px; color:var(--text); font-weight: 600;">Total</div>
+	          <div id="weeklyGoalTotal" style="font-weight:700; font-size: 16px;">100%</div>
+	        </div>
 	      </div>
 	    </section>
 
@@ -1008,15 +1194,21 @@
               <label style="display:block; font-size:12px; color: var(--text-secondary); margin-bottom: 6px;">Source</label>
               <select id="templateSourceSelect" style="width:100%;">
                 <option value="yesterday">Yesterday</option>
+                <option value="date">Pick a date…</option>
                 <option value="template">Saved template…</option>
               </select>
             </div>
 
-            <div style="min-width: 240px; flex: 1;">
+            <div style="min-width: 240px; flex: 1;" id="templatePickerContainer">
               <label style="display:block; font-size:12px; color: var(--text-secondary); margin-bottom: 6px;">Template</label>
               <select id="gameplanTemplateSelect" style="width:100%;" disabled>
                 <option value="">Select a template…</option>
               </select>
+            </div>
+
+            <div style="min-width: 240px; flex: 1; display: none;" id="datePickerContainer">
+              <label style="display:block; font-size:12px; color: var(--text-secondary); margin-bottom: 6px;">Select Date</label>
+              <input type="date" id="templateDatePicker" style="width:100%; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); height: 38px;">
             </div>
 
             <div style="min-width: 170px;">
@@ -1063,12 +1255,11 @@
 
     <!-- Management Section (includes BOH management) -->
 
-    <section class="section-card management-section collapsed-section">
-      <div class="section-title section-toggle" data-target="mgmtGrid">
+    <section class="section-card management-section">
+      <div class="section-title">
         <h3>Management</h3>
         <div class="section-title-right">
           <span class="section-count" id="mgmtCount">0</span>
-          <button class="toggle-btn" type="button" aria-label="Toggle Management">▸</button>
         </div>
       </div>
       <div class="section-grid" id="mgmtGrid"></div>
@@ -1076,12 +1267,11 @@
 
     <!-- Sales Associates Section -->
 
-    <section class="section-card collapsed-section">
-      <div class="section-title section-toggle" data-target="saGrid">
+    <section class="section-card">
+      <div class="section-title">
         <h3>Sales Associates</h3>
         <div class="section-title-right">
           <span class="section-count" id="saCount">0</span>
-          <button class="toggle-btn" type="button" aria-label="Toggle Sales Associates">▸</button>
         </div>
       </div>
       <div class="section-grid" id="saGrid"></div>
@@ -1089,12 +1279,11 @@
 
     <!-- Back of House Section -->
 
-    <section class="section-card collapsed-section">
-      <div class="section-title section-toggle" data-target="bohGrid">
+    <section class="section-card">
+      <div class="section-title">
         <h3>Back of House</h3>
         <div class="section-title-right">
           <span class="section-count" id="bohCount">0</span>
-          <button class="toggle-btn" type="button" aria-label="Toggle Back of House">▸</button>
         </div>
       </div>
       <div class="section-grid" id="bohGrid"></div>
@@ -1102,12 +1291,11 @@
 
     <!-- Tailors Section -->
 
-    <section class="section-card collapsed-section">
-      <div class="section-title section-toggle" data-target="tailorGrid">
+    <section class="section-card">
+      <div class="section-title">
         <h3>Tailors</h3>
         <div class="section-title-right">
           <span class="section-count" id="tailorCount">0</span>
-          <button class="toggle-btn" type="button" aria-label="Toggle Tailors">▸</button>
         </div>
       </div>
       <div class="section-grid" id="tailorGrid"></div>
@@ -1256,7 +1444,7 @@
 	
 		    function findEmployeeById(empId) {
 		      for (const type of Object.keys(employees)) {
-		        const emp = (employees[type] || []).find(e => e.id === empId);
+		        const emp = (employees[type] || []).find(e => e.employeeId === empId || e.id === empId);
 		        if (emp) return emp;
 		      }
 		      return null;
@@ -1362,7 +1550,8 @@
                               function formatMoneyPlain(amount) {
                                 const n = Number(amount);
                                 if (!Number.isFinite(n)) return '';
-                                return n.toFixed(2);
+                                const currency = (storeConfig?.currency || 'USD').toString().trim() || 'USD';
+                                return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
                               }
 
                               function getManualWeeklyGoalValue() {
@@ -1433,15 +1622,23 @@
                                   manualEnabledEl.checked = !!manualWeeklyGoal?.enabled;
                                 }
                                 if (manualValueEl) {
+                                  const rawValueEl = document.getElementById('manualWeeklyGoalValueRaw');
                                   manualValueEl.disabled = !manualWeeklyGoal?.enabled;
                                   if (manualWeeklyGoal?.enabled) {
                                     if (manualWeeklyGoal?.value === null || manualWeeklyGoal?.value === undefined || manualWeeklyGoal?.value === '') {
                                       manualWeeklyGoal.value = baseWeeklyTarget || '';
                                     }
                                     const v = Number(manualWeeklyGoal?.value);
-                                    manualValueEl.value = Number.isFinite(v) ? String(v) : '';
+                                    if (Number.isFinite(v)) {
+                                      manualValueEl.value = formatMoneyPlain(v);
+                                      if (rawValueEl) rawValueEl.value = String(v);
+                                    } else {
+                                      manualValueEl.value = '';
+                                      if (rawValueEl) rawValueEl.value = '';
+                                    }
                                   } else {
                                     manualValueEl.value = '';
+                                    if (rawValueEl) rawValueEl.value = '';
                                   }
                                 }
 
@@ -1585,17 +1782,26 @@
 			    }
 
 		    document.addEventListener('DOMContentLoaded', async () => {
-	      // Section expand/collapse logic
-	      document.querySelectorAll('.section-toggle').forEach(title => {
-	        const btn = title.querySelector('.toggle-btn');
-	        const section = title.closest('section');
-	        if (!btn || !section) return;
-	        btn.textContent = section.classList.contains('collapsed-section') ? '▸' : '▾';
-	        btn.addEventListener('click', () => {
-	          section.classList.toggle('collapsed-section');
-	          btn.textContent = section.classList.contains('collapsed-section') ? '▸' : '▾';
-	        });
-	      });
+	      // Version check - force reload if cached
+	      const REQUIRED_VERSION = '2026-01-12-007';
+	      const cachedVersion = sessionStorage.getItem('gameplan-edit-version');
+	      if (cachedVersion !== REQUIRED_VERSION) {
+	        console.log('[EDIT] Clearing cache and reloading...');
+	        sessionStorage.setItem('gameplan-edit-version', REQUIRED_VERSION);
+	        // Clear service worker cache
+	        if ('serviceWorker' in navigator && 'caches' in window) {
+	          caches.keys().then(names => {
+	            names.forEach(name => caches.delete(name));
+	          });
+	        }
+	        if (cachedVersion) {
+	          // Force hard reload
+	          window.location.href = window.location.href.split('?')[0] + '?v=' + Date.now() + (window.location.search ? '&' + window.location.search.substring(1) : '');
+	          return;
+	        }
+	      }
+
+	      // Sections are always visible now - no collapse/expand functionality needed
 
 		      // Always wire core UI (even if data load fails)
 		      setupEventListeners();
@@ -1623,8 +1829,26 @@
                             updateTargetPerSaInfo();
                           });
 
-                          document.getElementById('manualWeeklyGoalValue')?.addEventListener('input', (e) => {
-                            const raw = (e.target.value || '').toString();
+                          const manualValueInput = document.getElementById('manualWeeklyGoalValue');
+
+                          manualValueInput?.addEventListener('focus', (e) => {
+                            // On focus, show the raw number for easier editing
+                            if (manualWeeklyGoal?.value !== null && manualWeeklyGoal?.value !== undefined && manualWeeklyGoal?.value !== '') {
+                              const v = Number(manualWeeklyGoal.value);
+                              if (Number.isFinite(v)) {
+                                e.target.value = String(v);
+                              }
+                            }
+                          });
+
+                          manualValueInput?.addEventListener('blur', (e) => {
+                            // On blur, format as currency
+                            renderWeeklyGoalDistribution();
+                          });
+
+                          manualValueInput?.addEventListener('input', (e) => {
+                            // Remove currency symbols, commas, and other non-numeric characters (except decimal point)
+                            const raw = (e.target.value || '').toString().replace(/[^0-9.]/g, '');
                             if (!raw) {
                               manualWeeklyGoal.value = '';
                             } else {
@@ -1633,7 +1857,6 @@
                             }
                             const wk = weeklyGoalDistribution?.weekKey || getWeekKeyFromMetrics();
                             saveManualWeeklyGoalToStorage(wk);
-                            renderWeeklyGoalDistribution();
                             updateTargetPerSaInfo();
                           });
 
@@ -1674,41 +1897,70 @@
 
     async function checkAuth() {
       try {
+        console.log('[EDIT] checkAuth: Starting...');
         SharedHeader.mountHeader({ showRefresh: false });
+        console.log('[EDIT] checkAuth: Header mounted, calling init...');
         await SharedHeader.init();
+        console.log('[EDIT] checkAuth: Init complete, currentUser:', SharedHeader.currentUser);
         currentUser = SharedHeader.currentUser;
 
           if (!currentUser) {
+            console.log('[EDIT] checkAuth: No currentUser, redirecting to login');
             window.location.href = '/login';
             return;
           }
 
+          console.log('[EDIT] checkAuth: User:', currentUser.name, 'isManager:', currentUser.isManager, 'isAdmin:', currentUser.isAdmin);
           if (!currentUser.isManager && !currentUser.isAdmin) {
             alert('Access denied. Managers only.');
             window.location.href = '/home';
             return;
           }
 
-          const now = new Date();
+          // Check for date parameter in URL
+          const params = new URLSearchParams(window.location.search);
+          const urlDate = params.get('date');
+          const selectedDate = urlDate ? new Date(urlDate + 'T12:00:00') : new Date();
+
           const dateEl = document.getElementById('currentDate');
           if (dateEl) {
-            dateEl.textContent = now.toLocaleDateString('en-US', {
+            dateEl.textContent = selectedDate.toLocaleDateString('en-US', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',
               day: 'numeric'
             });
           }
+
+          // Initialize date picker
+          const datePicker = document.getElementById('datePicker');
+          if (datePicker) {
+            datePicker.value = selectedDate.toISOString().slice(0, 10); // YYYY-MM-DD format
+            datePicker.addEventListener('change', (e) => {
+              const newDate = e.target.value;
+              if (newDate) {
+                window.location.href = `/gameplan-edit.html?date=${newDate}`;
+              }
+            });
+          }
       } catch (error) {
-        console.error('Auth check failed:', error);
+        console.error('[EDIT] Auth check failed:', error);
+        console.error('[EDIT] Error stack:', error?.stack);
+        console.error('[EDIT] Error message:', error?.message);
+        console.error('[EDIT] Error type:', typeof error, error);
         window.location.href = '/login';
       }
     }
 
             async function loadData() {
 					      editLog('[EDIT] loadData starting...');
+					      
+					      // Check for date parameter in URL
+					      const params = new URLSearchParams(window.location.search);
+					      const urlDate = params.get('date');
+					      
 					      const storeDay = await getStoreDayInfo();
-					      const clientDate = storeDay?.date || getLocalISODate(); // YYYY-MM-DD (store day)
+					      const clientDate = urlDate || storeDay?.date || getLocalISODate(); // YYYY-MM-DD (store day or URL date)
 					      currentStoreDayInfo = storeDay;
 					      currentEditorDate = clientDate;
                 const [empRes, settingsRes, gpRes, metricsRes, storeCfgRes] = await Promise.all([
@@ -1798,6 +2050,22 @@
 	      }
 
 			      updateTargetPerSaInfo();
+			      updateRetailWeekInfo();
+		    }
+
+		    function updateRetailWeekInfo() {
+		      const retailWeekEl = document.getElementById('retailWeekInfo');
+		      if (!retailWeekEl) return;
+
+		      const rw = storeMetrics?.retailWeek;
+		      if (!rw || !rw.weekNumber) {
+		        retailWeekEl.textContent = '';
+		        return;
+		      }
+
+		      const weekSales = rw.salesAmount ? `$${(rw.salesAmount / 1000).toFixed(1)}K` : '--';
+		      const weekTarget = rw.target ? `$${(rw.target / 1000).toFixed(1)}K` : '--';
+		      retailWeekEl.textContent = `Retail Week ${rw.weekNumber} (${rw.weekStart} → ${rw.weekEnd}) · ${weekSales} / ${weekTarget}`;
 		    }
 
 	    function renderAll() {
@@ -1852,7 +2120,7 @@
 	        const isOff = !!emp.isOff;
 
 	        grid.innerHTML += `
-	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.id}" data-type="MANAGEMENT">
+	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.employeeId || emp.id}" data-type="MANAGEMENT">
 	            <div class="edit-card-header">
 	              <div class="edit-card-header-left">
 	                ${photoHtml}
@@ -1951,17 +2219,6 @@
           (employees.SA.concat(employees.MANAGEMENT || []).concat(employees.BOH || []))
             .flatMap(e => Array.isArray(e.closingSections) ? e.closingSections : [])
         );
-        const dutiesHtml = closingDuties.map(d => {
-          let chipClass = '';
-          if (selectedDuties.includes(d.name)) {
-            chipClass = 'selected'; // green for this employee
-          } else if (allAssignedDuties.has(d.name)) {
-            chipClass = 'taken'; // green for taken by others
-          } else {
-            chipClass = 'unassigned'; // yellow for blank
-          }
-          return `<span class="duty-chip ${chipClass}" data-duty="${d.name}">${d.name}</span>`;
-        }).join('');
 
         const frTaken = (employees.SA || []).some(e => e.id !== emp.id && e.fittingRoom === emp.fittingRoom && emp.fittingRoom);
         const frSelectClass = emp.fittingRoom ? (frTaken ? 'zone-taken' : 'zone-available') : '';
@@ -1988,7 +2245,7 @@
 	        ` : '';
 
 	        grid.innerHTML += `
-	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.id}" data-type="SA">
+	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.employeeId || emp.id}" data-type="SA">
             <div class="edit-card-header">
               <div class="edit-card-header-left">
                 ${photoHtml}
@@ -2037,9 +2294,20 @@
               </div>
               <div class="edit-field">
                 <label>Closing Duties</label>
-                <div class="closing-duties-field" data-field="closingSections">
-                  ${dutiesHtml || '<span style="color: var(--text-secondary); font-size: 12px;">No closing duties configured</span>'}
-                </div>
+                <select data-field="closingSections">
+                  <option value="">Select...</option>
+                  ${(settings.closingSections || []).map(duty => {
+                    const assignedTo = []
+                      .concat(employees.SA || [])
+                      .concat(employees.MANAGEMENT || [])
+                      .concat(employees.BOH || [])
+                      .find(e => (e.id || e.employeeId) !== (emp.id || emp.employeeId) && Array.isArray(e.closingSections) && e.closingSections.includes(duty.name));
+                    const taken = !!assignedTo;
+                    const selected = Array.isArray(emp.closingSections) && emp.closingSections.includes(duty.name);
+                    const dot = taken ? '🔴' : '🟢';
+                    return `<option value="${duty.name}"${taken && !selected ? ' disabled' : ''}${selected ? ' selected' : ''}>${dot} ${duty.name}${taken ? ' (Taken by ' + assignedTo.name + ')' : ''}</option>`;
+                  }).join('')}
+                </select>
               </div>
             </div>
           </div>
@@ -2085,21 +2353,10 @@
           (employees.SA.concat(employees.MANAGEMENT || []).concat(employees.BOH || []))
             .flatMap(e => Array.isArray(e.closingSections) ? e.closingSections : [])
         );
-	        const dutiesHtml = closingDuties.map(d => {
-	          let chipClass = '';
-	          if (selectedDuties.includes(d.name)) {
-	            chipClass = 'selected';
-          } else if (allAssignedDuties.has(d.name)) {
-            chipClass = 'taken';
-          } else {
-            chipClass = 'unassigned';
-          }
-	          return `<span class="duty-chip ${chipClass}" data-duty="${d.name}">${d.name}</span>`;
-	        }).join('');
 
 	        const isOff = !!emp.isOff;
 	        grid.innerHTML += `
-	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.id}" data-type="BOH">
+	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.employeeId || emp.id}" data-type="BOH">
 	            <div class="edit-card-header">
 	              <div class="edit-card-header-left">
 	                ${photoHtml}
@@ -2140,9 +2397,20 @@
               </div>
               <div class="edit-field">
                 <label>Closing Duties</label>
-                <div class="closing-duties-field" data-field="closingSections">
-                  ${dutiesHtml || '<span style="color: var(--text-secondary); font-size: 12px;">No closing duties configured</span>'}
-                </div>
+                <select data-field="closingSections">
+                  <option value="">Select...</option>
+                  ${(settings.closingSections || []).map(duty => {
+                    const assignedTo = []
+                      .concat(employees.SA || [])
+                      .concat(employees.MANAGEMENT || [])
+                      .concat(employees.BOH || [])
+                      .find(e => (e.id || e.employeeId) !== (emp.id || emp.employeeId) && Array.isArray(e.closingSections) && e.closingSections.includes(duty.name));
+                    const taken = !!assignedTo;
+                    const selected = Array.isArray(emp.closingSections) && emp.closingSections.includes(duty.name);
+                    const dot = taken ? '🔴' : '🟢';
+                    return `<option value="${duty.name}"${taken && !selected ? ' disabled' : ''}${selected ? ' selected' : ''}>${dot} ${duty.name}${taken ? ' (Taken by ' + assignedTo.name + ')' : ''}</option>`;
+                  }).join('')}
+                </select>
               </div>
             </div>
           </div>
@@ -2183,7 +2451,7 @@
 	        const isOff = !!emp.isOff;
 
 	        grid.innerHTML += `
-	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.id}" data-type="TAILOR">
+	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.employeeId || emp.id}" data-type="TAILOR">
 	            <div class="edit-card-header">
 	              <div class="edit-card-header-left">
 	                ${photoHtml}
@@ -2286,25 +2554,10 @@
 	        if (currentCard.classList.contains('off')) return;
 	        const empId = currentCard.dataset.id;
 	        const currentEmp = findEmployeeById(empId);
-	        const prevValue = currentEmp?.fittingRoom || '';
 	        if (currentEmp) currentEmp.fittingRoom = value;
-	        // Check if this value is already assigned to another employee
-	        const allCards = document.querySelectorAll('.edit-card');
-	        for (const card of allCards) {
-	          if (card === currentCard) continue; // Skip current employee
-	          const otherSelect = card.querySelector(`select[data-field="${field}"]`);
-	          if (otherSelect && otherSelect.value === value) {
-	            const otherEmpName = card.querySelector('h4')?.textContent;
-	            const fieldLabel = 'Fitting Room';
-	            alert(`⚠️ ${fieldLabel} "${value}" is already assigned to ${otherEmpName}.\n\nPlease select a different ${fieldLabel.toLowerCase()}.`);
-	            // Reset to previous value
-	            select.value = prevValue;
-	            if (currentEmp) currentEmp.fittingRoom = prevValue;
-	            return;
-	          }
-	        }
+	        
 	        hasUnsavedChanges = true;
-	        // Re-render Sales Associates to update taken/available states
+	        // Re-render Sales Associates to update taken/available fitting room states
 	        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
 	      });
 
@@ -2348,42 +2601,22 @@
 	        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
 	      });
 	      
-	      // Handle closing duties validation
-	      document.addEventListener('click', function(e) {
-	        const dutyChip = e.target.closest('.duty-chip');
-	        if (!dutyChip) return;
+	      // Handle closing duties changes
+	      document.addEventListener('change', function(e) {
+	        const select = e.target;
+	        if (!select.matches('select[data-field="closingSections"]')) return;
 
-	        const dutyName = dutyChip.dataset.duty;
-	        const currentCard = dutyChip.closest('.edit-card');
-	        
+	        const currentCard = select.closest('.edit-card');
 	        if (!currentCard) return;
 	        if (currentCard.classList.contains('off')) return;
 
 	        const currentEmp = findEmployeeById(currentCard.dataset.id);
 	        if (!currentEmp) return;
 
-	        const currentSelected = Array.isArray(currentEmp.closingSections) ? currentEmp.closingSections : [];
-	        const isSelecting = !currentSelected.includes(dutyName);
+	        // Handle single selection (like fitting rooms)
+	        const selectedValue = select.value;
+	        currentEmp.closingSections = selectedValue ? [selectedValue] : [];
 
-	        if (isSelecting) {
-	          // Check if this duty is already assigned to another employee
-	          const otherAssignee = []
-	            .concat(employees.SA || [])
-	            .concat(employees.MANAGEMENT || [])
-	            .concat(employees.BOH || [])
-	            .find(e => e.id !== currentEmp.id && Array.isArray(e.closingSections) && e.closingSections.includes(dutyName));
-	          if (otherAssignee) {
-	            alert(`⚠️ Closing Duty "${dutyName}" is already assigned to ${otherAssignee.name}.\n\nPlease select a different duty.`);
-	            return;
-	          }
-	        }
-
-	        // Update model
-	        if (isSelecting) {
-	          currentEmp.closingSections = [...currentSelected, dutyName];
-	        } else {
-	          currentEmp.closingSections = currentSelected.filter(d => d !== dutyName);
-	        }
 	        hasUnsavedChanges = true;
 	        // Re-render so other employees show Taken/Available immediately
 	        setTimeout(() => {
@@ -2472,8 +2705,8 @@
 
       gameplanData.assignments = assignments;
       gameplanData.notes = notes;
-      // Use local date (store day) to avoid UTC off-by-one issues
-      gameplanData.date = getLocalISODate();
+      // Use the editor date (from URL parameter or store day) to avoid UTC off-by-one issues
+      gameplanData.date = currentEditorDate;
       gameplanData.lastEditedBy = currentUser.name;
       gameplanData.lastEditedAt = new Date().toISOString();
 
@@ -2489,10 +2722,9 @@
           saveBtn.style.background = 'var(--success)';
           hasUnsavedChanges = false;
           
-          // Redirect to dashboard with client date after 1 second
+          // Redirect to calendar with the edited date after 1 second
           setTimeout(() => {
-            const clientDate = getLocalISODate(); // YYYY-MM-DD format
-            window.location.href = `/dashboard?date=${clientDate}`;
+            window.location.href = `/gameplan-calendar.html?date=${currentEditorDate}`;
           }, 1000);
         } else {
           let msg = `Save failed (HTTP ${response.status})`;
@@ -2563,29 +2795,36 @@
       });
 
 	      // Day Off toggle (real-time reorder + disable)
-		      document.addEventListener('change', (e) => {
-		        const toggle = e.target?.closest?.('input[data-action="toggleOff"]');
-		        if (!toggle) return;
-		        const card = toggle.closest('.edit-card');
-		        if (!card) return;
+	      document.addEventListener('change', (e) => {
+	        const toggle = e.target?.closest?.('input[data-action="toggleOff"]');
+	        if (!toggle) return;
+	        const card = toggle.closest('.edit-card');
+	        if (!card) return;
 
-		        const empId = card.dataset.id;
-		        const emp = findEmployeeById(empId);
-		        if (!emp) return;
-	
-          // Toggle input is "On duty" when checked.
+	        const empId = card.dataset.id;
+	        const emp = findEmployeeById(empId);
+	        if (!emp) return;
+
+	        // Toggle input is "On duty" when checked.
 	        const nextIsOff = !toggle.checked;
 	        emp.isOff = nextIsOff;
+	        
+	        // Update the hidden input field so collectAllChanges() can find it
+	        const hiddenInput = card.querySelector('input[data-field="isOff"]');
+	        if (hiddenInput) {
+	          hiddenInput.value = nextIsOff ? 'true' : 'false';
+	        }
+	        
 	        if (nextIsOff) {
 	          // When someone is OFF, clear any daily assignments so they don't appear scheduled.
 	          clearDailyAssignmentFields(emp);
 	        }
-		        hasUnsavedChanges = true;
-		        updateTargetPerSaInfo();
+	        hasUnsavedChanges = true;
+	        updateTargetPerSaInfo();
 		
-		        // Re-render all sections to move OFF to bottom and gray out
-		        if (typeof renderAll === 'function') setTimeout(renderAll, 0);
-		      });
+	        // Re-render all sections to move OFF to bottom and gray out
+	        if (typeof renderAll === 'function') setTimeout(renderAll, 0);
+	      });
 
         // Weekly goal +/- buttons (mobile-friendly 1% steps)
         document.addEventListener('click', (e) => {
@@ -2913,8 +3152,26 @@
                   return;
                 }
                 data = tmpl?.payload || {};
+              } else if (source === 'date') {
+                // Use date picker
+                const datePicker = document.getElementById('templateDatePicker');
+                const selectedDate = datePicker ? datePicker.value : '';
+                if (!selectedDate) {
+                  alert('Please select a date.');
+                  return;
+                }
+                const url = `/api/gameplan/date/${selectedDate}`;
+                editLog('[EDIT] Copy from selected date:', selectedDate, '->', url);
+                const response = await authFetch(url);
+                if (!response.ok) {
+                  editWarn('[EDIT] Copy fetch failed', response.status);
+                  alert(`No game plan found for ${selectedDate}.`);
+                  return;
+                }
+                data = await response.json();
+                editLog('[EDIT] Copy payload keys:', Object.keys(data || {}));
               } else {
-
+                // Yesterday
 		          const params = new URLSearchParams(window.location.search);
 		          const copyDate = params.get('copyDate');
 		          const storeDay = await getStoreDayInfo();
@@ -3065,9 +3322,17 @@
         if (templateSourceSelect) {
           templateSourceSelect.addEventListener('change', () => {
             const src = templateSourceSelect.value;
-            const enabled = src === 'template';
-            setTemplateControlsEnabled(enabled);
-            if (enabled) loadGameplanTemplates();
+            const isTemplate = src === 'template';
+            const isDate = src === 'date';
+
+            // Show/hide appropriate containers
+            const templateContainer = document.getElementById('templatePickerContainer');
+            const dateContainer = document.getElementById('datePickerContainer');
+            if (templateContainer) templateContainer.style.display = isTemplate ? 'block' : 'none';
+            if (dateContainer) dateContainer.style.display = isDate ? 'block' : 'none';
+
+            setTemplateControlsEnabled(isTemplate);
+            if (isTemplate) loadGameplanTemplates();
             updateTemplateMeta();
           });
         }
