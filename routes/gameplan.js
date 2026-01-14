@@ -18,6 +18,16 @@ const NOTES_TEMPLATES_FILE = dal.paths.notesTemplatesFile;
 const GAMEPLAN_TEMPLATES_FILE = path.join(DATA_DIR, 'gameplan-templates.json');
 const WORK_EXPENSES_CONFIG_FILE = path.join(DATA_DIR, 'work-expenses-config.json');
 
+// Optional Postgres pool (if DATABASE_URL present)
+let pgPool = null;
+try {
+  const { Pool } = require('pg');
+  const conn = process.env.DATABASE_URL || process.env.PG_CONNECTION_STRING || null;
+  if (conn) pgPool = new Pool({ connectionString: conn });
+} catch (e) {
+  pgPool = null;
+}
+
 // Initialize Looker data processor
 const lookerProcessor = new LookerDataProcessor();
 
@@ -368,6 +378,40 @@ async function pruneEmployeesFile() {
             : ((emp.zone || '').toString().trim() ? [(emp.zone || '').toString().trim()] : []))
       });
     }
+  }
+
+  // If the employees file contained no processed entries but we have users from DB,
+  // populate the canonical lists from the DB users so the UI can render immediately.
+  if (processedCount === 0 && (dbUsers || []).length > 0) {
+    console.log('[GAMEPLAN] employees file empty - populating from DB users');
+    for (const user of dbUsers) {
+      if (!user) continue;
+      // Skip legacy admin placeholder
+      const nameKey = normalizeName(user.name);
+      if ((user.employee_id || '').toString().toLowerCase() === 'admin' || nameKey === 'admin') continue;
+      const targetType = roleToType[(user.role || '').toString().toUpperCase()] || 'SA';
+      const canonicalEmployeeId = user.employee_id ? user.employee_id.toString().trim() : `u:${user.id}`;
+      const entry = {
+        id: canonicalEmployeeId,
+        employeeId: user.employee_id || canonicalEmployeeId,
+        name: user.name || '',
+        imageUrl: user.imageUrl || user.image_url || '',
+        type: targetType,
+        isOff: true,
+        zones: []
+      };
+      canonical[targetType].push(entry);
+    }
+
+    const nextFromDb = { ...employees, employees: canonical };
+    nextFromDb.lastUpdated = today;
+    nextFromDb.lastPrunedAt = new Date().toISOString();
+    nextFromDb.lastDailyResetAt = new Date().toISOString();
+    nextFromDb.lastDailyResetForDate = today;
+    nextFromDb.lastSyncedFromDB = new Date().toISOString();
+    nextFromDb.syncedUserCount = dbUsers.length;
+    writeJsonFile(EMPLOYEES_FILE, nextFromDb);
+    return nextFromDb;
   }
   console.log('[GAMEPLAN] Processed', processedCount, 'employees, skipped', skippedCount);
   console.log('[GAMEPLAN] Canonical counts: SA=', canonical.SA.length, 'BOH=', canonical.BOH.length, 'MANAGEMENT=', canonical.MANAGEMENT.length, 'TAILOR=', canonical.TAILOR.length);
@@ -1192,6 +1236,209 @@ router.get('/sync-status', (req, res) => {
     console.error('Error getting sync status:', error);
     res.status(500).json({ error: 'Failed to get sync status' });
   }
+});
+
+// POST /api/gameplan/daily-scan/assign - assign or unassign an employee for today's daily scan
+router.post('/daily-scan/assign', requireManager, async (req, res) => {
+  console.log('Daily scan assign route called:', { employeeId: req.body?.employeeId, assign: req.body?.assign, date: req.body?.date, user: req.user?.email });
+  try {
+    const { employeeId, assign, date } = req.body || {};
+    if (!employeeId) return res.status(400).json({ error: 'employeeId required' });
+
+    // Use a canonical string id for comparisons (client may send numeric or string ids)
+    const canonicalEmployeeId = (employeeId || '').toString().trim();
+    const targetDate = date || getTodayDate();
+
+      // If Postgres is available, persist assignment there
+      if (pgPool) {
+        const client = await pgPool.connect();
+        try {
+          await client.query('BEGIN');
+          // First, clear all active assignments for today (enforce single-assignment)
+          await client.query(
+            `UPDATE daily_scan_assignments SET active = false WHERE date = $1 AND employee_id != $2`,
+            [targetDate, canonicalEmployeeId]
+          );
+          // Then, upsert the new assignment
+          await client.query(
+            `INSERT INTO daily_scan_assignments (date, employee_id, assigned_by, assigned_at, active)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (date, employee_id) DO UPDATE SET assigned_by = $3, assigned_at = $4, active = $5`,
+            [targetDate, canonicalEmployeeId, req.user?.email || req.user?.name || 'system', new Date().toISOString(), !!assign]
+          );
+          await client.query('COMMIT');
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        } finally {
+          client.release();
+        }
+
+        const broadcastUpdate = req.app.get('broadcastUpdate');
+        if (broadcastUpdate) broadcastUpdate('daily_scan_assignment', { date: targetDate, employeeId: canonicalEmployeeId, assign });
+
+        return res.json({ success: true, employeeId: canonicalEmployeeId, assign, source: 'postgres' });
+      }
+
+      // Fallback: file-based gameplan
+      const gameplanFile = path.join(GAMEPLAN_DIR, `${targetDate}.json`);
+      let gameplan = readJsonFile(gameplanFile, { date: targetDate, notes: '', assignments: {} });
+      if (!gameplan.assignments) gameplan.assignments = {};
+
+      // Clear dailyScanAssigned from all other employees (enforce single-assignment)
+      Object.keys(gameplan.assignments).forEach(id => {
+        const key = (id || '').toString().trim();
+        if (key !== canonicalEmployeeId) {
+          const existing = gameplan.assignments[id] || {};
+          if (existing.dailyScanAssigned) {
+            delete existing.dailyScanAssigned;
+            delete existing.dailyScanAssignedBy;
+            delete existing.dailyScanAssignedAt;
+            gameplan.assignments[id] = existing;
+          }
+        }
+      });
+
+      const existing = gameplan.assignments[canonicalEmployeeId] || {};
+      if (assign) {
+        existing.dailyScanAssigned = true;
+        existing.dailyScanAssignedBy = req.user?.email || req.user?.name || 'system';
+        existing.dailyScanAssignedAt = new Date().toISOString();
+        gameplan.assignments[canonicalEmployeeId] = existing;
+      } else {
+        if (existing.dailyScanAssigned) {
+          delete existing.dailyScanAssigned;
+          delete existing.dailyScanAssignedBy;
+          delete existing.dailyScanAssignedAt;
+          gameplan.assignments[canonicalEmployeeId] = existing;
+        }
+      }
+
+      gameplan.savedAt = new Date().toISOString();
+      writeJsonFile(gameplanFile, gameplan);
+
+      // Also clear any stray dailyScanAssigned flags inside the employees file
+      try {
+        const employeesFile = EMPLOYEES_FILE;
+        const employeesData = readJsonFile(employeesFile, { employees: {} });
+        let mutated = false;
+        for (const role of Object.keys(employeesData.employees || {})) {
+          const list = employeesData.employees[role] || [];
+          for (const emp of list) {
+            if (emp && emp.dailyScanAssigned && (emp.employeeId || emp.id || '').toString().trim() !== canonicalEmployeeId) {
+              delete emp.dailyScanAssigned;
+              delete emp.dailyScanAssignedBy;
+              delete emp.dailyScanAssignedAt;
+              mutated = true;
+            }
+            // If this employee matches the canonical id, ensure the flag is set/cleared accordingly
+            const empKey = (emp.employeeId || emp.id || '').toString().trim();
+            if (empKey === canonicalEmployeeId) {
+              if (assign) {
+                emp.dailyScanAssigned = true;
+                emp.dailyScanAssignedBy = req.user?.email || req.user?.name || 'system';
+                emp.dailyScanAssignedAt = new Date().toISOString();
+                mutated = true;
+              } else if (emp.dailyScanAssigned) {
+                delete emp.dailyScanAssigned;
+                delete emp.dailyScanAssignedBy;
+                delete emp.dailyScanAssignedAt;
+                mutated = true;
+              }
+            }
+          }
+        }
+        if (mutated) writeJsonFile(employeesFile, employeesData);
+      } catch (err) {
+        console.error('[GAMEPLAN] Failed to sanitize employees file dailyScan flags:', err);
+      }
+
+      const broadcastUpdate = req.app.get('broadcastUpdate');
+      if (broadcastUpdate) {
+        broadcastUpdate('daily_scan_assignment', { date: targetDate, employeeId, assign });
+      }
+
+      return res.json({ success: true, employeeId, assign, source: 'file' });
+    } catch (e) {
+      return res.status(500).json({ error: e?.message || 'Failed to assign daily scan' });
+    }
+  });
+
+// GET /api/gameplan/daily-scan/report - parse a StoreCount.csv in files/ if present and return summary
+router.get('/daily-scan/report', (req, res) => {
+  (async () => {
+    try {
+      // If Postgres is available, prefer aggregated data from DB tables
+      if (pgPool) {
+        const client = await pgPool.connect();
+        try {
+          const result = await client.query(`
+            SELECT
+              sc.id,
+              sc.status,
+              sc.count_id,
+              sc.store_load,
+              sc.location_id,
+              sc.created_at,
+              sc.employee_id,
+              sc.employee_name,
+              sc.scanned_at,
+              sc.uploaded_at,
+              sc.notes,
+              sc.total_items,
+              sc.total_value,
+              sc.scan_duration_seconds,
+              sc.device_info,
+              dsa.employee_id as assigned_employee_id,
+              dsa.assigned_by,
+              dsa.assigned_at
+            FROM store_counts sc
+            LEFT JOIN daily_scan_assignments dsa ON sc.created_at::date = dsa.date::date AND dsa.active = true
+            ORDER BY sc.created_at DESC
+            LIMIT 50
+          `);
+          
+          return res.json({
+            success: true,
+            source: 'postgres',
+            counts: result.rows
+          });
+        } catch (err) {
+          console.error('Postgres daily-scan report failed, falling back to CSV:', err?.message || err);
+        } finally {
+          client.release();
+        }
+      }
+
+      // Fallback: parse StoreCount.csv from files/ directory
+      const csvPath = path.join(__dirname, '..', 'files', 'StoreCount.csv');
+      if (!fs.existsSync(csvPath)) {
+        return res.json({ success: true, source: 'none', message: 'No StoreCount.csv found in files/' });
+      }
+
+      const csvContent = fs.readFileSync(csvPath, 'utf8');
+      const lines = csvContent.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        return res.json({ success: true, source: 'csv', counts: [] });
+      }
+
+      const headers = lines[0].split(',');
+      const counts = lines.slice(1).map(line => {
+        const values = line.split(',');
+        const obj = {};
+        headers.forEach((header, i) => {
+          obj[header.trim()] = values[i]?.trim() || '';
+        });
+        return obj;
+      });
+
+      res.json({ success: true, source: 'csv', counts });
+    } catch (error) {
+      console.error('Error in daily-scan report:', error);
+      res.status(500).json({ error: 'Failed to generate daily scan report' });
+    }
+  })();
 });
 
 // POST /api/gameplan/import-looker - Import data from Looker CSV files

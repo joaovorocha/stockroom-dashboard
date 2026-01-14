@@ -5,6 +5,16 @@ const path = require('path');
 const { LookerDataProcessor } = require('../utils/looker-data-processor');
 const dal = require('../utils/dal');
 
+// Optional Postgres pool (if DATABASE_URL present)
+let pgPool = null;
+try {
+  const { Pool } = require('pg');
+  const conn = process.env.DATABASE_URL || process.env.PG_CONNECTION_STRING || null;
+  if (conn) pgPool = new Pool({ connectionString: conn });
+} catch (e) {
+  pgPool = null;
+}
+
 const DATA_DIR = dal.paths.dataDir;
 const USERS_FILE = dal.paths.usersFile;
 const EMPLOYEES_FILE = dal.paths.employeesFile;
@@ -71,7 +81,8 @@ function attachExpenseLimits(exp) {
 
 function requireManager(req, res, next) {
   const user = req.user;
-  if (user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT') return next();
+  const role = (user?.role || '').toString().toUpperCase();
+  if (user?.canEditGameplan || user?.isManager || user?.isAdmin || role === 'MANAGEMENT' || role === 'ADMIN') return next();
   return res.status(403).json({ error: 'Manager access required' });
 }
 
@@ -812,6 +823,186 @@ router.get('/metrics', (req, res) => {
     
     res.json(maybeBackfillLastWeekOverview(metrics));
   }
+});
+
+// --- Daily Scan APIs ---
+// POST /api/gameplan/daily-scan/assign - assign or unassign an employee for today's daily scan
+router.post('/daily-scan/assign', requireManager, async (req, res) => {
+  console.log('Daily scan assign route called:', { employeeId: req.body?.employeeId, assign: req.body?.assign, date: req.body?.date, user: req.user?.email });
+  try {
+    const { employeeId, assign, date } = req.body || {};
+    if (!employeeId) return res.status(400).json({ error: 'employeeId required' });
+
+    const targetDate = date || getTodayDate();
+
+      // If Postgres is available, persist assignment there
+      if (pgPool) {
+        const client = await pgPool.connect();
+        try {
+          await client.query('BEGIN');
+          // First, clear all active assignments for today (enforce single-assignment)
+          await client.query(
+            `UPDATE daily_scan_assignments SET active = false WHERE date = $1 AND employee_id != $2`,
+            [targetDate, employeeId]
+          );
+          // Then, upsert the new assignment
+          await client.query(
+            `INSERT INTO daily_scan_assignments (date, employee_id, assigned_by, assigned_at, active)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (date, employee_id) DO UPDATE SET assigned_by = $3, assigned_at = $4, active = $5`,
+            [targetDate, employeeId, req.user?.email || req.user?.name || 'system', new Date().toISOString(), !!assign]
+          );
+          await client.query('COMMIT');
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw err;
+        } finally {
+          client.release();
+        }
+
+        const broadcastUpdate = req.app.get('broadcastUpdate');
+        if (broadcastUpdate) broadcastUpdate('daily_scan_assignment', { date: targetDate, employeeId, assign });
+
+        return res.json({ success: true, employeeId, assign, source: 'postgres' });
+      }
+
+      // Fallback: file-based gameplan
+      const gameplanFile = path.join(GAMEPLAN_DIR, `${targetDate}.json`);
+      let gameplan = readJsonFile(gameplanFile, { date: targetDate, notes: '', assignments: {} });
+      if (!gameplan.assignments) gameplan.assignments = {};
+
+      // Clear dailyScanAssigned from all other employees (enforce single-assignment)
+      Object.keys(gameplan.assignments).forEach(id => {
+        if (id !== employeeId) {
+          const existing = gameplan.assignments[id] || {};
+          if (existing.dailyScanAssigned) {
+            delete existing.dailyScanAssigned;
+            delete existing.dailyScanAssignedBy;
+            delete existing.dailyScanAssignedAt;
+            gameplan.assignments[id] = existing;
+          }
+        }
+      });
+
+      const existing = gameplan.assignments[employeeId] || {};
+      if (assign) {
+        existing.dailyScanAssigned = true;
+        existing.dailyScanAssignedBy = req.user?.email || req.user?.name || 'system';
+        existing.dailyScanAssignedAt = new Date().toISOString();
+        gameplan.assignments[employeeId] = existing;
+      } else {
+        if (existing.dailyScanAssigned) {
+          delete existing.dailyScanAssigned;
+          delete existing.dailyScanAssignedBy;
+          delete existing.dailyScanAssignedAt;
+          gameplan.assignments[employeeId] = existing;
+        }
+      }
+
+      gameplan.savedAt = new Date().toISOString();
+      writeJsonFile(gameplanFile, gameplan);
+
+      const broadcastUpdate = req.app.get('broadcastUpdate');
+      if (broadcastUpdate) {
+        broadcastUpdate('daily_scan_assignment', { date: targetDate, employeeId, assign });
+      }
+
+      return res.json({ success: true, employeeId, assign, source: 'file' });
+    } catch (e) {
+      return res.status(500).json({ error: e?.message || 'Failed to assign daily scan' });
+    }
+  });
+
+// GET /api/gameplan/daily-scan/report - parse a StoreCount.csv in files/ if present and return summary
+router.get('/daily-scan/report', (req, res) => {
+  (async () => {
+    try {
+      // If Postgres is available, prefer aggregated data from DB tables
+      if (pgPool) {
+        try {
+          const q = `
+            SELECT counted_by,
+              SUM(CASE WHEN upper(status) = 'COMPLETED' THEN 1 ELSE 0 END) AS completed,
+              SUM(CASE WHEN upper(status) = 'CANCELLED' THEN 1 ELSE 0 END) AS cancelled,
+              SUM(COALESCE(counted_units,0)) AS units,
+              SUM(COALESCE(new_units,0)) AS new_units
+            FROM store_counts
+            GROUP BY counted_by
+            ORDER BY units DESC
+          `;
+          const result = await pgPool.query(q);
+          const byPerson = {};
+          let totalCompleted = 0, totalCancelled = 0, totalUnits = 0, totalNewUnits = 0;
+          for (const row of result.rows) {
+            const name = row.counted_by || 'Unknown';
+            byPerson[name] = {
+              completed: Number(row.completed || 0),
+              cancelled: Number(row.cancelled || 0),
+              units: Number(row.units || 0),
+              newUnits: Number(row.new_units || 0),
+              rows: []
+            };
+            totalCompleted += byPerson[name].completed;
+            totalCancelled += byPerson[name].cancelled;
+            totalUnits += byPerson[name].units;
+            totalNewUnits += byPerson[name].newUnits;
+          }
+          return res.json({ summary: { totalCompleted, totalCancelled, totalUnits, totalNewUnits }, byPerson, source: 'postgres' });
+        } catch (err) {
+          // Fall through to CSV fallback
+          console.error('Postgres daily-scan report failed, falling back to CSV:', err?.message || err);
+        }
+      }
+
+      // Fallback to CSV parsing (legacy)
+      const csvPath = path.join(DATA_DIR, 'StoreCount.csv');
+      if (!fs.existsSync(csvPath)) {
+        return res.status(404).json({ error: 'StoreCount.csv not found' });
+      }
+
+      const raw = fs.readFileSync(csvPath, 'utf8');
+      const lines = raw.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return res.json({ summary: {}, rows: [] });
+
+      const headers = lines[0].split(',').map(h => h.trim());
+      const rows = lines.slice(1).map(line => {
+        // naive CSV split (ok for our exported CSV)
+        const parts = line.split(',');
+        const obj = {};
+        for (let i = 0; i < headers.length; i++) obj[headers[i]] = (parts[i] || '').trim();
+        return obj;
+      });
+
+      // Aggregate basic metrics per 'Counted By'
+      const byPerson = {};
+      let totalCompleted = 0, totalCancelled = 0, totalUnits = 0, totalNewUnits = 0;
+      rows.forEach(r => {
+        const status = (r.Status || '').toUpperCase();
+        const countedBy = (r['Counted By'] || '').toString();
+        const countedUnits = Number((r['Counted Units'] || '').replace(/[^0-9.-]/g, '') || 0);
+        const newUnits = Number((r['New Units'] || '').replace(/[^0-9.-]/g, '') || 0);
+
+        if (!byPerson[countedBy]) byPerson[countedBy] = { completed: 0, cancelled: 0, units: 0, newUnits: 0, rows: [] };
+        if (status === 'COMPLETED') {
+          byPerson[countedBy].completed += 1;
+          totalCompleted += 1;
+        } else if (status === 'CANCELLED') {
+          byPerson[countedBy].cancelled += 1;
+          totalCancelled += 1;
+        }
+        byPerson[countedBy].units += countedUnits;
+        byPerson[countedBy].newUnits += newUnits;
+        byPerson[countedBy].rows.push(r);
+
+        totalUnits += countedUnits;
+        totalNewUnits += newUnits;
+      });
+
+      return res.json({ summary: { totalCompleted, totalCancelled, totalUnits, totalNewUnits }, byPerson, source: 'csv' });
+    } catch (e) {
+      return res.status(500).json({ error: e?.message || 'Failed to generate report' });
+    }
+  })();
 });
 
 // GET /api/gameplan/scan-performance/history?days=30 - persisted scan performance leaderboard

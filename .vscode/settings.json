@@ -40,6 +40,15 @@
         "/^echo '\\{\"jsonrpc\":\"2\\.0\",\"id\":6,\"method\":\"tools/call\",\"params\":\\{\"name\":\"get_radio_status\",\"arguments\":\\{\\}\\}\\}' \\| python3 mcp-servers/radio-server\\.py$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "pm2": true,
+        "/^node scripts/import-storecount-to-postgres\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^node -c /var/www/stockroom-dashboard/src/routes/gameplan\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
