@@ -338,7 +338,7 @@
             <div class="shipment-top">
               <div>
                 <div class="tracking-number">${tracking ? tracking : 'No Tracking'}</div>
-                <div class="meta">${when ? when : ''}${src ? ` • ${src}` : ''}</div>
+                  <div class="meta">${src ? `${src}` : ''}</div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <div class="status-pill ${isReturned ? 'returned' : status}">${isReturned ? 'Returned' : status}</div>
@@ -363,10 +363,7 @@
                 <label>Processed By</label>
                 <div class="wrap">${processedById ? `${processedBy || '—'} (${processedById})` : (processedBy || '—')}</div>
               </div>
-              <div class="field">
-                <label>Processed Date</label>
-                <div class="wrap">${formatDate(s.importedAt) || '—'}</div>
-              </div>
+              <!-- Processed Date removed per request -->
 	              <div class="field">
 	                <label>UPS Service</label>
 	                <div class="wrap">${safeText(s.serviceType || s.service || '') || '—'}</div>
