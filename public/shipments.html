@@ -205,7 +205,8 @@
       }
       const d = new Date(value);
       if (Number.isNaN(d.getTime())) return safeText(value);
-      return d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+      // Return only the date (no time) to hide time information in the UI
+      return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
     }
 
     function trackingLink(trackingNumber) {
@@ -229,15 +230,19 @@
     function applyFilters() {
       const q = safeText(document.getElementById('searchInput').value).trim().toLowerCase();
       const status = document.getElementById('statusFilter').value;
-
       return (allShipments || []).filter(s => {
+        // Enforce UPS tracking starting with '1Z' — ignore any entries that don't match
+        const tracking = safeText(s.trackingNumber || s.tracking).trim().toUpperCase();
+        if (!tracking.startsWith('1Z')) return false;
+
         if (status) {
           const st = safeText(s.status).toLowerCase().replace(/_/g, '-');
           if (st !== status) return false;
         }
+
         if (!q) return true;
         const haystack = [
-          safeText(s.trackingNumber || s.tracking),
+          tracking,
           safeText(s.customerName),
           safeText(s.destination),
           safeText(s.shipper),
