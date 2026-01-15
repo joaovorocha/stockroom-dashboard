@@ -6,6 +6,8 @@ Base path: `/api/shipments`
 
 - `GET /api/shipments` : List shipments. Supports query filters: `status`, `customer_email`, `order_number`, `tracking_number`. Use `all=true` to return full dataset or `since=<ISO>` to set a start date. Returns `{ shipments: [...] }` with camelCased keys.
 
+	- Server-side behavior: by default the endpoint returns only shipments whose tracking number starts with `1Z`. To override (development use only) include `allow_non_1z=true` in the query string.
+
 - `GET /api/shipments/:id` : Get a single shipment by internal ID. Returns shipment plus `items` and `scans` arrays.
 
 - `POST /api/shipments` : Create a new shipment. Accepts manual payload or a PredictSpring fulfillment payload via `ps_fulfillment`. If `items` present they will be created alongside the shipment. Returns the created `shipment`.

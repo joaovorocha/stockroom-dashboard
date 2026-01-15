@@ -55,7 +55,18 @@ router.get('/', async (req, res) => {
     }
 
     const shipments = await pgDal.getShipments(filters);
-    const transformedShipments = shipments.map(snakeToCamel);
+    let transformedShipments = shipments.map(snakeToCamel);
+
+    // Enforce UPS '1Z' tracking prefix server-side by default so other clients
+    // only receive canonical UPS shipments. To override (dev use only), pass
+    // `allow_non_1z=true` as a query parameter.
+    if (String(req.query.allow_non_1z).toLowerCase() !== 'true') {
+      transformedShipments = transformedShipments.filter(s => {
+        const t = String(s.trackingNumber || s.tracking || '').trim().toUpperCase();
+        return t.startsWith('1Z');
+      });
+    }
+
     res.json({ shipments: transformedShipments });
   } catch (err) {
     console.error('[/api/shipments] Error loading shipments:', err); // DETAILED LOG
