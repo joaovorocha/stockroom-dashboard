@@ -199,8 +199,9 @@
         } else if (value.iso) {
           value = value.iso;
         } else {
-          // Fallback to stringifying to avoid [object Object]
-          try { value = JSON.stringify(value); } catch (_) { value = String(value); }
+          // Plain objects are likely malformed here (e.g. `{}`) — don't render JSON
+          // to the user. Treat as missing value and return empty string.
+          return '';
         }
       }
       const d = new Date(value);
