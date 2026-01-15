@@ -392,6 +392,7 @@
       <div class="view-toggle">
         <a href="/dashboard" class="btn btn-sm" style="margin-right: 10px;">← Dashboard</a>
         <button class="btn btn-primary btn-sm" id="create-new-plan-btn" style="margin-right: 10px;">+ Create New Plan</button>
+        <button class="btn btn-secondary btn-sm" id="duplicate-plan-btn" style="margin-right: 10px;">Duplicate Plan</button>
         <button class="view-btn active" data-view="month">Month</button>
         <button class="view-btn" data-view="week">Week</button>
       </div>
@@ -432,6 +433,47 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="create-plan-modal" style="display: none;">
+    <div class="modal" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3>Create or Duplicate Game Plan</h3>
+        <button class="modal-close" id="close-create-plan-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="view-toggle" style="margin-bottom: 20px;">
+          <button class="view-btn active" data-tab="create-blank">Create Blank</button>
+          <button class="view-btn" data-tab="duplicate">Duplicate</button>
+        </div>
+
+        <div id="create-blank-tab">
+          <div class="form-group">
+            <label for="new-plan-date">Select Date</label>
+            <input type="date" id="new-plan-date" class="form-control">
+          </div>
+          <button class="btn btn-primary" id="create-blank-plan-btn">Create Plan</button>
+        </div>
+
+        <div id="duplicate-tab" style="display: none;">
+          <div class="form-group">
+            <label for="duplicate-source-week">Select Retail Week</label>
+            <select id="duplicate-source-week" class="form-control"></select>
+          </div>
+          <div class="form-group">
+            <label for="duplicate-source-date">Or Pick a Specific Day</label>
+            <input type="date" id="duplicate-source-date" class="form-control">
+          </div>
+          <hr style="margin: 20px 0;">
+          <div class="form-group">
+            <label for="duplicate-target-date">New Plan Date</label>
+            <input type="date" id="duplicate-target-date" class="form-control">
+          </div>
+          <button class="btn btn-primary" id="duplicate-plan-confirm-btn">Duplicate Plan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <script>
     // Calendar functionality
     let currentDate = new Date();
@@ -470,10 +512,8 @@
 
       // Create New Plan button
       document.getElementById('create-new-plan-btn').addEventListener('click', () => {
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date();
-        const dateStr = today.toISOString().split('T')[0];
-        window.location.href = `/gameplan-edit.html?date=${dateStr}`;
+        document.getElementById('create-plan-modal').style.display = 'flex';
+        openTab('create-blank');
       });
 
       // View toggle buttons
@@ -485,10 +525,108 @@
           loadCalendar();
         });
       });
+
+      // Modal buttons
+      document.getElementById('close-create-plan-modal').addEventListener('click', () => {
+        document.getElementById('create-plan-modal').style.display = 'none';
+      });
+
+      document.getElementById('duplicate-plan-btn').addEventListener('click', () => {
+        document.getElementById('create-plan-modal').style.display = 'flex';
+        openTab('duplicate');
+      });
+
+      document.querySelectorAll('#create-plan-modal .view-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          openTab(this.dataset.tab);
+        });
+      });
+
+      document.getElementById('create-blank-plan-btn').addEventListener('click', () => {
+        const date = document.getElementById('new-plan-date').value;
+        if (date) {
+          window.location.href = `/gameplan-edit.html?date=${date}`;
+        } else {
+          alert('Please select a date.');
+        }
+      });
+
+      document.getElementById('duplicate-plan-confirm-btn').addEventListener('click', async () => {
+        const sourceWeek = document.getElementById('duplicate-source-week').value;
+        const sourceDate = document.getElementById('duplicate-source-date').value;
+        const targetDate = document.getElementById('duplicate-target-date').value;
+
+        if (!targetDate) {
+          alert('Please select a new plan date.');
+          return;
+        }
+
+        let sourceUrl = '';
+        if (sourceDate) {
+          sourceUrl = `/api/gameplan/date/${sourceDate}`;
+        } else if (sourceWeek) {
+          const week = JSON.parse(sourceWeek);
+          // Get the first day of the week
+          const weekStartDate = new Date(week.start_date);
+          const sourceDay = weekStartDate.toISOString().split('T')[0];
+          sourceUrl = `/api/gameplan/date/${sourceDay}`;
+        } else {
+          alert('Please select a source week or day to duplicate from.');
+          return;
+        }
+        
+        try {
+          const response = await fetch(sourceUrl);
+          if (response.ok) {
+            const data = await response.json();
+            // Create a new game plan with the duplicated data
+            const newPlan = {
+              ...data,
+              date: targetDate,
+              published: false, // Always save as draft
+            };
+            const saveResponse = await fetch('/api/gameplan/save', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newPlan),
+            });
+
+            if (saveResponse.ok) {
+              alert('Game plan duplicated successfully.');
+              window.location.href = `/gameplan-edit.html?date=${targetDate}`;
+            } else {
+              alert('Failed to duplicate game plan.');
+            }
+          } else {
+            alert('No game plan found for the selected source.');
+          }
+        } catch (error) {
+          console.error('Error duplicating game plan:', error);
+          alert('An error occurred while duplicating the game plan.');
+        }
+      });
+    }
+
+    function openTab(tabName) {
+      document.querySelectorAll('#create-plan-modal .view-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`#create-plan-modal .view-btn[data-tab="${tabName}"]`).classList.add('active');
+
+      if (tabName === 'create-blank') {
+        document.getElementById('create-blank-tab').style.display = 'block';
+        document.getElementById('duplicate-tab').style.display = 'none';
+      } else {
+        document.getElementById('create-blank-tab').style.display = 'none';
+        document.getElementById('duplicate-tab').style.display = 'block';
+      }
     }
 
     async function loadCalendar() {
       try {
+        // Fetch metrics
+        const metricsResponse = await fetch('/api/gameplan/metrics');
+        storeMetrics = await metricsResponse.json();
+        console.log('storeMetrics', storeMetrics);
+
         // Update month/week header
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                            'July', 'August', 'September', 'October', 'November', 'December'];
@@ -515,6 +653,7 @@
             `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
         }
 
+
         // Load game plan data for the month
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth() + 1;
@@ -524,9 +663,22 @@
         renderCalendar(data);
         renderUpcomingPlans(data.upcomingPlans || []);
         updateStats(data.stats || {});
+        populateRetailWeeks();
 
       } catch (error) {
         console.error('Error loading calendar:', error);
+      }
+    }
+    
+    function populateRetailWeeks() {
+      const select = document.getElementById('duplicate-source-week');
+      if (storeMetrics.salesByRetailWeeks) {
+        storeMetrics.salesByRetailWeeks.forEach(week => {
+          const option = document.createElement('option');
+          option.value = JSON.stringify(week);
+          option.textContent = `RW ${week.week_number} (${week.start_date} - ${week.end_date})`;
+          select.appendChild(option);
+        });
       }
     }
 
@@ -579,12 +731,25 @@
             dayDiv.classList.add('today');
           }
 
-          dayDiv.innerHTML = `
-            <div class="day-number">${date.getDate()}</div>
-            <div class="day-plans" id="plans-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}">
-              <!-- Plans will be added here -->
-            </div>
-          `;
+          if (storeMetrics.salesByRetailWeeks) {
+            const retailWeek = getRetailWeek(date);
+
+            dayDiv.innerHTML = `
+              <div class="day-number">${date.getDate()}</div>
+              ${retailWeek ? `<div style="font-size: 10px; color: var(--text-muted);">RW ${retailWeek}</div>` : ''}
+              <div class="day-plans" id="plans-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}">
+                <!-- Plans will be added here -->
+              </div>
+            `;
+          } else {
+            dayDiv.innerHTML = `
+              <div class="day-number">${date.getDate()}</div>
+              <div class="day-plans" id="plans-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}">
+                <!-- Plans will be added here -->
+              </div>
+            `;
+          }
+
 
           grid.appendChild(dayDiv);
         }
@@ -603,6 +768,20 @@
           }
         });
       }
+    }
+
+    function getRetailWeek(date) {
+      if (!storeMetrics || !Array.isArray(storeMetrics.salesByRetailWeeks)) {
+        // console.error('salesByRetailWeeks is not available or not an array');
+        return null;
+      }
+      const dateStr = date.toISOString().split('T')[0];
+      for (const week of storeMetrics.salesByRetailWeeks) {
+        if (dateStr >= week.start_date && dateStr <= week.end_date) {
+          return week.week_number;
+        }
+      }
+      return null;
     }
 
     function getPlanClass(plan) {
@@ -648,7 +827,7 @@
           </div>
           <div class="plan-actions">
             <a href="/gameplan-edit.html?date=${plan.date}" class="action-btn primary">Edit</a>
-            <button class="action-btn" onclick="viewPlan('${plan.date}')">View</button>
+            <button class="action-btn btn-danger" onclick="deletePlan('${plan.date}')">Delete</button>
           </div>
         `;
 
@@ -670,6 +849,29 @@
     function viewPlan(date) {
       // Open in read-only mode
       window.open(`/gameplan-edit.html?date=${date}&readonly=true`, '_blank');
+    }
+
+    async function deletePlan(date) {
+      if (!confirm(`Are you sure you want to delete the game plan for ${date}? This cannot be undone.`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/gameplan/date/${date}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          alert('Game plan deleted successfully.');
+          loadCalendar();
+        } else {
+          const data = await response.json();
+          alert(data.error || 'Failed to delete game plan.');
+        }
+      } catch (error) {
+        console.error('Error deleting game plan:', error);
+        alert('An error occurred while deleting the game plan.');
+      }
     }
   </script>
 

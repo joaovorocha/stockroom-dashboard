@@ -13,8 +13,7 @@ function testEndpoint(path) {
       path: path,
       method: 'GET',
       headers: {
-        'Cookie': sessionCookie,
-        'X-Dev-User': process.env.DEV_AUTH_USER_EMAIL || 'vrocha@suitsupply.com'
+        'Cookie': sessionCookie
       }
     };
 
@@ -26,9 +25,12 @@ function testEndpoint(path) {
         console.log(`Status: ${res.statusCode}`);
         try {
           const json = JSON.parse(data);
-          console.log('Response:', JSON.stringify(json, null, 2).substring(0, 500));
+          console.log('Response:', JSON.stringify(json, null, 2));
+          if (json.shipments && Array.isArray(json.shipments)) {
+            console.log(`Found ${json.shipments.length} shipments.`);
+          }
         } catch (e) {
-          console.log('Response (not JSON):', data.substring(0, 200));
+          console.log('Response (not JSON):', data);
         }
         resolve();
       });
@@ -45,12 +47,9 @@ function testEndpoint(path) {
 }
 
 (async () => {
-  console.log('Testing API endpoints after fixes...\n');
+  console.log('Testing /api/shipments with multiple statuses...\n');
   
-  await testEndpoint('/api/shipments');
-  await testEndpoint('/api/closing-duties');
-  await testEndpoint('/api/closing-duties/2026-01-11');
-  await testEndpoint('/api/gameplan');
+  await testEndpoint('/api/shipments?status=REQUESTED,PICKING,READY_TO_PACK,PACKING');
   
   console.log('\n\nTest complete.');
 })();

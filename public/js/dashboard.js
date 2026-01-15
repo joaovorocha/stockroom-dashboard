@@ -17,6 +17,7 @@ let settings = {};
 let storeConfig = { requireSaShift: false, currency: 'USD' };
 let gameplanData = { notes: '', assignments: {}, published: false };
 let loansData = [];
+let currentClientDate;
 let currentEditEmployee = null;
 let showAllEmployees = { SA: false, BOH: false, MANAGEMENT: false, TAILOR: false };
 let currentSettingsTab = 'zones';
@@ -160,7 +161,7 @@ function shiftISODate(dateStr, deltaDays) {
   return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`;
 }
 
-let currentClientDate = getLocalISODate();
+tDate = getLocalISODate();
 
 function getEmployeeZones(emp) {
   if (!emp) return [];
@@ -414,7 +415,6 @@ function renderRetailWeekStoreInfo() {
       ${sourcesHint}
     </div>
   `;
-  
 }
 
 function renderRetailWeekWelcomeInfo() {
@@ -1161,8 +1161,6 @@ function setupWelcomeSection() {
   const sidebarCard = document.getElementById('importStatusCard');
   if (sidebarCard) sidebarCard.style.display = 'none';
 
-  updateGameplanButtons();
-
   if (userEmployee) {
     // Don't show duplicate assignment info - it's in expandable boxes
     let detailsHtml = '';
@@ -1355,7 +1353,7 @@ async function setupEmployeeDiscountStatus() {
     if (!data?.available) return;
 
     const yearly = data?.status?.yearly || {};
-    if (!
+    if (!Number.isFinite(Number(yearly.limit))) return;
 
     const used = Number(yearly.used || 0);
     const remaining = Number(yearly.remaining || 0);
@@ -1787,55 +1785,1506 @@ function bindExpandableControls() {
 }
 
 function getRoleName(role) {
-  const map = { SA: 'Sales Associate', BOH: 'Back of House', MANAGEMENT: 'Management', TAILOR: 'Tailor', ADMIN: 'Admin' };
-  return map[role] || role;
+  const roleNames = {
+    'SA': 'Sales Associate',
+    'BOH': 'Back of House',
+    'MANAGEMENT': 'Management',
+    'TAILOR': 'Tailor',
+    'ADMIN': 'Administrator'
+  };
+  return roleNames[role] || role;
 }
 
-function updateGameplanButtons() {
-  const btn = document.getElementById('editGameplanBtn');
-  if (!btn) return;
-
-  const today = storeDayInfo?.date || getLocalISODate();
-  const isPublished = !!gameplanData?.isPublished;
-  const isWorking = !!gameplanData?.lastEditedBy && !isPublished;
-  
-  btn.href = `/gameplan-edit.html?date=${today}`;
-
-  if (isPublished) {
-    btn.textContent = '📅 Edit Today (Published)';
-    btn.classList.remove('btn-primary', 'btn-warning');
-    btn.classList.add('btn-success');
-  } else if (isWorking) {
-    btn.textContent = '📅 Edit Today (Working)';
-    btn.classList.remove('btn-primary', 'btn-success');
-    btn.classList.add('btn-warning');
-  } else {
-    btn.textContent = '📅 Create Game Plan';
-    btn.classList.remove('btn-success', 'btn-warning');
-    btn.classList.add('btn-primary');
-  }
-}
-
-async function getStoreDayInfo() {
-  if (storeDayInfo) return storeDayInfo;
-  try {
-    const resp = await fetch('/api/gameplan/today', { credentials: 'include' });
-    const data = resp.ok ? await resp.json() : null;
-    if (data?.date) storeDayInfo = data;
-    return data;
-  } catch (_) {
-    return storeDayInfo;
-  }
-}
-
-// Daily Scan Stats (formerly Employee Count Performance)
-function renderDailyScanStats() {
-  const stats = metrics.employeeCountPerformance;
-  const grid = document.getElementById('dailyScanStatsGrid');
+// Render Management Quick Section - Shows all managers on duty
+function renderManagementQuickSection() {
+  const grid = document.getElementById('managementQuickGrid');
   if (!grid) return;
   grid.innerHTML = '';
 
-  if (!stats || !stats.employees || stats.employees.length === 0) {
+  const mgmtArray = (employees.MANAGEMENT || []).filter(e => !e?.isOff);
+  const saArray = employees.SA || [];
+  const bohArray = employees.BOH || [];
+  const shownIds = new Set();
+
+  // Find all MODs (Manager on Duty)
+  const mods = mgmtArray.filter(e => 
+    e.role?.toUpperCase() === 'MOD' || 
+    e.role?.toLowerCase().includes('manager on duty')
+  );
+
+  // Find all Hosts from management
+  const hosts = mgmtArray.filter(e => 
+    e.role?.toUpperCase() === 'HOST'
+  );
+
+  // Find Host from SA (zone-based)
+  const saHost = saArray.find(e => 
+    e.zone?.toLowerCase().includes('host') ||
+    e.fittingRoom?.toLowerCase().includes('host')
+  );
+
+  // Get BOH employees working today
+  const bohWorking = bohArray.filter(e => !e?.isOff && (e.shift || e.taskOfTheDay));
+
+  // Show all MODs first
+  mods.forEach(mod => {
+    grid.appendChild(createManagementQuickCard(mod, 'MOD', 'mod-card'));
+    shownIds.add(mod.id);
+  });
+
+  // Show all Hosts from management
+  hosts.forEach(host => {
+    grid.appendChild(createManagementQuickCard(host, 'Host', 'host-card'));
+    shownIds.add(host.id);
+  });
+
+  // Show SA Host if exists
+  if (saHost) {
+    grid.appendChild(createManagementQuickCard(saHost, 'Host', 'host-card'));
+  }
+
+  // Show any other managers with shifts assigned (not already shown)
+  mgmtArray.filter(e => e.shift && !shownIds.has(e.id)).forEach(mgr => {
+    const roleLabel = mgr.shift?.includes('Open') ? 'Opening' : 
+                      mgr.shift?.includes('Close') ? 'Closing' : 'Manager';
+    grid.appendChild(createManagementQuickCard(mgr, roleLabel, ''));
+    shownIds.add(mgr.id);
+  });
+
+  // Add BOH employees
+  bohWorking.forEach(boh => {
+    grid.appendChild(createManagementQuickCard(boh, 'BOH', 'boh-card'));
+  });
+}
+
+function createManagementQuickCard(emp, roleLabel, extraClass) {
+  const card = document.createElement('div');
+  card.className = `management-quick-card ${extraClass}`.trim();
+
+  const displayName = (emp?.name || '--').toString().trim().split(/\s+/)[0] || '--';
+  const photoHtml = emp.imageUrl
+    ? `<img src="${emp.imageUrl}" alt="${emp.name}">`
+    : getInitials(emp.name);
+
+  const timeInfo = emp.shift || '';
+
+  card.innerHTML = `
+    <div class="card-icon">${emp.imageUrl ? `<img src="${emp.imageUrl}" alt="${emp.name}">` : getInitials(emp.name)}</div>
+    <div class="card-content">
+      <div class="card-role">${roleLabel}</div>
+      <div class="card-name">${displayName}</div>
+      ${timeInfo ? `<div class="card-time">${timeInfo}</div>` : ''}
+    </div>
+  `;
+
+  return card;
+}
+
+// Update notes preview in welcome section
+function updateNotesPreview() {
+  const notesPreview = document.getElementById('notesPreview');
+  const notesAuthor = document.getElementById('notesAuthor');
+  const storeInfo = document.getElementById('welcomeStoreInfo');
+  if (!notesPreview) return;
+
+  // Use gameplanData.notes directly - preserve HTML formatting
+  if (gameplanData.notes && gameplanData.notes.trim()) {
+    // Render the full HTML with formatting
+    notesPreview.innerHTML = gameplanData.notes;
+    
+    // Show who added the notes (on right side)
+    if (notesAuthor && gameplanData.lastEditedBy) {
+      notesAuthor.textContent = `by ${gameplanData.lastEditedBy}`;
+    }
+    storeInfo.style.display = 'block';
+  } else {
+    notesPreview.innerHTML = '<span style="color: var(--text-muted);">No notes for today</span>';
+    if (notesAuthor) notesAuthor.textContent = '';
+    storeInfo.style.display = 'block';
+  }
+}
+
+// Debounced render to prevent rapid re-renders
+function debouncedRenderAll(delay = 50) {
+  if (renderAllTimer) clearTimeout(renderAllTimer);
+  renderAllTimer = setTimeout(() => renderAll(), delay);
+}
+
+// Render functions
+function renderAll() {
+  updateNotesPreview();
+  updateLastSyncTime(); // Update sidebar sync time
+
+  // Keep the Retail Week info in the Week to Date Store Overview up to date.
+  renderRetailWeekStoreInfo();
+
+  const setDisplay = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = value;
+  };
+
+  // Conditional rendering based on page type
+  switch (currentPageType) {
+    case 'SA':
+      updateMetricsDisplay();
+      renderManagementQuickSection();
+      renderSAAssignmentStatus();
+      renderSASection();
+      // SA view is a shared "status" view; always show BOH tasks here.
+      renderBOHSection();
+      // Hide other sections not relevant to SA
+      setDisplay('managementSection', 'none');
+      setDisplay('tailorsSection', 'none');
+      setDisplay('operationsSection', 'none');
+      setDisplay('lookerSection', 'none');
+      break;
+    case 'TAILOR':
+      renderTailorsSection();
+      renderSAAssignmentStatus();
+      // Hide other sections
+      // Keep welcome visible so lunch + status blocks can show
+      setDisplay('managementQuickSection', 'none');
+      setDisplay('metricsSection', 'none');
+      setDisplay('operationsSection', 'none');
+      setDisplay('saSection', 'none');
+      setDisplay('bohSection', 'none');
+      setDisplay('managementSection', 'none');
+      setDisplay('lookerSection', 'none');
+      break;
+    case 'BOH':
+      renderBOHSection();
+      renderSASection();
+      renderSAAssignmentStatus();
+      // Ops dashboard moved to /operations-metrics
+      setDisplay('operationsSection', 'none');
+      // Hide other sections
+      // Keep welcome visible so lunch + status blocks can show
+      setDisplay('managementQuickSection', 'none');
+      setDisplay('metricsSection', 'none');
+      setDisplay('managementSection', 'none');
+      setDisplay('tailorsSection', 'none');
+      setDisplay('lookerSection', 'none');
+      break;
+    case 'OPS_METRICS':
+      renderMainRetailKpis();
+      renderTailorProductivityLastWeek();
+      renderWorkRelatedExpensesSummary();
+      renderOperationsHealth();
+      renderInventoryIssues();
+      renderCustomerOrders();
+      renderCountLeaderboard();
+      renderTailorTrend();
+      renderAppointmentsWidget();
+      renderBestSellers();
+      // Hide non-ops sections (if present)
+      setDisplay('welcomeSection', 'none');
+      setDisplay('managementQuickSection', 'none');
+      setDisplay('metricsSection', 'none');
+      setDisplay('saSection', 'none');
+      setDisplay('bohSection', 'none');
+      setDisplay('managementSection', 'none');
+      setDisplay('tailorsSection', 'none');
+      setDisplay('lookerSection', 'none');
+      break;
+    case 'MANAGEMENT':
+    case 'EDIT':
+      updateMetricsDisplay();
+      updateWorkingToday();
+      renderManagementQuickSection();
+      renderSAAssignmentStatus();
+      renderTailorProductivityLastWeek();
+      renderWorkRelatedExpensesSummary();
+      renderSASection();
+      renderBOHSection();
+      renderManagementSection();
+      renderTailorsSection();
+      // Ops dashboard moved to /operations-metrics
+      setDisplay('operationsSection', 'none');
+      break;
+    default:
+      updateMetricsDisplay();
+      updateWorkingToday();
+      renderManagementQuickSection();
+      renderSASection();
+      renderBOHSection();
+      renderManagementSection();
+      renderTailorsSection();
+      // Ops dashboard moved to /operations-metrics
+      setDisplay('operationsSection', 'none');
+      break;
+  }
+}
+
+function updateWorkingToday() {
+  // Get employees with shifts assigned (meaning they're working today)
+  const workingManagement = (employees.MANAGEMENT || []).filter(e => e.shift || e.role);
+  const workingBOH = (employees.BOH || []).filter(e => e.shift || e.taskOfTheDay);
+
+  // Update Management working
+  const mgmtEl = document.getElementById('managementWorking');
+  if (mgmtEl) {
+    if (workingManagement.length > 0) {
+      const names = workingManagement.map(e => {
+        const role = e.role ? ` (${e.role})` : '';
+        return e.name + role;
+      }).join(', ');
+      mgmtEl.textContent = names;
+    } else {
+      mgmtEl.textContent = 'No assignments yet';
+    }
+  }
+
+  // Update BOH working
+  const bohEl = document.getElementById('bohWorking');
+  if (bohEl) {
+    if (workingBOH.length > 0) {
+      const names = workingBOH.map(e => e.name).join(', ');
+      bohEl.textContent = names;
+    } else {
+      bohEl.textContent = 'No assignments yet';
+    }
+  }
+}
+
+function updateMetricsDisplay() {
+  if (!metrics.wtd) return;
+
+  // Some pages (e.g. role-based gameplan views) intentionally omit the WTD section.
+  const wtdSalesEl = document.getElementById('wtdSales');
+
+  const setVsPyEl = (el, value) => {
+    if (!el) return;
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      el.textContent = 'Ø vs PY';
+      el.className = 'metric-change neutral';
+      return;
+    }
+    el.textContent = `${num >= 0 ? '+' : ''}${num}% vs PY`;
+    el.className = `metric-change ${num >= 0 ? 'positive' : 'negative'}`;
+  };
+
+  if (wtdSalesEl) wtdSalesEl.textContent = formatCurrency(metrics.wtd.salesAmount);
+  const wtdChange = document.getElementById('wtdChange');
+  if (wtdChange) {
+    wtdChange.textContent = `${metrics.wtd.salesVsPY >= 0 ? '+' : ''}${metrics.wtd.salesVsPY}% vs PY`;
+    wtdChange.className = `metric-change ${metrics.wtd.salesVsPY >= 0 ? 'positive' : 'negative'}`;
+  }
+
+  const targetEl = document.getElementById('targetAmount');
+  if (targetEl) targetEl.textContent = formatCurrency(metrics.wtd.target);
+  const vsTarget = document.getElementById('vsTarget');
+  if (vsTarget) {
+    vsTarget.textContent = `${metrics.wtd.vsTarget}% vs Target`;
+    vsTarget.className = `metric-change ${metrics.wtd.vsTarget >= 0 ? 'positive' : 'negative'}`;
+  }
+
+  if (metrics.metrics) {
+    const sphEl = document.getElementById('sph');
+    if (sphEl) sphEl.textContent = `$${metrics.metrics.salesPerHour}`;
+    const sphChange = document.getElementById('sphChange');
+    if (sphChange) {
+      sphChange.textContent = `${metrics.metrics.sphVsPY}% vs PY`;
+      sphChange.className = `metric-change ${metrics.metrics.sphVsPY >= 0 ? 'positive' : 'negative'}`;
+    }
+
+    const ipcEl = document.getElementById('ipc');
+    if (ipcEl) ipcEl.textContent = metrics.metrics.itemsPerCustomer;
+    const ipcChange = document.getElementById('ipcChange');
+    if (ipcChange) {
+      ipcChange.textContent = `${metrics.metrics.ipcVsPY}% vs PY`;
+      ipcChange.className = `metric-change ${metrics.metrics.ipcVsPY >= 0 ? 'positive' : 'negative'}`;
+    }
+
+    const dropoffsEl = document.getElementById('dropoffs');
+    if (dropoffsEl) dropoffsEl.textContent = `${metrics.metrics.dropOffs}%`;
+
+    const dropoffsChange = document.getElementById('dropoffsChange');
+    if (dropoffsChange) setVsPyEl(dropoffsChange, metrics.metrics.dropOffsVsPY);
+  }
+
+  if (metrics.lastWeekSales) {
+    const formalEl = document.getElementById('formalPct');
+    const casualEl = document.getElementById('casualPct');
+    const tuxedoEl = document.getElementById('tuxedoPct');
+    if (formalEl) formalEl.textContent = `${metrics.lastWeekSales.formal}%`;
+    if (casualEl) casualEl.textContent = `${metrics.lastWeekSales.casual}%`;
+    if (tuxedoEl) tuxedoEl.textContent = `${metrics.lastWeekSales.tuxedo}%`;
+  }
+
+  if (metrics.productMixCmRtw) {
+    const rtwEl = document.getElementById('rtwPct');
+    const cmEl = document.getElementById('cmPct');
+    if (rtwEl) rtwEl.textContent = `${Math.round(metrics.productMixCmRtw.RTW ?? 0)}%`;
+    if (cmEl) cmEl.textContent = `${Math.round(metrics.productMixCmRtw.CM ?? 0)}%`;
+  }
+
+  const cj = metrics.customerJourney;
+  if (cj) {
+    const setText = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+
+    const setPercentText = (id, value, digits = 1) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const n = Number(value);
+      if (!Number.isFinite(n)) {
+        el.textContent = '--';
+        return;
+      }
+      const factor = Math.pow(10, digits);
+      el.textContent = `${Math.round(n * factor) / factor}%`;
+    };
+
+    setText('cjTotalCustomers', formatNumberOrDash(cj.totalCustomers, 0));
+    setVsPyEl(document.getElementById('cjTotalCustomersVsPY'), cj.totalCustomersVsPY);
+
+    setText('cjReturningCustomers', formatNumberOrDash(cj.returningCustomers, 0));
+    setVsPyEl(document.getElementById('cjReturningCustomersVsPY'), cj.returningCustomersVsPY);
+    setPercentText('cjReturningPct', cj.returningPct, 1);
+
+    setText('cjNewCustomers', formatNumberOrDash(cj.newCustomers, 0));
+    setVsPyEl(document.getElementById('cjNewCustomersVsPY'), cj.newCustomersVsPY);
+    setPercentText('cjNewPct', cj.newPct, 1);
+
+    setText('cjVisits', formatNumberOrDash(cj.visits, 0));
+    setVsPyEl(document.getElementById('cjVisitsVsPY'), cj.visitsVsPY);
+
+    setPercentText('cjAppointments', cj.appointmentsShareTy, 0);
+    const apptPyEl = document.getElementById('cjAppointmentsPy');
+    if (apptPyEl) {
+      const py = Number(cj.appointmentsSharePy);
+      apptPyEl.textContent = Number.isFinite(py) ? `${Math.round(py)}% PY` : '--';
+      apptPyEl.className = 'metric-change neutral';
+    }
+
+    setPercentText('cjQrCheckins', cj.qrCheckinsPct, 1);
+    setVsPyEl(document.getElementById('cjQrCheckinsVsPY'), cj.qrCheckinsVsPY);
+
+    const npsEl = document.getElementById('cjNpsScore');
+    if (npsEl) {
+      const n = Number(cj.npsScore);
+      npsEl.textContent = Number.isFinite(n) ? `${n}` : '--';
+    }
+    const npsVsEl = document.getElementById('cjNpsVsPY');
+    if (npsVsEl) {
+      const n = Number(cj.npsVsPY);
+      npsVsEl.textContent = Number.isFinite(n) ? `${n >= 0 ? '+' : ''}${n}% vs PY` : 'Ø vs PY';
+      npsVsEl.className = Number.isFinite(n) ? `metric-change ${n >= 0 ? 'positive' : 'negative'}` : 'metric-change neutral';
+    }
+
+    setText('cjNotesTaken', formatNumberOrDash(cj.notesTaken, 0));
+    const notesVsEl = document.getElementById('cjNotesTakenVsPY');
+    if (notesVsEl) {
+      const n = Number(cj.notesTakenVsPY);
+      notesVsEl.textContent = Number.isFinite(n) ? `${n >= 0 ? '+' : ''}${n}% vs PY` : 'Ø vs PY';
+      notesVsEl.className = Number.isFinite(n) ? `metric-change ${n >= 0 ? 'positive' : 'negative'}` : 'metric-change neutral';
+    }
+
+    setText('cjCompletedReaches', formatNumberOrDash(cj.completedReaches, 0));
+
+    setPercentText('cjNewsletterPct', cj.newsletterPct, 1);
+    setVsPyEl(document.getElementById('cjNewsletterVsPY'), cj.newsletterVsPY);
+  }
+
+  renderRetailWeekStoreInfo();
+}
+
+function formatCurrency(amount) {
+  if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
+  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}K`;
+  return `$${amount}`;
+}
+
+function getInitials(name) {
+  if (!name || typeof name !== 'string') return '??';
+  return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+}
+
+function formatUsd(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return '--';
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+}
+
+function hasLoanOverdue(employeeName) {
+  if (!loansData.overdue) return false;
+  return loansData.overdue.some(l => l.employeeName === employeeName);
+}
+
+// Find employee matching current user
+function findCurrentUserEmployee(type) {
+  return employees[type]?.find(e =>
+    e.name.toLowerCase() === currentUser?.name?.toLowerCase() ||
+    e.employeeId?.toString?.() === currentUser?.employeeId?.toString?.()
+  );
+}
+
+// SA Section
+function renderSASection() {
+  const grid = document.getElementById('saGrid');
+  const count = document.getElementById('saCount');
+  const expandBtn = document.getElementById('expandSA');
+  grid.innerHTML = '';
+  const saEmployees = employees.SA || [];
+  const isPrivileged = !!(currentUser?.isManager || currentUser?.isAdmin || (currentUser?.role || '').toString().toUpperCase() === 'MANAGEMENT');
+
+  const currentUserEmp = findCurrentUserEmployee('SA');
+  const hasShift = (e) => !!(e?.shift || '').toString().trim();
+  const isWorking = (e) => {
+    if (!e) return false;
+    if (e.isOff) return false;
+    if (storeConfig?.requireSaShift) return hasShift(e);
+    return true;
+  };
+
+  const workingList = saEmployees.filter(isWorking);
+  const dayOffList = saEmployees.filter(e => !isWorking(e));
+
+  // Full ordered list (used when "Show All" is active) — only working employees (day off shown separately)
+  let orderedAll = [...workingList];
+  if (currentUserEmp && isWorking(currentUserEmp)) {
+    orderedAll = [currentUserEmp, ...workingList.filter(e => e.id !== currentUserEmp.id)];
+  }
+
+  // On the SA page, we don't repeat the current user in the grid.
+  if (currentPageType === 'SA' && currentUserEmp) {
+    orderedAll = orderedAll.filter(e => e.id !== currentUserEmp.id);
+  }
+
+  // Count should reflect total employees in this type (not just what's shown).
+  if (count) count.textContent = saEmployees.length;
+
+  const getCollapsedList = () => {
+    // SA page: show more cards by default so other associates are visible.
+    if (currentPageType === 'SA') return orderedAll.slice(0, Math.min(4, orderedAll.length));
+
+    // Non-privileged users: show only themselves until expanded.
+    if (!isPrivileged) return currentUserEmp ? [currentUserEmp] : [];
+
+    // Privileged: show a few cards until expanded.
+    const initialVisible = 4;
+    return orderedAll.slice(0, initialVisible);
+  };
+
+  const collapsed = getCollapsedList();
+  const shown = (!expandBtn || showAllEmployees.SA) ? orderedAll : collapsed;
+
+  // Toggle button
+  const maxCollapsed = collapsed.length;
+  const canExpand = !!expandBtn && (orderedAll.length > maxCollapsed || (!isPrivileged && workingList.length > 1));
+  if (expandBtn) {
+    if (!canExpand) {
+      expandBtn.style.display = 'none';
+    } else {
+      expandBtn.style.display = 'inline-block';
+      expandBtn.textContent = showAllEmployees.SA ? 'Show Less' : `Show All (${workingList.length})`;
+    }
+  }
+
+  shown.forEach(emp => {
+    grid.appendChild(createSACard(emp, emp.id === currentUserEmp?.id));
+  });
+
+  renderDayOffGroup(grid, dayOffList, 'SA', { open: showAllEmployees.SA });
+}
+
+function createSACard(emp, isCurrentUser = false) {
+  const card = document.createElement('div');
+  const hasShift = !!(emp?.shift || '').toString().trim();
+  const isWorking = !emp.isOff && (!storeConfig?.requireSaShift || hasShift);
+  const isDayOff = !isWorking;
+  card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
+
+  const photoHtml = emp.imageUrl
+    ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
+    : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
+
+  const loanWarning = hasLoanOverdue(emp.name)
+    ? '<div class="loan-warning">Loan Overdue</div>'
+    : '';
+
+  const scan = getDailyScanStatsForEmployee(emp);
+  const scanAccuracyHtml = Number.isFinite(scan?.accuracy)
+    ? `
+      <div class="card-field">
+        <span class="field-label">Scan Accuracy</span>
+        <span class="field-value ${scan.accuracy >= 99.5 ? 'positive' : scan.accuracy >= 99 ? 'warning' : 'negative'}">${scan.accuracy}%</span>
+      </div>
+    `
+    : '';
+
+  const perPersonTarget = getRetailWeekTargetPerPerson();
+
+  if (isDayOff) {
+    card.innerHTML = `
+      <div class="card-header">
+        ${photoHtml}
+        <div class="employee-info">
+          <h4>${emp.name}</h4>
+          <span class="role day-off-badge">Day Off</span>
+        </div>
+      </div>
+    `;
+    return card;
+  }
+
+		  card.innerHTML = `
+		    <div class="card-header">
+	      ${photoHtml}
+	      <div class="employee-info">
+	        <h4>${emp.name}</h4>
+        <span class="role">Sales Associate</span>
+      </div>
+    </div>
+	    <div class="card-body">
+	      <div class="card-field">
+	        <span class="field-label">Zones</span>
+	        <span class="field-value">${formatZones(emp)}</span>
+	      </div>
+      <div class="card-field">
+        <span class="field-label">Fitting Room</span>
+        <span class="field-value">${emp.fittingRoom || '-'}</span>
+      </div>
+		      <div class="card-field">
+		        <span class="field-label">Target</span>
+		        <span class="field-value">${(isWorking && perPersonTarget) ? formatCurrency(perPersonTarget) : '-'}</span>
+		      </div>
+      <div class="card-field">
+        <span class="field-label">Lunch</span>
+        <span class="field-value">${emp.scheduledLunch || '-'}</span>
+      </div>
+      <div class="card-field full-width">
+        <span class="field-label">Closing Sections</span>
+        <span class="field-value">${Array.isArray(emp.closingSections) ? emp.closingSections.join(', ') : emp.closingSections || '-'}</span>
+      </div>
+      ${scanAccuracyHtml}
+    </div>
+    ${emp.metrics ? `
+    <div class="sa-metrics">
+      <div class="sa-metric">
+        <span class="value">${formatCurrency(emp.metrics.salesAmount)}</span>
+        <span class="label">WTD</span>
+      </div>
+      <div class="sa-metric">
+        <span class="value">$${emp.metrics.sph}</span>
+        <span class="label">SPH</span>
+      </div>
+      <div class="sa-metric">
+        <span class="value">${emp.metrics.ipc}</span>
+        <span class="label">IPC</span>
+      </div>
+    </div>
+    ` : ''}
+    ${loanWarning}
+	  `;
+	  return card;
+	}
+
+// BOH Section
+function renderBOHSection() {
+  const grid = document.getElementById('bohGrid');
+  const count = document.getElementById('bohCount');
+  const expandBtn = document.getElementById('expandBOH');
+  grid.innerHTML = '';
+  const bohEmployees = employees.BOH || [];
+  const isPrivileged = !!(currentUser?.isManager || currentUser?.isAdmin || (currentUser?.role || '').toString().toUpperCase() === 'MANAGEMENT');
+  if (count) count.textContent = bohEmployees.length;
+
+  const currentUserEmp = findCurrentUserEmployee('BOH');
+  const workingList = bohEmployees.filter(e => !e?.isOff);
+  const dayOffList = bohEmployees.filter(e => !!e?.isOff);
+
+  let orderedAll = [...workingList];
+  if (currentUserEmp && !currentUserEmp?.isOff) orderedAll = [currentUserEmp, ...workingList.filter(e => e.id !== currentUserEmp.id)];
+
+  const collapsed = (() => {
+    // If this page doesn't offer an expand control (ex: SA view), show the full list.
+    if (!expandBtn) return orderedAll;
+    if (!isPrivileged) return currentUserEmp ? [currentUserEmp] : orderedAll.slice(0, 4);
+    return orderedAll.slice(0, 4);
+  })();
+
+  const shown = (!expandBtn || showAllEmployees.BOH) ? orderedAll : collapsed;
+
+  const canExpand = !!expandBtn && (orderedAll.length > collapsed.length || (!isPrivileged && workingList.length > 1));
+  if (expandBtn) {
+    if (!canExpand) {
+      expandBtn.style.display = 'none';
+    } else {
+      expandBtn.style.display = 'inline-block';
+      expandBtn.textContent = showAllEmployees.BOH ? 'Show Less' : `Show All (${workingList.length})`;
+    }
+  }
+
+  shown.forEach(emp => {
+    grid.appendChild(createBOHCard(emp, emp.id === currentUserEmp?.id));
+  });
+
+  renderDayOffGroup(grid, dayOffList, 'BOH', { open: showAllEmployees.BOH });
+}
+
+function createBOHCard(emp, isCurrentUser = false) {
+  const card = document.createElement('div');
+  const isDayOff = !!emp?.isOff;
+  card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
+
+  const photoHtml = emp.imageUrl
+    ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
+    : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
+
+  if (isDayOff) {
+    card.innerHTML = `
+      <div class="card-header">
+        ${photoHtml}
+        <div class="employee-info">
+          <h4>${emp.name}</h4>
+          <span class="role day-off-badge">Day Off</span>
+        </div>
+      </div>
+    `;
+    return card;
+  }
+
+  const scan = getDailyScanStatsForEmployee(emp);
+  const accuracy = emp.metrics?.inventoryAccuracy !== undefined ? Number(emp.metrics.inventoryAccuracy) : scan?.accuracy;
+  const countsDone = emp.metrics?.storeCountsCompleted !== undefined ? Number(emp.metrics.storeCountsCompleted) : scan?.countsDone;
+  const missedReserved = emp.metrics?.missedReserved !== undefined ? Number(emp.metrics.missedReserved) : scan?.missedReserved;
+  const hasAnyScanStats = accuracy !== undefined || countsDone !== undefined || missedReserved !== undefined;
+
+  const accuracyClass =
+    Number.isFinite(accuracy) ? (accuracy >= 99.5 ? 'positive' : accuracy >= 98 ? 'warning' : 'negative') : 'muted';
+  const missedClass =
+    Number.isFinite(missedReserved) ? ((missedReserved || 0) === 0 ? 'positive' : 'negative') : 'muted';
+
+  card.innerHTML = `
+    <div class="card-header">
+      ${photoHtml}
+      <div class="employee-info">
+        <h4>${emp.name}</h4>
+        <span class="role">Back of House</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="card-field">
+        <span class="field-label">Shift</span>
+        <span class="field-value">${emp.shift || '-'}</span>
+      </div>
+      <div class="card-field">
+        <span class="field-label">Lunch</span>
+        <span class="field-value">${emp.lunch || '-'}</span>
+      </div>
+      <div class="card-field full-width">
+        <span class="field-label">Task of the Day</span>
+        <span class="field-value">${emp.taskOfTheDay || '-'}</span>
+      </div>
+    </div>
+    ${hasAnyScanStats ? `
+    <div class="boh-metrics">
+      <div class="boh-metric">
+        <span class="value ${accuracyClass}">${Number.isFinite(accuracy) ? `${accuracy}%` : '--'}</span>
+        <span class="label">Scan %</span>
+      </div>
+      <div class="boh-metric">
+        <span class="value ${Number.isFinite(countsDone) ? '' : 'muted'}">${Number.isFinite(countsDone) ? countsDone : '--'}</span>
+        <span class="label">Scans</span>
+      </div>
+      <div class="boh-metric">
+        <span class="value ${missedClass}">${Number.isFinite(missedReserved) ? missedReserved : '--'}</span>
+        <span class="label">Missed</span>
+      </div>
+    </div>
+    ` : ''}
+  `;
+  return card;
+}
+
+// Management Section - Collapse if >3
+function renderManagementSection() {
+  const grid = document.getElementById('mgmtGrid');
+  const count = document.getElementById('mgmtCount');
+  const expandBtn = document.getElementById('expandMgmt');
+  if (!grid || !count) return;
+  grid.innerHTML = '';
+
+  // Working vs day off (driven by Game Plan Edit toggle)
+  const mgmtEmployees = employees.MANAGEMENT || [];
+  const scheduledMgmt = mgmtEmployees.filter(e => !e?.isOff);
+  const dayOffMgmt = mgmtEmployees.filter(e => !!e?.isOff);
+  count.textContent = mgmtEmployees.length;
+
+  const currentUserEmp = findCurrentUserEmployee('MANAGEMENT');
+  let displayedEmployees = [...scheduledMgmt];
+
+  // Collapse if >3 and not expanded
+  if (!showAllEmployees.MANAGEMENT && scheduledMgmt.length > 3) {
+    displayedEmployees = scheduledMgmt.slice(0, 3);
+    if (expandBtn) {
+      expandBtn.style.display = 'inline-block';
+      expandBtn.textContent = `Show All (${scheduledMgmt.length})`;
+    }
+  } else if (showAllEmployees.MANAGEMENT && scheduledMgmt.length > 3) {
+    if (expandBtn) {
+      expandBtn.style.display = 'inline-block';
+      expandBtn.textContent = 'Show Less';
+    }
+  } else if (expandBtn) {
+    expandBtn.style.display = 'none';
+  }
+
+  // Render scheduled managers
+  displayedEmployees.forEach(emp => {
+    const isCurrentEmp = emp.employeeId === currentUserEmp?.employeeId || emp.id === currentUserEmp?.id;
+    grid.appendChild(createManagementCard(emp, isCurrentEmp, false));
+  });
+
+  // Render day off managers (collapsed)
+  renderDayOffGroup(grid, dayOffMgmt, 'MANAGEMENT', { open: showAllEmployees.MANAGEMENT });
+}
+
+function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
+  try {
+    const card = document.createElement('div');
+    card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
+
+    const empName = emp?.name || 'Unknown';
+    const photoHtml = emp.imageUrl
+      ? `<img src="${emp.imageUrl}" alt="${empName}" class="employee-photo">`
+      : `<div class="employee-photo placeholder">${getInitials(empName)}</div>`;
+
+    const loanWarning = hasLoanOverdue(empName)
+      ? '<div class="loan-warning">Loan Overdue</div>'
+      : '';
+
+    if (isDayOff) {
+      card.innerHTML = `
+        <div class="card-header">
+          ${photoHtml}
+          <div class="employee-info">
+            <h4>${empName}</h4>
+            <span class="role day-off-badge">Day Off</span>
+          </div>
+        </div>
+      `;
+      return card;
+    }
+    
+    const scan = getDailyScanStatsForEmployee(emp);
+    const scanRow = Number.isFinite(scan?.accuracy)
+      ? `
+        <div class="card-field">
+          <span class="field-label">Scan %</span>
+          <span class="field-value ${scan.accuracy >= 99.5 ? 'positive' : scan.accuracy >= 99 ? 'warning' : 'negative'}">${scan.accuracy}%</span>
+        </div>
+      `
+      : '';
+
+    // Employee discount or expense info (if available)
+    const discount = emp.metrics?.discountLc || emp.metrics?.employeeDiscount || emp.discount || null;
+    const discountRow = (discount !== null && discount !== undefined && Number.isFinite(Number(discount)))
+      ? `
+        <div class="card-field">
+          <span class="field-label">Employee Discount</span>
+          <span class="field-value">${formatCurrency(Number(discount))}</span>
+        </div>
+      ` : '';
+
+    // IPC / sales if available
+    const ipc = emp.metrics?.ipc ?? emp.ipc ?? null;
+    const sales = emp.metrics?.salesAmount ?? (emp.metrics?.sales ?? null);
+    const hasIpc = ipc !== null && ipc !== undefined && Number.isFinite(Number(ipc));
+    const hasSales = sales !== null && sales !== undefined && Number.isFinite(Number(sales));
+    const ipcSalesRow = (hasIpc || hasSales)
+      ? `
+        <div class="card-field">
+          <span class="field-label">IPC</span>
+          <span class="field-value">${hasIpc ? ipc : '--'}</span>
+        </div>
+        <div class="card-field">
+          <span class="field-label">Sales</span>
+          <span class="field-value">${hasSales ? formatCurrency(sales) : '--'}</span>
+        </div>
+      ` : '';
+
+    const position = emp.role || emp.position || emp.taskOfTheDay || '';
+    const lunch = emp.scheduledLunch || emp.lunch || '-';
+
+    card.innerHTML = `
+      <div class="card-header">
+        ${photoHtml}
+        <div class="employee-info">
+          <h4>${emp.name}</h4>
+          <span class="role">${position || 'Management'}</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-field">
+          <span class="field-label">Shift</span>
+          <span class="field-value">${emp.shift || '-'}</span>
+        </div>
+        <div class="card-field">
+          <span class="field-label">Lunch</span>
+          <span class="field-value">${lunch}</span>
+        </div>
+        ${scanRow}
+        ${discountRow}
+        ${ipcSalesRow}
+      </div>
+      ${loanWarning}
+    `;
+    return card;
+  } catch (error) {
+    console.error('Error creating management card:', error, emp);
+    const errorCard = document.createElement('div');
+    errorCard.className = 'employee-card';
+    errorCard.innerHTML = '<div class="card-header"><div class="employee-info"><h4>Error loading card</h4></div></div>';
+    return errorCard;
+  }
+}
+
+// Tailors Section - Collapsed by default, show Day Off for unscheduled
+function renderTailorsSection() {
+  const grid = document.getElementById('tailorGrid');
+  const count = document.getElementById('tailorCount');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  // Working vs day off (driven by Game Plan Edit toggle)
+  const tailors = employees.TAILOR || [];
+  const scheduledTailors = tailors.filter(e => !e?.isOff);
+  const dayOffTailors = tailors.filter(e => !!e?.isOff);
+  if (count) count.textContent = tailors.length;
+
+  const currentUserEmp = findCurrentUserEmployee('TAILOR');
+
+  // Collapsed by default - show only scheduled, max 3 (expand by clicking section title).
+  const shownScheduled = showAllEmployees.TAILOR ? scheduledTailors : scheduledTailors.slice(0, 3);
+  shownScheduled.forEach(emp => {
+    grid.appendChild(createTailorCard(emp, emp.id === currentUserEmp?.id, false));
+  });
+
+  renderDayOffGroup(grid, dayOffTailors, 'TAILOR', { open: showAllEmployees.TAILOR });
+}
+
+function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
+  const card = document.createElement('div');
+  card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
+
+  const photoHtml = emp.imageUrl
+    ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
+    : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
+
+  if (isDayOff) {
+    card.innerHTML = `
+      <div class="card-header">
+        ${photoHtml}
+        <div class="employee-info">
+          <h4>${emp.name}</h4>
+          <span class="role day-off-badge">Day Off</span>
+        </div>
+      </div>
+    `;
+  } else {
+    const scan = getDailyScanStatsForEmployee(emp);
+    const scanRow = Number.isFinite(scan?.accuracy)
+      ? `
+        <div class="card-field">
+          <span class="field-label">Scan Accuracy</span>
+          <span class="field-value ${scan.accuracy >= 99.5 ? 'positive' : scan.accuracy >= 99 ? 'warning' : 'negative'}">${scan.accuracy}%</span>
+        </div>
+      `
+      : '';
+    const productivity = emp.productivity || 0;
+    const productivityClass = productivity >= 100 ? 'positive' : productivity >= 80 ? 'warning' : 'negative';
+    const apg = getTailorApgForEmployee(emp);
+    const apgText = apg !== null ? formatNumberOrDash(apg, 1) : '--';
+    card.innerHTML = `
+      <div class="card-header">
+        ${photoHtml}
+        <div class="employee-info">
+          <h4>${emp.name}</h4>
+          <span class="role">Tailor</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="card-field">
+          <span class="field-label">Station</span>
+          <span class="field-value">${emp.station || '-'}</span>
+        </div>
+        <div class="card-field">
+          <span class="field-label">Lunch</span>
+          <span class="field-value">${emp.lunch || '-'}</span>
+        </div>
+        <div class="card-field">
+          <span class="field-label">APG</span>
+          <span class="field-value">${apgText}</span>
+        </div>
+        ${scanRow}
+      </div>
+      <div class="tailor-productivity">
+        <div class="productivity-bar">
+          <div class="productivity-fill ${productivityClass}" style="width: ${Math.min(productivity, 150)}%"></div>
+        </div>
+        <span class="productivity-value ${productivityClass}">${productivity}% YTD Productivity</span>
+      </div>
+    `;
+  }
+  return card;
+}
+
+function renderDayOffGroup(grid, list, label, options = {}) {
+  if (!grid) return;
+  if (!Array.isArray(list) || list.length === 0) return;
+
+  const open = options?.open === true;
+
+  const details = document.createElement('details');
+  details.className = 'day-off-group';
+  details.open = open;
+  const summary = document.createElement('summary');
+  summary.textContent = `Day Off (${list.length})`;
+  details.appendChild(summary);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'employee-grid day-off-grid';
+  list.forEach(emp => {
+    if (label === 'SA') wrap.appendChild(createSACard(emp, false));
+    else if (label === 'BOH') wrap.appendChild(createBOHCard(emp, false));
+    else if (label === 'MANAGEMENT') wrap.appendChild(createManagementCard(emp, false, true));
+    else if (label === 'TAILOR') wrap.appendChild(createTailorCard(emp, false, true));
+  });
+  details.appendChild(wrap);
+  grid.appendChild(details);
+}
+
+// =====================================================
+// NEW SECTIONS RENDERING
+// =====================================================
+
+// Operations Health Section
+function renderOperationsHealth() {
+  const health = metrics.operationsHealth;
+  if (!health) return;
+
+  // Tailor Productivity
+  const tailorProdEl = document.getElementById('tailorProductivity');
+  if (tailorProdEl) {
+    tailorProdEl.textContent = health.tailorProductivity !== null ? `${health.tailorProductivity}%` : '--';
+    const card = document.getElementById('tailorProdCard');
+    if (card) {
+      card.classList.remove('success', 'warning');
+      if (health.tailorProductivity >= 90) card.classList.add('success');
+      else if (health.tailorProductivity < 80) card.classList.add('warning');
+    }
+  }
+
+  // On-time Alterations
+  const ontimeEl = document.getElementById('ontimeAlterations');
+  if (ontimeEl) {
+    ontimeEl.textContent = health.onTimeAlterations !== null ? `${health.onTimeAlterations}%` : '--';
+    const card = document.getElementById('ontimeCard');
+    if (card) {
+      card.classList.remove('success', 'warning');
+      if (health.onTimeAlterations >= 95) card.classList.add('success');
+      else if (health.onTimeAlterations < 90) card.classList.add('warning');
+    }
+  }
+
+  // Overdue Alterations
+  const overdueEl = document.getElementById('overdueAlterations');
+  if (overdueEl) {
+    overdueEl.textContent = health.overdueAlterations;
+    const card = document.getElementById('overdueAltsCard');
+    if (card) {
+      card.classList.remove('success', 'warning');
+      if (health.overdueAlterations === 0) card.classList.add('success');
+      else card.classList.add('warning');
+    }
+  }
+
+  // Inventory Accuracy
+  const accuracyEl = document.getElementById('inventoryAccuracy');
+  if (accuracyEl) {
+    accuracyEl.textContent = health.inventoryAccuracy !== null ? `${health.inventoryAccuracy}%` : '--';
+    const card = document.getElementById('invAccuracyCard');
+    if (card) {
+      card.classList.remove('success', 'warning');
+      if (health.inventoryAccuracy >= 99) card.classList.add('success');
+      else if (health.inventoryAccuracy < 98) card.classList.add('warning');
+    }
+  }
+
+  // OPS_METRICS: Tailor on-time donut charts
+  if (currentPageType === 'OPS_METRICS') {
+    renderTailorOnTimeCharts();
+  }
+}
+
+function renderMainRetailKpis() {
+  const kpi = metrics?.metrics;
+  if (!kpi) return;
+
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  const setChange = (id, value, suffix) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      el.textContent = '--';
+      el.className = 'metric-change neutral';
+      return;
+    }
+
+    el.textContent = `${num >= 0 ? '+' : ''}${num}% ${suffix}`;
+    el.className = `metric-change ${num >= 0 ? 'positive' : 'negative'}`;
+  };
+
+  const setVsTarget = (valueId, labelId, vs, target, targetFormatter) => {
+    const vsEl = document.getElementById(valueId);
+    const labelEl = document.getElementById(labelId);
+    if (!vsEl && !labelEl) return;
+
+    const vsNum = Number(vs);
+    if (!Number.isFinite(vsNum)) {
+      if (vsEl) vsEl.textContent = '--';
+      if (labelEl) {
+        labelEl.textContent = '--';
+        labelEl.className = 'metric-change neutral';
+      }
+      return;
+    }
+
+    if (vsEl) vsEl.textContent = `${vsNum >= 0 ? '+' : ''}${vsNum}%`;
+    if (labelEl) {
+      const formattedTarget = targetFormatter ? targetFormatter(target) : target;
+      labelEl.textContent = formattedTarget !== null && formattedTarget !== undefined && formattedTarget !== '' ? `Target: ${formattedTarget}` : 'Target: --';
+      labelEl.className = `metric-change ${vsNum >= 0 ? 'positive' : 'negative'}`;
+    }
+  };
+
+  // APC
+  if (kpi.apc !== undefined) setText('kpiApc', formatUsd(kpi.apc).replace('.00', ''));
+  setChange('kpiApcChange', kpi.apcVsPY, 'vs PY');
+  setVsTarget('kpiApcVsTarget', 'kpiApcTargetLabel', kpi.apcVsTarget, kpi.apcTarget, (v) => formatUsd(v).replace('.00', ''));
+
+  // CPC
+  setText('kpiCpc', Number.isFinite(Number(kpi.cpc)) ? Number(kpi.cpc).toFixed(2) : '--');
+  setChange('kpiCpcChange', kpi.cpcVsPY, 'vs PY');
+  setVsTarget('kpiCpcVsTarget', 'kpiCpcTargetLabel', kpi.cpcVsTarget, kpi.cpcTarget, (v) => (Number.isFinite(Number(v)) ? Number(v).toFixed(1) : '--'));
+
+  // IPC
+  setText('kpiIpc', Number.isFinite(Number(kpi.itemsPerCustomer)) ? Number(kpi.itemsPerCustomer).toFixed(2) : '--');
+  setChange('kpiIpcChange', kpi.ipcVsPY, 'vs PY');
+  setVsTarget('kpiIpcVsTarget', 'kpiIpcTargetLabel', kpi.ipcVsTarget, kpi.itemsPerCustomerTarget, (v) => (Number.isFinite(Number(v)) ? Number(v).toFixed(2) : '--'));
+
+  // SPH
+  if (kpi.salesPerHour !== undefined) setText('kpiSph', formatUsd(kpi.salesPerHour).replace('.00', ''));
+  setChange('kpiSphChange', kpi.sphVsPY, 'vs PY');
+}
+
+function formatNumberOrDash(value, digits = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  if (digits <= 0) return `${Math.round(n)}`;
+  const factor = Math.pow(10, digits);
+  return `${Math.round(n * factor) / factor}`;
+}
+
+function getTailorApgForEmployee(emp) {
+  const employeeApg = Number(emp?.metrics?.apg);
+  if (Number.isFinite(employeeApg)) return employeeApg;
+
+  const storeApg = Number(metrics?.storeOpsOverdueAudit?.apg);
+  if (Number.isFinite(storeApg)) return storeApg;
+
+  return null;
+}
+
+function getL3MSizePassPctForEmployee(emp) {
+  const employeeVal = Number(emp?.metrics?.l3mSizePassPct ?? emp?.metrics?.l3mSizePass);
+  if (Number.isFinite(employeeVal)) return employeeVal;
+
+  const storeVal = Number(metrics?.storeOpsOverdueAudit?.l3mSizePassPct);
+  if (Number.isFinite(storeVal)) return storeVal;
+
+  return null;
+}
+
+function formatPercentOrDash(value, digits = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  return `${formatNumberOrDash(n, digits)}%`;
+}
+
+// Tailor over-audit donut charts (overall + long/short)
+let onTimeOverallChart = null;
+let onTimeLongChart = null;
+let onTimeShortChart = null;
+
+function destroyChartSafely(chart) {
+  try {
+    if (chart && typeof chart.destroy === 'function') chart.destroy();
+  } catch (_) {}
+}
+
+function getCssVarColor(varName, fallback) {
+  try {
+    const v = window.getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    return v || fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function renderOnTimeDoughnut(canvasId, split) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  if (typeof Chart === 'undefined') return null;
+  if (!split) return null;
+
+  const good = Number(split.goodCount);
+  const late = Number(split.lateCount);
+  const goodCount = Number.isFinite(good) ? good : 0;
+  const lateCount = Number.isFinite(late) ? late : 0;
+
+  const goodColor = getCssVarColor('--success', '#28a745');
+  const lateColor = getCssVarColor('--danger', '#dc3545');
+
+  return new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels: ['Good', 'Late'],
+      datasets: [
+        {
+          data: [goodCount, lateCount],
+          backgroundColor: [goodColor, lateColor],
+          borderWidth: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => {
+              const total = (goodCount + lateCount) || 1;
+              const pct = Math.round((ctx.raw / total) * 1000) / 10;
+              return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderTailorOnTimeCharts() {
+  const breakdown = metrics?.operationsHealth?.alterationsOnTimeBreakdown;
+  const overall = breakdown?.overall || null;
+  const long = breakdown?.byDuration?.long || null;
+  const short = breakdown?.byDuration?.short || null;
+
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  const setCardVisible = (cardId, visible) => {
+    const el = document.getElementById(cardId);
+    if (el) el.style.display = visible ? '' : 'none';
+  };
+
+  setText('onTimeOverallPct', overall ? formatPercentOrDash(overall.goodPct, 0) : '--');
+  setText('onTimeLongPct', long ? formatPercentOrDash(long.goodPct, 0) : '--');
+  setText('onTimeShortPct', short ? formatPercentOrDash(short.goodPct, 0) : '--');
+
+  const formatCounts = (split) => {
+    if (!split) return 'Good vs Late';
+    const good = Number(split.goodCount);
+    const late = Number(split.lateCount);
+    if (!Number.isFinite(good) || !Number.isFinite(late)) return 'Good vs Late';
+    return `Good: ${good} • Late: ${late}`;
+  };
+  setText('onTimeOverallCounts', formatCounts(overall));
+  setText('onTimeLongCounts', formatCounts(long));
+  setText('onTimeShortCounts', formatCounts(short));
+
+  setCardVisible('onTimeOverallChartCard', !!overall);
+  setCardVisible('onTimeLongChartCard', !!long);
+  setCardVisible('onTimeShortChartCard', !!short);
+
+  onTimeOverallChart = (destroyChartSafely(onTimeOverallChart), renderOnTimeDoughnut('onTimeOverallChart', overall));
+  onTimeLongChart = (destroyChartSafely(onTimeLongChart), renderOnTimeDoughnut('onTimeLongChart', long));
+  onTimeShortChart = (destroyChartSafely(onTimeShortChart), renderOnTimeDoughnut('onTimeShortChart', short));
+}
+
+function renderTailorProductivityLastWeek() {
+  const health = metrics?.operationsHealth;
+  if (!health) return;
+
+  const formatPct = (v) => (Number.isFinite(Number(v)) ? `${formatNumberOrDash(v, 1)}%` : '--');
+
+  const setIfPresent = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  const team = health.teamProductivity ?? health.tailorProductivity;
+  setIfPresent('tailorTeamProductivityPct', formatPct(team));
+  setIfPresent('tailorUtilizationPct', formatPct(health.utilization));
+  setIfPresent('tailorWorkedHours', formatNumberOrDash(health.workedHours, 0));
+  setIfPresent('tailorAlterationsHours', formatNumberOrDash(health.hoursOfAlterations, 0));
+
+  setIfPresent('mgrTailorTeamProductivityPct', formatPct(team));
+  setIfPresent('mgrTailorUtilizationPct', formatPct(health.utilization));
+  setIfPresent('mgrTailorWorkedHours', formatNumberOrDash(health.workedHours, 0));
+  setIfPresent('mgrTailorAlterationsHours', formatNumberOrDash(health.hoursOfAlterations, 0));
+
+  // Store Ops Overdue Audit (PDF-derived) KPIs
+  try {
+    const audit = metrics?.storeOpsOverdueAudit;
+    const apgEl = document.getElementById('tailorAuditApg');
+    const sizePassEl = document.getElementById('tailorAuditSizePassPct');
+    const freeAltEl = document.getElementById('tailorAuditFreeAltPct');
+    const weekHintEl = document.getElementById('tailorAuditWeekHint');
+    const genHintEl = document.getElementById('tailorAuditGeneratedHint');
+
+    if (apgEl) apgEl.textContent = Number.isFinite(Number(audit?.apg)) ? formatNumberOrDash(audit.apg, 1) : '--';
+    if (sizePassEl) sizePassEl.textContent = Number.isFinite(Number(audit?.l3mSizePassPct)) ? `${formatNumberOrDash(audit.l3mSizePassPct, 0)}%` : '--';
+    if (freeAltEl) freeAltEl.textContent = Number.isFinite(Number(audit?.freeAlterationPct)) ? `${formatNumberOrDash(audit.freeAlterationPct, 0)}%` : '--';
+
+    if (weekHintEl) {
+      if (audit?.finishedWeekStart && audit?.finishedWeekEnd) {
+        weekHintEl.textContent = `Finished week: ${audit.finishedWeekStart} → ${audit.finishedWeekEnd}`;
+      } else {
+        weekHintEl.textContent = 'Last complete week';
+      }
+    }
+
+    if (genHintEl) {
+      if (audit?.generatedByLookerAtText) genHintEl.textContent = `Looker: ${audit.generatedByLookerAtText}`;
+      else if (audit?.sourceFile) genHintEl.textContent = `Overdue Audit: ${audit.sourceFile}`;
+      else genHintEl.textContent = 'Overdue Audit';
+    }
+  } catch (_) {
+    // ignore
+  }
+
+  const tailorBody = document.getElementById('tailorLastWeekTableBody');
+  if (tailorBody) {
+    tailorBody.innerHTML = '';
+    const rows = Array.isArray(health.tailorsLastWeek) ? health.tailorsLastWeek : [];
+    rows.forEach(t => {
+      const tr = document.createElement('tr');
+
+      const tdName = document.createElement('td');
+      tdName.textContent = t?.name || '--';
+
+      const tdProd = document.createElement('td');
+      tdProd.textContent = formatPct(t?.productivityPercent);
+
+      const tdBench = document.createElement('td');
+      tdBench.textContent = Number.isFinite(Number(t?.benchmarkHours)) ? formatNumberOrDash(t.benchmarkHours, 2) : '--';
+
+      const tdWorked = document.createElement('td');
+      tdWorked.textContent = Number.isFinite(Number(t?.workedHours)) ? formatNumberOrDash(t.workedHours, 2) : '--';
+
+      const tdEff = document.createElement('td');
+      tdEff.textContent = Number.isFinite(Number(t?.efficiency)) ? `${formatNumberOrDash(t.efficiency, 1)}%` : '--';
+
+      tr.appendChild(tdName);
+      tr.appendChild(tdProd);
+      tr.appendChild(tdBench);
+      tr.appendChild(tdWorked);
+      tr.appendChild(tdEff);
+      tailorBody.appendChild(tr);
+    });
+  }
+
+  const benchBody = document.getElementById('benchmarkTimesTableBody');
+  if (benchBody) {
+    benchBody.innerHTML = '';
+    const rows = Array.isArray(health.benchmarkTimesMinutes) ? health.benchmarkTimesMinutes : [];
+    rows.slice(0, 40).forEach(r => {
+      const tr = document.createElement('tr');
+
+      const tdDiff = document.createElement('td');
+      tdDiff.textContent = r?.difficultyLevel ?? '--';
+
+      const tdDesc = document.createElement('td');
+      tdDesc.textContent = r?.description || '--';
+
+      const tdMin = document.createElement('td');
+      tdMin.textContent = Number.isFinite(Number(r?.minutes)) ? formatNumberOrDash(r.minutes, 0) : '--';
+
+      tr.appendChild(tdDiff);
+      tr.appendChild(tdDesc);
+      tr.appendChild(tdMin);
+      benchBody.appendChild(tr);
+    });
+  }
+}
+
+function renderWorkRelatedExpensesSummary() {
+  const exp = metrics?.workRelatedExpenses;
+  if (!exp || !exp.storeTotals) return;
+
+  const ytd = exp.storeTotals.currentYear || {};
+  const month = exp.storeTotals.currentMonth || {};
+
+  const formatUsdCompact = (n) => {
+    const num = Number(n);
+    if (!Number.isFinite(num)) return '--';
+    return formatUsd(num).replace('.00', '');
+  };
+
+  const set = (id, txt) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = txt;
+  };
+
+  set('expDiscountYtd', formatUsdCompact(ytd.fullPriceLc));
+  set('expDiscountYtdHint', `${Number(ytd.orders || 0)} orders`);
+  set('expDiscountMonth', formatUsdCompact(month.fullPriceLc));
+  set('expDiscountMonthHint', `${Number(month.orders || 0)} orders`);
+
+  set('mgrExpDiscountYtd', formatUsdCompact(ytd.fullPriceLc));
+  set('mgrExpDiscountYtdHint', `${Number(ytd.orders || 0)} orders`);
+  set('mgrExpDiscountMonth', formatUsdCompact(month.fullPriceLc));
+  set('mgrExpDiscountMonthHint', `${Number(month.orders || 0)} orders`);
+
+  // Manager over-limit banner
+  const mgrBanner = document.getElementById('mgrOverLimitBanner');
+  if (mgrBanner && Array.isArray(exp.employees)) {
+    const overLimitEmployees = exp.employees.filter(e => {
+      return !!(e?.overLimit?.yearly);
+    });
+    if (overLimitEmployees.length > 0) {
+      mgrBanner.style.display = '';
+      mgrBanner.textContent = `Over yearly limit ($2,500): ${overLimitEmployees.length} employee${overLimitEmployees.length === 1 ? '' : 's'} · Click to view`;
+      mgrBanner.style.cursor = 'pointer';
+      mgrBanner.onclick = () => { window.location.href = '/employee-discount'; };
+    } else {
+      mgrBanner.style.display = 'none';
+      mgrBanner.textContent = '';
+      mgrBanner.onclick = null;
+      mgrBanner.style.cursor = '';
+    }
+  }
+}
+
+// Inventory Issues Section
+function renderInventoryIssues() {
+  const issues = metrics.inventoryIssues;
+  if (!issues) return;
+
+  // Missing Items
+  const missingEl = document.getElementById('missingItems');
+  if (missingEl) {
+    missingEl.textContent = issues.missingItems !== null ? `${issues.missingItems}%` : '--';
+    const card = document.getElementById('missingCard');
+    if (card) {
+      card.classList.remove('warning');
+      if (issues.missingItems > 5) card.classList.add('warning');
+    }
+  }
+
+  // Overdue Reserved
+  const overdueReservedEl = document.getElementById('overdueReserved');
+  if (overdueReservedEl) {
+    overdueReservedEl.textContent = issues.overdueReserved !== null ? `${issues.overdueReserved}%` : '--';
+    const card = document.getElementById('overdueReservedCard');
+    if (card) {
+      card.classList.remove('warning');
+      if (issues.overdueReserved > 5) card.classList.add('warning');
+    }
+  }
+
+  // Unexpected Items
+  const unexpectedEl = document.getElementById('unexpectedItems');
+  if (unexpectedEl) {
+    unexpectedEl.textContent = issues.unexpectedItems !== null ? `${issues.unexpectedItems}%` : '--';
+  }
+
+  // Due Pullbacks
+  const pullbacksEl = document.getElementById('duePullbacks');
+  if (pullbacksEl) {
+    pullbacksEl.textContent = issues.duePullbacks;
+  }
+}
+
+// Customer Reserved Orders Section
+function renderCustomerOrders() {
+  const orders = metrics.customerReservedOrders;
+  if (!orders) return;
+
+  // Summary stats
+  document.getElementById('ordersCount').textContent = `${orders.summary.total} orders`;
+  document.getElementById('orders30Days').textContent = orders.summary.over30Days;
+  document.getElementById('orders60Days').textContent = orders.summary.over60Days;
+  document.getElementById('orders90Days').textContent = orders.summary.over90Days;
+  document.getElementById('missingReservedCount').textContent = orders.missingReserved.length;
+
+  // Populate table
+  const tbody = document.getElementById('ordersTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  // Combine and sort by days old
+  const allOrders = [
+    ...orders.orders.map(o => ({ ...o, status: 'pending' })),
+    ...orders.missingReserved.map(o => ({ ...o, daysOld: 0, status: 'missing' }))
+  ].sort((a, b) => b.daysOld - a.daysOld);
+
+  // Show max 20 orders
+  allOrders.slice(0, 20).forEach(order => {
+    const tr = document.createElement('tr');
+    const daysClass = order.daysOld >= 90 ? 'critical' : order.daysOld >= 60 ? 'warning' : order.daysOld >= 30 ? 'alert' : '';
+    const statusClass = order.status === 'missing' ? 'missing' : 'pending';
+
+    // Check for PSUS order number in fulfillmentId (PSUS + 8 digits)
+    const fulfillmentId = order.fulfillmentId || '';
+    const psusMatch = fulfillmentId.match(/PSUS(\d{8})/i);
+    const fulfillmentDisplay = psusMatch
+      ? `<a href="https://ussbp.omni.manh.com/customerengagementfacade/app/orderstatus?orderId=PSUS${psusMatch[1]}&selectedOrg=SUIT-US" target="_blank" class="psus-link" title="Open Order Status">PSUS${psusMatch[1]}</a>`
+      : fulfillmentId;
+
+    tr.innerHTML = `
+      <td class="fulfillment-id">${fulfillmentDisplay}</td>
+      <td>${order.createdDate || order.lastReadDate || '-'}</td>
+      <td class="days-old ${daysClass}">${order.daysOld > 0 ? order.daysOld + ' days' : '-'}</td>
+      <td><span class="status-badge ${statusClass}">${order.status === 'missing' ? 'Missing' : 'Pending'}</span></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  if (allOrders.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;">No orders found</td></tr>';
+  }
+}
+
+// Daily Scan Log (formerly Employee Count Leaderboard)
+function renderCountLeaderboard() {
+  renderDailyScanLog();
+}
+
+function renderDailyScanLog() {
+  const countData = metrics.employeeCountPerformance;
+  const grid = document.getElementById('scanLogGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  if (!countData || !countData.employees || countData.employees.length === 0) {
     grid.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">No scan data available for today</div>';
     return;
   }
@@ -1848,7 +3297,7 @@ function renderDailyScanStats() {
     ...(employees.TAILOR || [])
   ];
 
-  (stats.employees || []).filter(Boolean).forEach((emp, index) => {
+  (countData.employees || []).filter(Boolean).forEach((emp, index) => {
     // Try to find the employee's photo from our employee data
     const matchedEmployee = allEmployees.find(e => 
       e.name?.toLowerCase() === emp.name?.toLowerCase() ||
@@ -2364,7 +3813,7 @@ async function saveGameplan() {
       if (notesStatus) notesStatus.textContent = 'Saved';
       if (lastEditedBy) {
         const editTime = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-        lastEditedBy.textContent = `Last edited by ${gameplanData.lastEditedBy}${editTime ? ' at ' + editTime : ''}`;
+        lastEditedBy.textContent = `Last edited by ${currentUser?.name || 'Unknown'} at ${editTime}`;
       }
     } else {
       let msg = `Save failed (HTTP ${response.status})`;
@@ -2702,77 +4151,6 @@ function setupEventListeners() {
   document.getElementById('publishBtn')?.addEventListener('click', publishGameplan);
   document.getElementById('editMetricsBtn')?.addEventListener('click', openMetricsEditor);
   document.getElementById('manageSettingsBtn')?.addEventListener('click', openSettingsModal);
-
-  // Assign daily scan (delegated click handler)
-  document.addEventListener('click', async (e) => {
-    const btn = e.target.closest && e.target.closest('.btn-assign-scan');
-    if (!btn) return;
-    e.preventDefault();
-    const empId = btn.dataset.empid;
-    if (!empId) return;
-    const currentlyAssigned = !!(gameplanData?.assignments?.[empId]?.dailyScanAssigned);
-    try {
-      btn.disabled = true;
-      const resp = await fetch('/api/gameplan/daily-scan/assign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ employeeId: empId, assign: !currentlyAssigned })
-      });
-      const result = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(result?.error || 'Failed');
-      // Refresh gameplan and UI
-      await loadGameplan();
-      renderBOHSection();
-      renderManagementSection();
-      renderSASection();
-      showNotification(result.success ? 'Daily scan assignment updated' : 'Updated');
-    } catch (err) {
-      console.error('Assign scan error', err);
-      showNotification('Error updating assignment', 'error');
-    } finally {
-      btn.disabled = false;
-    }
-  });
-
-  // Daily scan checkbox handler (delegated change) - manager-only checkboxes
-  document.addEventListener('change', async (e) => {
-    const target = e.target;
-    if (!target) return;
-    if (target.classList && target.classList.contains('daily-scan-checkbox')) {
-      const empId = target.getAttribute('data-empid');
-      if (!empId) return;
-
-      // Optimistically uncheck others in UI
-      document.querySelectorAll('.daily-scan-checkbox').forEach(cb => {
-        if (cb !== target) cb.checked = false;
-      });
-
-      try {
-        const resp = await fetch('/api/gameplan/daily-scan/assign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ employeeId: empId, assign: !!target.checked })
-        });
-        const result = await resp.json().catch(() => ({}));
-        if (!resp.ok) throw new Error(result?.error || 'Failed');
-        await loadGameplan();
-        renderBOHSection();
-        renderManagementSection();
-        renderSASection();
-        showNotification('Daily scan assignment updated');
-      } catch (err) {
-        console.error('Failed to assign daily scan', err);
-        showNotification('Error updating assignment', 'error');
-        // Revert UI by reloading canonical state
-        await loadGameplan();
-        renderBOHSection();
-        renderManagementSection();
-        renderSASection();
-      }
-    }
-  });
 
   // Metrics modal
   document.getElementById('closeMetrics')?.addEventListener('click', () => {

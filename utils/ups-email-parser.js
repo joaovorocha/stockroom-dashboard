@@ -10,10 +10,14 @@ const { simpleParser } = require('mailparser');
 const fs = require('fs');
 const path = require('path');
 
+// Ensure environment variables are loaded for standalone script execution
+// This will be a no-op if dotenv is already configured by the main app
+require('dotenv').config();
+
 const { getDataDir } = require('./paths');
+const pgDal = require('./dal/pg');
 
 const DATA_DIR = getDataDir();
-const SHIPMENTS_FILE = path.join(DATA_DIR, 'shipments.json');
 
 // Gmail configuration (reuse from gmail-fetcher)
 const GMAIL_CONFIG = {
@@ -98,7 +102,7 @@ function parseShipToBlock(combinedText) {
   let line1 = '';
   let line2 = '';
 
-  const cityLineIdx = rest.findIndex(l => /,\s*[A-Z]{2}\s+\d{5}(-\d{4})?/.test(l) || /,\s*[A-Z]{2}\s+\d{9}/.test(l));
+  const cityLineIdx = rest.findIndex(l => /,\s*[A-Z]{2}\s+(\d{5}(-\d{4})?|\d{9})/.test(l));
   if (cityLineIdx !== -1) {
     const cityLine = rest[cityLineIdx];
     const cm = cityLine.match(/^(.+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?|\d{9})/);
@@ -145,20 +149,67 @@ function parseShipToBlock(combinedText) {
   };
 }
 
+function tryParseDateFromString(raw) {
+  if (!raw) return null;
+  const s = raw.toString().replace(/\u00A0/g, ' ').trim();
+
+  // Try native parse first
+  let d = new Date(s);
+  if (!isNaN(d.getTime())) return d;
+
+  // Common textual formats: "January 5, 2026 3:00 PM", "Jan 5 2026 15:00"
+  const textFmt = s.match(/([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?)/);
+  if (textFmt) {
+    d = new Date(textFmt[1].replace(/\s+at\s+/i, ' '));
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // Numeric formats: MM/DD/YYYY or M/D/YY (with optional time)
+  const numFmt = s.match(/(\d{1,2}\/\d{1,2}\/\d{2,4}(?:[ ,]+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?)?)/);
+  if (numFmt) {
+    d = new Date(numFmt[1]);
+    if (!isNaN(d.getTime())) return d;
+    // Try swapping day/month if ambiguous (treat as MM/DD first, then DD/MM)
+    const parts = numFmt[1].split(' ')[0].split('/').map(p => parseInt(p, 10));
+    if (parts.length >= 3) {
+      const mm = parts[0], dd = parts[1], yy = parts[2];
+      const iso = `${yy.toString().length===2 ? '20'+yy : yy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+      d = new Date(iso);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+
+  // RFC style or ISO timestamp
+  const iso = s.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)/);
+  if (iso) {
+    d = new Date(iso[1]);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  // As a last resort try to extract words like "Fri, Jan 5, 2026 3:00 PM"
+  const asOf = s.match(/(?:as of|updated[:\s])*([A-Za-z0-9,:\s]+(?:AM|PM|am|pm))/i);
+  if (asOf) {
+    d = new Date(asOf[1]);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  return null;
+}
+
 function mapStatusTextToInternal(statusText) {
-  const s = (statusText || '').toString().toLowerCase();
-  if (!s) return 'unknown';
-  if (s.includes('delivered')) return 'delivered';
-  if (s.includes('out for delivery')) return 'in-transit';
-  if (s.includes('in transit') || s.includes('on the way') || s.includes('departed') || s.includes('arrived')) return 'in-transit';
-  if (s.includes('label created') || s.includes('shipment ready') || s.includes('ready for ups')) return 'label-created';
-  if (s.includes('exception') || s.includes('delay') || s.includes('failed')) return 'unknown';
-  return 'unknown';
+  const s = (statusText || '').toString().toUpperCase();
+  if (!s) return 'UNKNOWN';
+  if (s.includes('DELIVERED')) return 'DELIVERED';
+  if (s.includes('OUT FOR DELIVERY')) return 'IN_TRANSIT';
+  if (s.includes('IN TRANSIT') || s.includes('ON THE WAY') || s.includes('DEPARTED') || s.includes('ARRIVED')) return 'IN_TRANSIT';
+  if (s.includes('LABEL CREATED') || s.includes('SHIPMENT READY') || s.includes('READY FOR UPS')) return 'LABEL_CREATED';
+  if (s.includes('EXCEPTION') || s.includes('DELAY') || s.includes('FAILED')) return 'EXCEPTION';
+  return 'UNKNOWN';
 }
 
 function statusRank(status) {
-  const order = { unknown: 0, requested: 1, pending: 1, 'label-created': 2, 'in-transit': 3, delivered: 4 };
-  return order[(status || '').toString().toLowerCase()] || 0;
+  const order = { UNKNOWN: 0, REQUESTED: 1, PENDING: 1, LABEL_CREATED: 2, IN_TRANSIT: 3, DELIVERED: 4, EXCEPTION: 5 };
+  return order[(status || '').toString().toUpperCase()] || 0;
 }
 
 // Common UPS sender patterns
@@ -243,9 +294,28 @@ class UPSEmailParser {
     });
   }
 
+  // Get all mailboxes
+  getMailboxes() {
+    return new Promise((resolve, reject) => {
+      this.imap.getBoxes((err, boxes) => {
+        if (err) reject(err);
+        else resolve(boxes);
+      });
+    });
+  }
+
   // Search for UPS emails
   searchUPSEmails(daysBack = 7) {
     return new Promise((resolve, reject) => {
+      // If daysBack is null or 0, search ALL
+      if (daysBack === null || daysBack === 0) {
+        this.imap.search(['ALL'], (err, results) => {
+          if (err) return reject(err);
+          return resolve(results || []);
+        });
+        return;
+      }
+
       const sinceDate = new Date();
       sinceDate.setDate(sinceDate.getDate() - daysBack);
 
@@ -270,7 +340,7 @@ class UPSEmailParser {
 
       this.imap.search(searchCriteria, (err, results) => {
         if (err) reject(err);
-        else resolve(results);
+        else resolve(results || []);
       });
     });
   }
@@ -414,6 +484,21 @@ class UPSEmailParser {
     const html = email.html || '';
     const combinedText = text + ' ' + html.replace(/<[^>]*>/g, ' ');
 
+    // Capture a raw payload snapshot for later re-parsing or debugging
+    try {
+      details.raw = {
+        subject: email.subject || '',
+        date: email.date ? new Date(email.date).toISOString() : new Date().toISOString(),
+        from: email.from?.value?.[0]?.address || '',
+        to: email.to?.value || [],
+        headers: email.headers && typeof email.headers === 'object' ? Object.fromEntries(email.headers) : null,
+        text: text || '',
+        html: html || ''
+      };
+    } catch (e) {
+      details.raw = { subject: email.subject || '', date: new Date().toISOString(), text: text || '', html: html || '' };
+    }
+
     // Extract tracking numbers
     details.trackingNumbers = this.extractTrackingNumbers(combinedText);
 
@@ -427,13 +512,26 @@ class UPSEmailParser {
     const shipperMatch = combinedText.match(/(?:^|\n)\s*From:\s*([^\n<]+)/i);
     if (shipperMatch) details.shipper = shipperMatch[1].trim().substring(0, 80);
 
-    // Extract estimated delivery
-    const deliveryMatch = combinedText.match(/(?:Scheduled Delivery|Delivery Date|Expected Delivery|Est\. Delivery)[:\s]+([A-Za-z]+,?\s+[A-Za-z]+\s+\d{1,2},?\s+\d{4})/i);
-    if (deliveryMatch) {
-      try {
-        details.estimatedDelivery = new Date(deliveryMatch[1]);
-      } catch (e) {}
+    // Try multiple patterns for estimated delivery (textual and numeric)
+    let deliveryDate = null;
+    const deliveryPatterns = [
+      /(?:Scheduled Delivery|Delivery Date|Expected Delivery|Est\.? Delivery|Estimated Delivery)[:\s]+([^\n<\r]+)/i,
+      /(?:Scheduled Delivery|Delivery Date|Expected Delivery|Est\.? Delivery|Estimated Delivery)\s*-\s*([^\n<\r]+)/i,
+      /Estimated Delivery[:\s]+(\d{1,2}\/\d{1,2}\/\d{2,4}(?:[^\n<]*)?)/i,
+      /Scheduled Delivery[:\s]+([A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}(?:[^\n<]*)?)/i
+    ];
+
+    for (const p of deliveryPatterns) {
+      const m = combinedText.match(p);
+      if (m && m[1]) {
+        const tryDate = tryParseDateFromString(m[1]);
+        if (tryDate) {
+          deliveryDate = tryDate;
+          break;
+        }
+      }
     }
+    if (deliveryDate) details.estimatedDelivery = deliveryDate;
 
     // Extract number of packages
     const pkgMatch = combinedText.match(/(?:Number of Packages)[:\s]+(\d+)/i);
@@ -493,47 +591,45 @@ class UPSEmailParser {
     const subject = (email.subject || '').toString();
     const text = email.text || '';
     const html = email.html || '';
-    const combinedText = `${subject}\n${text}\n${(html || '').replace(/<[^>]*>/g, ' ')}`.toLowerCase();
+    const combinedText = `${subject}\n${text}\n${(html || '').replace(/<[^>]*>/g, ' ')}`;
+
+    // Attempt to capture a timestamp related to the status (e.g., "Updated: Jan 5, 2026 3:00 PM")
+    let statusTime = null;
+    const timePatterns = [/(?:Updated[:\s]|Status Updated[:\s]|As of[:\s]|As of)\s*([^\n<]+)/i, /(?:Delivery Scheduled[:\s]|Scheduled Delivery[:\s])\s*([^\n<]+)/i];
+    for (const p of timePatterns) {
+      const m = combinedText.match(p);
+      if (m && m[1]) {
+        const parsed = tryParseDateFromString(m[1]);
+        if (parsed) { statusTime = parsed; break; }
+      }
+    }
+
+    const lower = combinedText.toLowerCase();
 
     // Common UPS notification phrases
-    if (combinedText.includes('delivered')) return { statusText: 'Delivered', internalStatus: 'delivered' };
-    if (combinedText.includes('out for delivery')) return { statusText: 'Out For Delivery', internalStatus: 'in-transit' };
-    if (combinedText.includes('in transit') || combinedText.includes('on the way')) return { statusText: 'In Transit', internalStatus: 'in-transit' };
-    if (combinedText.includes('label created') || combinedText.includes('shipment ready') || combinedText.includes('ready for ups')) {
-      return { statusText: 'Label Created', internalStatus: 'label-created' };
+    if (lower.includes('delivered')) return { statusText: 'Delivered', internalStatus: 'DELIVERED', statusUpdatedAt: statusTime };
+    if (lower.includes('out for delivery')) return { statusText: 'Out For Delivery', internalStatus: 'IN_TRANSIT', statusUpdatedAt: statusTime };
+    if (lower.includes('in transit') || lower.includes('on the way')) return { statusText: 'In Transit', internalStatus: 'IN_TRANSIT', statusUpdatedAt: statusTime };
+    if (lower.includes('label created') || lower.includes('shipment ready') || lower.includes('ready for ups')) {
+      return { statusText: 'Label Created', internalStatus: 'LABEL_CREATED', statusUpdatedAt: statusTime };
     }
-    if (combinedText.includes('exception') || combinedText.includes('delay') || combinedText.includes('failed attempt')) {
-      return { statusText: 'Exception', internalStatus: 'unknown' };
+    if (lower.includes('exception') || lower.includes('delay') || lower.includes('failed attempt')) {
+      return { statusText: 'Exception', internalStatus: 'EXCEPTION', statusUpdatedAt: statusTime };
+    }
+
+    // Detect returns (check specific phrases to avoid false positives)
+    if (/\b(return to sender|returned to sender|returned|return)\b/i.test(combinedText)) {
+      return { statusText: 'Returned', internalStatus: 'RETURNED', statusUpdatedAt: statusTime };
     }
 
     return null;
   }
 
-  // Load existing shipments
-  loadShipments() {
-    try {
-      if (fs.existsSync(SHIPMENTS_FILE)) {
-        return JSON.parse(fs.readFileSync(SHIPMENTS_FILE, 'utf8'));
-      }
-    } catch (err) {
-      console.error('Error loading shipments:', err);
-    }
-    return [];
-  }
-
-  // Save shipments
-  saveShipments(shipments) {
-    const dir = path.dirname(SHIPMENTS_FILE);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(SHIPMENTS_FILE, JSON.stringify(shipments, null, 2));
-  }
-
   // Create shipment record from parsed email
-  createShipmentRecord(details, existingShipments, statusUpdate) {
-    const newShipments = [];
-    let updated = 0;
+  async createShipmentRecord(details, statusUpdate) {
+    let createdCount = 0;
+    let updatedCount = 0;
+    const createdShipments = [];
 
     // Load users/employees for processed-by mapping (Reference Number 1)
     let users = [];
@@ -570,138 +666,142 @@ class UPSEmailParser {
     const reference1 = cleanReferenceValue(details.reference1);
     const processedKey = normalizeEmployeeId(reference1);
     const processedByUser = processedKey ? (employeeIndex.get(processedKey) || null) : null;
-    const processedById = processedByUser?.employeeId || '';
 
     for (const tracking of details.trackingNumbers) {
       const createdAt = details.date instanceof Date ? details.date.toISOString() : new Date().toISOString();
+      const incomingStatus = statusUpdate?.internalStatus ? statusUpdate.internalStatus : 'LABEL_CREATED';
 
-      const incomingStatus = statusUpdate?.internalStatus
-        ? statusUpdate.internalStatus
-        : (tracking ? 'label-created' : 'requested');
-
-      const shipmentBase = {
-        id: `auto-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        tracking: tracking,
-        trackingNumber: tracking,
-        trackingLink: `https://www.ups.com/track?tracknum=${tracking}`,
+        const shipmentData = {
+        tracking_number: tracking,
         carrier: 'UPS',
         status: incomingStatus,
-        statusFromUPS: statusUpdate?.statusText || '',
-        statusUpdatedAt: statusUpdate ? new Date().toISOString() : undefined,
-        statusUpdatedSource: statusUpdate ? 'email' : undefined,
+        status_from_ups: statusUpdate?.statusText || '',
+          status_updated_at: statusUpdate?.statusUpdatedAt ? statusUpdate.statusUpdatedAt.toISOString() : (statusUpdate ? new Date().toISOString() : null),
+        status_updated_source: statusUpdate ? 'email' : null,
         source: 'email-import',
-        importedAt: new Date().toISOString(),
-        createdAt,
-        shippedAt: createdAt,
-        customerName: details.customerName || details.destination || details.shipper || 'UPS Shipment',
-        address: details.address || null,
-        orderNumber: details.orderNumber || '',
-        serviceType: details.serviceType || details.service || '',
-        packageCount: Number.isFinite(details.packages) ? details.packages : null,
-        packageWeightLbs: Number.isFinite(details.weight) ? details.weight : null,
-        referenceNumber1: reference1 || '',
-        referenceNumber2: cleanReferenceValue(details.reference2) || '',
-        processedById: processedById,
-        processedByName: processedByUser?.name || '',
-        processedByImageUrl: processedByUser?.imageUrl || '',
+        imported_at: new Date().toISOString(),
+        shipped_at: createdAt,
+        customer_name: details.customerName || details.destination || details.shipper || 'UPS Shipment',
+        customer_address: details.address || null,
+        order_number: details.orderNumber || '',
+        service_type: details.serviceType || details.service || '',
+        package_count: Number.isFinite(details.packages) ? details.packages : null,
+        package_weight_lbs: Number.isFinite(details.weight) ? details.weight : null,
+        reference_1: reference1 || '',
+        reference_2: cleanReferenceValue(details.reference2) || '',
+        processed_by_id: processedByUser?.employeeId || null,
+        processed_by_name: processedByUser?.name || '',
         shipper: details.shipper || '',
-        origin: details.origin || '',
-        destination: details.destination || '',
-        estimatedDelivery: details.estimatedDelivery?.toISOString() || null,
+        origin_location: details.origin || '',
+        destination_location: details.destination || '',
+          estimated_delivery_at: details.estimatedDelivery ? (details.estimatedDelivery instanceof Date ? details.estimatedDelivery.toISOString() : null) : null,
         notes: details.notes || 'Captured from UPS email'
       };
-
-      const idx = existingShipments.findIndex(s =>
-        (s.trackingNumber || s.tracking || '').toString().trim().toUpperCase() === tracking
-      );
-
-      if (idx === -1) {
-        newShipments.push(shipmentBase);
-        console.log(`Created shipment for tracking: ${tracking}`);
-        continue;
+      // include raw payload and returned flag if present
+      if (details.raw) {
+        shipmentData.ups_raw_response = details.raw;
       }
+      shipmentData.returned = !!(statusUpdate && statusUpdate.internalStatus === 'RETURNED');
 
-      // Update existing with any missing fields + upgrade status if needed.
-      const existing = existingShipments[idx] || {};
-      const next = { ...existing };
+      try {
+        // Find any existing shipments with this tracking and prefer the most recently updated
+        let existing = null;
+        try {
+          const res = await pgDal.query('SELECT * FROM shipments WHERE tracking_number = $1 ORDER BY COALESCE(status_updated_at, imported_at) DESC', [tracking]);
+          if (res && res.rows && res.rows.length) {
+            existing = res.rows[0];
+            if (res.rows.length > 1) {
+              console.warn(`[UPSEmailParser] Multiple shipments found for ${tracking} (${res.rows.length}). Using most recent id=${existing.id}.`);
+            }
+          }
+        } catch (qErr) {
+          console.warn('[UPSEmailParser] Error querying existing shipments:', qErr.message);
+          existing = await pgDal.getShipmentByTracking(tracking);
+        }
 
-      const setIfEmpty = (key, value) => {
-        if (value === undefined || value === null) return;
-        const existingVal = next[key];
-        const isEmpty = existingVal === undefined || existingVal === null || String(existingVal).trim() === '';
-        if (isEmpty && String(value).trim()) next[key] = value;
-      };
+        if (!existing) {
+          const newShipment = await pgDal.createShipment(shipmentData);
+          createdShipments.push(newShipment);
+          createdCount++;
+          console.log(`Created shipment for tracking: ${tracking}`);
+        } else {
+          // Update existing with any missing fields + upgrade status if needed.
+          const updates = {};
+          const setIfEmpty = (key, value) => {
+            if (value === undefined || value === null || String(value).trim() === '') return;
+            const existingVal = existing[key];
+            const isEmpty = existingVal === undefined || existingVal === null || String(existingVal).trim() === '';
+            if (isEmpty) updates[key] = value;
+          };
 
-      setIfEmpty('customerName', shipmentBase.customerName);
-      if (!next.address && shipmentBase.address) next.address = shipmentBase.address;
-      setIfEmpty('orderNumber', shipmentBase.orderNumber);
-      setIfEmpty('serviceType', shipmentBase.serviceType);
-      if (next.packageCount === undefined && shipmentBase.packageCount !== null) next.packageCount = shipmentBase.packageCount;
-      if (next.packageWeightLbs === undefined && shipmentBase.packageWeightLbs !== null) next.packageWeightLbs = shipmentBase.packageWeightLbs;
-      setIfEmpty('referenceNumber1', shipmentBase.referenceNumber1);
-      setIfEmpty('referenceNumber2', shipmentBase.referenceNumber2);
-      setIfEmpty('processedById', shipmentBase.processedById);
-      setIfEmpty('processedByName', shipmentBase.processedByName);
-      setIfEmpty('processedByImageUrl', shipmentBase.processedByImageUrl);
+          setIfEmpty('customer_name', shipmentData.customer_name);
+          if (!existing.customer_address && shipmentData.customer_address) updates.customer_address = shipmentData.customer_address;
+          setIfEmpty('order_number', shipmentData.order_number);
+          setIfEmpty('service_type', shipmentData.service_type);
+          if (existing.package_count === null && shipmentData.package_count !== null) updates.package_count = shipmentData.package_count;
+          if (existing.package_weight_lbs === null && shipmentData.package_weight_lbs !== null) updates.package_weight_lbs = shipmentData.package_weight_lbs;
+          setIfEmpty('reference_1', shipmentData.reference_1);
+          setIfEmpty('reference_2', shipmentData.reference_2);
+          setIfEmpty('processed_by_id', shipmentData.processed_by_id);
+          setIfEmpty('processed_by_name', shipmentData.processed_by_name);
 
-      if (statusUpdate?.statusText) {
-        next.statusFromUPS = statusUpdate.statusText;
-        next.statusUpdatedAt = new Date().toISOString();
-        next.statusUpdatedSource = 'email';
+          // Persist raw payload and returned flag on updates
+          if (details.raw) updates.ups_raw_response = JSON.stringify(details.raw);
+          updates.returned = shipmentData.returned === true;
+
+          // Status update logic:
+          // - If the incoming status has a parsed timestamp and it's newer than the
+          //   DB's status_updated_at, accept the incoming status (replace even if
+          //   the rank is lower) because it's newer information.
+          // - If incoming has no timestamp, only upgrade status by rank (never downgrade).
+          if (statusUpdate?.statusText) {
+            const incomingTime = statusUpdate?.statusUpdatedAt ? new Date(statusUpdate.statusUpdatedAt) : null;
+            const existingTime = existing.status_updated_at ? new Date(existing.status_updated_at) : null;
+
+            if (incomingTime && (!existingTime || incomingTime > existingTime)) {
+              updates.status_from_ups = statusUpdate.statusText;
+              updates.status_updated_at = incomingTime.toISOString();
+              updates.status_updated_source = 'email';
+              updates.status = incomingStatus;
+            } else if (!incomingTime) {
+              // No timestamp on incoming update: only upgrade by rank
+              updates.status_from_ups = statusUpdate.statusText;
+              updates.status_updated_at = new Date().toISOString();
+              updates.status_updated_source = 'email';
+              if (statusRank(incomingStatus) > statusRank(existing.status)) {
+                updates.status = incomingStatus;
+              }
+            } else {
+              // Incoming timestamp is older or equal: do not overwrite status, but update status_from_ups if DB lacks it
+              if (!existing.status_from_ups || String(existing.status_from_ups).trim() === '') {
+                updates.status_from_ups = statusUpdate.statusText;
+              }
+            }
+          } else {
+            // No status info in incoming email; keep existing status but still allow other field updates
+          }
+
+          if (Object.keys(updates).length > 0) {
+            console.log(`[UPSEmailParser] Updating existing shipment for ${tracking} with:`, JSON.stringify(updates, null, 2));
+            await pgDal.updateShipment(existing.id, updates);
+            updatedCount++;
+          } else {
+            console.log(`[UPSEmailParser] No updates needed for existing shipment ${tracking}`);
+          }
+        }
+      } catch (dbErr) {
+        console.error(`[UPSEmailParser] Database error for tracking ${tracking}:`, dbErr);
       }
-
-      // Upgrade internal status (never downgrade).
-      const existingInternal = (next.status || '').toString().toLowerCase();
-      if (statusRank(incomingStatus) > statusRank(existingInternal)) next.status = incomingStatus;
-
-      next.updatedAt = new Date().toISOString();
-      existingShipments[idx] = next;
-      updated += 1;
     }
 
-    return { createdShipments: newShipments, updated };
-  }
-
-  // Update existing shipment statuses from notification emails.
-  // Only upgrades status (never downgrades).
-  updateExistingShipmentsStatus(existingShipments, trackingNumbers, statusUpdate, emailDate) {
-    if (!statusUpdate || !trackingNumbers?.length) return { updated: 0 };
-    const now = new Date().toISOString();
-    const emailIso = emailDate instanceof Date ? emailDate.toISOString() : now;
-
-    let updated = 0;
-    for (const tracking of trackingNumbers) {
-      const idx = existingShipments.findIndex(
-        s => (s.trackingNumber || s.tracking || '').toString().trim().toUpperCase() === tracking
-      );
-      if (idx === -1) continue;
-
-      const shipment = existingShipments[idx];
-      const existingInternal = mapStatusTextToInternal(shipment.statusFromUPS || '');
-      const incomingInternal = statusUpdate.internalStatus || mapStatusTextToInternal(statusUpdate.statusText);
-      if (statusRank(incomingInternal) < statusRank(existingInternal)) continue;
-
-      shipment.statusFromUPS = statusUpdate.statusText || shipment.statusFromUPS || '';
-      shipment.statusUpdatedAt = now;
-      shipment.statusUpdatedSource = 'email';
-      shipment.statusEmailDate = emailIso;
-
-      // Optionally store internal status for quick filtering (effective status is still computed server-side)
-      if (incomingInternal && incomingInternal !== 'unknown') {
-        shipment.status = incomingInternal;
-        if (incomingInternal === 'delivered' && !shipment.deliveredAt) shipment.deliveredAt = emailIso;
-      }
-
-      shipment.updatedAt = now;
-      existingShipments[idx] = shipment;
-      updated++;
-    }
-
-    return { updated };
+    return { createdShipments, updated: updatedCount, created: createdCount };
   }
 
   // Main function to fetch and process UPS emails
-  async fetchAndImportShipments(daysBack = 7, deleteAfterImport = true) {
+  // By default do NOT delete emails after importing. To enable deletion,
+  // set environment variable `UPS_DELETE_EMAILS=true` or pass `true` explicitly.
+  async fetchAndImportShipments(daysBack = 30, deleteAfterImport = process.env.UPS_DELETE_EMAILS === 'true') {
+    console.log(`[UPSEmailParser] Starting fetchAndImportShipments (daysBack=${daysBack}, deleteAfterImport=${deleteAfterImport})`);
     const results = {
       success: false,
       emailsProcessed: 0,
@@ -714,18 +814,55 @@ class UPSEmailParser {
     };
 
     try {
+      if (deleteAfterImport !== true) {
+        // Ensure deletion is opt-in and explicitly enabled via env var.
+        if (process.env.UPS_DELETE_EMAILS === 'true') {
+          deleteAfterImport = true;
+        } else {
+          deleteAfterImport = false;
+        }
+      }
+      if (deleteAfterImport) console.warn('Warning: Email deletion is enabled. Set UPS_DELETE_EMAILS=false to disable.');
       await this.connectWithRetry();
-      const existingShipments = this.loadShipments();
-      const newShipments = [];
+      // If UPS_FETCH_ALL is set, we'll fetch ALL messages once (no SINCE)
+      const fetchAll = process.env.UPS_FETCH_ALL === 'true';
+      const effectiveDays = fetchAll ? null : daysBack;
       let updatedCount = 0;
+      let createdCount = 0;
+      const createdShipments = [];
 
-      const mailboxesToTry = [
+      // Build list of mailboxes to search. If fetching ALL, enumerate available boxes.
+      let mailboxesToTry = [
         'INBOX',
         '[Gmail]/All Mail',
         '[Google Mail]/All Mail',
         '[Gmail]/Trash',
         '[Google Mail]/Trash'
       ];
+
+      if (fetchAll) {
+        try {
+          const boxes = await this.getMailboxes();
+          // Flatten nested mailbox structure into paths
+          const flatten = (obj, prefix = '') => {
+            const out = [];
+            for (const k of Object.keys(obj || {})) {
+              const name = prefix ? `${prefix}/${k}` : k;
+              out.push(name);
+              if (obj[k].children) {
+                out.push(...flatten(obj[k].children, name));
+              }
+            }
+            return out;
+          };
+          const discovered = flatten(boxes).map(n => n.replace(/"/g, ''));
+          // Merge and deduplicate
+          mailboxesToTry = Array.from(new Set([...discovered, ...mailboxesToTry]));
+        } catch (e) {
+          console.warn('Could not enumerate mailboxes, falling back to defaults');
+        }
+      }
+
       for (const mailbox of mailboxesToTry) {
         try {
           await this.openMailbox(mailbox);
@@ -733,7 +870,7 @@ class UPSEmailParser {
           continue;
         }
 
-        const messageIds = await this.searchUPSEmails(daysBack);
+        const messageIds = await this.searchUPSEmails(effectiveDays);
         console.log(`Mailbox "${mailbox}": Found ${messageIds.length} potential UPS emails`);
 
         const processedMessageIds = [];
@@ -742,33 +879,32 @@ class UPSEmailParser {
           try {
             const email = await this.fetchEmail(msgId);
 
-            // Skip if not from UPS
             const fromAddr = email.from?.value?.[0]?.address || '';
             const isFromUPS = UPS_SENDERS.some(s =>
               fromAddr.toLowerCase().includes(s.replace('@ups.com', '').toLowerCase())
             ) || fromAddr.toLowerCase().includes('ups.com');
 
             if (!isFromUPS && !email.subject?.toLowerCase().includes('ups')) {
+              console.log(`[UPSEmailParser] Skipping email (not from UPS or subject): ${email.subject}`);
               continue;
             }
 
-            console.log(`Processing UPS email: ${email.subject}`);
+            console.log(`[UPSEmailParser] Processing UPS email: ${email.subject}`);
             results.emailsProcessed++;
 
             const details = this.parseShipmentDetails(email);
             const statusUpdate = this.parseStatusUpdate(email);
+            console.log(`[UPSEmailParser] Parsed details for ${email.subject}:`, JSON.stringify({ trackingNumbers: details.trackingNumbers, statusUpdate }, null, 2));
 
             if (details.trackingNumbers.length > 0) {
               results.trackingNumbers.push(...details.trackingNumbers);
-              const createdResult = this.createShipmentRecord(details, existingShipments, statusUpdate);
-              newShipments.push(...(createdResult.createdShipments || []));
-              updatedCount += createdResult.updated || 0;
-
-              // Update existing shipments from status notification emails
-              const updateResult = this.updateExistingShipmentsStatus(existingShipments, details.trackingNumbers, statusUpdate, details.date);
-              updatedCount += updateResult.updated || 0;
-
+              const { created, updated, createdShipments: newShipments } = await this.createShipmentRecord(details, statusUpdate);
+              createdShipments.push(...newShipments);
+              createdCount += created;
+              updatedCount += updated;
               processedMessageIds.push(msgId);
+            } else {
+              console.log(`[UPSEmailParser] No tracking numbers found in email: ${email.subject}`);
             }
           } catch (err) {
             console.error(`Error processing email ${msgId}:`, err.message);
@@ -776,7 +912,6 @@ class UPSEmailParser {
           }
         }
 
-        // Delete processed emails if enabled (per mailbox)
         if (deleteAfterImport && processedMessageIds.length > 0) {
           console.log(`Deleting ${processedMessageIds.length} processed UPS emails from "${mailbox}"...`);
           const deleteResults = await this.deleteEmails(processedMessageIds);
@@ -787,20 +922,13 @@ class UPSEmailParser {
         }
       }
 
-      // Save new shipments
-      if (newShipments.length > 0 || updatedCount > 0) {
-        const allShipments = [...existingShipments, ...newShipments];
-        this.saveShipments(allShipments);
-        results.shipmentsCreated = newShipments.length;
-        results.createdShipments = newShipments;
-        results.shipmentsUpdated = updatedCount;
-      }
-
+      results.shipmentsCreated = createdCount;
+      results.createdShipments = createdShipments;
+      results.shipmentsUpdated = updatedCount;
       results.success = true;
       results.trackingNumbers = [...new Set(results.trackingNumbers)];
 
     } catch (err) {
-      // Graceful error handling - log but don't crash
       const isTimeout = err.source === 'timeout-auth' || err.message?.includes('timeout');
       if (isTimeout) {
         console.warn('Warning: IMAP connection timed out after retries, will try again next scheduled run');
@@ -808,7 +936,7 @@ class UPSEmailParser {
         console.error('Error fetching UPS emails:', err);
       }
       results.errors.push(err.message);
-      results.success = false; // Explicitly mark as failed but don't throw
+      results.success = false;
     } finally {
       this.disconnect();
     }
@@ -817,35 +945,29 @@ class UPSEmailParser {
   }
 
   // Manual tracking number import (without email)
-  importTrackingNumber(tracking, details = {}) {
-    const shipments = this.loadShipments();
-    
-    // Check if exists
-    const exists = shipments.some(s => 
-      s.tracking === tracking || 
-      s.trackingNumber === tracking
-    );
-
-    if (exists) {
+  async importTrackingNumber(tracking, details = {}) {
+    const existing = await pgDal.getShipmentByTracking(tracking);
+    if (existing) {
       return { success: false, error: 'Tracking number already exists' };
     }
 
-    const shipment = {
-      id: `manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      tracking: tracking,
-      trackingNumber: tracking,
+    const shipmentData = {
+      tracking_number: tracking,
       carrier: details.carrier || 'UPS',
       status: 'pending',
       source: 'manual-import',
-      importedAt: new Date().toISOString(),
+      imported_at: new Date().toISOString(),
       notes: details.notes || '',
       ...details
     };
 
-    shipments.push(shipment);
-    this.saveShipments(shipments);
-
-    return { success: true, shipment };
+    try {
+      const shipment = await pgDal.createShipment(shipmentData);
+      return { success: true, shipment };
+    } catch (err) {
+      console.error('Manual import DB error:', err);
+      return { success: false, error: 'Database error on manual import' };
+    }
   }
 }
 
@@ -863,8 +985,11 @@ async function testUPSEmailFetch() {
     return;
   }
 
-  try {
-    const result = await parser.fetchAndImportShipments(7);
+    try {
+    // Run test in dry-run mode (do not delete emails) to avoid data loss while
+    // we validate DB schema and permissions. Use UPS_FETCH_DAYS env var (default 30).
+    const days = parseInt(process.env.UPS_FETCH_DAYS || '30', 10);
+    const result = await parser.fetchAndImportShipments(days, false);
     console.log('Result:', JSON.stringify(result, null, 2));
   } catch (err) {
     console.error('Test failed:', err);

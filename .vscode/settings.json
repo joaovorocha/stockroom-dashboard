@@ -49,6 +49,36 @@
         "/^node -c /var/www/stockroom-dashboard/src/routes/gameplan\\.js$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^node -c /var/www/stockroom-dashboard/public/js/dashboard\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^sudo -u postgres psql -d stockroom_dashboard -c \"GRANT ALL ON TABLE users TO victor; GRANT USAGE, SELECT, UPDATE ON SEQUENCE users_id_seq TO victor; GRANT ALL ON TABLE user_audit_log TO victor; GRANT USAGE, SELECT, UPDATE ON SEQUENCE user_audit_log_id_seq TO victor;\" \\| cat$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "tee": true,
+        "printf": true,
+        "/^node -e \"require\\('\\./utils/ups-email-parser\\.js'\\)\\.testUPSEmailFetch\\(\\)\" \\| tee -a logs/email-parser-debug\\.log$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^source \\.env && node -e \"require\\('\\./utils/ups-email-parser\\.js'\\)\\.testUPSEmailFetch\\(\\)\" \\| tee -a logs/email-parser-debug\\.log$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^sudo -u postgres psql -d stockroom_dashboard -c \"\\\\d shipments\" \\| cat$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^sudo -u postgres psql -d stockroom_dashboard -c \"SELECT id, tracking_number, customer_name, address, status_from_ups, processed_by_name FROM shipments LIMIT 5;\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^node -e \"require\\('\\./utils/ups-email-parser\\.js'\\)\\.testUPSEmailFetch\\(\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

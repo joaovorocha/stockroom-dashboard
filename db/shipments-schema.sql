@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS shipments (
   priority INTEGER DEFAULT 0,  -- 0=normal, 1=urgent, 2=rush
   
   -- Address (for UPS validation)
+  customer_address JSONB,
   address_line1 VARCHAR(255),
   address_line2 VARCHAR(255),
   address_city VARCHAR(100),
@@ -40,22 +41,29 @@ CREATE TABLE IF NOT EXISTS shipments (
   address_validation_date TIMESTAMP,
   
   -- UPS Shipping
-  tracking_number VARCHAR(100),  -- UPS tracking number
+  tracking_number VARCHAR(100),
   carrier VARCHAR(50) DEFAULT 'UPS',
-  service_type VARCHAR(100),  -- UPS Ground, UPS Next Day Air, etc.
+  service_type VARCHAR(100),
+  status_from_ups VARCHAR(255),
+  status_updated_at TIMESTAMP,
+  status_updated_source VARCHAR(50),
+  source VARCHAR(50),
+  imported_at TIMESTAMP,
+  package_count INTEGER,
+  package_weight_lbs NUMERIC(10, 2),
+  reference_1 VARCHAR(255),
+  reference_2 VARCHAR(255),
+  processed_by_id VARCHAR(100),
+  processed_by_name VARCHAR(255),
+  origin_location VARCHAR(255),
+  destination_location VARCHAR(255),
+  estimated_delivery_at TIMESTAMP,
   label_generated BOOLEAN DEFAULT false,
-  label_file_path VARCHAR(500),  -- Path to ZPL label file
+  label_file_path VARCHAR(500),
   label_generated_at TIMESTAMP,
   label_generated_by_id INTEGER REFERENCES employees(id),
   
-  -- Package Details
-  package_weight_lbs DECIMAL(10,2),
-  package_length_in DECIMAL(10,2),
-  package_width_in DECIMAL(10,2),
-  package_height_in DECIMAL(10,2),
-  package_count INTEGER DEFAULT 1,
-  
-  -- Status Tracking
+  -- Internal Status & Workflow
   status VARCHAR(50) DEFAULT 'REQUESTED',
   -- REQUESTED → PICKING → READY_TO_PACK → PACKING → PACKED → LABEL_CREATED → IN_TRANSIT → DELIVERED
   -- Or: CANCELLED, ON_HOLD, EXCEPTION

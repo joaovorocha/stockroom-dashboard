@@ -43,7 +43,7 @@
     /* Weekly goals + notes: side-by-side on desktop */
     .edit-goal-notes-row {
       display: grid;
-      grid-template-columns: 1.5fr 1fr;
+      grid-template-columns: 1fr;
       gap: 20px;
       align-items: stretch;
       margin-bottom: 20px;
@@ -1070,9 +1070,9 @@
 	        <div>
 	          <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Daily Operations</div>
 	          <h2 style="margin: 0 0 6px 0; font-size: 20px; font-weight: 700;">Edit Game Plan</h2>
-	          <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 0; font-size: 13px; color: var(--text-secondary); align-items: center;">
+            <div id="currentDate" style="font-weight: 500; font-size: 24px; color: var(--text-primary);"></div>
+	          <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-top: 8px; font-size: 13px; color: var(--text-secondary); align-items: center;">
 	            <span id="retailWeekInfo" style="font-weight: 600; color: var(--text);"></span>
-	            <span id="currentDate" style="font-weight: 500;"></span>
 	            <span id="lastEditedBy" style="font-weight: 400;"></span>
 	            <span id="targetPerSaInfo" style="font-weight: 500;"></span>
 	          </div>
@@ -1087,9 +1087,9 @@
 	          
 	          <div class="edit-actions" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
 	            <a href="/gameplan-calendar.html" class="btn btn-sm" style="background: var(--primary); color: white; padding: 6px 12px; font-size: 13px; text-decoration: none;">📅 View Calendar</a>
-	            <button class="btn btn-sm" id="copyYesterdayBtn" style="padding: 6px 12px; font-size: 13px;">📋 Templates</button>
+              
 		        <button class="btn btn-sm" id="clearAllBtn" style="background:#f87171; color: white; padding: 6px 12px; font-size: 13px;">Clear All</button>
-		        <a href="/dashboard" class="btn btn-sm" style="padding: 6px 12px; font-size: 13px;">Cancel</a>
+		        <a href="/dashboard" class="btn btn-sm btn-secondary" style="padding: 6px 12px; font-size: 13px;">Cancel</a>
 		        <button class="btn btn-secondary btn-sm" id="saveDraftBtn" style="padding: 6px 16px; font-size: 13px;">Save Draft</button>
 		        <button class="btn btn-primary btn-sm" id="publishBtn" style="padding: 6px 16px; font-size: 13px;">Publish</button>
 	          </div>
@@ -1098,67 +1098,62 @@
 	    </div>
 
       <div class="edit-goal-notes-row">
-      <section class="section-card" id="weeklyGoalSection" style="margin-bottom: 0;">
-	      <div class="section-title" style="margin-bottom: 10px;">
-	        <h3 style="margin:0;">Weekly Goal Distribution</h3>
-	      </div>
-	      
-	      <!-- Goal Controls Grid -->
-	      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-	        <!-- Manual Target Card -->
-	        <div style="background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
-	          <label style="display:flex; align-items:center; gap:10px; font-size:14px; color:var(--text); font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;">
-	            <input type="checkbox" id="manualWeeklyGoalEnabled" style="width: 20px; height: 20px; cursor: pointer;">
-	            <span>Manual Target</span>
-	          </label>
-	          <input id="manualWeeklyGoalValue" type="text" inputmode="decimal" placeholder="$148,000.00" disabled style="width: 100%; font-size: 16px; height: 48px; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-weight: 600;">
-	          <input id="manualWeeklyGoalValueRaw" type="hidden">
-	        </div>
+        <section class="section-card" id="weeklyGoalSection" style="margin-bottom: 20px;">
+          <div class="section-title" style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 style="margin:0;">Weekly Goal Distribution</h3>
+              <button id="infoBtn" class="btn btn-sm">ℹ️</button>
+            </div>
+          </div>
+          
+          <!-- Goal Controls Grid -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+            <!-- Manual Target Card -->
+            <div style="background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <label style="display:flex; align-items:center; gap:10px; font-size:14px; color:var(--text); font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+                <input type="checkbox" id="manualWeeklyGoalEnabled" style="width: 20px; height: 20px; cursor: pointer;">
+                <span>Manual Target</span>
+              </label>
+              <input id="manualWeeklyGoalValue" type="text" inputmode="decimal" placeholder="$148,000.00" disabled style="width: 100%; font-size: 16px; height: 48px; padding: 12px; border: 2px solid var(--border); border-radius: 8px; font-weight: 600;">
+              <input id="manualWeeklyGoalValueRaw" type="hidden">
+            </div>
 
-	        <!-- Auto Target Card -->
-	        <div style="background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
-	          <div style="font-size:14px; color:var(--text); font-weight: 600; height: 28px; display: flex; align-items: center;">Auto Target</div>
-	          <input id="retailWeekTargetDisplay" type="text" value="--" disabled style="width: 100%; background: #f3f4f6; cursor: not-allowed; font-size: 16px; height: 48px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-weight: 600; color: var(--text-secondary);">
-	        </div>
-	      </div>
+            <!-- Auto Target Card -->
+            <div style="background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-size:14px; color:var(--text); font-weight: 600; height: 28px; display: flex; align-items: center;">Auto Target</div>
+              <input id="retailWeekTargetDisplay" type="text" value="--" disabled style="width: 100%; background: #f3f4f6; cursor: not-allowed; font-size: 16px; height: 48px; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-weight: 600; color: var(--text-secondary);">
+            </div>
+          </div>
 
-	      <!-- Sliders Section -->
-	      <div style="background: #f8f9fa; border: 2px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 0;">
-	        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-	          <label style="display:flex; align-items:center; gap:10px; font-size:14px; color:var(--text); font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;">
-	            <input type="checkbox" id="weeklyGoalEnabled" style="width: 20px; height: 20px; cursor: pointer;">
-	            <span>Adjust Daily %</span>
-	          </label>
-	          <div style="display: flex; gap: 8px;">
-	            <button class="btn btn-sm btn-outline" type="button" id="weeklyGoalNormalizeBtn" style="font-size: 13px; padding: 10px 16px; height: 44px; border-radius: 8px; min-width: 100px; -webkit-tap-highlight-color: transparent;">Normalize</button>
-	            <button class="btn btn-sm btn-primary" type="button" id="weeklyGoalSaveBtn" style="font-size: 13px; padding: 10px 16px; height: 44px; border-radius: 8px; min-width: 100px; -webkit-tap-highlight-color: transparent;">Save</button>
-	          </div>
-	        </div>
-	        <div id="weeklyGoalMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom: 12px;"></div>
-	        <div id="weeklyGoalGrid" style="display:grid; grid-template-columns: 80px 1fr 60px 100px; gap: 12px; align-items:center;"></div>
-	        <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 16px; padding-top: 16px; border-top: 2px solid var(--border);">
-	          <div style="font-size:15px; color:var(--text); font-weight: 600;">Total</div>
-	          <div id="weeklyGoalTotal" style="font-weight:700; font-size: 16px;">100%</div>
-	        </div>
-	      </div>
-	    </section>
+          <!-- Sliders Section -->
+          <div style="background: #f8f9fa; border: 2px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <label style="display:flex; align-items:center; gap:10px; font-size:14px; color:var(--text); font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;">
+                <input type="checkbox" id="weeklyGoalEnabled" style="width: 20px; height: 20px; cursor: pointer;">
+                <span>Adjust Daily %</span>
+              </label>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-sm btn-outline" type="button" id="weeklyGoalNormalizeBtn" style="font-size: 13px; padding: 10px 16px; height: 44px; border-radius: 8px; min-width: 100px; -webkit-tap-highlight-color: transparent;">Normalize</button>
+                <button class="btn btn-sm btn-primary" type="button" id="weeklyGoalSaveBtn" style="font-size: 13px; padding: 10px 16px; height: 44px; border-radius: 8px; min-width: 100px; -webkit-tap-highlight-color: transparent;">Save</button>
+              </div>
+            </div>
+            <div id="weeklyGoalMeta" style="font-size:13px; color:var(--text-secondary); margin-bottom: 12px;"></div>
+            <div id="weeklyGoalGrid" style="display:grid; grid-template-columns: 80px 1fr 60px 100px; gap: 12px; align-items:center;"></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 16px; padding-top: 16px; border-top: 2px solid var(--border);">
+              <div style="font-size:15px; color:var(--text); font-weight: 600;">Total</div>
+              <div id="weeklyGoalTotal" style="font-weight:700; font-size: 16px;">100%</div>
+            </div>
+          </div>
+        </section>
 
-	    <!-- Game Plan Notes Section -->
-      <section class="notes-card" id="notesCard" style="margin-bottom: 0;">
+        <section class="notes-card" id="notesCard" style="margin-bottom: 20px;">
 	      <div class="notes-card-header" id="notesCardHeader">
 	        <h3 style="margin:0">📝 Notes</h3>
           <span class="notes-card-toggle">▾</span>
       </div>
 	      <div class="notes-card-body">
       <div class="notes-editor-container">
-        <div class="notes-templates-bar" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom: 10px;">
-          <select id="notesTemplateSelect" style="min-width: 220px;">
-            <option value="">Notes templates…</option>
-          </select>
-          <button class="btn btn-sm btn-outline" type="button" id="applyNotesTemplateBtn" disabled>Apply</button>
-          <button class="btn btn-sm btn-outline" type="button" id="saveNotesTemplateBtn">Save Template</button>
-          <button class="btn btn-sm btn-secondary" type="button" id="deleteNotesTemplateBtn" disabled>Delete</button>
-        </div>
+        
         <div class="notes-toolbar" id="notesToolbar">
           <!-- Font Family -->
           <select id="fontNameSelect" title="Font">
@@ -1674,13 +1669,19 @@
 			      grid.innerHTML = '';
 			      const percents = (weeklyGoalDistribution?.percents || []).slice(0, 7).map(clampPercent);
 			      while (percents.length < 7) percents.push(0);
+            const weekDates = getWeekDates();
 
 			      percents.forEach((pct, idx) => {
 			        const dollars = weeklyTarget ? (weeklyTarget * (pct / 100)) : null;
 			        const row = document.createElement('div');
 			        row.style.display = 'contents';
+              const date = weekDates[idx];
+              const dateString = date ? `${date.getDate()}/${date.getMonth() + 1}` : '';
 			        row.innerHTML = `
-			          <div style="font-weight:600;">${days[idx]}</div>
+			          <div style="font-weight:600;">
+                  ${days[idx]}
+                  <div style="font-size: 12px; color: var(--text-secondary);">${dateString}</div>
+                </div>
                 <div class="weekly-goal-slider-wrap">
                   <button type="button" class="weekly-goal-step-btn" data-weekly-goal-step="dec" data-day-index="${idx}" ${enabledEl.checked ? '' : 'disabled'} aria-label="Decrease ${days[idx]} percent">−</button>
 			            <input type="range" min="0" max="${MAX_WEEKLY_DAY_PERCENT}" step="1" value="${pct}" data-day-index="${idx}" class="weekly-goal-slider" ${enabledEl.checked ? '' : 'disabled'}>
@@ -1692,11 +1693,25 @@
 			        grid.appendChild(row);
 			      });
 
-			      const total = percents.reduce((a, b) => a + b, 0);
-			      totalEl.textContent = `${total}%`;
-			      totalEl.style.color = total === 100 ? 'inherit' : 'var(--danger)';
-			    }
-
+			      		      const total = percents.reduce((a, b) => a + b, 0);
+			      		      totalEl.textContent = `${total}%`;
+			      		      totalEl.style.color = total === 100 ? 'inherit' : 'var(--danger)';
+			      		    }
+			      
+			              function getWeekDates() {
+			                const rw = storeMetrics?.retailWeek;
+			                if (!rw || !rw.weekStart) {
+			                  return [];
+			                }
+			                const weekDates = [];
+			                const startDate = new Date(rw.weekStart + 'T00:00:00');
+			                for (let i = 0; i < 7; i++) {
+			                  const date = new Date(startDate);
+			                  date.setDate(startDate.getDate() + i);
+			                  weekDates.push(date);
+			                }
+			                return weekDates;
+			              }
 			    function normalizeWeeklyPercents() {
 			      const p = (weeklyGoalDistribution?.percents || []).slice(0, 7).map(clampPercent);
 			      while (p.length < 7) p.push(0);
@@ -1837,6 +1852,11 @@
 		      // Weekly goal distribution controls
 		      if (!document.weeklyGoalBindings) {
 		        document.weeklyGoalBindings = true;
+
+            document.getElementById('infoBtn')?.addEventListener('click', () => {
+              alert('The weekly goal distribution is linked to all those days of retail week.');
+            });
+
 		        document.getElementById('weeklyGoalEnabled')?.addEventListener('change', (e) => {
 		          weeklyGoalDistribution.enabled = !!e.target.checked;
 		          renderWeeklyGoalDistribution();
@@ -2186,14 +2206,6 @@
                 </select>
               </div>
               <div class="edit-field">
-                <label>Shift</label>
-                <select data-field="shift">
-                  <option value="">Select...</option>
-                  ${shiftOptions.replace(`value="${emp.shift}"`, `value="${emp.shift}" selected`)}
-                </select>
-              </div>
-              <div class="edit-field">
-                <label>Lunch</label>
                 <select data-field="lunch">
                   <option value="">Select...</option>
                   ${lunchOptions.replace(`value="${emp.lunch}"`, `value="${emp.lunch}" selected`)}
@@ -2321,9 +2333,11 @@
 	                <select data-field="fittingRoom" class="${frSelectClass}">
 	                  <option value="">Select...</option>
 	                  ${(settings.fittingRooms || []).map(fr => {
-	                    const taken = (employees.SA || []).some(e => e.id !== emp.id && e.fittingRoom === fr.name);
+	                    const takenBy = (employees.SA || []).find(e => e.id !== emp.id && e.fittingRoom === fr.name);
+	                    const taken = !!takenBy;
 	                    const dot = taken ? '🔴' : '🟢';
-	                    return `<option value="${fr.name}"${taken ? ' disabled' : ''}${emp.fittingRoom === fr.name ? ' selected' : ''}>${dot} ${fr.name}${taken ? ' (Taken)' : ''}</option>`;
+	                    const takenLabel = taken ? ` (Taken by ${getFirstName(takenBy.name)})` : '';
+	                    return `<option value="${fr.name}"${taken && emp.fittingRoom !== fr.name ? ' disabled' : ''}${emp.fittingRoom === fr.name ? ' selected' : ''}>${dot} ${fr.name}${takenLabel}</option>`;
 	                  }).join('')}
 	                </select>
 	              </div>
@@ -2347,7 +2361,7 @@
                     const taken = !!assignedTo;
                     const selected = Array.isArray(emp.closingSections) && emp.closingSections.includes(duty.name);
                     const dot = taken ? '🔴' : '🟢';
-                    return `<option value="${duty.name}"${taken && !selected ? ' disabled' : ''}${selected ? ' selected' : ''}>${dot} ${duty.name}${taken ? ' (Taken by ' + assignedTo.name + ')' : ''}</option>`;
+                    return `<option value="${duty.name}"${taken && !selected ? ' disabled' : ''}${selected ? ' selected' : ''}>${dot} ${duty.name}${taken ? ' (Taken by ' + getFirstName(assignedTo.name) + ')' : ''}</option>`;
                   }).join('')}
                 </select>
               </div>
@@ -2360,16 +2374,106 @@
       addAssignmentValidation(grid);
     }
 
+	    function renderBOH() {
+	      editLog('[EDIT] renderBOH called');
+	      const grid = document.getElementById('bohGrid');
+	      const count = document.getElementById('bohCount');
+	      if (!grid || !count) {
+	        console.error('[EDIT] bohGrid or bohCount not found');
+	        return;
+	      }
+	      grid.innerHTML = '';
+	      count.textContent = (employees.BOH || []).length;
+
+	      const lunchOptions = (settings.lunchTimes || []).map(t =>
+	        `<option value="${t}">${t}</option>`).join('');
+
+	      const bohList = [...(employees.BOH || [])].sort((a, b) => {
+	        const aOff = !!a.isOff;
+	        const bOff = !!b.isOff;
+	        if (aOff !== bOff) return aOff ? 1 : -1; // off at bottom
+	        return (a.name || '').localeCompare(b.name || '');
+	      });
+
+	      bohList.forEach(emp => {
+	        const photoHtml = emp.imageUrl
+	          ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
+	          : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
+	        const isOff = !!emp.isOff;
+	        const assigned = !!(gameplanData?.assignments?.[emp.id]?.dailyScanAssigned);
+
+	        grid.innerHTML += `
+	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.employeeId || emp.id}" data-type="BOH">
+	            <div class="edit-card-header">
+	              <div class="edit-card-header-left">
+	                ${photoHtml}
+	                <div class="edit-card-info">
+	                  <h4>${getFirstName(emp.name)}</h4>
+	                  <span>Back of House</span>
+	                </div>
+	              </div>
+	              <div class="edit-card-actions">
+                  <div class="off-toggle">
+                    <span class="off-toggle-text">${isOff ? 'Day Off' : 'On Duty'}</span>
+                    <label class="off-switch" title="Toggle Day Off / On Duty">
+                      <input type="checkbox" data-action="toggleOff" ${isOff ? '' : 'checked'} aria-label="On duty toggle">
+                      <span class="off-switch-slider"></span>
+                    </label>
+                  </div>
+                  <div class="daily-scan-toggle">
+                    <label class="daily-scan-label" title="Assign Daily Scan">
+                      <input type="checkbox" class="daily-scan-checkbox" data-empid="${emp.id}" ${assigned ? 'checked' : ''}>
+                      Daily Scan
+                    </label>
+                  </div>
+	              </div>
+	              <input type="hidden" data-field="isOff" value="${isOff ? 'true' : 'false'}">
+	            </div>
+	            <div class="edit-card-fields">
+              <div class="edit-field">
+                <label>Task of the Day</label>
+                <input type="text" data-field="taskOfTheDay" value="${emp.taskOfTheDay || ''}" placeholder="e.g. Shipments, Inventory">
+              </div>
+              <div class="edit-field">
+                <label>Lunch</label>
+                <select data-field="lunch">
+                  <option value="">Select...</option>
+                  ${lunchOptions.replace(`value="${emp.lunch}"`, `value="${emp.lunch}" selected`)}
+                </select>
+              </div>
+               <div class="edit-field">
+                <label>Closing Duties</label>
+                <select data-field="closingSections">
+                  <option value="">Select...</option>
+                  ${(settings.closingSections || []).map(duty => {
+                    const assignedTo = []
+                      .concat(employees.SA || [])
+                      .concat(employees.MANAGEMENT || [])
+                      .concat(employees.BOH || [])
+                      .find(e => (e.id || e.employeeId) !== (emp.id || emp.employeeId) && Array.isArray(e.closingSections) && e.closingSections.includes(duty.name));
+                    const taken = !!assignedTo;
+                    const selected = Array.isArray(emp.closingSections) && emp.closingSections.includes(duty.name);
+                    const dot = taken ? '🔴' : '🟢';
+                    return `<option value="${duty.name}"${taken && !selected ? ' disabled' : ''}${selected ? ' selected' : ''}>${dot} ${duty.name}${taken ? ' (Taken by ' + getFirstName(assignedTo.name) + ')' : ''}</option>`;
+                  }).join('')}
+                </select>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
 	    function renderTailors() {
 	      editLog('[EDIT] renderTailors called');
 	      const grid = document.getElementById('tailorGrid');
-      const count = document.getElementById('tailorCount');
-      if (!grid || !count) {
-        console.error('[EDIT] tailorGrid or tailorCount not found');
-        return;
-      }
-      grid.innerHTML = '';
-      count.textContent = (employees.TAILOR || []).length;
+	      const count = document.getElementById('tailorCount');
+	      if (!grid || !count) {
+	        console.error('[EDIT] tailorGrid or tailorCount not found');
+	        return;
+	      }
+	      grid.innerHTML = '';
+	      count.textContent = (employees.TAILOR || []).length;
 
 	      const stationOptions = (settings.tailorStations || []).map(s =>
 	        `<option value="${s.name}">${s.name}</option>`).join('');
@@ -2432,14 +2536,31 @@
                   ${lunchOptions.replace(`value="${emp.lunch}"`, `value="${emp.lunch}" selected`)}
                 </select>
               </div>
+              <div class="edit-field">
+                <label>Closing Duties</label>
+                <select data-field="closingSections">
+                  <option value="">Select...</option>
+                  ${(settings.closingSections || []).map(duty => {
+                    const assignedTo = []
+                      .concat(employees.SA || [])
+                      .concat(employees.MANAGEMENT || [])
+                      .concat(employees.BOH || [])
+                      .find(e => (e.id || e.employeeId) !== (emp.id || emp.employeeId) && Array.isArray(e.closingSections) && e.closingSections.includes(duty.name));
+                    const taken = !!assignedTo;
+                    const selected = Array.isArray(emp.closingSections) && emp.closingSections.includes(duty.name);
+                    const dot = taken ? '🔴' : '🟢';
+                    return `<option value="${duty.name}"${taken && !selected ? ' disabled' : ''}${selected ? ' selected' : ''}>${dot} ${duty.name}${taken ? ' (Taken by ' + getFirstName(assignedTo.name) + ')' : ''}</option>`;
+                  }).join('')}
+                </select>
+              </div>
             </div>
           </div>
         `;
-      });
+	      });
 
-      // Add real-time validation for zone and fitting room
-      addAssignmentValidation(grid);
-    }
+	      // Add real-time validation for zone and fitting room
+	      addAssignmentValidation(grid);
+	    }
 
     function collectAllChanges() {
       const assignments = {};
@@ -2718,6 +2839,12 @@
       }
     }
 
+    function applyYesterday() {
+      // This function will be properly defined in the next step.
+      // For now, this placeholder will prevent the ReferenceError.
+      console.log('applyYesterday called');
+    }
+
 	    function setupEventListeners() {
 	      if (document.editListenersSetup) return;
 	      document.editListenersSetup = true;
@@ -2911,138 +3038,8 @@
           const tmpl = notesTemplates.find(t => t?.id === id);
           if (!tmpl) return;
           if (!confirm(`Delete template "${tmpl.name}"?`)) return;
-            try {
-              const resp = await authFetch(`/api/gameplan/notes-templates/${encodeURIComponent(id)}`, { method: 'DELETE' });
-            if (!resp.ok) {
-              let msg = `Delete failed (HTTP ${resp.status})`;
-              try {
-                const data = await resp.json();
-                if (data?.error) msg = data.error;
-              } catch (_) {}
-              throw new Error(msg);
-            }
-            await loadNotesTemplates();
-            select.value = '';
-            applyBtn.disabled = true;
-            delBtn.disabled = true;
-          } catch (e) {
-            alert(e?.message || 'Failed to delete template');
-          }
-        });
-      }
-
-	    function setupCopyFromYesterdayModal() {
-	      if (document.copyModalSetup) return;
-	      document.copyModalSetup = true;
-
-	      const copyModalOverlay = document.getElementById('copyModalOverlay');
-	      const cancelCopyBtn = document.getElementById('cancelCopyBtn');
-        const confirmCopyBtn = document.getElementById('confirmCopyBtn');
-        const selectAllFields = document.getElementById('selectAllFields');
-        const copyFields = document.querySelectorAll('.copy-field');
-	      const copyBtn = document.getElementById('copyYesterdayBtn');
-        const templateSourceSelect = document.getElementById('templateSourceSelect');
-        const templateSelect = document.getElementById('gameplanTemplateSelect');
-        const templateWeekday = document.getElementById('gameplanTemplateWeekday');
-        const templateMeta = document.getElementById('selectedTemplateMeta');
-        const saveTemplateBtn = document.getElementById('saveGameplanTemplateBtn');
-        const deleteTemplateBtn = document.getElementById('deleteGameplanTemplateBtn');
-
-        let gameplanTemplates = [];
-
-	      if (!copyModalOverlay || !copyBtn) {
-		        editWarn('[EDIT] Copy modal elements missing', {
-		          copyModalOverlay: !!copyModalOverlay,
-		          copyYesterdayBtn: !!copyBtn
-      window.addEventListener('beforeunload', (e) => {
-        if (hasUnsavedChanges) {
-          e.preventDefault();
-          e.returnValue = '';
-        }
-      });
-      
-	      // Notes editor event listeners
-	      setupNotesEditor();
-        setupNotesTemplates();
-	      setupCopyFromYesterdayModal();
-	    }
-
-      function setupNotesTemplates() {
-        if (document.notesTemplatesSetup) return;
-        document.notesTemplatesSetup = true;
-
-        const select = document.getElementById('notesTemplateSelect');
-        const applyBtn = document.getElementById('applyNotesTemplateBtn');
-        const saveBtn = document.getElementById('saveNotesTemplateBtn');
-        const delBtn = document.getElementById('deleteNotesTemplateBtn');
-        const notesEditor = document.getElementById('notesEditor');
-        if (!select || !applyBtn || !saveBtn || !delBtn || !notesEditor) return;
-
-        select.addEventListener('change', () => {
-          const has = !!select.value;
-          applyBtn.disabled = !has;
-          delBtn.disabled = !has;
-        });
-
-        applyBtn.addEventListener('click', () => {
-          const id = select.value;
-          const tmpl = notesTemplates.find(t => t?.id === id);
-          if (!tmpl) return;
-          if (!confirm(`Apply template "${tmpl.name}"? This will replace the current notes.`)) return;
-          notesEditor.innerHTML = (tmpl.html || '').toString();
-          hasUnsavedChanges = true;
-        });
-
-        saveBtn.addEventListener('click', async () => {
-          const currentHtml = (notesEditor.innerHTML || '').toString();
-          const selectedId = select.value || '';
-          const selected = selectedId ? notesTemplates.find(t => t?.id === selectedId) : null;
-          const defaultName = selected?.name || '';
-          const name = prompt('Template name:', defaultName);
-          if (!name) return;
-
-          let mode = 'create';
-          let targetId = null;
-          if (selected && name.trim() === (selected.name || '').toString().trim()) {
-            mode = confirm(`Update existing template "${selected.name}"?`) ? 'update' : 'create';
-            targetId = selected.id;
-          }
-
-	          try {
-	            const resp = await authFetch(
-              mode === 'update' ? `/api/gameplan/notes-templates/${encodeURIComponent(targetId)}` : '/api/gameplan/notes-templates',
-              {
-                method: mode === 'update' ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name: name.trim(), html: currentHtml })
-              }
-            );
-            if (!resp.ok) {
-              let msg = `Save failed (HTTP ${resp.status})`;
-              try {
-                const data = await resp.json();
-                if (data?.error) msg = data.error;
-              } catch (_) {}
-              throw new Error(msg);
-            }
-            await loadNotesTemplates();
-            // Re-select by name (best-effort)
-            const match = notesTemplates.find(t => (t?.name || '').toString().trim() === name.trim());
-            if (match?.id) select.value = match.id;
-            applyBtn.disabled = !select.value;
-            delBtn.disabled = !select.value;
-          } catch (e) {
-            alert(e?.message || 'Failed to save template');
-          }
-        });
-
-        delBtn.addEventListener('click', async () => {
-          const id = select.value;
-          const tmpl = notesTemplates.find(t => t?.id === id);
-          if (!tmpl) return;
-          if (!confirm(`Delete template "${tmpl.name}"?`)) return;
-            try {
-              const resp = await authFetch(`/api/gameplan/notes-templates/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          try {
+            const resp = await authFetch(`/api/gameplan/notes-templates/${encodeURIComponent(id)}`, { method: 'DELETE' });
             if (!resp.ok) {
               let msg = `Delete failed (HTTP ${resp.status})`;
               try {
@@ -3155,7 +3152,7 @@
               if (f === 'zones') {
                 const z = Array.isArray(emp.zones)
                   ? emp.zones.map(v => (v || '').toString().trim()).filter(Boolean)
-                  : ((emp.zone || '').toString().trim() ? [(emp.zone || '').toString().trim()] : []);
+                  : ((emp.zone || '').toString().trim() ? [emp.zone] : []);
                 entry.zones = z;
                 entry.zone = z[0] || '';
                 return;
@@ -3240,7 +3237,7 @@
           if (templateWeekday) templateWeekday.value = (tmpl?.weekdayIndex === null || tmpl?.weekdayIndex === undefined) ? '' : String(tmpl.weekdayIndex);
         }
 
-          async function applyFromSource() {
+          async function applyTemplate() {
 		        try {
               const selectedFields = getSelectedFields();
               if (!selectedFields.length) {
@@ -3406,7 +3403,7 @@
 	        const confirmBtn = e.target.closest('#confirmCopyBtn');
 	        if (confirmBtn) {
 	          e.preventDefault();
-            applyFromSource();
+            applyTemplate();
 	          return;
 	        }
 

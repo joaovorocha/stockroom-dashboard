@@ -2583,3 +2583,11 @@ body[data-page-type="sa"] .management-quick-card .card-name {
   background-color: #d97706;
   border-color: #d97706;
 }
+
+.boxed-section {
+  border: 1px solid var(--border-color);
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 16px;
+  background-color: var(--surface);
+}

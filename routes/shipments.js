@@ -13,6 +13,19 @@ const pgDal = require('../utils/dal/pg');
 const predictSpring = require('../utils/predictspring-client');
 const upsClient = require('../utils/ups-client');
 
+// Helper function to convert snake_case to camelCase
+function snakeToCamel(obj) {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(snakeToCamel);
+  
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    result[camelKey] = snakeToCamel(value);
+  }
+  return result;
+}
+
 // Note: Auth middleware applied at server.js level for this route
 
 // ============================================================================
@@ -20,15 +33,32 @@ const upsClient = require('../utils/ups-client');
 // ============================================================================
 router.get('/', async (req, res) => {
   try {
+    // Default retrieval window: last 7 days unless caller requests full dataset
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
     const filters = {
       status: req.query.status,
       customer_email: req.query.customer_email,
       order_number: req.query.order_number,
       tracking_number: req.query.tracking_number
     };
+
+    // If caller provides `all=true` we return full dataset; if `since` provided, use it.
+    if (String(req.query.all).toLowerCase() === 'true') {
+      // no created_after filter
+    } else if (req.query.since) {
+      filters.created_after = new Date(req.query.since);
+    } else {
+      // default: last 7 days
+      filters.created_after = sevenDaysAgo;
+    }
+
     const shipments = await pgDal.getShipments(filters);
-    res.json({ shipments });
+    const transformedShipments = shipments.map(snakeToCamel);
+    res.json({ shipments: transformedShipments });
   } catch (err) {
+    console.error('[/api/shipments] Error loading shipments:', err); // DETAILED LOG
     res.status(500).json({ error: err.message });
   }
 });
@@ -42,7 +72,11 @@ router.get('/:id', async (req, res) => {
     if (!shipment) return res.status(404).json({ error: 'Shipment not found' });
     const items = await pgDal.getShipmentItems(shipment.id);
     const scans = await pgDal.getShipmentScanEvents(shipment.id);
-    res.json({ shipment, items, scans });
+    res.json({ 
+      shipment: snakeToCamel(shipment), 
+      items: items.map(snakeToCamel), 
+      scans: scans.map(snakeToCamel) 
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

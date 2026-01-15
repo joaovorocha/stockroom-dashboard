@@ -794,6 +794,31 @@ router.get('/date/:date', (req, res) => {
   res.json(gameplan);
 });
 
+// DELETE /api/gameplan/date/:date - Delete gameplan for a specific date
+router.delete('/date/:date', requireManager, (req, res) => {
+  const { date } = req.params;
+
+  // Validate date format (YYYY-MM-DD)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
+  }
+
+  const gameplanFile = path.join(GAMEPLAN_DIR, `${date}.json`);
+
+  if (fs.existsSync(gameplanFile)) {
+    try {
+      fs.unlinkSync(gameplanFile);
+      res.json({ success: true, message: `Game plan for ${date} deleted.` });
+    } catch (error) {
+      console.error(`Error deleting game plan for ${date}:`, error);
+      res.status(500).json({ error: 'Failed to delete game plan.' });
+    }
+  } else {
+    res.status(404).json({ error: 'No game plan found for this date' });
+  }
+});
+
+
 // GET /api/gameplan/metrics - Get today's store metrics (from saved data)
 router.get('/metrics', (req, res) => {
   try {

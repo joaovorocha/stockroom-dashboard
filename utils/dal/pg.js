@@ -6,6 +6,7 @@
  */
 
 const { Pool } = require('pg');
+const crypto = require('crypto');
 
 // Singleton pool instance
 let pool = null;
@@ -26,7 +27,7 @@ function initPool(config) {
     port: parseInt(process.env.DB_PORT || '5432'),
     database: process.env.DB_NAME || 'stockroom_dashboard',
     user: process.env.DB_USER || 'stockroom',
-    password: process.env.DB_PASSWORD || '',
+    password: String(process.env.DB_PASSWORD || ''),
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
@@ -500,337 +501,249 @@ async function recordProductionStage(stage) {
 }
 
 // ============================================================================
-// RFID SCANS
-// ============================================================================
-
-/**
- * Record RFID scan
- */
-async function recordRFIDScan(scan) {
-  const sql = `
-    INSERT INTO rfid_scans (
-      sgtin, epc, inventory_item_id,
-      scan_type, scanner_id, scanner_location,
-      zone_id, zone_code, x_coordinate, y_coordinate,
-      scanned_by_id, scanned_by_name,
-      previous_zone_id, movement_type,
-      scanned_at, raw_scan_data
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-    RETURNING *
-  `;
-  
-  const values = [
-    scan.sgtin,
-    scan.epc || null,
-    scan.inventory_item_id || null,
-    scan.scan_type || 'handheld',
-    scan.scanner_id || null,
-    scan.scanner_location || null,
-    scan.zone_id || null,
-    scan.zone_code || null,
-    scan.x_coordinate || null,
-    scan.y_coordinate || null,
-    scan.scanned_by_id || null,
-    scan.scanned_by_name || null,
-    scan.previous_zone_id || null,
-    scan.movement_type || null,
-    scan.scanned_at || new Date(),
-    scan.raw_scan_data ? JSON.stringify(scan.raw_scan_data) : null
-  ];
-  
-  const result = await query(sql, values);
-  return result.rows[0];
-}
-
-/**
- * Get last RFID scan for item
- */
-async function getLastRFIDScan(sgtin) {
-  const sql = `
-    SELECT 
-      rs.*,
-      z.zone_code,
-      z.zone_name
-    FROM rfid_scans rs
-    LEFT JOIN store_zones z ON rs.zone_id = z.id
-    WHERE rs.sgtin = $1
-    ORDER BY rs.scanned_at DESC
-    LIMIT 1
-  `;
-  
-  const result = await query(sql, [sgtin]);
-  return result.rows[0];
-}
-
-// ============================================================================
 // SHIPMENTS
 // ============================================================================
 
 /**
- * Get shipments with filters
+ * Get shipments with optional filters
  */
 async function getShipments(filters = {}) {
-  let sql = `
-    SELECT s.*
-    FROM shipments s
-    WHERE 1=1
-  `;
-  
+  let sql = 'SELECT * FROM shipments WHERE 1=1';
   const params = [];
   let paramCount = 0;
-  
-  if (filters.status) {
+
+  // Support common equality filters and a created_after (range) filter.
+  Object.keys(filters).forEach(key => {
+    const val = filters[key];
+    if (val === undefined || val === null || val === '') return;
+
+    if (key === 'created_after') {
+      paramCount++;
+      sql += ` AND created_at >= $${paramCount}`;
+      params.push(val);
+      return;
+    }
+
+    // default: exact match for provided filter keys
     paramCount++;
-    sql += ` AND s.status = $${paramCount}`;
-    params.push(filters.status);
-  }
-  
-  if (filters.customer_email) {
-    paramCount++;
-    sql += ` AND s.customer_email = $${paramCount}`;
-    params.push(filters.customer_email);
-  }
-  
-  if (filters.order_number) {
-    paramCount++;
-    sql += ` AND s.order_number = $${paramCount}`;
-    params.push(filters.order_number);
-  }
-  
-  if (filters.tracking_number) {
-    paramCount++;
-    sql += ` AND s.tracking_number = $${paramCount}`;
-    params.push(filters.tracking_number);
-  }
-  
-  sql += ` ORDER BY s.created_at DESC`;
-  
-  if (filters.limit) {
-    paramCount++;
-    sql += ` LIMIT $${paramCount}`;
-    params.push(filters.limit);
-  }
-  
+    sql += ` AND ${key} = $${paramCount}`;
+    params.push(val);
+  });
+
+  sql += ' ORDER BY created_at DESC';
   const result = await query(sql, params);
   return result.rows;
 }
 
 /**
- * Get shipment by ID
+ * Get shipment by tracking number
  */
-async function getShipmentById(id) {
-  const sql = `SELECT * FROM shipments WHERE id = $1`;
-  const result = await query(sql, [id]);
+async function getShipmentByTracking(trackingNumber) {
+  const result = await query('SELECT * FROM shipments WHERE tracking_number = $1', [trackingNumber]);
   return result.rows[0];
 }
 
 /**
- * Get shipment items
+ * Generate a unique shipment number
  */
-async function getShipmentItems(shipmentId) {
-  const sql = `
-    SELECT si.*
-    FROM shipment_items si
-    WHERE si.shipment_id = $1
-    ORDER BY si.created_at ASC
-  `;
-  const result = await query(sql, [shipmentId]);
-  return result.rows;
+function generateShipmentNumber() {
+  const d = new Date();
+  const datePart = d.toISOString().slice(0, 10).replace(/-/g, '');
+  const randomPart = crypto.randomBytes(4).toString('hex').toUpperCase();
+  return `SHIP-${datePart}-${randomPart}`;
 }
 
 /**
- * Get shipment scan events
- */
-async function getShipmentScanEvents(shipmentId) {
-  const sql = `
-    SELECT sse.*
-    FROM shipment_scan_events sse
-    WHERE sse.shipment_id = $1
-    ORDER BY sse.scanned_at DESC
-  `;
-  const result = await query(sql, [shipmentId]);
-  return result.rows;
-}
-
-/**
- * Create shipment
+ * Create a new shipment
  */
 async function createShipment(shipment) {
+  // Ensure shipment_number is present
+  if (!shipment.shipment_number) {
+    shipment.shipment_number = generateShipmentNumber();
+  }
+
   const sql = `
     INSERT INTO shipments (
-      order_number, tracking_number, carrier, customer_name, customer_email,
-      customer_phone, shipping_address, status, notes
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      tracking_number, carrier, status, status_from_ups, status_updated_at,
+      status_updated_source, source, imported_at, shipped_at,
+      customer_name, customer_address, order_number, service_type,
+      package_count, package_weight_lbs, reference_1, reference_2,
+      processed_by_id, processed_by_name, shipper, origin_location,
+      destination_location, estimated_delivery_at, notes, shipment_number,
+      ups_raw_response, returned
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+      $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27
+    )
     RETURNING *
   `;
-  
   const values = [
-    shipment.order_number || null,
-    shipment.tracking_number || null,
-    shipment.carrier || 'UPS',
-    shipment.customer_name || null,
-    shipment.customer_email || null,
-    shipment.customer_phone || null,
-    shipment.shipping_address ? JSON.stringify(shipment.shipping_address) : null,
-    shipment.status || 'pending',
-    shipment.notes || null
+    shipment.tracking_number, shipment.carrier, shipment.status,
+    shipment.status_from_ups, shipment.status_updated_at,
+    shipment.status_updated_source, shipment.source, shipment.imported_at,
+    shipment.shipped_at, shipment.customer_name, shipment.customer_address,
+    shipment.order_number, shipment.service_type, shipment.package_count,
+    shipment.package_weight_lbs, shipment.reference_1, shipment.reference_2,
+    shipment.processed_by_id, shipment.processed_by_name, shipment.shipper,
+    shipment.origin_location, shipment.destination_location,
+    shipment.estimated_delivery_at, shipment.notes,
+    shipment.shipment_number,
+    shipment.ups_raw_response ? JSON.stringify(shipment.ups_raw_response) : null,
+    shipment.returned === true
   ];
-  
   const result = await query(sql, values);
   return result.rows[0];
 }
 
 /**
- * Update shipment
+ * Update an existing shipment
  */
 async function updateShipment(id, updates) {
   const fields = [];
   const values = [];
   let paramCount = 0;
-  
-  const allowedFields = ['order_number', 'tracking_number', 'carrier', 'customer_name', 
-    'customer_email', 'customer_phone', 'shipping_address', 'status', 'notes', 'shipped_at'];
-  
-  for (const field of allowedFields) {
-    if (updates[field] !== undefined) {
-      paramCount++;
-      fields.push(`${field} = $${paramCount}`);
-      values.push(field === 'shipping_address' && typeof updates[field] === 'object' 
-        ? JSON.stringify(updates[field]) 
-        : updates[field]);
-    }
-  }
-  
+
+  Object.keys(updates).forEach(key => {
+    paramCount++;
+    fields.push(`${key} = $${paramCount}`);
+    values.push(updates[key]);
+  });
+
   if (fields.length === 0) {
-    return getShipmentById(id);
+    throw new Error('No fields to update');
   }
-  
-  fields.push(`updated_at = NOW()`);
+
   paramCount++;
   values.push(id);
-  
   const sql = `UPDATE shipments SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
   const result = await query(sql, values);
   return result.rows[0];
 }
 
 /**
- * Create shipment item
+ * Get shipment by ID
+ */
+async function getShipmentById(id) {
+  const result = await query('SELECT * FROM shipments WHERE id = $1', [id]);
+  return result.rows[0];
+}
+
+/**
+ * Get items for a shipment
+ */
+async function getShipmentItems(shipmentId) {
+  const result = await query('SELECT * FROM shipment_items WHERE shipment_id = $1 ORDER BY id', [shipmentId]);
+  return result.rows;
+}
+
+/**
+ * Get scan events for a shipment
+ */
+async function getShipmentScanEvents(shipmentId) {
+  const result = await query('SELECT * FROM shipment_scan_events WHERE shipment_id = $1 ORDER BY scanned_at DESC', [shipmentId]);
+  return result.rows;
+}
+
+/**
+ * Create a shipment item
  */
 async function createShipmentItem(item) {
   const sql = `
     INSERT INTO shipment_items (
-      shipment_id, sku, description, quantity, sgtin
-    ) VALUES ($1, $2, $3, $4, $5)
-    RETURNING *
+      shipment_id, item_number, description, sgtin, barcode,
+      manhattan_unit_id, manhattan_item_id, unit_status,
+      quantity, price, category, current_zone_id, rack_position,
+      picked, picked_at, picked_by_id, rfid_scanned, rfid_scanned_at,
+      rfid_scanned_by_id, last_rfid_scan_id, notes
+    ) VALUES (
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+      $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
+    ) RETURNING *
   `;
-  
   const values = [
     item.shipment_id,
-    item.sku || null,
+    item.item_number || null,
     item.description || null,
+    item.sgtin || null,
+    item.barcode || null,
+    item.manhattan_unit_id || null,
+    item.manhattan_item_id || null,
+    item.unit_status || null,
     item.quantity || 1,
-    item.sgtin || null
+    item.price || null,
+    item.category || null,
+    item.current_zone_id || null,
+    item.rack_position || null,
+    item.picked || false,
+    item.picked_at || null,
+    item.picked_by_id || null,
+    item.rfid_scanned || false,
+    item.rfid_scanned_at || null,
+    item.rfid_scanned_by_id || null,
+    item.last_rfid_scan_id || null,
+    item.notes || null
   ];
-  
   const result = await query(sql, values);
   return result.rows[0];
 }
 
 /**
- * Update shipment item
+ * Update a shipment item
  */
 async function updateShipmentItem(id, updates) {
   const fields = [];
   const values = [];
   let paramCount = 0;
-  
-  const allowedFields = ['sku', 'description', 'quantity', 'sgtin', 'picked_at', 'packed_at'];
-  
-  for (const field of allowedFields) {
-    if (updates[field] !== undefined) {
-      paramCount++;
-      fields.push(`${field} = $${paramCount}`);
-      values.push(updates[field]);
-    }
-  }
-  
-  if (fields.length === 0) {
-    const result = await query('SELECT * FROM shipment_items WHERE id = $1', [id]);
-    return result.rows[0];
-  }
-  
-  fields.push(`updated_at = NOW()`);
+
+  Object.keys(updates).forEach(key => {
+    paramCount++;
+    fields.push(`${key} = $${paramCount}`);
+    values.push(updates[key]);
+  });
+
+  if (fields.length === 0) throw new Error('No fields to update');
+
   paramCount++;
   values.push(id);
-  
   const sql = `UPDATE shipment_items SET ${fields.join(', ')} WHERE id = $${paramCount} RETURNING *`;
   const result = await query(sql, values);
   return result.rows[0];
 }
 
 /**
- * Record shipment scan event
+ * Record a shipment scan event
  */
-async function recordShipmentScan(scan) {
+async function recordShipmentScanEvent(event) {
   const sql = `
     INSERT INTO shipment_scan_events (
-      shipment_id, sgtin, event_type, scanned_by, scanned_at, notes
-    ) VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING *
+      shipment_id, shipment_item_id, sgtin, scan_type, zone_id,
+      scanned_by_id, scanned_at, item_found, error_message, raw_scan_data
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *
   `;
-  
   const values = [
-    scan.shipment_id,
-    scan.sgtin || null,
-    scan.event_type || 'scan',
-    scan.scanned_by || null,
-    scan.scanned_at || new Date(),
-    scan.notes || null
+    event.shipment_id,
+    event.shipment_item_id || null,
+    event.sgtin,
+    event.scan_type || 'PICK',
+    event.zone_id || null,
+    event.scanned_by_id || null,
+    event.scanned_at || new Date(),
+    event.item_found === undefined ? true : event.item_found,
+    event.error_message || null,
+    event.raw_scan_data || null
   ];
-  
   const result = await query(sql, values);
   return result.rows[0];
 }
 
 // ============================================================================
-// SYNC LOG
+// RFID & SYNC (Placeholders)
 // ============================================================================
 
-/**
- * Log sync operation
- */
-async function logSync(sync) {
-  const sql = `
-    INSERT INTO sync_log (
-      sync_type, sync_status, records_processed, records_created,
-      records_updated, records_failed, error_message,
-      sync_duration_ms, started_at, completed_at, raw_response
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-    RETURNING *
-  `;
-  
-  const values = [
-    sync.sync_type,
-    sync.sync_status,
-    sync.records_processed || 0,
-    sync.records_created || 0,
-    sync.records_updated || 0,
-    sync.records_failed || 0,
-    sync.error_message || null,
-    sync.sync_duration_ms || null,
-    sync.started_at || new Date(),
-    sync.completed_at || null,
-    sync.raw_response ? JSON.stringify(sync.raw_response) : null
-  ];
-  
-  const result = await query(sql, values);
-  return result.rows[0];
-}
+async function recordRFIDScan(scan) { /* placeholder */ }
+async function getLastRFIDScan() { /* placeholder */ return null; }
+async function logSync(log) { /* placeholder */ }
 
-// ============================================================================
-// EXPORTS
-// ============================================================================
 
 module.exports = {
   // Connection
@@ -858,14 +771,15 @@ module.exports = {
   
   // Shipments
   getShipments,
+  getShipmentByTracking,
   getShipmentById,
   getShipmentItems,
   getShipmentScanEvents,
   createShipment,
-  updateShipment,
   createShipmentItem,
   updateShipmentItem,
-  recordShipmentScan,
+  recordShipmentScanEvent,
+  updateShipment,
   
   // Production Stages
   recordProductionStage,

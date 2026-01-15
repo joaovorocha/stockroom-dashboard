@@ -72,6 +72,19 @@
     .status-pill.in-transit { background: #2196f3; color: #fff; }
     .status-pill.unknown { background: #9e9e9e; color: #fff; }
     .status-pill.requested { background: #9c27b0; color: #fff; }
+    .status-pill.returned { background: #ff9800; color: #fff; }
+    .missing-badge {
+      display: inline-block;
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeeba;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+    .missing-list { font-size: 12px; color: var(--text-secondary); margin-top:6px; }
 
     .shipment-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-top: 10px; }
     .field label { display: block; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
@@ -121,10 +134,6 @@
           <h2 style="margin:0;">Shipments</h2>
         </div>
         <div class="controls">
-          <div class="tab-switcher" style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:8px;border:1px solid var(--border);">
-            <button class="tab-btn active" data-tab="tracking" style="padding:6px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;background:var(--primary);color:#fff;">UPS Tracking</button>
-            <button class="tab-btn" data-tab="pickpack" style="padding:6px 16px;border:none;border-radius:6px;font-weight:600;cursor:pointer;background:transparent;color:var(--text-secondary);">Pick & Pack</button>
-          </div>
           <div class="small-note" id="autoRefreshNote">Auto-refreshing…</div>
         </div>
       </div>
@@ -143,6 +152,10 @@
           <div class="label">Delivered</div>
         </div>
         <div class="summary-item">
+          <div class="count" id="countReturned">0</div>
+          <div class="label">Returned</div>
+        </div>
+        <div class="summary-item">
           <div class="count" id="countUnknown">0</div>
           <div class="label">Unknown</div>
         </div>
@@ -154,6 +167,7 @@
           <option value="">All statuses</option>
           <option value="label-created">Label created</option>
           <option value="in-transit">In transit</option>
+          <option value="returned">Returned</option>
           <option value="delivered">Delivered</option>
           <option value="unknown">Unknown</option>
           <option value="requested">Requested</option>
@@ -178,6 +192,17 @@
 
     function formatDate(value) {
       if (!value) return '';
+      // If value is an object (e.g. Date instance or parsed object), try to normalize
+      if (typeof value === 'object' && value !== null) {
+        if (typeof value.toISOString === 'function') {
+          value = value.toISOString();
+        } else if (value.iso) {
+          value = value.iso;
+        } else {
+          // Fallback to stringifying to avoid [object Object]
+          try { value = JSON.stringify(value); } catch (_) { value = String(value); }
+        }
+      }
       const d = new Date(value);
       if (Number.isNaN(d.getTime())) return safeText(value);
       return d.toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -207,7 +232,7 @@
 
       return (allShipments || []).filter(s => {
         if (status) {
-          const st = safeText(s.status).toLowerCase();
+          const st = safeText(s.status).toLowerCase().replace(/_/g, '-');
           if (st !== status) return false;
         }
         if (!q) return true;
@@ -220,9 +245,9 @@
           safeText(s.orderNumber),
           safeText(s.processedByName),
           safeText(s.processedById),
-          safeText(s.referenceNumber1),
-          safeText(s.referenceNumber2),
-          safeText(s.address && typeof s.address === 'object' ? `${s.address.line1 || ''} ${s.address.line2 || ''} ${s.address.city || ''} ${s.address.state || ''} ${s.address.zip || ''} ${s.address.country || ''}` : s.address)
+          safeText(s.reference1),
+          safeText(s.reference2),
+          safeText(s.customerAddress && typeof s.customerAddress === 'object' ? `${s.customerAddress.line1 || ''} ${s.customerAddress.line2 || ''} ${s.customerAddress.city || ''} ${s.customerAddress.state || ''} ${s.customerAddress.zip || ''} ${s.customerAddress.country || ''}` : s.customerAddress)
         ].join(' ').toLowerCase();
         return haystack.includes(q);
       });
@@ -230,17 +255,21 @@
 
     function updateSummary(items) {
       const total = items.length;
-      const counts = { 'in-transit': 0, delivered: 0, unknown: 0 };
+      const counts = { 'in-transit': 0, delivered: 0, unknown: 0, returned: 0 };
       for (const s of items) {
-        const st = safeText(s.status).toLowerCase();
+        const st = safeText(s.status).toLowerCase().replace(/_/g, '-');
         if (st === 'in-transit') counts['in-transit']++;
         else if (st === 'delivered') counts.delivered++;
         else if (st === 'unknown') counts.unknown++;
+        else if (st.includes('return') || safeText(s.statusFromUPS).toLowerCase().includes('return')) counts.returned++;
       }
       document.getElementById('countTotal').textContent = String(total);
       document.getElementById('countInTransit').textContent = String(counts['in-transit']);
       document.getElementById('countDelivered').textContent = String(counts.delivered);
       document.getElementById('countUnknown').textContent = String(counts.unknown);
+      // If there's a returned count element, update it (add element if needed)
+      const retEl = document.getElementById('countReturned');
+      if (retEl) retEl.textContent = String(counts.returned);
     }
       function getShipmentSortTime(s) {
         const v = s && typeof s === 'object'
@@ -275,20 +304,28 @@
 
       list.innerHTML = items.map(s => {
         const tracking = safeText(s.trackingNumber || s.tracking).trim();
-        const status = safeText(s.status || 'unknown').toLowerCase() || 'unknown';
+        const status = safeText(s.status || 'unknown').toLowerCase().replace(/_/g, '-') || 'unknown';
+        // detect returned packages
+        const isReturned = status.includes('return') || safeText(s.statusFromUPS).toLowerCase().includes('return') || !!s.returned;
         const customer = safeText(s.customerName) || safeText(s.destination) || '—';
         const when = formatDate(s.shippedAt || s.shippedDate || s.shipDate || s.emailDate || s.importedAt || s.createdAt || s.updatedAt);
         const src = safeText(s.source || s.statusUpdatedSource || '').trim() || '—';
         const link = trackingLink(tracking);
         const statusFromUps = safeText(s.statusFromUPS).trim();
+        // detect missing fields
+        const missing = [];
+        if (!tracking) missing.push('tracking');
+        if (!s.customerName || !String(s.customerName).trim()) missing.push('customer');
+        const addrObj = s.customerAddress && typeof s.customerAddress === 'object' ? s.customerAddress : null;
+        if (!addrObj || (!addrObj.line1 && !addrObj.city && !addrObj.zip && !addrObj.country)) missing.push('address');
 	        const processedBy = safeText(s.processedByName || s.employeeName);
           const processedById = safeText(s.processedById || s.employeeId);
-	        const orderNumber = safeText(s.orderNumber || s.referenceNumber2);
+	        const orderNumber = safeText(s.orderNumber || s.reference2);
 	        const psus = (typeof extractPSUSNumber === 'function') ? extractPSUSNumber(orderNumber) : null;
 	        const maoUrl = (psus && typeof getMAOOrderURL === 'function') ? getMAOOrderURL(psus) : null;
-        const addr = (s.address && typeof s.address === 'object')
-          ? [safeText(s.address.line1), safeText(s.address.line2), [safeText(s.address.city), safeText(s.address.state), safeText(s.address.zip)].filter(Boolean).join(' '), safeText(s.address.country)].filter(Boolean).join(', ')
-          : safeText(s.address);
+        const addr = (s.customerAddress && typeof s.customerAddress === 'object')
+          ? [safeText(s.customerAddress.line1), safeText(s.customerAddress.line2), [safeText(s.customerAddress.city), safeText(s.customerAddress.state), safeText(s.customerAddress.zip)].filter(Boolean).join(' '), safeText(s.customerAddress.country)].filter(Boolean).join(', ')
+          : safeText(s.customerAddress);
 
         return `
           <div class="shipment-card">
@@ -297,7 +334,10 @@
                 <div class="tracking-number">${tracking ? tracking : 'No Tracking'}</div>
                 <div class="meta">${when ? when : ''}${src ? ` • ${src}` : ''}</div>
               </div>
-              <div class="status-pill ${status}">${status}</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="status-pill ${isReturned ? 'returned' : status}">${isReturned ? 'Returned' : status}</div>
+                ${missing.length ? `<span class="missing-badge" title="Missing: ${missing.join(', ')}">Missing</span>` : ''}
+              </div>
             </div>
 	            <div class="shipment-body">
               <div class="field">
@@ -308,6 +348,7 @@
                 <label>Address</label>
                 <div class="wrap">${addr || '—'}</div>
               </div>
+              ${missing.length ? `<div class="missing-list">Missing fields: ${missing.join(', ')}</div>` : ''}
               <div class="field">
                 <label>UPS Status</label>
                 <div class="wrap">${statusFromUps || '—'}</div>
@@ -315,6 +356,10 @@
               <div class="field">
                 <label>Processed By</label>
                 <div class="wrap">${processedById ? `${processedBy || '—'} (${processedById})` : (processedBy || '—')}</div>
+              </div>
+              <div class="field">
+                <label>Processed Date</label>
+                <div class="wrap">${formatDate(s.importedAt) || '—'}</div>
               </div>
 	              <div class="field">
 	                <label>UPS Service</label>
@@ -354,11 +399,14 @@
     }
 
     async function loadShipments({ showLoader = false } = {}) {
+      console.log('[Shipments] loadShipments started.'); // DEBUG
       const list = document.getElementById('shipmentsList');
       if (showLoader) list.innerHTML = '<div class="meta">Loading…</div>';
       setAutoRefreshMessage('Refreshing…');
+      console.log('[Shipments] Fetching /api/shipments...'); // DEBUG
       try {
         const resp = await fetch('/api/shipments', { credentials: 'include' });
+        console.log('[Shipments] Fetch response status:', resp.status); // DEBUG
         if (!resp.ok) throw new Error('Failed to load shipments');
         const data = await resp.json();
         // API returns { shipments: [] }, extract the array
@@ -384,13 +432,16 @@
     }
 
     async function initPage() {
+      console.log('[Shipments] initPage() started.'); // DEBUG
       SharedHeader.mountHeader({ showRefresh: false });
       await SharedHeader.init();
+      console.log('[Shipments] SharedHeader initialized.'); // DEBUG
       currentUser = SharedHeader.currentUser;
       if (!currentUser) {
         window.location.href = '/login';
         return;
       }
+      console.log('[Shipments] User is authenticated, proceeding.'); // DEBUG
 
       document.getElementById('searchInput').addEventListener('input', renderShipments);
       document.getElementById('statusFilter').addEventListener('change', renderShipments);
@@ -416,7 +467,9 @@
         });
       });
 
+      console.log('[Shipments] Calling loadShipments...'); // DEBUG
       await loadShipments({ showLoader: true });
+      console.log('[Shipments] loadShipments finished.'); // DEBUG
 
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) stopAutoRefresh();
@@ -426,6 +479,7 @@
         }
       });
       startAutoRefresh();
+      console.log('[Shipments] initPage() finished.'); // DEBUG
     }
 
     document.addEventListener('DOMContentLoaded', initPage);

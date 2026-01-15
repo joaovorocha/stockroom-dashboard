@@ -27,6 +27,19 @@ if (!document.getElementById('errorHandlerStyles')) {
   document.head.appendChild(style);
 }
 
+function displayTodaysDate() {
+  const dateElement = document.createElement('div');
+  dateElement.id = 'todaysDateHeader';
+  dateElement.style.cssText = 'font-size: 14px; font-weight: 500; color: var(--text-secondary);';
+  const today = new Date();
+  dateElement.textContent = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  
+  const header = document.querySelector('.header-nav');
+  if (header) {
+    header.prepend(dateElement);
+  }
+}
+
 // Global fetch interceptor to ensure credentials are always included
 (function() {
   const originalFetch = window.fetch;
