@@ -1,7 +1,7 @@
 # API Documentation
 
 ## Overview
-RESTful API for Daily Operations Dashboard - Manages game plans, shipments, lost punches, time off, and other operational tasks across multiple store locations.
+RESTful API for Stockroom Dashboard - Manages game plans, shipments, lost punches, time off, and other operational tasks across multiple store locations.
 
 **Base URL:** `http://localhost:3000/api`
 
@@ -13,12 +13,12 @@ All endpoints require a valid session cookie (`userSession`). User must be authe
 ### Auth Endpoints
 
 #### POST `/api/auth/login`
-Login with email and password.
+Login with employee ID and password.
 
 **Request:**
 ```json
 {
-  "email": "user@example.com",
+  "employeeId": "12345",
   "password": "password123"
 }
 ```
@@ -29,6 +29,7 @@ Login with email and password.
   "success": true,
   "user": {
     "id": "12345",
+    "employeeId": "12345",
     "email": "user@example.com",
     "name": "John Doe",
     "role": "SA",

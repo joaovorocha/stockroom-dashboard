@@ -1,8 +1,8 @@
-# Contributing to Daily Operations Dashboard
+# Contributing to Stockroom Dashboard
 
 ## Welcome!
 
-Thank you for contributing to the Daily Operations Dashboard! This guide will help you understand how to work with the project.
+Thank you for contributing to the Stockroom Dashboard! This guide will help you understand how to work with the project.
 
 ---
 
@@ -124,12 +124,11 @@ Closes #123
 ### File Organization
 
 ```
-src/
-├── routes/      # API endpoints
-├── middleware/  # Request handlers
-└── utils/       # Shared functions
-
-public/
+routes/         # API endpoints
+middleware/     # Request handlers
+utils/          # Shared functions
+mcp-servers/    # Model Context Protocol servers
+public/         # Static web assets
 ├── css/        # Stylesheets
 ├── js/         # Client-side code
 └── *.html      # Pages
@@ -257,7 +256,7 @@ node --inspect server.js
 
 ### Adding a New API Endpoint
 
-1. **Create route handler** (`src/routes/feature.js`):
+1. **Create route handler** (`routes/feature.js`):
 
 ```javascript
 router.get('/feature/:id', authMiddleware, (req, res) => {

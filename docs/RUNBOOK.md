@@ -6,8 +6,7 @@ This runbook covers operational tasks for the Stockroom Dashboard running on the
 
 - **App root**: `/var/www/stockroom-dashboard`
 - **Process manager**: PM2
-  - `stockroom-dashboard` (Express web server)
-  - `looker-scheduler` (background Looker ingest/process job)
+  - `stockroom-dashboard` (Express web server with unified Gmail processor)
 - **Canonical runtime storage**:
   - Data: `/var/lib/stockroom-dashboard/data`
   - Files (imports/exports/assets): `/var/lib/stockroom-dashboard/files`
@@ -48,13 +47,11 @@ Key env vars:
 - PM2 status:
   - `pm2 ls`
   - `pm2 describe stockroom-dashboard`
-  - `pm2 describe looker-scheduler`
 
 ### View logs
 
 - PM2 logs:
   - `pm2 logs stockroom-dashboard --lines 200`
-  - `pm2 logs looker-scheduler --lines 200`
 - Raw log files:
   - `ls -lah /home/suit/.pm2/logs | rg -n 'stockroom|looker'`
 
@@ -64,7 +61,6 @@ Key env vars:
   - `cd /var/www/stockroom-dashboard && pm2 reload ecosystem.config.json`
 - Restart a single app:
   - `pm2 restart stockroom-dashboard`
-  - `pm2 restart looker-scheduler`
 
 ### Deploy (code update)
 
@@ -83,9 +79,9 @@ Assuming a git-based deploy:
 
 ## Schedulers
 
-### Looker scheduler (PM2 process: `looker-scheduler`)
+### Unified Gmail Processor (integrated in `stockroom-dashboard`)
 
-- Entrypoint: `utils/looker-scheduler.js`
+- Entrypoint: `utils/unified-gmail-processor.js` (runs within server.js)
 - Schedule:
   - Runs via `node-cron`.
   - Current PM2 args are `start` (no cron override). The code default is **daily at 06:30**: `30 6 * * *`.
@@ -97,9 +93,9 @@ Assuming a git-based deploy:
 If you see it running too frequently:
 
 - Confirm current schedule string in logs:
-  - `pm2 logs looker-scheduler --lines 200 | rg -n "Starting scheduler with cron expression"`
+  - `pm2 logs stockroom-dashboard --lines 200 | rg -n "Starting.*scheduler with cron expression"`
 - Confirm PM2 args are not overriding cron:
-  - `pm2 describe looker-scheduler | rg -n "args|script"`
+  - `pm2 describe stockroom-dashboard | rg -n "args|script"`
 
 ### UPS email importer (in-process)
 
@@ -211,7 +207,7 @@ Example (writes to /var/backups):
 ### Restore checklist
 
 1) Stop PM2 apps:
-   - `pm2 stop stockroom-dashboard looker-scheduler`
+   - `pm2 stop stockroom-dashboard`
 2) Restore tarball contents to the same paths.
 3) Fix ownership (if needed):
    - `sudo chown -R suit:suit /var/lib/stockroom-dashboard`
@@ -239,7 +235,7 @@ If a fix requires `--force`, treat it as a deploy with a validation step (see ne
   - Login works
   - Dashboard renders
 - Background jobs:
-  - `pm2 logs looker-scheduler --lines 200` shows clean startup
+  - `pm2 logs stockroom-dashboard --lines 200` shows clean startup
 - Email (if used):
   - Trigger a password reset and confirm email delivery
 

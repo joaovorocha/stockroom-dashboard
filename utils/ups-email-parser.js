@@ -9,6 +9,7 @@ const Imap = require('imap');
 const { simpleParser } = require('mailparser');
 const fs = require('fs');
 const path = require('path');
+const upsClient = require('./ups-client'); // Import the UPS client
 
 // Ensure environment variables are loaded for standalone script execution
 // This will be a no-op if dotenv is already configured by the main app
@@ -695,7 +696,8 @@ class UPSEmailParser {
         origin_location: details.origin || '',
         destination_location: details.destination || '',
           estimated_delivery_at: details.estimatedDelivery ? (details.estimatedDelivery instanceof Date ? details.estimatedDelivery.toISOString() : null) : null,
-        notes: details.notes || 'Captured from UPS email'
+        notes: details.notes || 'Captured from UPS email',
+        last_validation_status: 'PENDING', // Default validation status
       };
       // include raw payload and returned flag if present
       if (details.raw) {
@@ -721,6 +723,34 @@ class UPSEmailParser {
 
         if (!existing) {
           const newShipment = await pgDal.createShipment(shipmentData);
+
+          // After creating, validate the tracking number via UPS API
+          try {
+            const trackingDetails = await upsClient.getTrackingDetails(tracking);
+            if (trackingDetails && trackingDetails.events && trackingDetails.events.length > 0) {
+              await pgDal.updateShipment(newShipment.id, {
+                last_validation_status: 'VALID',
+                tracking_validated_at: new Date(),
+                last_ups_status: trackingDetails.latestStatus, // Also cache the latest status
+              });
+              console.log(`[UPS API] Successfully validated tracking number: ${tracking}`);
+              
+              // Also, subscribe to webhook updates for this new tracking number
+              await upsClient.subscribeToTrackingAlerts([tracking]);
+              await pgDal.updateShipment(newShipment.id, { webhook_subscribed_at: new Date() });
+
+            } else {
+              throw new Error('No tracking events found');
+            }
+          } catch (validationErr) {
+            console.error(`[UPS API] Failed to validate tracking number ${tracking}:`, validationErr.message);
+            await pgDal.updateShipment(newShipment.id, {
+              last_validation_status: 'INVALID',
+              tracking_validated_at: new Date(),
+              alert_message: `Failed to validate tracking number with UPS. Please verify.`
+            });
+          }
+
           createdShipments.push(newShipment);
           createdCount++;
           console.log(`Created shipment for tracking: ${tracking}`);

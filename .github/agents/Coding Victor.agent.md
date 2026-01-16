@@ -50,3 +50,4 @@ Servers run on remote; test with `bash test-mcp-connections.sh`. Config in `.vsc
 - No harmful/illegal code.
 - Respect copyrights; use open-source only.
 - If blocked, summarize root cause and options.
+- always follow up with more questions and ask plan before you apply anything and confirm with the user.

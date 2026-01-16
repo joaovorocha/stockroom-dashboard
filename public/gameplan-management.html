@@ -130,6 +130,124 @@
       color: white !important;
       border: none !important;
     }
+
+    /* Manager Stat Cards - single horizontal row (fixed height) */
+    .manager-stat-cards {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 12px;
+      width: 100%;
+      margin: 12px 0 18px 0;
+      align-items: center;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      height: 96px; /* fixed row height so KPIs don't expand page */
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      min-width: 120px;
+      height: 72px;
+      transition: box-shadow 0.2s;
+    }
+    .stat-card:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+      border-color: var(--primary);
+    }
+    .stat-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .kpi-box {
+      flex: 0 0 auto;
+      min-width: 120px;
+      height: 72px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Responsive: collapse to fit on smaller screens */
+    @media (max-width: 1100px) {
+      .manager-stat-cards {
+        flex-wrap: nowrap;
+      }
+    }
+
+    /* Strong overrides to ensure KPI boxes stay side-by-side as cards */
+    .welcome-card .manager-stat-cards {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      gap: 12px !important;
+      align-items: center !important;
+      overflow-x: hidden !important;
+      height: 96px !important;
+      padding: 0 0 4px 0 !important;
+      width: 100% !important; /* fit inside welcome-card padding */
+      box-sizing: border-box !important;
+      justify-content: space-between !important; /* stretch boxes to corners */
+    }
+
+    .welcome-card .manager-stat-cards > * {
+      display: flex !important;
+      flex: 1 1 0 !important; /* distribute evenly across the row */
+      min-width: 120px !important;
+      height: 72px !important;
+      margin: 0 !important;
+      justify-content: center !important;
+      align-items: center !important;
+    }
+
+    .welcome-card .manager-stat-cards .kpi-value,
+    .welcome-card .manager-stat-cards .kpi-label {
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      display: block !important;
+      text-align: center !important;
+      text-transform: none !important;
+      letter-spacing: normal !important;
+    }
+
+    /* Allow the retail week KPI value to wrap onto two lines */
+    #kpiRetailWeekValue {
+      white-space: normal !important;
+      font-size: 15px !important;
+      line-height: 1.05 !important;
+      padding: 4px 6px !important;
+    }
+
+    .manager-stat-cards::-webkit-scrollbar { height: 8px; }
+    .manager-stat-cards::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.06); border-radius: 6px; }
   </style>
 </head>
 <body>
@@ -155,11 +273,12 @@
             <div class="welcome-profile">
               <img src="data:," alt="" id="welcomeAvatar" class="welcome-avatar-large" style="display:none;" onerror="this.style.display='none'; document.getElementById('avatarPlaceholder').style.display='flex'">
               <div class="welcome-avatar-placeholder" id="avatarPlaceholder">--</div>
-	              <div class="welcome-info">
-	                <h2>Welcome, <span id="welcomeName">--</span>!</h2>
-	                <p class="welcome-role" id="welcomeRole">--</p>
-	              </div>
-	            </div>
+              <div class="welcome-info">
+                <h2>Welcome, <span id="welcomeName">--</span>!</h2>
+                <p class="welcome-role" id="welcomeRole">--</p>
+              </div>
+            </div>
+            <!-- manager KPI block moved below welcome-header to span full width -->
             <!-- Upcoming Game Plans Widget -->
             <section class="section upcoming-plans-section boxed-section" id="upcomingPlansSection">
               <div class="section-header">
@@ -193,46 +312,42 @@
             </div>
           </div>
 
-          <!-- SA KPIs Row (shown on top for SA) -->
-          <div class="welcome-kpis-row" id="welcomeKpisRow" style="display:none;">
-            <div class="kpi-box">
-              <span class="kpi-value" id="kpiSales">--</span>
-              <span class="kpi-label">WTD Sales</span>
-            </div>
-            <div class="kpi-box">
-              <span class="kpi-value" id="kpiIPC">--</span>
-              <span class="kpi-label">IPC</span>
-            </div>
-            <div class="kpi-box">
-              <span class="kpi-value" id="kpiUPT">--</span>
-              <span class="kpi-label">UPT</span>
-            </div>
-            <div class="kpi-box">
-              <span class="kpi-value" id="kpiATV">--</span>
-              <span class="kpi-label">ATV</span>
-            </div>
-            <div class="kpi-box">
-              <span class="kpi-value" id="kpiSPH">--</span>
-              <span class="kpi-label">SPH</span>
-            </div>
-            <div class="kpi-box">
-              <span class="kpi-value" id="kpiTarget">--</span>
-              <span class="kpi-label">Today's Target</span>
-            </div>
-          </div>
 
-          <!-- Retail Week Info -->
-          <div class="metric-box">
-            <div class="metric-header">Retail Week 2</div>
-            <div class="metric-subheader">2026-01-11 → 2026-01-17</div>
-            <div class="metric-value">$229.4K</div>
-            <div class="metric-label">Retail Week Target: $237.7K</div>
-            <div class="metric-label">Daily Target (Today): $34.0K</div>
-            <div class="metric-label">Target / SA Today: --</div>
-          </div>
 
           <div class="welcome-details" id="welcomeDetails">
             <!-- Populated by JS based on employee type -->
+          </div>
+
+          <!-- Manager Stat Cards (only for managers) -->
+          <div class="manager-stat-cards" id="managerStatCards" style="display:block; margin-top:18px;">
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiDailyScanValue">99.7%</span>
+              <span class="kpi-label" id="kpiDailyScanLabel">Daily Scan %</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiEmployeeDiscountValue">$3300</span>
+              <span class="kpi-label" id="kpiEmployeeDiscountLabel">Employee Discount</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiRetailWeekValue">2026-01-11<br>→ 2026-01-17</span>
+              <span class="kpi-label" id="kpiRetailWeekLabel">Retail Week</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiCurrentSalesValue">$229.4K</span>
+              <span class="kpi-label" id="kpiCurrentSalesLabel">Current Sales</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiWeekTargetValue">$237.7K</span>
+              <span class="kpi-label" id="kpiWeekTargetLabel">Week Target</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiTodayTargetValue">$34.0K</span>
+              <span class="kpi-label" id="kpiTodayTargetLabel">Today Store Target</span>
+            </div>
+            <div class="kpi-box">
+              <span class="kpi-value" id="kpiPerEmployeeValue">$34.0K</span>
+              <span class="kpi-label" id="kpiPerEmployeeLabel">Per Employee Target (1 SA working)</span>
+            </div>
           </div>
 
           <!-- Lunch Timeline Section -->
@@ -247,11 +362,20 @@
             </div>
           </div>
 
+          <!-- Management & BOH Section - Quick reference for who's on duty -->
+          <section class="section management-quick-section" id="managementQuickSection" style="display:none;">
+            <div class="section-header">
+              <h2>👥 Store Support on Duty</h2>
+            </div>
+            <div class="management-quick-grid" id="managementQuickGrid">
+              <!-- Populated by JS - shows MOD and key info -->
+            </div>
+          </section>
+
           <!-- Assignments & Status (below lunch schedule) -->
           <div class="sa-assignment-status" id="saAssignmentStatus" style="display:none;">
             <div class="sa-assignment-status__header">
               <h3>Assignments & Status</h3>
-              <a class="btn btn-sm btn-outline" href="/closing-duties">Open Closing Duties</a>
             </div>
             <div class="sa-assignment-status__grid">
               <div class="sa-assignment-panel">
@@ -261,7 +385,10 @@
               <div class="sa-assignment-panel">
                 <div class="sa-assignment-panel__title" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
                   <span>Closing Duties Status</span>
-                  <span id="closingDutiesStoreCompletion" style="font-size:12px; color: var(--text-secondary);">--</span>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <a class="btn btn-sm btn-outline" href="/closing-duties">Open Closing Duties</a>
+                    <span id="closingDutiesStoreCompletion" style="font-size:12px; color: var(--text-secondary);">--</span>
+                  </div>
                 </div>
                 <div class="expandable-list" id="saClosingDutiesStatusList"></div>
               </div>
@@ -279,25 +406,8 @@
         </div>
       </section>
 
-      
-      <!-- Management & BOH Section - Quick reference for who's on duty -->
-      <section class="section management-quick-section" id="managementQuickSection">
-        <div class="section-header">
-          <h2>👔 On Duty Today</h2>
-        </div>
-        <div class="management-quick-grid" id="managementQuickGrid">
-          <!-- Populated by JS - shows MOD and key info -->
-        </div>
-      </section>
-
-      <!-- Last Week Store Overview -->
-      <section class="section metrics-section" id="metricsSection">
-        <div class="metrics-content" id="metricsContent">
-        </div>
-      </section>
-
       <!-- Sales Associates -->
-      <section class="section" id="saSection">
+      <section class="section boxed-section" id="saSection">
         <div class="section-header">
           <h2>Sales Associates</h2>
           <div class="section-actions">
@@ -308,7 +418,7 @@
       </section>
 
       <!-- BOH -->
-      <section class="section" id="bohSection">
+      <section class="section boxed-section" id="bohSection">
         <div class="section-header">
           <h2>Back of House</h2>
           <div class="section-actions">
@@ -319,7 +429,7 @@
       </section>
 
       <!-- Tailors -->
-      <section class="section" id="tailorsSection">
+      <section class="section boxed-section" id="tailorsSection">
         <div class="section-header">
           <h2>Tailors</h2>
           <div class="section-actions">
@@ -330,7 +440,7 @@
       </section>
 
       <!-- Managers -->
-      <section class="section" id="managementSection">
+      <section class="section boxed-section" id="managementSection">
         <div class="section-header">
           <h2>Managers</h2>
           <div class="section-actions">
@@ -624,6 +734,22 @@
     <script src="/js/shared-header.js?v=24"></script>
     <script src="/js/dashboard.js?v=24"></script>
     <script>
+            // Show manager stat cards only for managers
+            function showManagerStatCardsIfManager() {
+              // Example: check role from welcomeRole element
+              var role = document.getElementById('welcomeRole')?.textContent?.toLowerCase() || '';
+              var cards = document.getElementById('managerStatCards');
+              // Temporarily always show for testing
+              cards.style.display = 'block';
+              // if (role.includes('manager') || role.includes('mod')) {
+              //   cards.style.display = 'block';
+              // } else {
+              //   cards.style.display = 'none';
+              // }
+            }
+            document.addEventListener('DOMContentLoaded', function() {
+              setTimeout(showManagerStatCardsIfManager, 400); // after welcomeRole loads
+            });
       // Authenticated fetch function
       function authFetch(url, options = {}) {
         const merged = { credentials: 'include', ...options };
@@ -718,6 +844,121 @@
         }
       })();
     </script>
+
+      <script>
+        // Remove the small welcome cards (Employee Discount + Daily Scan) above the KPI row
+        function removeTopWelcomeCards() {
+          try {
+            const discount = document.getElementById('welcomeDiscountStatus');
+            if (discount && discount.parentNode) discount.parentNode.removeChild(discount);
+
+            const details = document.getElementById('welcomeDetails');
+            if (details) {
+              const labels = Array.from(details.querySelectorAll('.assignment-item .label'));
+              labels.forEach(lbl => {
+                if (lbl.textContent && lbl.textContent.toLowerCase().includes('daily scan')) {
+                  const parent = lbl.closest('.assignment-item');
+                  if (parent && parent.parentNode) parent.parentNode.removeChild(parent);
+                }
+              });
+            }
+          } catch (e) {
+            console.warn('removeTopWelcomeCards failed', e);
+          }
+        }
+        document.addEventListener('DOMContentLoaded', function() { setTimeout(removeTopWelcomeCards, 400); });
+      </script>
+
+      <script>
+        // Populate and style KPI cards: colors and emojis per user request
+        function parseCurrency(str) {
+          if (!str) return NaN;
+          const cleaned = (''+str).replace(/[^0-9\.\-]/g, '');
+          return parseFloat(cleaned);
+        }
+
+        function applyKpiDecorations() {
+          try {
+            // Daily Scan
+            const dailyEl = document.getElementById('kpiDailyScanValue');
+            const dailyText = (document.getElementById('dailyScan')?.textContent || dailyEl?.textContent || '').trim();
+            const dailyNum = parseFloat((dailyText+'').replace('%',''));
+            if (!isNaN(dailyNum) && dailyNum > 98) {
+              dailyEl.style.color = 'var(--success)';
+              dailyEl.style.fontWeight = '700';
+            } else {
+              dailyEl.style.color = '';
+            }
+
+            // Employee Discount
+            const empEl = document.getElementById('kpiEmployeeDiscountValue');
+            const empFromDom = document.getElementById('employeeDiscount')?.textContent || empEl?.textContent || '';
+            const empNum = parseCurrency(empFromDom);
+            if (!isNaN(empNum) && empNum > 500) {
+              empEl.style.color = 'var(--success)';
+              empEl.style.fontWeight = '700';
+            }
+
+            // Current Sales -> add money emoji
+            const salesEl = document.getElementById('kpiCurrentSalesValue');
+            const salesText = (document.getElementById('retailWeekActual')?.textContent || salesEl?.textContent || '').trim();
+            if (salesText && !/^\u{1F4B0}/u.test(salesText)) {
+              salesEl.textContent = '💰 ' + salesEl.textContent.trim();
+            }
+
+            // Week target -> add target emoji on label
+            const weekLabel = document.getElementById('kpiWeekTargetLabel');
+            if (weekLabel && !weekLabel.textContent.includes('🎯')) weekLabel.textContent = '🎯 ' + weekLabel.textContent;
+
+            // Today target -> add calendar emoji on label
+            const todayLabel = document.getElementById('kpiTodayTargetLabel');
+            if (todayLabel && !todayLabel.textContent.includes('📅')) todayLabel.textContent = '📅 ' + todayLabel.textContent;
+
+            // Per employee -> add person emoji on label
+            const perEmpLabel = document.getElementById('kpiPerEmployeeLabel');
+            if (perEmpLabel && !perEmpLabel.textContent.includes('👤')) perEmpLabel.textContent = '👤 ' + perEmpLabel.textContent;
+
+          } catch (e) {
+            console.warn('applyKpiDecorations failed', e);
+          }
+        }
+
+        // Run after other population functions finish
+        document.addEventListener('DOMContentLoaded', function() { setTimeout(applyKpiDecorations, 700); });
+      </script>
+
+        <script>
+          // Enhanced parsing for money strings like $229.4K, $1.2M
+          function parseMoneyWithSuffix(str) {
+            if (!str) return NaN;
+            const s = (''+str).trim();
+            const m = s.match(/([\d,\.]+)\s*([kKmM])?/);
+            if (!m) return NaN;
+            let num = parseFloat(m[1].replace(/,/g,''));
+            const suf = (m[2] || '').toLowerCase();
+            if (suf === 'k') num = num * 1000;
+            if (suf === 'm') num = num * 1000000;
+            return num;
+          }
+
+          function applyKpiDecorationsMore() {
+            try {
+              const salesEl = document.getElementById('kpiCurrentSalesValue');
+              const targetEl = document.getElementById('kpiWeekTargetValue');
+              const salesText = (salesEl?.textContent || '').replace(/[^0-9\.KMkm\$]/g,'').trim();
+              const targetText = (targetEl?.textContent || '').replace(/[^0-9\.KMkm\$]/g,'').trim();
+              const salesNum = parseMoneyWithSuffix(salesText.replace(/\$/g,''));
+              const targetNum = parseMoneyWithSuffix(targetText.replace(/\$/g,''));
+              if (!isNaN(salesNum) && !isNaN(targetNum) && salesNum >= targetNum) {
+                salesEl.style.color = 'var(--success)';
+                salesEl.style.fontWeight = '700';
+              }
+            } catch (e) {
+              console.warn('applyKpiDecorationsMore failed', e);
+            }
+          }
+          document.addEventListener('DOMContentLoaded', function() { setTimeout(applyKpiDecorationsMore, 900); });
+        </script>
 	
 
 </body>

@@ -512,10 +512,9 @@ async function getShipments(filters = {}) {
   const params = [];
   let paramCount = 0;
 
-  // Support common equality filters and a created_after (range) filter.
   Object.keys(filters).forEach(key => {
     const val = filters[key];
-    if (val === undefined || val === null || val === '') return;
+    if (val === undefined || val === null || (typeof val === 'string' && val === '') || (Array.isArray(val) && val.length === 0)) return;
 
     if (key === 'created_after') {
       paramCount++;
@@ -524,10 +523,20 @@ async function getShipments(filters = {}) {
       return;
     }
 
-    // default: exact match for provided filter keys
-    paramCount++;
-    sql += ` AND ${key} = $${paramCount}`;
-    params.push(val);
+    if (Array.isArray(val)) {
+      // Handle IN clauses for arrays
+      const placeholders = val.map(() => {
+        paramCount++;
+        return `$${paramCount}`;
+      });
+      sql += ` AND ${key} IN (${placeholders.join(',')})`;
+      params.push(...val);
+    } else {
+      // Handle exact matches for other values
+      paramCount++;
+      sql += ` AND ${key} = $${paramCount}`;
+      params.push(val);
+    }
   });
 
   sql += ' ORDER BY created_at DESC';
@@ -541,6 +550,76 @@ async function getShipments(filters = {}) {
 async function getShipmentByTracking(trackingNumber) {
   const result = await query('SELECT * FROM shipments WHERE tracking_number = $1', [trackingNumber]);
   return result.rows[0];
+}
+
+/**
+ * Update shipment with latest UPS tracking info
+ */
+async function updateShipmentTrackingInfo(shipmentId, trackingInfo) {
+  const updates = {
+    last_ups_status: trackingInfo.latestStatus,
+    last_ups_status_updated_at: trackingInfo.latestStatusTimestamp,
+    estimated_delivery_at: trackingInfo.estimatedDelivery,
+    status: trackingInfo.latestStatus, // Persist the new status
+  };
+  return updateShipment(shipmentId, updates);
+}
+
+/**
+ * Create multiple shipment tracking events
+ */
+async function createShipmentTrackingEvents(shipmentId, events) {
+  if (!events || events.length === 0) {
+    return [];
+  }
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+
+    // To prevent duplicates, we can delete previous events for this shipment
+    // or use a more sophisticated ON CONFLICT clause if events have a unique identifier.
+    // For simplicity here, we'll clear and re-insert.
+    await client.query('DELETE FROM shipment_tracking_events WHERE shipment_id = $1', [shipmentId]);
+
+    const sql = `
+      INSERT INTO shipment_tracking_events (
+        shipment_id, event_timestamp, status, details,
+        location_city, location_state, location_zip, location_country,
+        ups_event_raw_data
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `;
+
+    for (const event of events) {
+      const values = [
+        shipmentId,
+        event.event_timestamp,
+        event.status,
+        event.details,
+        event.location?.city,
+        event.location?.state,
+        event.location?.zip,
+        event.location?.country,
+        event, // Store the raw event object
+      ];
+      await client.query(sql, values);
+    }
+
+    await client.query('COMMIT');
+
+    // Return the newly created events for the shipment
+    const result = await query(
+      'SELECT * FROM shipment_tracking_events WHERE shipment_id = $1 ORDER BY event_timestamp DESC',
+      [shipmentId]
+    );
+    return result.rows;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[pgDal] Error in createShipmentTrackingEvents transaction:', err);
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /**
@@ -736,6 +815,26 @@ async function recordShipmentScanEvent(event) {
   return result.rows[0];
 }
 
+/**
+ * Delete a shipment and its related items and scan events (transactional)
+ */
+async function deleteShipment(id) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM shipment_scan_events WHERE shipment_id = $1', [id]);
+    await client.query('DELETE FROM shipment_items WHERE shipment_id = $1', [id]);
+    const res = await client.query('DELETE FROM shipments WHERE id = $1 RETURNING *', [id]);
+    await client.query('COMMIT');
+    return res.rows[0] || null;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // ============================================================================
 // RFID & SYNC (Placeholders)
 // ============================================================================
@@ -780,6 +879,9 @@ module.exports = {
   updateShipmentItem,
   recordShipmentScanEvent,
   updateShipment,
+  updateShipmentTrackingInfo,
+  createShipmentTrackingEvents,
+  deleteShipment,
   
   // Production Stages
   recordProductionStage,

@@ -21,7 +21,7 @@ You're reading this, so you're already on it! Here's what was done:
 - ✅ [PROJECT_REORGANIZATION_SUMMARY.md](PROJECT_REORGANIZATION_SUMMARY.md) - What was done
 
 **Code Organization:**
-- ✅ Created `src/` folder with `routes/`, `middleware/`, `utils/` (copied from old locations)
+- ✅ Created organized folder structure with `routes/`, `middleware/`, `utils/` (migrated from scattered locations)
 - ✅ Created `tests/` folder for test files
 - ✅ Created `.github/workflows/` with CI/CD automation
 - ✅ Created `.env.example` template
@@ -54,7 +54,7 @@ git add .
 # Create descriptive commit
 git commit -m "feat: reorganize project structure and add professional documentation
 
-- Create src/ directory with organized routes, middleware, utils
+- Create organized directory structure with routes, middleware, utils
 - Add comprehensive documentation (API, Architecture, Deployment)
 - Setup GitHub Actions for automated testing and deployment
 - Add .env.example template for environment configuration
@@ -166,7 +166,7 @@ npm install @sentry/node
 
 ### Option C: Email/Written Summary
 **Send:** [docs/FOR_COO.md](docs/FOR_COO.md)  
-**Subject:** "Daily Operations Dashboard Ready for Enterprise Deployment"  
+**Subject:** "Stockroom Dashboard Ready for Enterprise Deployment"  
 **Attachments:** [PROJECT_REORGANIZATION_SUMMARY.md](PROJECT_REORGANIZATION_SUMMARY.md)
 
 ---
@@ -211,19 +211,17 @@ npm start
 ### Files are in wrong place
 ```bash
 # Old files still exist (that's okay!)
-# - /routes still has files
-# - /src/routes also has files (copied)
+# - /routes still has files (organized)
 
-# This is temporary, they're identical
-# Don't delete old ones yet (in case something depends on them)
-# Plan to remove in next refactor once sure everything works
+# This is the final structure
+# All routes are properly organized
 ```
 
 ### Need to add new API endpoint
 ```bash
-# Now use: src/routes/
-# Example: src/routes/shipments.js
-# Then update server.js to import from src/routes
+# Now use: routes/
+# Example: routes/shipments.js
+# Then update server.js to import from routes
 
 # Follow: CONTRIBUTING.md for style guide
 ```

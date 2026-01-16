@@ -79,6 +79,10 @@
         "/^node -e \"require\\('\\./utils/ups-email-parser\\.js'\\)\\.testUPSEmailFetch\\(\\)\"$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^node -c server\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

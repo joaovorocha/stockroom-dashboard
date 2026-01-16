@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { getFilesDir } = require('../paths');
 
 function ensureDir(dirPath) {
   if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
@@ -102,8 +103,10 @@ function addDaysToIsoDate(isoDate, deltaDays) {
 }
 
 function createJsonDAL({ dataDir }) {
+  const filesDir = getFilesDir();
   const paths = {
     dataDir,
+    filesDir,
     storeConfigFile: path.join(dataDir, 'store-config.json'),
     usersFile: path.join(dataDir, 'users.json'),
     employeesFile: path.join(dataDir, 'employees-v2.json'),

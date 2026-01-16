@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The Daily Operations Dashboard is now professionally organized and ready for enterprise-scale deployment. We've implemented industry-standard practices for code organization, documentation, and deployment procedures.
+The Stockroom Dashboard is now professionally organized and ready for enterprise-scale deployment. We've implemented industry-standard practices for code organization, documentation, and deployment procedures.
 
 ---
 
@@ -265,7 +265,7 @@ A: Competitors might implement similar systems. Each month of delay loses $83,00
 - Automated deployment with approval workflow
 
 ### Code Organization
-- `src/` - Backend code (routes, middleware, utilities)
+- `routes/` - Backend code (API endpoints, middleware, utilities)
 - `public/` - Frontend (HTML, CSS, JavaScript)
 - `tests/` - Test suite (ready for implementation)
 - `docs/` - Documentation

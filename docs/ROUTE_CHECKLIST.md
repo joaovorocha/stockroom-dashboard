@@ -42,8 +42,5 @@ Legend:
 ## Background jobs
 
 - **OK (reviewed / fixed)**
-  - Looker scheduler (`utils/looker-scheduler.js`): PM2 cron override removed; now uses safe default schedule.
-
-- **Needs review**
-  - UPS in-process scheduler (`utils/ups-scheduler.js` via `server.js`): confirm cron string and validate import semantics on this server.
+  - Unified Gmail processor (`utils/unified-gmail-processor.js` via `server.js`): handles both Looker and UPS email processing with safe default schedules.
 

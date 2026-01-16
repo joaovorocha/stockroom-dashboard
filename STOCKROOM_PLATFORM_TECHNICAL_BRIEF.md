@@ -39,8 +39,7 @@ This architecture is operationally simple (few moving parts, no external databas
 - Starts the UPS email import scheduler in-process at boot.
 
 **Background Schedulers (Node)**
-- **Looker data scheduler:** `utils/looker-scheduler.js` (cron default `30 6 * * *`, timezone `America/Los_Angeles`)
-- **UPS email import scheduler:** `utils/ups-scheduler.js` (in `server.js`, default cron `0,30 8-19 * * *;0 20 * * *`, timezone `America/Los_Angeles`)
+- **Unified Gmail processor:** `utils/unified-gmail-processor.js` (in `server.js`, default cron `*/30 * * * *`, timezone `America/Los_Angeles`) - handles both UPS shipping emails and Looker data exports
 
 **Radio Services (Python)**
 - `radio/radio_service.py` (PM2 app: `radio`)
@@ -53,8 +52,7 @@ This architecture is operationally simple (few moving parts, no external databas
 ### 2.2 Process topology (PM2)
 PM2 ecosystem configuration in `ecosystem.config.json` defines:
 
-- `stockroom-dashboard` → `server.js`
-- `looker-scheduler` → `utils/looker-scheduler.js start`
+- `stockroom-dashboard` → `server.js` (includes unified Gmail processor)
 - `radio` → `radio/radio_service.py` (Python interpreter: `/var/www/stockroom-dashboard/.venv/bin/python`)
 - `radio-transcriber` → `radio/transcribe_worker.py` (Python interpreter: `/var/www/stockroom-dashboard/.venv/bin/python`)
 
@@ -165,7 +163,7 @@ PM2 config sets canonical storage locations:
 
 ### 6.2 Data persistence approach
 - Primary persistence is JSON files and file uploads managed via a DAL (`utils/dal`).
-- Scheduler logs are written under `data/scheduler-logs/` (see `utils/looker-scheduler.js` and `utils/ups-scheduler.js`).
+- Scheduler logs are written under `data/scheduler-logs/` (see `utils/unified-gmail-processor.js`).
 - Sync results are saved under `data/sync-results/`.
 
 ### 6.3 Authenticated file serving
@@ -215,7 +213,7 @@ Mounted routers in `server.js` (see also `SERVER_MAP.md`):
 - `server.js` is the single entrypoint and contains cross-cutting concerns (auth-by-default, headers, CSRF check, SSE, WebSocket upgrades).
 - Feature APIs are modularized in `routes/*.js`.
 - Persistence paths are centralized in the DAL (`utils/dal`).
-- Scheduling logic is explicit and isolated in `utils/looker-scheduler.js` and `utils/ups-scheduler.js`.
+- Scheduling logic is explicit and isolated in `utils/unified-gmail-processor.js`.
 
 ### 8.2 Operability
 - PM2 provides process supervision and log file separation (ecosystem config includes dedicated logs for radio processes).
@@ -295,6 +293,5 @@ This section describes additional work typically required for enterprise-grade p
 - `server.js` — routing, middleware, SSE, WebSocket upgrades, UPS scheduler startup
 - `ecosystem.config.json` — PM2 process definitions and canonical storage env vars
 - `middleware/auth.js` — cookie session validation and role derivation
-- `utils/looker-scheduler.js` — Looker/Gmail ingestion scheduler
-- `utils/ups-scheduler.js` — UPS email import scheduler
+- `utils/unified-gmail-processor.js` — Unified Gmail processor for UPS and Looker data
 - `SERVER_MAP.md` — authoritative map of UI routes, API routes, and key data paths

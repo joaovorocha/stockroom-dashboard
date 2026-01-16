@@ -66,9 +66,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       typeof window.loadEmployees === 'function' ? window.loadEmployees() : Promise.resolve(null),
       typeof window.loadSettings === 'function' ? window.loadSettings() : Promise.resolve(null),
       typeof window.loadStoreConfig === 'function' ? window.loadStoreConfig() : Promise.resolve(null),
-      typeof window.loadGameplan === 'function' ? window.loadGameplan() : Promise.resolve(null),
-      typeof window.loadMetrics === 'function' ? window.loadMetrics() : Promise.resolve(null),
-      typeof window.loadLoansData === 'function' ? window.loadLoansData() : Promise.resolve(null)
+      typeof window.loadGameplan === 'function' ? window.loadGameplan() : Promise.resolve(null)
     ]);
 
     // Closing duties status for the current day (used in the quick summary).
@@ -76,11 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       await window.loadClosingDutiesForToday();
     }
 
-    // Populate the WTD/metrics section (same IDs as the Game Plan metrics box).
-    if (typeof window.updateMetricsDisplay === 'function') window.updateMetricsDisplay();
-    if (typeof window.renderTailorProductivityLastWeek === 'function') window.renderTailorProductivityLastWeek();
-    if (typeof window.renderWorkRelatedExpensesSummary === 'function') window.renderWorkRelatedExpensesSummary();
-    if (typeof window.checkLoansOverdue === 'function') window.checkLoansOverdue();
+    // Metrics section replaced with Looker embed - no need to render metrics
 
     // Populate "Today" quick summary.
     const user = auth.user || {};

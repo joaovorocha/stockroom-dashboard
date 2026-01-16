@@ -1,4 +1,8 @@
 require("dotenv").config();
+const { initCache } = require('./src/utils/cache');
+
+// Initialize cache
+initCache();
 const express = require('express');
 const http = require('http');
 const https = require('https');
@@ -28,9 +32,9 @@ const rfidRoutes = require('./routes/rfid');
 const clientLogsRoutes = require('./routes/clientLogs');
 const printersRoutes = require('./routes/printers');
 const mockApiRoutes = require('./routes/mock-api');
+const webhookRoutes = require('./routes/webhooks'); // Import webhook routes
 const authMiddleware = require('./middleware/auth-pg');
 const dal = require('./utils/dal');
-const { getUPSScheduler } = require('./utils/ups-scheduler');
 const { markActive } = require('./utils/active-users');
 
 const app = express();
@@ -82,6 +86,10 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' })); // Increased for large iPhone photos
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Increased for large iPhone photos
 app.use(cookieParser());
+
+// --- Webhook Endpoint (NO AUTH) ---
+// This must come *before* the general auth middleware
+app.use('/api/webhooks', webhookRoutes);
 
 function isRequestSecure(req) {
   const xfProto = (req.get('x-forwarded-proto') || '').toString().toLowerCase();
@@ -525,7 +533,7 @@ app.get('/api/sse/updates', authMiddleware, (req, res) => {
 
   // Add client to the list
   const clientId = Date.now();
-  const client = { id: clientId, res };
+  const client = { id: "789272869624-v4ovr0dkttan1dj3skjibkik8n61ms7d.apps.googleusercontent.com", res };
   sseClients.push(client);
 
   console.log(`SSE client connected: ${clientId}. Total clients: ${sseClients.length}`);
@@ -823,18 +831,33 @@ function broadcastRadioSpectrumStatus() {
 
 setInterval(broadcastRadioSpectrumStatus, 1000).unref?.();
 
-// Start UPS email import scheduler
-// Default: every 30 minutes between 8am-8pm (includes 8:00-19:30 + 20:00)
-const UPS_IMPORT_CRON = process.env.UPS_EMAIL_IMPORT_CRON || '0,30 8-19 * * *;0 20 * * *';
-const UPS_IMPORT_DAYS = parseInt(process.env.UPS_EMAIL_IMPORT_DAYS || '2', 10);
-// Safer default: never delete emails unless explicitly enabled.
-const UPS_DELETE_AFTER_IMPORT = process.env.UPS_EMAIL_DELETE_AFTER_IMPORT === 'true';
+// Start unified Gmail processor
+const UNIFIED_GMAIL_CRON = process.env.UNIFIED_GMAIL_CRON || '*/30 * * * *'; // Every 30 minutes
 try {
-  const upsScheduler = getUPSScheduler();
-  upsScheduler.start(UPS_IMPORT_CRON, UPS_IMPORT_DAYS, UPS_DELETE_AFTER_IMPORT);
-  console.log(`UPS scheduler active (cron=${UPS_IMPORT_CRON}, daysBack=${UPS_IMPORT_DAYS}, deleteAfterImport=${UPS_DELETE_AFTER_IMPORT})`);
+  const { getUnifiedProcessor } = require('./utils/unified-gmail-processor');
+  const unifiedProcessor = getUnifiedProcessor();
+  unifiedProcessor.start(UNIFIED_GMAIL_CRON);
+  console.log(`Unified Gmail processor active (cron=${UNIFIED_GMAIL_CRON})`);
 } catch (e) {
-  console.error('Failed to start UPS scheduler:', e.message);
+  console.error('Failed to start unified Gmail processor:', e.message);
+}
+
+// Start report email scheduler
+const REPORT_EMAIL_CRON = process.env.REPORT_EMAIL_CRON || '0 */4 * * *'; // Every 4 hours
+try {
+  const cron = require('node-cron');
+  cron.schedule(REPORT_EMAIL_CRON, async () => {
+    try {
+      const { sendDailyReport } = require('./scripts/send-daily-report');
+      await sendDailyReport();
+      console.log('Scheduled report email sent');
+    } catch (e) {
+      console.error('Failed to send scheduled report:', e.message);
+    }
+  });
+  console.log(`Report email scheduler active (cron=${REPORT_EMAIL_CRON})`);
+} catch (e) {
+  console.error('Failed to start report scheduler:', e.message);
 }
 
 // Use HTTP server so WebSocket upgrades work.

@@ -34,6 +34,40 @@
       padding: 20px;
     }
 
+    /* Date state backgrounds */
+    .edit-container.future {
+      background: linear-gradient(180deg, rgba(255,249,230,0.7), rgba(255,251,235,0.6));
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: inset 0 0 0 1px rgba(245,158,11,0.08);
+    }
+
+    .edit-container.today {
+      background: linear-gradient(180deg, rgba(237,249,237,0.45), rgba(241,253,244,0.35));
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: inset 0 0 0 1px rgba(34,197,94,0.06);
+    }
+
+    .date-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #794c00;
+      background: linear-gradient(90deg, rgba(255,250,205,0.95), rgba(255,249,196,0.9));
+      border: 1px solid rgba(245,158,11,0.12);
+    }
+
+    .date-banner.today {
+      color: #064e3b;
+      background: linear-gradient(90deg, rgba(220,253,230,0.9), rgba(235,252,238,0.85));
+      border: 1px solid rgba(16,185,129,0.08);
+    }
+
     .edit-header {
       margin-bottom: 20px;
       padding-bottom: 12px;
@@ -1065,6 +1099,7 @@
   <div id="shared-header-mount"></div>
 
   <div class="edit-container">
+    <div id="dateBanner" class="date-banner" style="display:none;">This is a future game plan</div>
 	    <div class="edit-header">
 	      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
 	        <div>
@@ -1968,28 +2003,32 @@
           // Check for date parameter in URL
           const params = new URLSearchParams(window.location.search);
           const urlDate = params.get('date');
-          const selectedDate = urlDate ? new Date(urlDate + 'T12:00:00') : new Date();
 
-          const dateEl = document.getElementById('currentDate');
-          if (dateEl) {
-            dateEl.textContent = selectedDate.toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            });
-          }
+          // If a specific date is provided via URL, show it immediately.
+          // Otherwise, defer to `loadData()` which uses store-day info
+          if (urlDate) {
+            const selectedDate = new Date(urlDate + 'T12:00:00');
+            const dateEl = document.getElementById('currentDate');
+            if (dateEl) {
+              dateEl.textContent = selectedDate.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              });
+            }
 
-          // Initialize date picker
-          const datePicker = document.getElementById('datePicker');
-          if (datePicker) {
-            datePicker.value = selectedDate.toISOString().slice(0, 10); // YYYY-MM-DD format
-            datePicker.addEventListener('change', (e) => {
-              const newDate = e.target.value;
-              if (newDate) {
-                window.location.href = `/gameplan-edit.html?date=${newDate}`;
-              }
-            });
+            // Initialize date picker to the URL date
+            const datePicker = document.getElementById('datePicker');
+            if (datePicker) {
+              datePicker.value = selectedDate.toISOString().slice(0, 10);
+              datePicker.addEventListener('change', (e) => {
+                const newDate = e.target.value;
+                if (newDate) window.location.href = `/gameplan-edit.html?date=${newDate}`;
+              });
+            }
+
+            try { applyDateBanner(selectedDate.toISOString().slice(0,10)); } catch(e){}
           }
       } catch (error) {
         console.error('[EDIT] Auth check failed:', error);
@@ -2000,6 +2039,42 @@
       }
     }
 
+    // Update the UI to indicate if the editor is showing today / future
+    function applyDateBanner(dateISO) {
+      if (!dateISO) return;
+      const banner = document.getElementById('dateBanner');
+      const container = document.querySelector('.edit-container');
+      if (!banner || !container) return;
+
+      // normalize
+      const d = String(dateISO).slice(0,10);
+      const today = getLocalISODate();
+
+      // clear classes
+      banner.style.display = 'none';
+      banner.classList.remove('today');
+      container.classList.remove('future');
+      container.classList.remove('today');
+
+      if (d > today) {
+        // future
+        banner.textContent = 'This is a future game plan — changes here will affect future operations.';
+        banner.classList.remove('today');
+        banner.classList.add('future');
+        banner.style.display = 'flex';
+        container.classList.add('future');
+      } else if (d === today) {
+        // today
+        banner.textContent = "This is today's game plan.";
+        banner.classList.add('today');
+        banner.style.display = 'flex';
+        container.classList.add('today');
+      } else {
+        // past — keep default
+        banner.style.display = 'none';
+      }
+    }
+
             async function loadData() {
 					      editLog('[EDIT] loadData starting...');
 					      
@@ -2007,10 +2082,37 @@
 					      const params = new URLSearchParams(window.location.search);
 					      const urlDate = params.get('date');
 					      
-					      const storeDay = await getStoreDayInfo();
-					      const clientDate = urlDate || storeDay?.date || getLocalISODate(); // YYYY-MM-DD (store day or URL date)
+                const storeDay = await getStoreDayInfo();
+                const clientDate = urlDate || storeDay?.date || getLocalISODate(); // YYYY-MM-DD (store day or URL date)
 					      currentStoreDayInfo = storeDay;
 					      currentEditorDate = clientDate;
+                // Ensure header and date picker reflect the effective client date
+                try {
+                  const dateEl = document.getElementById('currentDate');
+                  if (dateEl) {
+                    const d = new Date(clientDate + 'T12:00:00');
+                    dateEl.textContent = d.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    });
+                  }
+
+                  const datePicker = document.getElementById('datePicker');
+                  if (datePicker) {
+                    datePicker.value = clientDate;
+                    if (!datePicker.dataset.changeListenerAttached) {
+                      datePicker.addEventListener('change', (e) => {
+                        const newDate = e.target.value;
+                        if (newDate) window.location.href = `/gameplan-edit.html?date=${newDate}`;
+                      });
+                      datePicker.dataset.changeListenerAttached = '1';
+                    }
+                  }
+                } catch (e) { /* ignore */ }
+                // update banner using store-aware client date
+                try { applyDateBanner(clientDate); } catch (e) { /* ignore */ }
                 const [empRes, settingsRes, gpRes, metricsRes, storeCfgRes] = await Promise.all([
                   authFetch('/api/gameplan/employees'),
                   authFetch('/api/gameplan/settings'),

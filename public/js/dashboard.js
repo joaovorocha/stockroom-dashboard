@@ -400,9 +400,7 @@ function renderRetailWeekStoreInfo() {
   const dailyTarget = getDailyTargetValue();
   const dailyTargetText = Number.isFinite(Number(dailyTarget)) ? formatCurrencyOrDash(dailyTarget) : '--';
   const isAdmin = !!currentUser?.isAdmin;
-  const sourcesHint = isAdmin && metrics?.dataSources
-    ? `<span style="color:var(--text-muted);">Sources: WTD cards = ${metrics.dataSources.wtdSales}; Retail week = ${metrics.dataSources.retailWeek}</span>`
-    : '';
+  const sourcesHint = '';
 
   box.innerHTML = `
     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
@@ -705,6 +703,8 @@ async function loadEmployees() {
   }
 }
 
+window.loadEmployees = loadEmployees;
+
 async function loadMetrics() {
   try {
     debugLog('[DEBUG] Loading metrics...');
@@ -753,6 +753,8 @@ async function loadMetrics() {
   }
 }
 
+window.loadMetrics = loadMetrics;
+
 async function loadSettings() {
   try {
     const response = await fetch('/api/gameplan/settings', { credentials: 'include' });
@@ -763,6 +765,8 @@ async function loadSettings() {
   }
 }
 
+window.loadSettings = loadSettings;
+
 async function loadStoreConfig() {
   try {
     const response = await fetch('/api/gameplan/store-config', { credentials: 'include' });
@@ -771,6 +775,8 @@ async function loadStoreConfig() {
     // keep defaults
   }
 }
+
+window.loadStoreConfig = loadStoreConfig;
 
 async function loadGameplan() {
   try {
@@ -818,6 +824,8 @@ async function loadGameplan() {
 	    console.error('Error loading gameplan:', error);
 	  }
 		}
+
+window.loadGameplan = loadGameplan;
 
 async function loadClosingDutiesForToday() {
   try {
@@ -879,6 +887,8 @@ async function getStoreDayInfo() {
   }
 }
 
+window.getStoreDayInfo = getStoreDayInfo;
+
 async function loadLoansData() {
   try {
     const response = await fetch('/api/gameplan/loans', { credentials: 'include' });
@@ -891,6 +901,8 @@ async function loadLoansData() {
     debugLog('Error loading loans:', error);
   }
 }
+
+window.loadLoansData = loadLoansData;
 
 async function loadPendingShipments() {
   // Only load for management/BOH/Admin
@@ -1061,6 +1073,8 @@ function checkLoansOverdue() {
   namesEl.textContent = overdueNames.length > 30 ? overdueNames.substring(0, 30) + '...' : overdueNames;
   cardEl.classList.add('warning');
 }
+
+window.checkLoansOverdue = checkLoansOverdue;
 
 function showLoansModal() {
   const modalBody = document.getElementById('loansModalBody');
@@ -1272,6 +1286,13 @@ async function populateWelcomeMetricsBoxes(userEmployee) {
 
     if (weekHeader) weekHeader.textContent = `Retail Week ${retailWeek.weekNumber}`;
     if (weekDates) weekDates.textContent = `${retailWeek.weekStart} → ${retailWeek.weekEnd}`;
+    // Also set the compact KPI retail week value with a line break so it fits
+    const kpiRetail = document.getElementById('kpiRetailWeekValue');
+    if (kpiRetail) {
+      kpiRetail.innerHTML = `${retailWeek.weekStart}<br>→ ${retailWeek.weekEnd}`;
+      kpiRetail.style.fontSize = '15px';
+      kpiRetail.style.lineHeight = '1.05';
+    }
     if (weekActual) weekActual.textContent = formatCurrencyOrDash(retailWeek.salesAmount);
     if (weekTarget) weekTarget.textContent = `Retail Week Target: ${formatCurrencyOrDash(retailWeek.target)}`;
   }
@@ -1855,6 +1876,16 @@ function renderManagementQuickSection() {
   bohWorking.forEach(boh => {
     grid.appendChild(createManagementQuickCard(boh, 'BOH', 'boh-card'));
   });
+
+  // Hide the entire section if there are no cards to show
+  const sectionEl = document.getElementById('managementQuickSection');
+  if (sectionEl) {
+    if (!grid.children || grid.children.length === 0) {
+      sectionEl.style.display = 'none';
+    } else {
+      sectionEl.style.display = '';
+    }
+  }
 }
 
 function createManagementQuickCard(emp, roleLabel, extraClass) {
@@ -2191,6 +2222,8 @@ function updateMetricsDisplay() {
 
   renderRetailWeekStoreInfo();
 }
+
+window.updateMetricsDisplay = updateMetricsDisplay;
 
 function formatCurrency(amount) {
   if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
@@ -3135,6 +3168,8 @@ function renderTailorProductivityLastWeek() {
   }
 }
 
+window.renderTailorProductivityLastWeek = renderTailorProductivityLastWeek;
+
 function renderWorkRelatedExpensesSummary() {
   const exp = metrics?.workRelatedExpenses;
   if (!exp || !exp.storeTotals) return;
@@ -3182,6 +3217,8 @@ function renderWorkRelatedExpensesSummary() {
     }
   }
 }
+
+window.renderWorkRelatedExpensesSummary = renderWorkRelatedExpensesSummary;
 
 // Inventory Issues Section
 function renderInventoryIssues() {

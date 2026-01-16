@@ -1,0 +1,4 @@
+ date | sales_amount | sales_vs_py | target | vs_target | sph | sph_vs_py | ipc | ipc_vs_py | drop_offs | drop_offs_vs_py | apc | apc_vs_py | cpc | cpc_vs_py | imported_at | updated_at 
+------+--------------+-------------+--------+-----------+-----+-----------+-----+-----------+-----------+-----------------+-----+-----------+-----+-----------+-------------+------------
+(0 rows)
+

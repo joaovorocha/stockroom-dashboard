@@ -9,6 +9,7 @@ const AdmZip = require('adm-zip');
 const dal = require('../utils/dal');
 const pgDal = require('../utils/dal/pg');
 const { getActiveUsersSummary } = require('../utils/active-users');
+const { getUnifiedProcessor } = require('../utils/unified-gmail-processor');
 
 function getDiskUsageBytes(targetPath = '/') {
   try {
@@ -337,6 +338,66 @@ router.get('/health', (req, res) => {
       windowMs: users.windowMs,
     },
   });
+});
+
+// GET /api/admin/data-processing/status - Get unified Gmail processor status (admin only)
+router.get('/data-processing/status', (req, res) => {
+  try {
+    const processor = getUnifiedProcessor();
+    const status = processor.getStatus();
+
+    return res.json({
+      ok: true,
+      status: status,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting data processing status:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Failed to get data processing status',
+      message: error.message
+    });
+  }
+});
+
+// POST /api/admin/data-processing/trigger - Trigger manual data processing (admin only)
+router.post('/data-processing/trigger', express.json(), async (req, res) => {
+  try {
+    const processor = getUnifiedProcessor();
+
+    // Check if processing is already running
+    const status = processor.getStatus();
+    if (status.isRunning) {
+      return res.status(409).json({
+        ok: false,
+        error: 'Data processing already in progress',
+        status: status
+      });
+    }
+
+    // Start processing in background
+    processor.processEmails().then(results => {
+      console.log('Manual data processing completed:', results);
+    }).catch(error => {
+      console.error('Manual data processing failed:', error);
+    });
+
+    return res.json({
+      ok: true,
+      message: 'Data processing triggered successfully',
+      status: 'started',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error triggering data processing:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Failed to trigger data processing',
+      message: error.message
+    });
+  }
 });
 
 // GET /api/admin/store-recovery-config - Store Recovery product lookup config (admin only)

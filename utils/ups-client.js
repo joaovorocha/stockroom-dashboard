@@ -85,12 +85,17 @@ class UPSClient {
   async makeRequest(method, endpoint, data = null) {
     await this.authenticate();
     
+    // Generate a unique transaction ID for each request
+    const transId = require('crypto').randomBytes(16).toString('hex');
+    
     const config = {
       method,
       url: `${this.baseURL}${endpoint}`,
       headers: {
         'Authorization': `Bearer ${this.accessToken}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'transId': transId,
+        'transactionSrc': 'testing' // As per UPS docs for dev
       }
     };
     
@@ -322,8 +327,141 @@ class UPSClient {
   }
   
   // ============================================================================
+  // HELPERS
+  // ============================================================================
+  
+  /**
+   * Map UPS status codes to standardized internal statuses
+   * @param {string} upsStatusCode - The status code from the UPS API activity
+   * @param {string} upsStatusType - The status type from the UPS API activity
+   * @returns {string} Standardized status (e.g., 'In-Transit', 'Delivered')
+   */
+  mapUPSToInternalStatus(upsStatusCode, upsStatusType) {
+    // Delivered statuses
+    if (upsStatusCode === '001' || upsStatusType === 'D') return 'Delivered';
+    // In-Transit statuses
+    if (upsStatusType === 'I') return 'In-Transit';
+    // Pickup/Origin statuses often mean it's in transit
+    if (['OR', 'DP', 'AR'].includes(upsStatusCode)) return 'In-Transit';
+    // Pre-shipment/Label created
+    if (upsStatusCode === '003' || upsStatusType === 'M') return 'Label-Created';
+    // Exception/Returned
+    if (upsStatusType === 'X') return 'Exception';
+    if (upsStatusCode === '007') return 'Returned';
+    
+    return 'Unknown';
+  }
+
+  // ============================================================================
   // TRACKING
   // ============================================================================
+
+  /**
+   * Subscribe to tracking alerts (webhooks) for a list of tracking numbers.
+   * @param {string[]} trackingNumbers - An array of up to 100 tracking numbers.
+   * @returns {Promise<object>} The subscription response from UPS.
+   */
+  async subscribeToTrackingAlerts(trackingNumbers) {
+    if (!process.env.UPS_WEBHOOK_URL) {
+      console.warn('[UPS] Webhook URL not configured. Skipping subscription.');
+      return { success: false, error: 'Webhook URL not configured.' };
+    }
+
+    const requestData = {
+      locale: 'en_US',
+      trackingNumberList: trackingNumbers,
+      destination: {
+        url: process.env.UPS_WEBHOOK_URL,
+        credentialType: 'Bearer',
+        credential: process.env.UPS_WEBHOOK_SECRET || '',
+      },
+    };
+
+    try {
+      console.log(`[UPS] Subscribing to alerts for ${trackingNumbers.length} tracking numbers...`);
+      // NOTE: The endpoint for subscription might be different.
+      // Based on docs, it might be something like '/track/v1/subscription/standard/package'
+      // This will need to be verified with the official UPS Track Alert API documentation.
+      const response = await this.makeRequest('POST', '/track/v1/subscription/standard/package', requestData);
+      console.log('[UPS] Subscription successful:', response);
+      return { success: true, response };
+    } catch (error) {
+      console.error('[UPS] Subscription failed:', error.response?.data || error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get detailed tracking information with full history
+   * @param {string} trackingNumber - UPS tracking number
+   * @returns {Promise<object>} Detailed tracking information with event history
+   */
+  async getTrackingDetails(trackingNumber) {
+    console.log(`[UPS] Fetching REAL tracking details for: ${trackingNumber}`);
+    try {
+      const response = await this.makeRequest('GET', `/track/v1/details/${trackingNumber}`);
+      const trackResponse = response.trackResponse;
+
+      const shipment = trackResponse.shipment?.[0];
+
+      if (!shipment || !shipment.package || shipment.package.length === 0 || !shipment.package[0].activity) {
+        throw new Error('No tracking information available from UPS.');
+      }
+
+      const activities = shipment.package[0].activity;
+      const latestActivity = activities[0];
+
+      const events = activities.map(act => {
+        const address = act.location?.address || {};
+        
+        // Correctly parse YYYYMMDD and HHMMSS into a valid ISO string
+        let event_timestamp = new Date().toISOString();
+        if (act.date && act.time) {
+          const year = act.date.substring(0, 4);
+          const month = act.date.substring(4, 6);
+          const day = act.date.substring(6, 8);
+          const hours = act.time.substring(0, 2);
+          const minutes = act.time.substring(2, 4);
+          const seconds = act.time.substring(4, 6);
+          event_timestamp = new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}Z`).toISOString();
+        }
+
+        return {
+          event_timestamp,
+          status: this.mapUPSToInternalStatus(act.status?.code, act.status?.type), // Standardized status
+          details: act.status?.description || 'No details available', // Full description
+          location: {
+            city: address.city || '',
+            state: address.stateProvince || '',
+            zip: address.postalCode || '',
+            country: address.countryCode || '',
+          },
+        };
+      });
+
+      let estimatedDelivery = null;
+      if (shipment.package[0].deliveryDate && shipment.package[0].deliveryDate.length > 0 && shipment.package[0].deliveryDate[0].date) {
+        const delDate = shipment.package[0].deliveryDate[0].date;
+        const y = delDate.substring(0, 4);
+        const m = delDate.substring(4, 6);
+        const d = delDate.substring(6, 8);
+        estimatedDelivery = new Date(`${y}-${m}-${d}T12:00:00Z`).toISOString();
+      }
+
+      return {
+        trackingNumber: trackingNumber,
+        latestStatus: this.mapUPSToInternalStatus(latestActivity.status?.code, latestActivity.status?.type),
+        latestStatusTimestamp: events[0].event_timestamp,
+        estimatedDelivery: estimatedDelivery,
+        events: events,
+        rawResponse: trackResponse
+      };
+
+    } catch (error) {
+      console.error(`[UPS] Real tracking failed for ${trackingNumber}:`, error.response?.data || error.message);
+      throw new Error(`Failed to get tracking details from UPS: ${error.message}`);
+    }
+  }
   
   /**
    * Get tracking information

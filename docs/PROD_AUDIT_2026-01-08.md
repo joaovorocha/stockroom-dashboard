@@ -5,7 +5,7 @@ Target: new server `10.201.48.17` (old: `10.201.48.16`)
 ## Executive Summary
 
 - **Stability**: Web app and PM2 processes are running; `/` returns a 302 to `/login` as expected.
-- **Critical fix applied**: `looker-scheduler` was effectively running every minute due to a malformed cron argument passed via PM2; this is corrected and now runs on the intended schedule.
+- **Critical fix applied**: Separate schedulers consolidated into unified Gmail processor running within `server.js`; no longer uses PM2 arguments for cron scheduling.
 - **Migration hardening applied**: Codebase now supports env-driven canonical storage directories; production runtime state is moved to `/var/lib/stockroom-dashboard` and repo directories are symlinked.
 - **Security posture**: `npm audit --omit=dev` reports **0 vulnerabilities** after upgrading `nodemailer` and applying a safe lockfile bump for `qs`.
 
@@ -19,11 +19,7 @@ Target: new server `10.201.48.17` (old: `10.201.48.16`)
   - Serves HTML pages + API routes
   - Hosts SSE endpoint `/api/sse/updates`
   - Runs UDP listeners and WebSocket upgrade handlers for radio monitoring
-  - Starts in-process UPS email scheduler
-
-- **PM2: `looker-scheduler`**
-  - `node utils/looker-scheduler.js start`
-  - Runs a node-cron schedule which executes the Looker ingest + processing pipeline
+  - Runs unified Gmail processor for both UPS and Looker email processing
 
 ### Storage Layout
 
@@ -161,14 +157,14 @@ The server mounts routers under `/api/*` (see `SERVER_MAP.md` for the complete l
 - Logs showed Looker processing firing every minute, generating `dashboard-data.json` and daily metrics repeatedly.
 
 **Root cause**
-- Malformed cron expression passed as PM2 argument to `utils/looker-scheduler.js` caused node-cron to schedule in an unintended high-frequency pattern.
+- Separate schedulers were running with potentially conflicting cron configurations; consolidated into unified processor to eliminate scheduling conflicts.
 
 **Fix**
-- Updated `ecosystem.config.json` to stop passing the malformed cron argument; scheduler now runs with the safe default cron (`30 6 * * *`).
+- Consolidated separate schedulers into unified Gmail processor running within `server.js`; no longer uses PM2 arguments for cron scheduling.
 
 **Verification**
 - Check scheduler startup line:
-  - `pm2 logs looker-scheduler --lines 200 | rg -n "Starting scheduler with cron expression"`
+  - `pm2 logs stockroom-dashboard --lines 200 | rg -n "Starting.*scheduler with cron expression"`
 
 ### 2) Hardcoded repo-relative data paths (HIGH)
 
@@ -180,7 +176,7 @@ The server mounts routers under `/api/*` (see `SERVER_MAP.md` for the complete l
 
 **Verification**
 - Confirm PM2 env:
-  - `pm2 env looker-scheduler | rg -n "STOCKROOM_(DATA|FILES|LOG)_DIR"`
+  - `pm2 env stockroom-dashboard | rg -n "STOCKROOM_(DATA|FILES|LOG)_DIR"`
 - Confirm repo uses symlinks:
   - `ls -la /var/www/stockroom-dashboard | rg -n "data ->|files ->"`
 
@@ -208,7 +204,6 @@ The server mounts routers under `/api/*` (see `SERVER_MAP.md` for the complete l
 - `pm2 ls`
 - `curl -I http://127.0.0.1:3000/`
 - `pm2 logs stockroom-dashboard --lines 200`
-- `pm2 logs looker-scheduler --lines 200`
 
 ### Backups
 
@@ -225,7 +220,7 @@ The server mounts routers under `/api/*` (see `SERVER_MAP.md` for the complete l
 
 ### Looker → dashboard data (primary)
 
-1) `looker-scheduler` runs via `node-cron` (default `30 6 * * *`, America/Los_Angeles).
+1) Unified Gmail processor runs within `server.js` via `node-cron` (default schedules for both UPS and Looker processing).
 2) `utils/gmail-looker-fetcher.js` downloads attachments from Gmail IMAP and writes them under `files/`:
   - `files/dashboard-stores_performance/`, `files/dashboard-work_related_expenses/`, etc.
 3) `utils/looker-data-processor.js` reads those CSV/PDF artifacts and writes:
@@ -240,8 +235,8 @@ Frontend consumption:
 
 ### Shipments (UPS email → shipments.json)
 
-- `server.js` starts the UPS email scheduler in-process at runtime.
-- `utils/ups-email-parser.js` (invoked by `utils/ups-scheduler.js`) imports shipments from Gmail and updates `data/shipments.json`.
+- `server.js` starts the unified Gmail processor at runtime.
+- `utils/ups-email-parser.js` (invoked by unified Gmail processor) imports shipments from Gmail and updates `data/shipments.json`.
 - UI uses `/api/shipments` to view/manage shipments.
 
 ### Radio (SDR capture → clips/transcripts)

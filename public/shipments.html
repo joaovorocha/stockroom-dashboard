@@ -22,7 +22,7 @@
     .page-wrap { padding: 16px; max-width: 1200px; margin: 0 auto; }
     .section-header-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
     .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .filter-bar { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+    .filter-bar { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; align-items: center; }
     .filter-bar input, .filter-bar select {
       padding: 8px 10px;
       border: 1px solid var(--border);
@@ -34,7 +34,7 @@
     .filter-bar input { flex: 1; min-width: 220px; }
     .summary-row {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
       margin: 10px 0 14px;
     }
@@ -47,6 +47,8 @@
     }
     .summary-item .count { font-size: 18px; font-weight: 700; }
     .summary-item .label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+    .summary-item.summary-clickable { cursor: pointer; }
+    .summary-item.summary-clickable:hover { background: var(--surface-hover); }
 
     .shipment-list { display: grid; gap: 10px; }
     .shipment-card {
@@ -124,7 +126,8 @@
 <body>
   <!-- Shared Header Mount -->
   <div id="shared-header-mount"></div>
-<div class="page-wrap">    <div class="page-header" style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
+<div class="page-wrap">
+    <div class="page-header" style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
       <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Daily Operations</div>
       <h1 style="font-size: 24px; font-weight: 600; margin: 0 0 8px;">📦 Shipments</h1>
       <p style="font-size: 14px; color: var(--text-secondary); margin: 0;">Track and manage all shipments and packages for your store.</p>
@@ -134,28 +137,28 @@
           <h2 style="margin:0;">Shipments</h2>
         </div>
         <div class="controls">
+          <button id="refreshAllBtn" class="btn">Refresh All Statuses</button>
           <div class="small-note" id="autoRefreshNote">Auto-refreshing…</div>
         </div>
       </div>
 
       <div class="summary-row">
-        <div class="summary-item">
-          <div class="count" id="countTotal">0</div>
-          <div class="label">Shown</div>
+        <div class="summary-item summary-clickable" id="showAllBtn">
+          <div class="count" style="font-size: 18px; padding-top: 8px;">All Shipments</div>
         </div>
-        <div class="summary-item">
+        <div class="summary-item summary-clickable" data-status="label-created">
+          <div class="count" id="countLabelCreated">0</div>
+          <div class="label">Label Created</div>
+        </div>
+        <div class="summary-item summary-clickable" data-status="in-transit">
           <div class="count" id="countInTransit">0</div>
           <div class="label">In Transit</div>
         </div>
-        <div class="summary-item">
+        <div class="summary-item summary-clickable" data-status="delivered">
           <div class="count" id="countDelivered">0</div>
           <div class="label">Delivered</div>
         </div>
-        <div class="summary-item">
-          <div class="count" id="countReturned">0</div>
-          <div class="label">Returned</div>
-        </div>
-        <div class="summary-item">
+        <div class="summary-item summary-clickable" data-status="unknown">
           <div class="count" id="countUnknown">0</div>
           <div class="label">Unknown</div>
         </div>
@@ -167,17 +170,34 @@
           <option value="">All statuses</option>
           <option value="label-created">Label created</option>
           <option value="in-transit">In transit</option>
-          <option value="returned">Returned</option>
           <option value="delivered">Delivered</option>
           <option value="unknown">Unknown</option>
           <option value="requested">Requested</option>
         </select>
+        <div class="summary-item" style="padding: 4px 12px; text-align: center; min-width: 80px;">
+          <div class="count" id="countTotal">0</div>
+          <div class="label">Shown</div>
+        </div>
       </div>
 
       <div class="shipment-list" id="shipmentsList"></div>
       <div class="empty" id="emptyState" style="display:none;">No shipments match your filters.</div>
     </section>
   </div>
+
+  <!-- Tracking Modal -->
+  <div class="modal-overlay" id="trackingModal" style="display:none; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:1001;">
+    <div class="modal" style="background:#fff; border-radius:10px; padding:20px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:10px; margin-bottom:15px;">
+        <h3 style="margin:0;">Tracking History</h3>
+        <button onclick="closeTrackingModal()" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
+      </div>
+      <div id="trackingModalBody">
+        <!-- Tracking events will be rendered here -->
+      </div>
+    </div>
+  </div>
+
   <script src="/js/shared-header.js?v=24"></script>
   <script>
     let allShipments = [];
@@ -208,6 +228,23 @@
       if (Number.isNaN(d.getTime())) return safeText(value);
       // Return only the date (no time) to hide time information in the UI
       return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+    }
+
+    function formatDateTime(value) {
+      if (!value) return 'N/A';
+      const d = new Date(value);
+      if (isNaN(d.getTime())) {
+        // Fallback for different date formats if needed
+        return 'Invalid Date';
+      }
+      return d.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
     }
 
     function trackingLink(trackingNumber) {
@@ -259,25 +296,27 @@
       });
     }
 
-    function updateSummary(items) {
-      const total = items.length;
-      const counts = { 'in-transit': 0, delivered: 0, unknown: 0, returned: 0 };
-      for (const s of items) {
-        const st = safeText(s.status).toLowerCase().replace(/_/g, '-');
-        if (st === 'in-transit') counts['in-transit']++;
+    function updateSummary(filteredItems, totalItems) {
+      const shownCount = filteredItems.length;
+      const counts = { 'label-created': 0, 'in-transit': 0, delivered: 0, unknown: 0 };
+      
+      // Use the full list for status counts
+      for (const s of totalItems) {
+        const st = safeText(s.status || s.lastUpsStatus || 'unknown').toLowerCase().replace(/_/g, '-');
+        if (st === 'label-created') counts['label-created']++;
+        else if (st === 'in-transit') counts['in-transit']++;
         else if (st === 'delivered') counts.delivered++;
         else if (st === 'unknown') counts.unknown++;
-        else if (st.includes('return') || safeText(s.statusFromUPS).toLowerCase().includes('return')) counts.returned++;
       }
-      document.getElementById('countTotal').textContent = String(total);
+      
+      document.getElementById('countTotal').textContent = String(shownCount); // "Shown" reflects the filtered count
+      document.getElementById('countLabelCreated').textContent = String(counts['label-created']);
       document.getElementById('countInTransit').textContent = String(counts['in-transit']);
       document.getElementById('countDelivered').textContent = String(counts.delivered);
       document.getElementById('countUnknown').textContent = String(counts.unknown);
-      // If there's a returned count element, update it (add element if needed)
-      const retEl = document.getElementById('countReturned');
-      if (retEl) retEl.textContent = String(counts.returned);
     }
-      function getShipmentSortTime(s) {
+
+    function getShipmentSortTime(s) {
         const v = s && typeof s === 'object'
           ? (s.shippedAt || s.shippedDate || s.shipDate || s.emailDate || s.importedAt || s.createdAt || s.updatedAt || 0)
           : 0;
@@ -289,35 +328,58 @@
     function renderShipments() {
       const list = document.getElementById('shipmentsList');
       const empty = document.getElementById('emptyState');
-      const items = applyFilters().sort((a, b) => {
-          const ad = getShipmentSortTime(a);
-          const bd = getShipmentSortTime(b);
-          if (bd !== ad) return bd - ad;
-          // tie-breaker: most recently updated
-          const au = new Date(a.updatedAt || 0).getTime() || 0;
-          const bu = new Date(b.updatedAt || 0).getTime() || 0;
-          return bu - au;
-        });
+      const filteredItems = applyFilters().sort((a, b) => {
+        const statusOrder = {
+          'label-created': 1,
+          'in-transit': 2,
+          'delivered': 3,
+          'exception': 4,
+          'unknown': 5,
+          'returned': 6
+        };
 
-      updateSummary(items);
+        const aStatus = (safeText(a.status || a.lastUpsStatus || 'unknown').toLowerCase().replace(/_/g, '-'));
+        const bStatus = (safeText(b.status || b.lastUpsStatus || 'unknown').toLowerCase().replace(/_/g, '-'));
 
-      if (!items.length) {
+        const aRank = statusOrder[aStatus] || 99;
+        const bRank = statusOrder[bStatus] || 99;
+
+        if (aRank !== bRank) {
+          return aRank - bRank;
+        }
+
+        // Secondary sort: by date (most recent first)
+        const ad = getShipmentSortTime(a);
+        const bd = getShipmentSortTime(b);
+        if (bd !== ad) return bd - ad;
+        
+        // tie-breaker: most recently updated
+        const au = new Date(a.updatedAt || 0).getTime() || 0;
+        const bu = new Date(b.updatedAt || 0).getTime() || 0;
+        return bu - au;
+      });
+
+      // Pass both the filtered and total lists to the summary function
+      updateSummary(filteredItems, allShipments);
+
+      if (!filteredItems.length) {
         list.innerHTML = '';
         empty.style.display = 'block';
         return;
       }
       empty.style.display = 'none';
 
-      list.innerHTML = items.map(s => {
+      list.innerHTML = filteredItems.map(s => {
         const tracking = safeText(s.trackingNumber || s.tracking).trim();
-        const status = safeText(s.status || 'unknown').toLowerCase().replace(/_/g, '-') || 'unknown';
+        const status = safeText(s.status || s.lastUpsStatus || 'unknown').toLowerCase().replace(/_/g, '-') || 'unknown';
         // detect returned packages
-        const isReturned = status.includes('return') || safeText(s.statusFromUPS).toLowerCase().includes('return') || !!s.returned;
+        const isReturned = status.includes('return') || safeText(s.statusFromUps).toLowerCase().includes('return') || !!s.returned;
         const customer = safeText(s.customerName) || safeText(s.destination) || '—';
         const when = formatDate(s.shippedAt || s.shippedDate || s.shipDate || s.emailDate || s.importedAt || s.createdAt || s.updatedAt);
         const src = safeText(s.source || s.statusUpdatedSource || '').trim() || '—';
         const link = trackingLink(tracking);
-        const statusFromUps = safeText(s.statusFromUPS).trim();
+        const statusFromUps = safeText(s.statusFromUps || s.lastUpsStatus || '').trim();
+        const estimatedDelivery = s.estimatedDeliveryAt || s.estimatedDelivery;
         // detect missing fields
         const missing = [];
         if (!tracking) missing.push('tracking');
@@ -341,9 +403,12 @@
                   <div class="meta">${src ? `${src}` : ''}</div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
-                <div class="status-pill ${isReturned ? 'returned' : status}">${isReturned ? 'Returned' : status}</div>
+                <div class="status-pill ${isReturned ? 'returned' : status}">${isReturned ? 'Returned' : status.replace('-', ' ')}</div>
                 ${missing.length ? `<span class="missing-badge" title="Missing: ${missing.join(', ')}">Missing</span>` : ''}
               </div>
+            </div>
+            <div class="meta" style="margin-top:4px;">
+              ${estimatedDelivery ? `Est. Delivery: <strong>${formatDate(estimatedDelivery)}</strong>` : ''}
             </div>
 	            <div class="shipment-body">
               <div class="field">
@@ -383,8 +448,13 @@
 	              </div>
 	            </div>
 	            <div class="link-row">
-	              ${link ? `<a href="${link}" target="_blank" rel="noopener noreferrer">Open UPS Tracking</a>` : `<span class="meta">No tracking link</span>`}
-	              <span class="meta"></span>
+                <div>
+	                ${link ? `<a href="${link}" target="_blank" rel="noopener noreferrer">Open UPS Tracking</a>` : `<span class="meta">No tracking link</span>`}
+	                <button class="btn-link" onclick="fetchAndRenderTracking(${s.id})">View Real-Time Status</button>
+                </div>
+                <div>
+                  <button class="btn-link-danger" onclick="handleDeleteShipment(${s.id})">Delete</button>
+                </div>
 	            </div>
 	          </div>
 	        `;
@@ -394,6 +464,101 @@
     function setAutoRefreshMessage(message) {
       const el = document.getElementById('autoRefreshNote');
       if (el) el.textContent = message;
+    }
+
+    function closeTrackingModal() {
+      const modal = document.getElementById('trackingModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function handleShowAll() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('statusFilter').value = '';
+      renderShipments();
+    }
+
+    async function handleDeleteShipment(shipmentId) {
+      if (!confirm('Are you sure you want to permanently delete this shipment? This action cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const resp = await fetch(`/api/shipments/${shipmentId}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.error || 'Failed to delete shipment.');
+        }
+
+        // Remove from local list and re-render
+        allShipments = allShipments.filter(s => s.id !== shipmentId);
+        renderShipments();
+        alert('Shipment deleted successfully.');
+
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function fetchAndRenderTracking(shipmentId) {
+      const modal = document.getElementById('trackingModal');
+      const body = document.getElementById('trackingModalBody');
+      if (!modal || !body) return;
+
+      body.innerHTML = '<div>Loading tracking details...</div>';
+      modal.style.display = 'flex';
+
+      try {
+        const resp = await fetch(`/api/shipments/${shipmentId}/tracking`);
+        if (!resp.ok) {
+          const errData = await resp.json();
+          throw new Error(errData.error || 'Failed to load tracking data.');
+        }
+        const data = await resp.json();
+
+        let historyHtml = `
+          <div style="margin-bottom:15px;">
+            <div><strong>Tracking #:</strong> ${data.trackingNumber}</div>
+            <div><strong>Latest Status:</strong> ${data.latestStatus}</div>
+            ${data.estimatedDelivery ? `<div><strong>Est. Delivery:</strong> ${formatDate(data.estimatedDelivery)}</div>` : ''}
+          </div>
+          <ul style="list-style:none; padding:0; margin:0;">
+        `;
+
+        if (data.history && data.history.length > 0) {
+          data.history.forEach(event => {
+            historyHtml += `
+              <li style="padding-bottom:12px; border-left:2px solid #ddd; padding-left:12px; position:relative;">
+                <div style="position:absolute; left:-7px; top:4px; width:12px; height:12px; background:#fff; border:2px solid #ddd; border-radius:50%;"></div>
+                <div><strong>${event.status}</strong></div>
+                <div style="font-size:12px; color:#555;">${formatDateTime(event.eventTimestamp)}</div>
+                <div style="font-size:12px; color:#555;">${[event.locationCity, event.locationState, event.locationCountry].filter(Boolean).join(', ')}</div>
+                ${event.details ? `<div style="font-size:12px; color:#777;">${event.details}</div>` : ''}
+              </li>
+            `;
+          });
+        } else {
+          historyHtml += '<li>No tracking history available.</li>';
+        }
+
+        historyHtml += '</ul>';
+        body.innerHTML = historyHtml;
+
+        // Update the main shipment list with the new data
+        const shipmentInList = allShipments.find(s => s.id === shipmentId);
+        if (shipmentInList) {
+          shipmentInList.status = data.latestStatus || shipmentInList.status;
+          shipmentInList.lastUpsStatus = data.latestStatus || shipmentInList.status;
+          shipmentInList.estimatedDeliveryAt = data.estimatedDelivery || shipmentInList.estimatedDeliveryAt;
+          renderShipments(); // Re-render the list to show the updated status
+        }
+
+      } catch (err) {
+        body.innerHTML = `<div style="color:red;">Error: ${err.message}</div>`;
+      }
     }
 
     function formatRefreshTime(date) {
@@ -415,7 +580,7 @@
         // API returns { shipments: [] }, extract the array
         allShipments = Array.isArray(data) ? data : (data.shipments || []);
         lastRefreshAt = new Date();
-        setAutoRefreshMessage(`Updated ${formatRefreshTime(lastRefreshAt)} • Refreshes every 60s`);
+        setAutoRefreshMessage(`Updated ${formatRefreshTime(lastRefreshAt)}`);
       } catch (e) {
         console.error(e);
         allShipments = [];
@@ -434,6 +599,65 @@
       refreshTimer = null;
     }
 
+    function setupSSE() {
+      const sse = new EventSource('/api/sse/updates');
+      
+      sse.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'shipment_updated') {
+            console.log('Received shipment update via SSE:', message.data);
+            const updatedShipment = message.data;
+            const shipmentInList = allShipments.find(s => s.id === updatedShipment.id);
+            
+            if (shipmentInList) {
+              // Update the local data with all fields from the broadcast
+              Object.assign(shipmentInList, updatedShipment);
+              renderShipments();
+            }
+          }
+        } catch (e) {
+          // Ignore parse errors, likely a heartbeat
+        }
+      };
+
+      sse.onerror = () => {
+        // Handle SSE errors, maybe try to reconnect
+        console.error('SSE connection error. Will auto-reconnect.');
+        sse.close();
+        setTimeout(setupSSE, 5000); // Reconnect after 5 seconds
+      };
+      
+      console.log('SSE connection established for real-time updates.');
+      stopAutoRefresh(); // Stop polling now that we have real-time updates
+      setAutoRefreshMessage('Real-time updates enabled');
+    }
+
+    async function handleRefreshAll() {
+      const btn = document.getElementById('refreshAllBtn');
+      if (!btn) return;
+
+      btn.textContent = 'Refreshing...';
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch('/api/shipments/refresh-statuses', { method: 'POST' });
+        if (!resp.ok) {
+          throw new Error('Refresh request failed.');
+        }
+        // The SSE `shipments_refreshed` event will trigger the UI update.
+        // Or we can just manually reload. Let's do that for immediate feedback.
+        await loadShipments(); 
+        alert('All shipment statuses have been refreshed.');
+
+      } catch (err) {
+        alert('An error occurred during the refresh: ' + err.message);
+      } finally {
+        btn.textContent = 'Refresh All Statuses';
+        btn.disabled = false;
+      }
+    }
+
     async function initPage() {
       console.log('[Shipments] initPage() started.'); // DEBUG
       SharedHeader.mountHeader({ showRefresh: false });
@@ -448,6 +672,17 @@
 
       document.getElementById('searchInput').addEventListener('input', renderShipments);
       document.getElementById('statusFilter').addEventListener('change', renderShipments);
+      document.getElementById('refreshAllBtn').addEventListener('click', handleRefreshAll);
+      document.getElementById('showAllBtn').addEventListener('click', handleShowAll);
+
+      // Add click listeners for summary cards
+      document.querySelectorAll('.summary-clickable[data-status]').forEach(card => {
+        card.addEventListener('click', () => {
+          const status = card.dataset.status;
+          document.getElementById('statusFilter').value = status;
+          renderShipments();
+        });
+      });
 
       // Tab switching
       document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -475,14 +710,15 @@
       console.log('[Shipments] loadShipments finished.'); // DEBUG
 
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden) stopAutoRefresh();
-        else {
+        if (document.hidden) {
+          // You might want to close and re-open SSE connection on visibility change
+          // For simplicity, we'll leave it open for now.
+        } else {
           loadShipments().catch(() => {});
-          startAutoRefresh();
         }
       });
-      startAutoRefresh();
-      console.log('[Shipments] initPage() finished.'); // DEBUG
+      
+      setupSSE(); // Start listening for real-time updates
     }
 
     document.addEventListener('DOMContentLoaded', initPage);

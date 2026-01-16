@@ -2,33 +2,35 @@
 
 ## Overview
 
-Daily Operations Dashboard is a Progressive Web Application (PWA) built with Node.js/Express backend and vanilla JavaScript/HTML/CSS frontend. It manages daily operations for retail locations including game plans, shipments, lost punches, time off requests, and store metrics.
+Stockroom Dashboard is a comprehensive Progressive Web Application (PWA) built with Node.js/Express backend, PostgreSQL database, and integrated MCP (Model Context Protocol) servers. It manages retail operations including game plans, shipments, employee scheduling, radio communications, and real-time task management.
 
 ---
 
 ## Technology Stack
 
 ### Backend
-- **Runtime:** Node.js (v14+)
+- **Runtime:** Node.js 18+
 - **Framework:** Express.js
+- **Database:** PostgreSQL with automated migrations
 - **Language:** JavaScript (ES6+)
-- **Session Management:** express-session with cookie-parser
-- **Data Storage:** JSON files (can migrate to PostgreSQL)
-- **Email:** Gmail IMAP (for UPS email parsing)
-- **WebSockets:** ws (for real-time updates)
+- **Session Management:** Cookie-based with PostgreSQL storage
+- **Real-time:** WebSockets (ws library)
+- **Email Processing:** Gmail IMAP with automated Looker report ingestion
+- **MCP Integration:** Custom servers for inventory, shipments, and radio operations
 
 ### Frontend
 - **Languages:** HTML5, CSS3, JavaScript (vanilla, no frameworks)
 - **Architecture:** Progressive Web App (PWA)
-- **Offline Support:** Service Workers (sw.js)
+- **State Management:** sessionStorage, localStorage, WebSocket sync
 - **Responsive Design:** Mobile-first CSS Grid/Flexbox
-- **State Management:** sessionStorage, localStorage, in-memory
+- **Offline Support:** Service Workers for critical functionality
 
 ### Infrastructure
-- **Server:** Linux (systemd)
-- **Process Management:** PM2 (ecosystem.config.json)
-- **SSL/TLS:** Optional HTTPS with self-signed certificates
-- **Reverse Proxy:** Tailscale Serve (optional)
+- **Server:** Linux (Ubuntu 20.04+)
+- **Process Management:** PM2 with ecosystem configuration
+- **SSL/TLS:** HTTPS with Let's Encrypt certificates
+- **Reverse Proxy:** Nginx (recommended)
+- **Monitoring:** PM2 monitoring and log aggregation
 
 ---
 
@@ -36,82 +38,44 @@ Daily Operations Dashboard is a Progressive Web Application (PWA) built with Nod
 
 ```
 stockroom-dashboard/
-├── src/                          # Source code (organized)
-│   ├── routes/                  # API endpoints
-│   │   ├── auth.js              # Authentication (login, logout)
-│   │   ├── gameplan.js          # Daily game plans
-│   │   ├── shipments.js         # Shipment tracking
-│   │   ├── lostPunch.js         # Lost punch requests
-│   │   ├── timeoff.js           # Time off management
-│   │   ├── closingDuties.js     # Store closing tasks
-│   │   ├── expenses.js          # Expense tracking
-│   │   ├── awards.js            # Employee awards
-│   │   ├── radio.js             # Radio operations
-│   │   ├── admin.js             # Admin functions
-│   │   └── storeRecovery.js     # RFID store inventory
-│   │
-│   ├── middleware/              # Request processing
-│   │   └── auth.js              # Authentication guard
-│   │
-│   ├── utils/                   # Shared utilities
-│   │   ├── dal.js               # Data Access Layer (JSON file ops)
-│   │   ├── paths.js             # File path management
-│   │   ├── ups-api.js           # UPS tracking API integration
-│   │   ├── ups-scheduler.js     # Scheduled UPS status updates
-│   │   ├── ups-email-parser.js  # Gmail email parsing
-│   │   ├── active-users.js      # Track online users
-│   │   └── ... other utilities
-│   │
-│   └── models/                  # Data schemas (future)
-│
-├── public/                       # Frontend (HTML/CSS/JS)
-│   ├── index.html               # Login page
-│   ├── dashboard.html           # Main dashboard
-│   ├── gameplan-edit.html       # Game plan editor
-│   ├── gameplan-sa.html         # Sales Associate view
-│   ├── gameplan-boh.html        # Back of House view
-│   ├── gameplan-management.html # Manager view
-│   ├── shipments.html           # Shipment tracking UI
-│   ├── lost-punch.html          # Lost punch request form
-│   ├── ... other pages
-│   │
-│   ├── css/                     # Stylesheets
-│   │   ├── theme.css            # Color & typography system
-│   │   ├── dashboard.css        # Layout & components
-│   │   ├── shared-header.css    # Global header
-│   │   ├── mobile.css           # Responsive breakpoints
-│   │   └── ... page-specific styles
-│   │
-│   ├── js/                      # Client-side JavaScript
-│   │   ├── dashboard.js         # Main app logic
-│   │   ├── shared-header.js     # Navigation/header functionality
-│   │   ├── store-recovery.js    # RFID scanning logic
-│   │   └── ... page-specific scripts
-│   │
-│   ├── icons/                   # App icons
-│   └── images/                  # Static images
-│
-├── data/                        # JSON data storage (gitignored)
-│   ├── users.json               # Employee directory
-│   ├── employees-v2.json        # Extended employee data
-│   ├── shipments.json           # Shipment records
-│   ├── gameplan-daily/          # Daily game plans
-│   ├── closing-duties-log.json  # Store closing records
-│   └── ... other data files
-│
-├── tests/                       # Unit & integration tests
-├── docs/                        # Documentation
-├── config/                      # Environment configs
-├── scripts/                     # Utility scripts
-│   └── dedupe-shipments.js      # Deduplication tool
-│
-├── server.js                    # Express app entry point
-├── package.json                 # Dependencies & scripts
-├── ecosystem.config.json        # PM2 configuration
-├── .env                         # Environment variables (gitignored)
-├── .env.example                 # Template for .env
-├── .gitignore                   # Git ignore rules
-└── README.md                    # Project overview
+├── routes/                      # API endpoints
+│   ├── auth-pg.js              # Authentication & user management
+│   ├── gameplan.js             # Daily game plans & assignments
+│   ├── shipments.js            # Shipment tracking & UPS integration
+│   ├── radio.js                # Radio communications
+│   ├── lostPunch-pg.js         # Lost punch requests
+│   ├── timeoff-pg.js           # Time off management
+│   ├── closingDuties-pg.js     # Store closing tasks
+│   ├── expenses.js             # Expense tracking
+│   ├── awards.js               # Employee awards
+│   ├── admin.js                # Administrative functions
+│   ├── pickups.js              # Customer pickup management
+│   ├── waitwhile.js            # WaitWhile integration
+│   └── webhooks.js             # External webhook handlers
+├── middleware/
+│   └── auth-pg.js              # Authentication middleware
+├── utils/                       # Shared utilities
+│   ├── dal/                    # Data access layer (PostgreSQL)
+│   ├── gmail-looker-fetcher.js # Email processing
+│   ├── looker-data-processor.js # Report processing
+│   ├── ups-client.js           # UPS API integration
+│   ├── mcp-clients/           # MCP server clients
+│   └── mailer.js               # Email sending
+├── mcp-servers/                # Model Context Protocol servers
+│   ├── stockroom-inventory/    # Inventory management MCP
+│   ├── stockroom-shipments/    # Shipment tracking MCP
+│   └── stockroom-radio/        # Radio communications MCP
+├── public/                     # Static web assets
+│   ├── *.html                  # Page templates
+│   ├── css/                    # Stylesheets
+│   └── js/                     # Client-side JavaScript
+├── models/                     # Data models & schemas
+├── scripts/                    # Utility scripts
+├── migrations/                 # Database migrations
+├── tests/                      # Test suites
+├── docs/                       # Documentation
+├── data/                       # Runtime data (gitignored)
+└── logs/                       # Application logs
 ```
 
 ---
@@ -193,47 +157,71 @@ function canManageShipments(user) {
 }
 ```
 
-### 4. Graceful Degradation
-- Service Workers enable offline access
-- Critical endpoints have retry logic
-- Failed requests show user-friendly errors
+### 4. MCP Integration
+- Model Context Protocol servers for specialized operations
+- Inventory management via `stockroom-inventory` MCP server
+- Shipment tracking via `stockroom-shipments` MCP server
+- Radio communications via `stockroom-radio` MCP server
 
 ---
 
-## Database Schema (Current: JSON)
+## Database Schema (PostgreSQL)
 
-### users.json
-```json
-{
-  "users": [
-    {
-      "id": "unique-id",
-      "email": "user@example.com",
-      "password": "hashed-password",
-      "name": "John Doe",
-      "role": "SA|BOH|TAILOR|MANAGEMENT",
-      "employeeId": "12345",
-      "storeId": "SF001",
-      "isManager": false,
-      "isAdmin": false
-    }
-  ]
-}
+### Core Tables
+
+#### users
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  employee_id VARCHAR(50) UNIQUE NOT NULL,
+  email VARCHAR(255),
+  password_hash VARCHAR(255) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  role VARCHAR(50) NOT NULL,
+  store_id VARCHAR(10) DEFAULT 'SF',
+  is_manager BOOLEAN DEFAULT false,
+  is_admin BOOLEAN DEFAULT false,
+  can_edit_gameplan BOOLEAN DEFAULT false,
+  can_config_radio BOOLEAN DEFAULT false,
+  can_manage_lost_punch BOOLEAN DEFAULT false,
+  must_change_password BOOLEAN DEFAULT false,
+  image_url VARCHAR(500),
+  last_login TIMESTAMP,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
-### gameplan-daily/{YYYY-MM-DD}.json
-```json
-{
-  "date": "2026-01-10",
-  "goals": {
-    "manualGoal": 5000,
-    "autoTarget": 5200,
-    "daySliders": 100
-  },
-  "employees": {
-    "SA": [
-      {
-        "employeeId": "12345",
+#### user_sessions
+```sql
+CREATE TABLE user_sessions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  session_token VARCHAR(255) UNIQUE NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### shipments
+```sql
+CREATE TABLE shipments (
+  id SERIAL PRIMARY KEY,
+  tracking_number VARCHAR(100) UNIQUE,
+  status VARCHAR(50),
+  carrier VARCHAR(50) DEFAULT 'UPS',
+  ship_date DATE,
+  estimated_delivery DATE,
+  actual_delivery TIMESTAMP,
+  recipient_name VARCHAR(255),
+  recipient_address TEXT,
+  weight DECIMAL(10,2),
+  service_type VARCHAR(100),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
         "name": "John Doe",
         "assignment": "Floor",
         "notes": "Lead customer"

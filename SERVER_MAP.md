@@ -1,6 +1,6 @@
 # Stockroom Dashboard — Server Map (Routes + Config)
 
-This repo’s server entrypoint is `server.js` (Express). Route handlers live in `routes/*.js`. Persistent data is stored in `data/` (JSON files) via the DAL in `utils/dal/`.
+This repo's server entrypoint is `server.js` (Express). Route handlers live in `routes/*.js`. Persistent data is stored in PostgreSQL via the DAL in `utils/dal/pg.js`.
 
 ## How To Get IPs (Client/Proxy/Tailscale)
 
@@ -19,7 +19,7 @@ This repo’s server entrypoint is `server.js` (Express). Route handlers live in
 - `server.js`
   - Starts Express on `PORT` (default `3000`) and binds `0.0.0.0`
   - Mounts all `/api/*` routers and serves `public/*.html` pages
-  - Provides SSE updates at `GET /api/sse/updates`
+  - Provides WebSocket updates at various endpoints
 
 ### Static Assets
 - `GET /css/*`, `GET /js/*`, `GET /images/*`, etc via `express.static(public/)`
@@ -30,7 +30,8 @@ This repo’s server entrypoint is `server.js` (Express). Route handlers live in
   - `GET /user-uploads/*` → `data/user-uploads/`
 
 ### Auth Model (high level)
-- Cookie session is handled by `middleware/auth.js` + `routes/auth.js`
+- Cookie session is handled by `middleware/auth-pg.js` + `routes/auth-pg.js`
+- PostgreSQL stores user sessions and authentication data
 - Any direct request for a `.html` file is forced through auth middleware (prevents bypassing routes)
 
 ## HTML Routes (Pages)

@@ -3,6 +3,9 @@ const { simpleParser } = require('mailparser');
 const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
+const { google } = require('googleapis');
+
+require("dotenv").config({ path: path.resolve(__dirname, "../../.env") });
 
 const { getDataDir, getFilesDir } = require('./paths');
 
@@ -11,15 +14,49 @@ const FILES_DIR = getFilesDir();
 const METRICS_DIR = path.join(DATA_DIR, 'store-metrics');
 const GMAIL_IMPORTS_DIR = path.join(FILES_DIR, 'gmail-imports');
 
-// Gmail configuration - should be stored in environment variables
-const GMAIL_CONFIG = {
-  user: process.env.GMAIL_USER || '',
-  password: process.env.GMAIL_APP_PASSWORD || '', // Use App Password, not regular password
-  host: 'imap.gmail.com',
-  port: 993,
-  tls: true,
-  tlsOptions: { rejectUnauthorized: false }
-};
+// Gmail configuration - supports OAuth2 or app password
+function getGmailConfig() {
+  const user = process.env.GMAIL_USER || '';
+  const password = process.env.GMAIL_APP_PASSWORD || '';
+  const clientId = process.env.GMAIL_CLIENT_ID || '';
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET || '';
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN || '';
+
+  if (!user) {
+    throw new Error('GMAIL_USER not configured');
+  }
+
+  const config = {
+    user,
+    host: 'imap.gmail.com',
+    port: 993,
+    tls: true,
+    tlsOptions: { rejectUnauthorized: false }
+  };
+
+  if (clientId && clientSecret && refreshToken) {
+    // OAuth2 - generate XOAUTH2 string
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    
+    // Get access token
+    const accessToken = oauth2Client.getAccessToken();
+    
+    // XOAUTH2 format: base64("user=" + user + "\x01auth=Bearer " + accessToken + "\x01\x01")
+    const xoauth2 = Buffer.from(`user=${user}\x01auth=Bearer ${accessToken}\x01\x01`).toString('base64');
+    
+    config.xoauth2 = xoauth2;
+  } else if (password) {
+    // App password
+    config.password = password;
+  } else {
+    throw new Error('Gmail credentials not configured (set GMAIL_APP_PASSWORD or OAuth2 vars)');
+  }
+
+  return config;
+}
+
+const GMAIL_CONFIG = getGmailConfig();
 
 // Looker email subject patterns and their target folders
 const LOOKER_EMAIL_PATTERNS = [
@@ -62,8 +99,8 @@ class GmailLookerFetcher {
 
   connect() {
     return new Promise((resolve, reject) => {
-      if (!this.config.user || !this.config.password) {
-        reject(new Error('Gmail credentials not configured. Set GMAIL_USER and GMAIL_APP_PASSWORD environment variables.'));
+      if (!this.config.user || (!this.config.password && !this.config.xoauth2)) {
+        reject(new Error('Gmail credentials not configured. Set GMAIL_USER and either GMAIL_APP_PASSWORD or OAuth vars.'));
         return;
       }
 
@@ -354,11 +391,30 @@ class GmailLookerFetcher {
       const messageIds = await this.searchLookerEmails(daysBack, includeSeen);
       console.log(`Found ${messageIds.length} Looker emails from last ${daysBack} day(s)`);
 
-      const processedMsgIds = [];
-
+      // Fetch all emails and group by subject, keeping only the most recent for each
+      const emailsBySubject = new Map();
+      
       for (const msgId of messageIds) {
         try {
           const email = await this.fetchEmail(msgId);
+          const subject = email.subject;
+          const emailDate = new Date(email.date);
+          
+          if (!emailsBySubject.has(subject) || emailDate > new Date(emailsBySubject.get(subject).date)) {
+            emailsBySubject.set(subject, { msgId, email, date: email.date });
+          }
+        } catch (err) {
+          console.error(`Error fetching email ${msgId}:`, err);
+          results.errors.push(`Fetch ${msgId}: ${err.message}`);
+        }
+      }
+
+      console.log(`Processing ${emailsBySubject.size} most recent emails (one per subject)`);
+
+      const processedMsgIds = [];
+
+      for (const { msgId, email } of emailsBySubject.values()) {
+        try {
           console.log(`\nProcessing: ${email.subject}`);
           console.log(`Date: ${email.date}`);
 
@@ -412,7 +468,45 @@ class GmailLookerFetcher {
     // Log results
     this.logResults(results);
 
-    return results;
+  }
+
+  // Start IDLE monitoring for real-time email notifications
+  startIdleMonitoring(onNewEmail) {
+    return new Promise((resolve, reject) => {
+      this.imap.once('ready', () => {
+        this.imap.openBox('INBOX', false, (err, box) => {
+          if (err) {
+            console.error('Error opening inbox:', err);
+            reject(err);
+            return;
+          }
+
+          console.log('Started IDLE monitoring for new emails');
+
+          // Start IDLE
+          this.imap.on('mail', (numNewMsgs) => {
+            console.log(`${numNewMsgs} new email(s) received`);
+            if (onNewEmail) {
+              onNewEmail(numNewMsgs);
+            }
+          });
+
+          // Keep connection alive
+          setInterval(() => {
+            this.imap.ping();
+          }, 300000); // Ping every 5 minutes
+
+          resolve();
+        });
+      });
+
+      this.imap.once('error', (err) => {
+        console.error('IMAP error:', err);
+        reject(err);
+      });
+
+      this.imap.connect();
+    });
   }
 
   // Log import results
@@ -448,17 +542,20 @@ async function testGmailConnection() {
 
   console.log('=== Gmail Looker Fetcher ===\n');
   console.log('Gmail user:', GMAIL_CONFIG.user || 'NOT SET');
+  console.log('OAuth configured:', (GMAIL_CONFIG.xoauth2 ? 'YES' : 'NO'));
   console.log('App password:', GMAIL_CONFIG.password ? 'SET' : 'NOT SET');
   console.log('Delete after process:', !noDelete);
   console.log('Include seen emails:', includeSeen);
   console.log('Days back:', daysBack);
 
-  if (!GMAIL_CONFIG.user || !GMAIL_CONFIG.password) {
+  if (!GMAIL_CONFIG.user || (!GMAIL_CONFIG.password && !GMAIL_CONFIG.xoauth2)) {
     console.log('\n⚠️  Please set environment variables:');
     console.log('  export GMAIL_USER="your-email@gmail.com"');
+    console.log('  export GMAIL_CLIENT_ID="your-client-id"');
+    console.log('  export GMAIL_CLIENT_SECRET="your-client-secret"');
+    console.log('  export GMAIL_REFRESH_TOKEN="your-refresh-token"');
+    console.log('\nOr fallback to app password:');
     console.log('  export GMAIL_APP_PASSWORD="your-app-password"');
-    console.log('\nNote: Use a Gmail App Password, not your regular password.');
-    console.log('Create one at: https://myaccount.google.com/apppasswords');
     return;
   }
 

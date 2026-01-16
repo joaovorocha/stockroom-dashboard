@@ -8,7 +8,7 @@ const { query } = require('../utils/dal/pg');
 const authMiddleware = async (req, res, next) => {
   const xfProto = (req.get('x-forwarded-proto') || '').toString().toLowerCase();
   const isSecure = !!req.secure || xfProto.split(',')[0].trim() === 'https';
-  const clearCookieOptions = { path: '/', sameSite: 'lax', secure: false };
+  const clearCookieOptions = { path: '/', sameSite: 'lax', secure: isSecure };
 
   const originalUrl = req.originalUrl || req.url || '';
   const baseUrl = req.baseUrl || '';
@@ -19,9 +19,6 @@ const authMiddleware = async (req, res, next) => {
 
   if (!sessionToken) {
     // No session found - redirect to login
-    console.log(`[AUTH-MIDDLEWARE] No session token for ${req.method} ${originalUrl}`);
-    console.log(`[AUTH-MIDDLEWARE] All cookies:`, req.cookies);
-    console.log(`[AUTH-MIDDLEWARE] Cookie header:`, req.get('cookie'));
     // Development bypass: allow using DEV_AUTH_BYPASS=true and DEV_AUTH_USER_EMAIL env var
     if (process.env.DEV_AUTH_BYPASS === 'true') {
       const devEmail = process.env.DEV_AUTH_USER_EMAIL || req.get('x-dev-user');
@@ -46,7 +43,6 @@ const authMiddleware = async (req, res, next) => {
               needsProfileCompletion: !String(user.email || '').trim(),
               mustChangePassword: user.must_change_password
             };
-            console.log('[AUTH-MIDDLEWARE] DEV_AUTH_BYPASS used for', devEmail);
             return next();
           }
         } catch (err) {
@@ -79,7 +75,6 @@ const authMiddleware = async (req, res, next) => {
 
     if (result.rows.length === 0) {
       // Invalid or expired session
-      console.log(`[AUTH-MIDDLEWARE] Invalid/expired session for ${req.method} ${originalUrl}`);
       res.clearCookie('userSession', clearCookieOptions);
       if (isApiRequest) {
         return res.status(401).json({ error: 'Session expired' });
@@ -112,7 +107,6 @@ const authMiddleware = async (req, res, next) => {
     next();
 
   } catch (error) {
-    console.error(`[AUTH-MIDDLEWARE] Error for ${req.method} ${originalUrl}:`, error.message);
     res.clearCookie('userSession', clearCookieOptions);
     if (isApiRequest) {
       return res.status(500).json({ error: 'Authentication error' });

@@ -1,19 +1,17 @@
 {
   "name": "stockroom-dashboard",
   "version": "1.0.0",
-  "description": "",
+  "description": "Stockroom Dashboard - Comprehensive retail operations management system with PostgreSQL, MCP servers, and real-time updates",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "sync-looker": "node utils/looker-scheduler.js run",
-    "scheduler": "node utils/looker-scheduler.js start",
-    "ups-run": "node utils/ups-scheduler.js run",
-    "ups-scheduler": "node utils/ups-scheduler.js start",
+    "sync-looker": "node utils/unified-gmail-processor.js run",
+    "scheduler": "node utils/unified-gmail-processor.js start",
     "import-storecount": "node scripts/import-storecount-to-postgres.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
-  "author": "",
+  "author": "Victor Rocha (Stockroom Manager, Suit Supply)",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
@@ -23,10 +21,12 @@
     "@zxing/library": "^0.21.3",
     "adm-zip": "^0.5.16",
     "axios": "^1.13.2",
+    "better-sqlite3": "^8.3.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "googleapis": "^170.1.0",
     "imap": "^0.8.19",
     "mailparser": "^3.9.1",
     "multer": "^2.0.2",
@@ -34,7 +34,7 @@
     "nodemailer": "^7.0.12",
     "pdf-parse": "^1.1.4",
     "pg": "^8.16.3",
-    "better-sqlite3": "^8.3.0",
+    "redis": "^4.6.13",
     "ws": "^8.18.3"
   },
   "overrides": {

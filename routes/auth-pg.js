@@ -92,14 +92,12 @@ function isRequestSecure(req) {
 // Cookie options
 function getUserSessionCookieOptions(req, { maxAge } = {}) {
   const secure = isRequestSecure(req);
-  console.log('[COOKIE] isRequestSecure:', secure, 'req.secure:', req.secure, 'x-forwarded-proto:', req.get('x-forwarded-proto'));
-  // Force insecure for testing
   return {
-    httpOnly: false,  // Allow JavaScript access for debugging
+    httpOnly: true,  // Prevent JavaScript access for security
     path: '/',
     maxAge,
     sameSite: 'lax',
-    secure: false  // Force false for now to fix cookie issues
+    secure: secure  // Use proper HTTPS detection
   };
 }
 
@@ -231,17 +229,13 @@ router.post('/login', async (req, res) => {
     const { employeeId, password, remember } = req.body;
     const clientIp = req.ip || req.connection.remoteAddress;
 
-    console.log(`[LOGIN] Attempt for Employee ID: ${employeeId} from IP: ${clientIp}`);
-
     if (!employeeId || !password) {
-      console.log(`[LOGIN] Failed: Missing credentials for ${employeeId}`);
       return res.status(400).json({ success: false, error: 'Employee ID and password are required' });
     }
 
     // Find user
     const user = await findUserByLogin(employeeId);
     if (!user) {
-      console.log(`[LOGIN] Failed: User not found for Employee ID: ${employeeId}`);
       await query(`
         INSERT INTO user_audit_log (user_id, action, changes, ip_address)
         VALUES (NULL, $1, $2, $3)
@@ -251,15 +245,12 @@ router.post('/login', async (req, res) => {
 
     // Verify password
     if (!verifyPassword(password, user.password_hash)) {
-      console.log(`[LOGIN] Failed: Invalid password for Employee ID: ${employeeId} (User: ${user.name})`);
       await query(`
         INSERT INTO user_audit_log (user_id, action, changes, ip_address)
         VALUES ($1, $2, $3, $4)
       `, [user.id, 'LOGIN_FAILED_BAD_PASSWORD', JSON.stringify({ employeeId }), clientIp]);
       return res.status(401).json({ success: false, error: 'Invalid Employee ID or password' });
     }
-
-    console.log(`[LOGIN] Success: ${user.name} (${employeeId})`);
 
     // Check if first login
     const isFirstLogin = !user.last_login;
@@ -279,14 +270,12 @@ router.post('/login', async (req, res) => {
 
     // Set cookie
     const cookieOptions = getUserSessionCookieOptions(req, { maxAge });
-    console.log('[LOGIN] Setting cookie with options:', { ...cookieOptions, token: sessionToken.substring(0, 20) + '...' });
     res.cookie('userSession', sessionToken, cookieOptions);
 
     // Return user data
     const userData = formatUserResponse(user);
     userData.mustChangePassword = mustChangePassword;
 
-    console.log('[LOGIN] Responding with success for user:', user.name);
     return res.json({
       success: true,
       user: userData
@@ -341,18 +330,15 @@ router.get('/check', async (req, res) => {
   try {
     const sessionToken = req.cookies?.userSession;
     if (!sessionToken) {
-      console.log('[AUTH-CHECK] No session token found');
       return res.json({ authenticated: false });
     }
 
     const user = await getUserFromSession(sessionToken);
     if (!user) {
-      console.log('[AUTH-CHECK] Session token invalid or expired:', sessionToken.substring(0, 20) + '...');
       res.clearCookie('userSession', getUserSessionCookieOptions(req));
       return res.json({ authenticated: false });
     }
 
-    console.log(`[AUTH-CHECK] Valid session for user: ${user.name} (${user.employee_id})`);
     return res.json({
       authenticated: true,
       user: formatUserResponse(user)

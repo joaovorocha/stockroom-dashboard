@@ -1,0 +1,198 @@
+﻿Location,LocationID,Initial TM Employee Id,Initial TM First Name,Initial TM Last Name,Initial TM Job Title,Initial Shift Date,Initial Shift Start Time,Initial Shift End Time,Initial Shift Work Role,Final TM Employee Id,Final TM First Name,Final TM Last Name,Final TM Job Title,Final Shift Date,Final Shift Start Time,Final Shift End Time,Final Shift Worker Role,Initial equals Final,Location Type,LocationSubType
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/18,11:30,18:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/18,11:30,18:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/18,11:30,18:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/18,12:00,18:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/18,12:00,18:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/18,12:00,18:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/19,10:30,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/19,11:00,16:00,Back of House,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/19,11:00,16:00,Back of House,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/19,11:30,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/19,12:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/19,12:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/20,10:30,15:30,Back of House,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/20,11:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/20,11:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/21,10:30,15:30,Back of House,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/22,10:30,15:30,Back of House,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/22,10:30,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/22,14:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/23,11:00,16:00,Back of House,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/23,11:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/23,11:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/23,11:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/23,11:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,,,,,2026/01/24,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,10:30,15:30,Selling Non-Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,10:30,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,10:30,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,11:30,16:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,12:00,18:30,Selling Non-Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,12:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,12:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,12:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,12:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,12:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,2026/01/24,12:00,19:00,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11481,Chao,Leong Chan,Tailor,2026/01/18,10:30,18:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11481,Chao,Leong Chan,Tailor,2026/01/19,10:30,18:30,Tailor - 30-minute Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11481,Chao,Leong Chan,Tailor,2026/01/23,10:30,18:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11481,Chao,Leong Chan,Tailor,2026/01/24,10:30,19:30,Tailor - 3-Day Alterations,11481,Chao,Leong Chan,Tailor,2026/01/24,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30688,Mackenzie,Lockett,Customer Experience Coordinator,2026/01/18,10:30,18:00,Sales Support,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30688,Mackenzie,Lockett,Customer Experience Coordinator,2026/01/20,11:30,18:30,Sales Support,30688,Mackenzie,Lockett,Customer Experience Coordinator,2026/01/20,10:00,19:00,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,30688,Mackenzie,Lockett,Customer Experience Coordinator,2026/01/21,10:00,19:00,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30688,Mackenzie,Lockett,Customer Experience Coordinator,2026/01/24,9:30,18:30,Sales Support,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,6926,Lin,Huang,Tailor,2026/01/19,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,6926,Lin,Huang,Tailor,2026/01/24,11:00,19:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11928,Biqiang,Li,Tailor,2026/01/19,12:30,19:30,Tailor - 3-Day Alterations,11928,Biqiang,Li,Tailor,2026/01/19,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11928,Biqiang,Li,Tailor,2026/01/20,10:30,16:30,Tailor - 30-minute Alterations,11928,Biqiang,Li,Tailor,2026/01/20,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11928,Biqiang,Li,Tailor,2026/01/21,10:30,19:30,Tailor - 30-minute Alterations,11928,Biqiang,Li,Tailor,2026/01/21,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11928,Biqiang,Li,Tailor,2026/01/22,10:30,19:30,Tailor - 3-Day Alterations,11928,Biqiang,Li,Tailor,2026/01/22,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11928,Biqiang,Li,Tailor,2026/01/23,10:30,19:30,Tailor - 3-Day Alterations,11928,Biqiang,Li,Tailor,2026/01/23,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30780,Guifang,Zhou,Tailor,2026/01/18,10:30,18:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,30780,Guifang,Zhou,Tailor,2026/01/23,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30780,Guifang,Zhou,Tailor,2026/01/24,10:30,19:30,Tailor - 3-Day Alterations,30780,Guifang,Zhou,Tailor,2026/01/24,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13881,Armani,Gardner,Style Advisor,2026/01/18,10:30,18:00,Selling Non-Bookable,13881,Armani,Gardner,Style Advisor,2026/01/18,10:00,19:00,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13881,Armani,Gardner,Style Advisor,2026/01/19,11:30,19:30,Selling Bookable,13881,Armani,Gardner,Style Advisor,2026/01/19,11:00,19:30,Selling Non-Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,13881,Armani,Gardner,Style Advisor,2026/01/20,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13881,Armani,Gardner,Style Advisor,2026/01/21,11:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13881,Armani,Gardner,Style Advisor,2026/01/22,10:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,13881,Armani,Gardner,Style Advisor,2026/01/23,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13881,Armani,Gardner,Style Advisor,2026/01/24,10:30,18:30,Selling Bookable,13881,Armani,Gardner,Style Advisor,2026/01/24,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,7070,Mei,Lin,Tailor,2026/01/18,10:30,18:30,Tailor - 3-Day Alterations,7070,Mei,Lin,Tailor,2026/01/18,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,7070,Mei,Lin,Tailor,2026/01/19,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,7070,Mei,Lin,Tailor,2026/01/20,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,7070,Mei,Lin,Tailor,2026/01/21,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,7070,Mei,Lin,Tailor,2026/01/22,14:30,19:30,Tailor - 3-Day Alterations,7070,Mei,Lin,Tailor,2026/01/22,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,7070,Mei,Lin,Tailor,2026/01/24,10:30,18:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31265,Todd,Ikemoto,Style Advisor,2026/01/18,10:30,18:00,Selling Non-Bookable,31265,Todd,Ikemoto,Style Advisor,2026/01/18,10:00,19:00,Selling Non-Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31265,Todd,Ikemoto,Style Advisor,2026/01/20,11:00,19:00,Selling Non-Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,31265,Todd,Ikemoto,Style Advisor,2026/01/21,11:00,19:30,Selling Non-Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31265,Todd,Ikemoto,Style Advisor,2026/01/22,11:30,19:00,Selling Non-Bookable,31265,Todd,Ikemoto,Style Advisor,2026/01/22,11:00,19:30,Selling Non-Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,31265,Todd,Ikemoto,Style Advisor,2026/01/23,11:00,19:30,Selling Non-Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31265,Todd,Ikemoto,Style Advisor,2026/01/24,10:00,19:00,Selling Non-Bookable,31265,Todd,Ikemoto,Style Advisor,2026/01/24,10:00,19:00,Selling Non-Bookable,Yes,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31369,Elena,Proskurina,Tailor,2026/01/18,10:30,18:30,Tailor - 3-Day Alterations,31369,Elena,Proskurina,Tailor,2026/01/18,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31369,Elena,Proskurina,Tailor,2026/01/19,10:30,19:30,Tailor - 3-Day Alterations,31369,Elena,Proskurina,Tailor,2026/01/19,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31369,Elena,Proskurina,Tailor,2026/01/20,13:30,19:30,Tailor - 3-Day Alterations,31369,Elena,Proskurina,Tailor,2026/01/20,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31369,Elena,Proskurina,Tailor,2026/01/21,10:30,19:30,Tailor - 3-Day Alterations,31369,Elena,Proskurina,Tailor,2026/01/21,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31366,Emily,Grohs,Assistant Store Manager,2026/01/18,10:30,18:30,Management,31366,Emily,Grohs,Assistant Store Manager,2026/01/18,10:30,19:30,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,31366,Emily,Grohs,Assistant Store Manager,2026/01/19,10:30,19:30,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31366,Emily,Grohs,Assistant Store Manager,2026/01/20,10:30,19:30,Management,31366,Emily,Grohs,Assistant Store Manager,2026/01/20,10:30,19:30,Management,Yes,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31366,Emily,Grohs,Assistant Store Manager,2026/01/23,12:30,17:30,Management,31366,Emily,Grohs,Assistant Store Manager,2026/01/23,10:30,19:30,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31366,Emily,Grohs,Assistant Store Manager,2026/01/24,9:30,19:00,Management,31366,Emily,Grohs,Assistant Store Manager,2026/01/24,10:30,19:30,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30512,Nora,Trueblood,Style Advisor,2026/01/18,10:30,18:30,Selling Bookable,30512,Nora,Trueblood,Style Advisor,2026/01/18,10:00,19:00,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,30512,Nora,Trueblood,Style Advisor,2026/01/19,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30512,Nora,Trueblood,Style Advisor,2026/01/20,11:30,19:30,Selling Bookable,30512,Nora,Trueblood,Style Advisor,2026/01/20,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30512,Nora,Trueblood,Style Advisor,2026/01/22,12:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30512,Nora,Trueblood,Style Advisor,2026/01/23,10:30,19:30,Selling Non-Bookable,30512,Nora,Trueblood,Style Advisor,2026/01/23,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30512,Nora,Trueblood,Style Advisor,2026/01/24,10:30,19:00,Selling Non-Bookable,30512,Nora,Trueblood,Style Advisor,2026/01/24,10:00,19:00,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30961,Daniel,Valdez,Sales Support,2026/01/18,10:30,18:00,Sales Support,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,30961,Daniel,Valdez,Sales Support,2026/01/19,10:30,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30961,Daniel,Valdez,Sales Support,2026/01/20,10:30,17:30,Sales Support,30961,Daniel,Valdez,Sales Support,2026/01/20,10:30,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,30961,Daniel,Valdez,Sales Support,2026/01/21,10:30,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,30961,Daniel,Valdez,Sales Support,2026/01/22,10:30,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30961,Daniel,Valdez,Sales Support,2026/01/23,10:30,18:30,Sales Support,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30961,Daniel,Valdez,Sales Support,2026/01/24,9:30,19:00,Sales Support,30961,Daniel,Valdez,Sales Support,2026/01/24,10:30,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30511,Jay,Uyeki,Sales Support,2026/01/18,10:30,18:00,Sales Support,30511,Jay,Uyeki,Sales Support,2026/01/18,11:00,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30511,Jay,Uyeki,Sales Support,2026/01/19,10:30,18:30,Sales Support,30511,Jay,Uyeki,Sales Support,2026/01/19,11:00,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,30511,Jay,Uyeki,Sales Support,2026/01/20,11:00,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30511,Jay,Uyeki,Sales Support,2026/01/21,10:30,19:00,Sales Support,30511,Jay,Uyeki,Sales Support,2026/01/21,11:00,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30511,Jay,Uyeki,Sales Support,2026/01/23,11:30,18:30,Sales Support,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30511,Jay,Uyeki,Sales Support,2026/01/24,9:30,19:00,Sales Support,30511,Jay,Uyeki,Sales Support,2026/01/24,11:00,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,14071,Aundra,Nichols,Store Manager,2026/01/18,10:30,18:30,Management,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,14071,Aundra,Nichols,Store Manager,2026/01/20,11:30,19:30,Management,14071,Aundra,Nichols,Store Manager,2026/01/20,10:30,19:30,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,14071,Aundra,Nichols,Store Manager,2026/01/21,10:30,19:30,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,14071,Aundra,Nichols,Store Manager,2026/01/22,10:30,18:30,Management,14071,Aundra,Nichols,Store Manager,2026/01/22,10:30,19:30,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,14071,Aundra,Nichols,Store Manager,2026/01/23,10:30,19:30,Management,14071,Aundra,Nichols,Store Manager,2026/01/23,10:30,19:30,Management,Yes,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,14071,Aundra,Nichols,Store Manager,2026/01/24,9:30,19:00,Management,14071,Aundra,Nichols,Store Manager,2026/01/24,10:30,19:30,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13929,Sofia,Garcia-Ortiz,Style Advisor,2026/01/18,12:00,18:00,Selling Non-Bookable,13929,Sofia,Garcia-Ortiz,Style Advisor,2026/01/18,10:00,19:00,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13929,Sofia,Garcia-Ortiz,Style Advisor,2026/01/19,11:30,19:00,Selling Bookable,13929,Sofia,Garcia-Ortiz,Style Advisor,2026/01/19,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13929,Sofia,Garcia-Ortiz,Style Advisor,2026/01/20,10:30,19:30,Selling Non-Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,13929,Sofia,Garcia-Ortiz,Style Advisor,2026/01/21,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13929,Sofia,Garcia-Ortiz,Style Advisor,2026/01/23,10:30,19:30,Selling Non-Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13929,Sofia,Garcia-Ortiz,Style Advisor,2026/01/24,11:30,19:30,Selling Bookable,13929,Sofia,Garcia-Ortiz,Style Advisor,2026/01/24,10:30,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31367,Ivan,Ramos,Sales Support,2026/01/18,10:30,18:00,Sales Support,31367,Ivan,Ramos,Sales Support,2026/01/18,10:00,19:00,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,31367,Ivan,Ramos,Sales Support,2026/01/20,10:30,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31367,Ivan,Ramos,Sales Support,2026/01/21,10:30,18:30,Sales Support,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31367,Ivan,Ramos,Sales Support,2026/01/22,10:30,17:30,Sales Support,31367,Ivan,Ramos,Sales Support,2026/01/22,10:30,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,31367,Ivan,Ramos,Sales Support,2026/01/23,10:30,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31367,Ivan,Ramos,Sales Support,2026/01/24,9:30,19:00,Sales Support,31367,Ivan,Ramos,Sales Support,2026/01/24,10:30,19:30,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,10424,Marc,Lopez,Style Advisor,2026/01/18,10:30,18:30,Selling Bookable,10424,Marc,Lopez,Style Advisor,2026/01/18,10:00,19:00,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,10424,Marc,Lopez,Style Advisor,2026/01/19,11:30,19:30,Selling Non-Bookable,10424,Marc,Lopez,Style Advisor,2026/01/19,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,10424,Marc,Lopez,Style Advisor,2026/01/20,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,10424,Marc,Lopez,Style Advisor,2026/01/21,10:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,10424,Marc,Lopez,Style Advisor,2026/01/22,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,10424,Marc,Lopez,Style Advisor,2026/01/24,9:30,18:30,Selling Bookable,10424,Marc,Lopez,Style Advisor,2026/01/24,10:30,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5994,David,Acevedo,Sales Supervisor,2026/01/18,10:30,18:00,Selling Non-Bookable,5994,David,Acevedo,Sales Supervisor,2026/01/18,10:00,19:00,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5994,David,Acevedo,Sales Supervisor,2026/01/21,11:30,19:30,Selling Non-Bookable,5994,David,Acevedo,Sales Supervisor,2026/01/21,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5994,David,Acevedo,Sales Supervisor,2026/01/22,11:30,19:30,Selling Bookable,5994,David,Acevedo,Sales Supervisor,2026/01/22,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5994,David,Acevedo,Sales Supervisor,2026/01/23,10:30,19:30,Selling Bookable,5994,David,Acevedo,Sales Supervisor,2026/01/23,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5994,David,Acevedo,Sales Supervisor,2026/01/24,11:30,19:30,Selling Non-Bookable,5994,David,Acevedo,Sales Supervisor,2026/01/24,10:30,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5591,Oksana,Umanskiy,Tailor,2026/01/18,10:30,18:30,Tailor - 3-Day Alterations,5591,Oksana,Umanskiy,Tailor,2026/01/18,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5591,Oksana,Umanskiy,Tailor,2026/01/20,10:30,19:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,5591,Oksana,Umanskiy,Tailor,2026/01/21,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5591,Oksana,Umanskiy,Tailor,2026/01/22,14:30,19:30,Tailor - 3-Day Alterations,5591,Oksana,Umanskiy,Tailor,2026/01/22,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5591,Oksana,Umanskiy,Tailor,2026/01/23,10:30,19:30,Tailor - 30-minute Alterations,5591,Oksana,Umanskiy,Tailor,2026/01/23,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5591,Oksana,Umanskiy,Tailor,2026/01/24,10:30,19:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30939,Dinar,Davis,Sales Supervisor,2026/01/18,11:30,18:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30939,Dinar,Davis,Sales Supervisor,2026/01/21,12:00,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30939,Dinar,Davis,Sales Supervisor,2026/01/22,11:00,19:00,Selling Non-Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30939,Dinar,Davis,Sales Supervisor,2026/01/23,10:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30939,Dinar,Davis,Sales Supervisor,2026/01/24,11:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,13842,Liliia,Marchenko,Tailor,2026/01/18,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,13842,Liliia,Marchenko,Tailor,2026/01/19,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,13842,Liliia,Marchenko,Tailor,2026/01/20,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13842,Liliia,Marchenko,Tailor,2026/01/21,10:30,19:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13842,Liliia,Marchenko,Tailor,2026/01/23,10:30,19:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,13842,Liliia,Marchenko,Tailor,2026/01/24,10:00,19:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31471,Kimani,Wilson,Style Advisor,2026/01/18,11:00,18:00,Selling Non-Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,31471,Kimani,Wilson,Style Advisor,2026/01/20,11:00,19:30,Selling Non-Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31471,Kimani,Wilson,Style Advisor,2026/01/21,11:00,19:00,Selling Non-Bookable,31471,Kimani,Wilson,Style Advisor,2026/01/21,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,31471,Kimani,Wilson,Style Advisor,2026/01/22,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31471,Kimani,Wilson,Style Advisor,2026/01/23,11:30,19:30,Selling Non-Bookable,31471,Kimani,Wilson,Style Advisor,2026/01/23,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31471,Kimani,Wilson,Style Advisor,2026/01/24,10:00,19:00,Selling Non-Bookable,31471,Kimani,Wilson,Style Advisor,2026/01/24,10:30,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,14083,David,Pittman-Moore,Assistant Store Manager,2026/01/18,10:30,18:30,Management,14083,David,Pittman-Moore,Assistant Store Manager,2026/01/18,10:00,19:00,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,14083,David,Pittman-Moore,Assistant Store Manager,2026/01/19,10:00,19:00,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,14083,David,Pittman-Moore,Assistant Store Manager,2026/01/21,10:30,19:30,Management,14083,David,Pittman-Moore,Assistant Store Manager,2026/01/21,10:00,19:00,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,14083,David,Pittman-Moore,Assistant Store Manager,2026/01/22,10:00,19:00,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,14083,David,Pittman-Moore,Assistant Store Manager,2026/01/23,12:30,17:30,Management,14083,David,Pittman-Moore,Assistant Store Manager,2026/01/23,10:00,19:00,Management,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,14083,David,Pittman-Moore,Assistant Store Manager,2026/01/24,9:30,19:00,Management,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/18,10:30,18:30,Selling Bookable,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/18,10:00,19:00,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/19,10:30,19:30,Selling Bookable,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/19,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/20,10:30,19:30,Selling Bookable,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/20,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/21,14:30,19:30,Selling Bookable,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/21,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/24,10:30,19:30,Selling Bookable,5495,Ivan,Tosta Lobo,Style Advisor,2026/01/24,10:00,19:00,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,12824,Lizi,Weng,Tailor,2026/01/18,10:30,15:30,Tailor - 30-minute Alterations,12824,Lizi,Weng,Tailor,2026/01/18,10:00,19:00,Tailor - 30-minute Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,12824,Lizi,Weng,Tailor,2026/01/19,10:30,19:30,Tailor - 3-Day Alterations,12824,Lizi,Weng,Tailor,2026/01/19,10:00,19:00,Tailor - 30-minute Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,12824,Lizi,Weng,Tailor,2026/01/20,10:30,19:30,Tailor - 3-Day Alterations,12824,Lizi,Weng,Tailor,2026/01/20,10:00,19:00,Tailor - 30-minute Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,12824,Lizi,Weng,Tailor,2026/01/21,10:00,19:00,Tailor - 30-minute Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,12824,Lizi,Weng,Tailor,2026/01/22,10:00,19:00,Tailor - 30-minute Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,12824,Lizi,Weng,Tailor,2026/01/24,10:00,19:30,Tailor - 30-minute Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11595,Yanxiao,Xu,Tailor,2026/01/18,10:30,18:30,Tailor - 3-Day Alterations,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,11595,Yanxiao,Xu,Tailor,2026/01/20,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11595,Yanxiao,Xu,Tailor,2026/01/21,10:30,19:30,Tailor - 3-Day Alterations,11595,Yanxiao,Xu,Tailor,2026/01/21,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11595,Yanxiao,Xu,Tailor,2026/01/22,10:30,17:30,Tailor - 30-minute Alterations,11595,Yanxiao,Xu,Tailor,2026/01/22,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11595,Yanxiao,Xu,Tailor,2026/01/23,11:30,19:30,Tailor - 3-Day Alterations,11595,Yanxiao,Xu,Tailor,2026/01/23,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,11595,Yanxiao,Xu,Tailor,2026/01/24,10:30,19:30,Tailor - 3-Day Alterations,11595,Yanxiao,Xu,Tailor,2026/01/24,10:00,19:00,Tailor - 3-Day Alterations,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,2612,Drew,Ummel,Style Advisor,2026/01/18,10:30,18:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,2612,Drew,Ummel,Style Advisor,2026/01/19,11:30,19:00,Selling Non-Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,2612,Drew,Ummel,Style Advisor,2026/01/20,10:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,2612,Drew,Ummel,Style Advisor,2026/01/23,12:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,2612,Drew,Ummel,Style Advisor,2026/01/24,9:30,18:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31368,Daniel,iraheta,Sales Support,2026/01/18,10:30,18:00,Sales Support,31368,Daniel,iraheta,Sales Support,2026/01/18,12:00,19:00,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31368,Daniel,iraheta,Sales Support,2026/01/19,10:30,18:30,Sales Support,31368,Daniel,iraheta,Sales Support,2026/01/19,8:00,17:00,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,31368,Daniel,iraheta,Sales Support,2026/01/20,8:00,17:00,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31368,Daniel,iraheta,Sales Support,2026/01/21,10:30,19:00,Sales Support,31368,Daniel,iraheta,Sales Support,2026/01/21,8:00,17:00,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,31368,Daniel,iraheta,Sales Support,2026/01/23,10:30,18:30,Sales Support,31368,Daniel,iraheta,Sales Support,2026/01/23,9:00,18:00,Sales Support,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,6543,Jordan,Dillard,Style Advisor,2026/01/18,11:30,18:30,Selling Bookable,6543,Jordan,Dillard,Style Advisor,2026/01/18,10:00,19:00,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,6543,Jordan,Dillard,Style Advisor,2026/01/19,12:00,19:00,Selling Non-Bookable,6543,Jordan,Dillard,Style Advisor,2026/01/19,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,6543,Jordan,Dillard,Style Advisor,2026/01/20,11:00,19:30,Selling Bookable,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,6543,Jordan,Dillard,Style Advisor,2026/01/21,10:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,6543,Jordan,Dillard,Style Advisor,2026/01/23,11:30,19:30,Selling Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,6543,Jordan,Dillard,Style Advisor,2026/01/24,9:30,19:00,Selling Non-Bookable,,,,,,,,,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,,,,,,,,,30744,Victor,Rocha,Stockroom Supervisor,2026/01/19,8:00,17:00,Back of House,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30744,Victor,Rocha,Stockroom Supervisor,2026/01/20,10:30,19:00,Back of House,30744,Victor,Rocha,Stockroom Supervisor,2026/01/20,8:00,17:00,Back of House,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30744,Victor,Rocha,Stockroom Supervisor,2026/01/21,10:30,19:00,Back of House,30744,Victor,Rocha,Stockroom Supervisor,2026/01/21,8:00,17:00,Back of House,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30744,Victor,Rocha,Stockroom Supervisor,2026/01/22,10:30,19:00,Back of House,30744,Victor,Rocha,Stockroom Supervisor,2026/01/22,8:00,17:00,Back of House,No,Real,Real
+San Francisco,SR-US-SanFrancisco-Maiden,30744,Victor,Rocha,Stockroom Supervisor,2026/01/23,10:30,19:00,Back of House,30744,Victor,Rocha,Stockroom Supervisor,2026/01/23,8:00,17:00,Back of House,No,Real,Real

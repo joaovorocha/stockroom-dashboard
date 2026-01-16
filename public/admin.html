@@ -1305,6 +1305,45 @@
             </div>
           </div>
         </div>
+
+        <div class="admin-card">
+          <div class="admin-card-header">
+            <h3>Data Processing</h3>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-outline btn-sm" id="dataProcessingRefreshBtn">Refresh Status</button>
+              <button class="btn btn-primary btn-sm" id="dataProcessingTriggerBtn">Process Data Now</button>
+            </div>
+          </div>
+          <div class="admin-card-body">
+            <div id="dataProcessingStatus" style="margin-top:0; color:#555; line-height:1.4; margin-bottom:12px;">Loading…</div>
+            <div class="health-grid">
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">📊 Processor Status</div>
+                  <div id="processorStatusText" style="color:#555;">Unknown</div>
+                </div>
+              </div>
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">⏰ Last Run</div>
+                  <div id="lastRunText" style="color:#555;">Never</div>
+                </div>
+              </div>
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">🔄 Scheduled</div>
+                  <div id="scheduledText" style="color:#555;">No</div>
+                </div>
+              </div>
+              <div class="settings-item" style="align-items:flex-start;">
+                <div>
+                  <div style="font-weight:600; margin-bottom:6px;">📧 Recent Activity</div>
+                  <div id="recentActivityText" style="color:#555;">No recent activity</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Backups Tab -->
@@ -1904,8 +1943,8 @@
 	      document.getElementById('userModal').classList.add('active');
 	    }
 
-		    function editUser(userId) {
-	      const user = users.find(u => u.id === userId);
+        function editUser(userId) {
+          const user = users.find(u => String(u.id) === String(userId));
 	      if (!user) return;
 
 	      document.getElementById('userModalTitle').textContent = 'Edit User';
@@ -2146,7 +2185,10 @@
           loadStoreRecoveryConfig();
         }
 	        if (tab === 'radio') initRadioTab();
-	        if (tab === 'health') startHealthPolling();
+	        if (tab === 'health') {
+	          startHealthPolling();
+	          startDataProcessingPolling();
+	        }
 	        if (tab !== 'health') stopHealthPolling();
 	      });
 	    });
@@ -4728,6 +4770,104 @@
         healthTimer = null;
       }
 
+      // Data Processing Functions
+      async function loadDataProcessingStatus() {
+        const statusEl = document.getElementById('dataProcessingStatus');
+        try {
+          const resp = await fetch('/api/admin/data-processing/status', { credentials: 'include' });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error(data?.error || `Failed to load status (HTTP ${resp.status})`);
+
+          if (statusEl) statusEl.textContent = `🕒 Updated: ${new Date(data.timestamp).toLocaleString()}`;
+
+          const processorStatusEl = document.getElementById('processorStatusText');
+          if (processorStatusEl) {
+            const status = data.status;
+            const isRunning = status?.isRunning;
+            const scheduled = status?.scheduled;
+            processorStatusEl.textContent = isRunning ? '🔄 Running' : (scheduled ? '✅ Active' : '⏸️ Inactive');
+            processorStatusEl.style.color = isRunning ? '#2563eb' : (scheduled ? '#059669' : '#dc2626');
+          }
+
+          const lastRunEl = document.getElementById('lastRunText');
+          if (lastRunEl) {
+            const lastRun = status?.lastRun;
+            if (lastRun) {
+              const date = new Date(lastRun);
+              const now = new Date();
+              const diffMs = now - date;
+              const diffMin = Math.round(diffMs / 60000);
+              lastRunEl.textContent = `${date.toLocaleString()} (${diffMin} min ago)`;
+            } else {
+              lastRunEl.textContent = 'Never';
+            }
+          }
+
+          const scheduledEl = document.getElementById('scheduledText');
+          if (scheduledEl) {
+            scheduledEl.textContent = status?.scheduled ? '✅ Yes (every 30 min)' : '❌ No';
+          }
+
+          const activityEl = document.getElementById('recentActivityText');
+          if (activityEl) {
+            // This would need to be enhanced to show actual recent activity from logs
+            activityEl.textContent = 'Check logs for details';
+          }
+
+        } catch (e) {
+          if (statusEl) statusEl.textContent = `❌ ${e?.message || 'Failed to load status'}`;
+        }
+      }
+
+      async function triggerDataProcessing() {
+        const btn = document.getElementById('dataProcessingTriggerBtn');
+        const originalText = btn.textContent;
+        try {
+          btn.disabled = true;
+          btn.textContent = 'Processing...';
+
+          const resp = await fetch('/api/admin/data-processing/trigger', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' }
+          });
+
+          const data = await resp.json().catch(() => ({}));
+
+          if (!resp.ok || !data.ok) {
+            throw new Error(data?.error || `Failed to trigger processing (HTTP ${resp.status})`);
+          }
+
+          showToast('Data processing started successfully!', false);
+          // Refresh status after a short delay
+          setTimeout(loadDataProcessingStatus, 2000);
+
+        } catch (e) {
+          showToast(`Failed to trigger data processing: ${e.message}`, true);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalText;
+        }
+      }
+
+      function startDataProcessingPolling() {
+        const refreshBtn = document.getElementById('dataProcessingRefreshBtn');
+        const triggerBtn = document.getElementById('dataProcessingTriggerBtn');
+
+        if (refreshBtn && !refreshBtn.dataset.bound) {
+          refreshBtn.dataset.bound = '1';
+          refreshBtn.addEventListener('click', loadDataProcessingStatus);
+        }
+
+        if (triggerBtn && !triggerBtn.dataset.bound) {
+          triggerBtn.dataset.bound = '1';
+          triggerBtn.addEventListener('click', triggerDataProcessing);
+        }
+
+        // Load initial status
+        loadDataProcessingStatus();
+      }
+
       async function loadStoreRecoveryConfig() {
         const metaEl = document.getElementById('srConfigMeta');
         if (metaEl) metaEl.textContent = 'Loading Store Recovery API config...';
@@ -5139,7 +5279,7 @@
       </div>
     </div>
 
-    <button id="openCsvImportBtn" style="position:fixed; right:18px; bottom:100px; z-index:2100; background:#2563eb; color:#fff; border:none; padding:12px 14px; border-radius:8px; box-shadow:0 8px 20px rgba(37,99,235,0.18); cursor:pointer">Import UPS CSV</button>
+    <!-- Import UPS CSV floating button removed -->
 
     <script>
       async function showToast(msg, isError) {

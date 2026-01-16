@@ -5,6 +5,7 @@ const path = require('path');
 const { LookerDataProcessor } = require('../utils/looker-data-processor');
 const dal = require('../utils/dal');
 const { query: pgQuery } = require('../utils/dal/pg');
+const { get: getCache, set: setCache } = require('../src/utils/cache');
 
 const DATA_DIR = dal.paths.dataDir;
 const USERS_FILE = dal.paths.usersFile;
@@ -18,6 +19,9 @@ const NOTES_TEMPLATES_FILE = dal.paths.notesTemplatesFile;
 const GAMEPLAN_TEMPLATES_FILE = path.join(DATA_DIR, 'gameplan-templates.json');
 const WORK_EXPENSES_CONFIG_FILE = path.join(DATA_DIR, 'work-expenses-config.json');
 
+// Multer for file uploads
+const multer = require('multer');
+const upload = multer({ dest: path.join(DATA_DIR, 'tmp') });
 // Optional Postgres pool (if DATABASE_URL present)
 let pgPool = null;
 try {
@@ -82,7 +86,7 @@ function attachExpenseLimits(exp) {
 
 function requireManager(req, res, next) {
   const user = req.user;
-  if (user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT') return next();
+  if (user?.isManager || user?.isAdmin || user?.role === 'MANAGEMENT' || user?.canEditGameplan) return next();
   return res.status(403).json({ error: 'Manager access required' });
 }
 
@@ -794,6 +798,135 @@ router.get('/date/:date', (req, res) => {
   res.json(gameplan);
 });
 
+// POST /api/gameplan/import-shifts - upload a shift CSV and prepopulate future drafts
+router.post('/import-shifts', requireManager, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const filePath = req.file.path;
+    const raw = fs.readFileSync(filePath, 'utf8');
+    try { fs.unlinkSync(filePath); } catch(_) {}
+
+    const rows = parseCsv(raw);
+    if (!rows.length) return res.status(400).json({ error: 'CSV parse returned no rows' });
+
+    // Determine date range: next N weeks (default 2)
+    const weeks = Number.isFinite(Number(req.body.weeks)) ? Math.max(1, Math.floor(Number(req.body.weeks))) : 2;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const endDate = new Date(today);
+    endDate.setDate(endDate.getDate() + (weeks * 7) - 1);
+
+    // Build map: dateStr -> array of row entries
+    const map = {};
+    rows.forEach(r => {
+      const date = (r['Final Shift Date'] || r['Initial Shift Date'] || '').trim().replace(/\//g, '-');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+      if (date < today.toISOString().split('T')[0] || date > endDate.toISOString().split('T')[0]) return;
+      if (!map[date]) map[date] = [];
+      map[date].push(r);
+    });
+
+    // Load canonical employees
+    const employeesFile = readJsonFile(EMPLOYEES_FILE, { employees: {} });
+    const allEmployees = [];
+    Object.keys(employeesFile.employees || {}).forEach(t => {
+      (employeesFile.employees[t] || []).forEach(e => allEmployees.push(e));
+    });
+
+    const results = { created: [], skipped: [] };
+
+    for (const dateStr of Object.keys(map)) {
+      const gameplanFile = path.join(GAMEPLAN_DIR, `${dateStr}.json`);
+      let existing = readJsonFile(gameplanFile, null);
+
+      // If already published and locked, skip
+      if (existing && existing.published && existing.locked) {
+        results.skipped.push({ date: dateStr, reason: 'published_locked' });
+        continue;
+      }
+
+      // Start with existing plan or blank template
+      const plan = existing && typeof existing === 'object' ? existing : { date: dateStr, notes: '', assignments: {} };
+
+      // For each row, find employee and set assignment
+      for (const row of map[dateStr]) {
+        const empId = (row['Final TM Employee Id'] || row['Initial TM Employee Id'] || '').trim();
+        const first = (row['Final TM First Name'] || row['Initial TM First Name'] || '').trim();
+        const last = (row['Final TM Last Name'] || row['Initial TM Last Name'] || '').trim();
+        const start = (row['Final Shift Start Time'] || row['Initial Shift Start Time'] || '').trim();
+        const end = (row['Final Shift End Time'] || row['Initial Shift End Time'] || '').trim();
+
+        // find employee by employeeId or name
+        let found = null;
+        if (empId) {
+          found = allEmployees.find(e => (e.employeeId || e.id || '').toString().trim() === empId.toString().trim());
+        }
+        if (!found && first && last) {
+          const name = `${first} ${last}`.trim().toLowerCase();
+          found = allEmployees.find(e => (e.name || '').toLowerCase() === name || ((e.name || '').toLowerCase().includes(first.toLowerCase()) && (e.name || '').toLowerCase().includes(last.toLowerCase())));
+        }
+
+        const key = found ? (found.employeeId || found.id || found.id) : (empId || `${first} ${last}`);
+        if (!key) continue;
+
+        const shiftText = start && end ? `${start}-${end}` : (start || end || '');
+
+        plan.assignments = plan.assignments || {};
+        plan.assignments[key] = plan.assignments[key] || {};
+        plan.assignments[key].shift = shiftText;
+        plan.assignments[key].isOff = false;
+        if (found && found.type) plan.assignments[key].type = found.type;
+        plan.assignments[key].prepopulated = true;
+        plan.assignments[key].prepopulatedBy = req.user?.name || 'importer';
+      }
+
+      plan.savedAt = new Date().toISOString();
+      plan.published = false; // save as draft
+      writeJsonFile(gameplanFile, plan);
+      results.created.push({ date: dateStr });
+    }
+
+    // Return summary
+    return res.json({ success: true, result: results });
+  } catch (e) {
+    console.error('Error importing shifts:', e);
+    return res.status(500).json({ error: e?.message || 'Import failed' });
+  }
+});
+
+// Helper: simple CSV parser supporting quoted fields
+function parseCsv(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+  if (!lines.length) return [];
+  const headerLine = lines.shift();
+  const headers = headerLine.match(/(?:\"([^\"]*)\")|([^,]+)/g).map(h => h.replace(/^\"|\"$/g, '').trim());
+  return lines.map(line => {
+    const cols = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+      if (ch === ',' && !inQuotes) {
+        cols.push(cur);
+        cur = '';
+        continue;
+      }
+      cur += ch;
+    }
+    cols.push(cur);
+    const obj = {};
+    for (let i = 0; i < headers.length; i++) {
+      obj[headers[i]] = (cols[i] || '').trim();
+    }
+    return obj;
+  });
+}
+
 // DELETE /api/gameplan/date/:date - Delete gameplan for a specific date
 router.delete('/date/:date', requireManager, (req, res) => {
   const { date } = req.params;
@@ -820,33 +953,43 @@ router.delete('/date/:date', requireManager, (req, res) => {
 
 
 // GET /api/gameplan/metrics - Get today's store metrics (from saved data)
-router.get('/metrics', (req, res) => {
+router.get('/metrics', async (req, res) => {
   try {
+    // Check cache first
+    // const cacheKey = 'api:gameplan:metrics';
+    // const cached = await getCache(cacheKey);
+    // if (cached) {
+    //   return res.json(cached);
+    // }
+
     const dataSources = {
-      wtdSales: 'files/dashboard-stores_performance/sales.csv',
-      wtdTarget: 'files/dashboard-stores_performance/sales_target.csv',
-      retailWeek: 'files/dashboard-stores_performance/sales_by_retail_weeks.csv',
-      storeWeekSummary: 'files/dashboard-stores_performance/sales_by_retail_weeks_(copy).csv',
-      tailorTeamProductivity: 'files/dashboard-stores_performance/team_productivity_.csv',
-      tailorProductivity: 'files/dashboard-stores_performance/productivity_.csv',
-      tailorWorkedHours: 'files/dashboard-stores_performance/worked_hours.csv',
-      tailorAlterationsHours: 'files/dashboard-stores_performance/hours_of_alterations.csv',
-      tailorProductivityLastWeek: 'files/dashboard-stores_performance/tailor_productivity_.csv',
-      tailorProductivityLastWeekHours: 'files/dashboard-stores_performance/tailor_productivity_last_week.csv',
-      tailorBenchmarkTimes: 'files/dashboard-stores_performance/benchmark_times_in_minutes.csv'
+      wtdSales: 'dashboard-stores_performance/sales.csv',
+      wtdTarget: 'dashboard-stores_performance/sales_target.csv',
+      retailWeek: 'dashboard-stores_performance/sales_by_retail_weeks.csv',
+      storeWeekSummary: 'dashboard-stores_performance/sales_by_retail_weeks_(copy).csv',
+      tailorTeamProductivity: 'dashboard-stores_performance/team_productivity_.csv',
+      tailorProductivity: 'dashboard-stores_performance/productivity_.csv',
+      tailorWorkedHours: 'dashboard-stores_performance/worked_hours.csv',
+      tailorAlterationsHours: 'dashboard-stores_performance/hours_of_alterations.csv',
+      tailorProductivityLastWeek: 'dashboard-stores_performance/tailor_productivity_.csv',
+      tailorProductivityLastWeekHours: 'dashboard-stores_performance/tailor_productivity_last_week.csv',
+      tailorBenchmarkTimes: 'dashboard-stores_performance/benchmark_times_in_minutes.csv'
     };
 
     // Work-related expenses source files (Looker/email exports)
-    dataSources.workRelatedExpenses = 'files/dashboard-work_related_expenses/full_dump.csv';
-    dataSources.workRelatedExpensesAlt = 'files/dashboard-work_related_expenses/work_related_expenses.csv';
+    dataSources.workRelatedExpenses = 'dashboard-work_related_expenses/full_dump.csv';
+    dataSources.workRelatedExpensesAlt = 'dashboard-work_related_expenses/work_related_expenses.csv';
 
     // First try to get saved dashboard data
     const savedData = LookerDataProcessor.getSavedDashboardData();
     
-    if (savedData && savedData.metrics) {
-      // Return saved data with sync info
+    // Always process current data from files
+    const computed = lookerProcessor.processStoreMetrics();
+    
+    if (savedData) {
+      // Return processed data with sync info from saved
       const metrics = {
-        ...savedData.metrics,
+        ...computed,
         source: 'saved',
         dataSources,
         workRelatedExpenses: attachExpenseLimits(savedData.workRelatedExpenses || null),
@@ -901,7 +1044,7 @@ router.get('/metrics', (req, res) => {
       // Also backfill KPI target fields (APC/CPC/IPC vs target) from the latest CSVs.
       if (!metrics.retailWeek || !metrics.retailWeek.target || !metrics?.metrics?.apcVsTarget || !metrics?.metrics?.cpcVsTarget || !metrics?.metrics?.ipcVsTarget) {
         try {
-          const computed = lookerProcessor.processStoreMetrics();
+          // Backfill from computed
           if (computed?.retailWeek) metrics.retailWeek = computed.retailWeek;
           if (!metrics.salesByRetailWeeks && computed?.salesByRetailWeeks) metrics.salesByRetailWeeks = computed.salesByRetailWeeks;
           if (!metrics.storeWeekSummary && computed?.storeWeekSummary) metrics.storeWeekSummary = computed.storeWeekSummary;
@@ -917,11 +1060,64 @@ router.get('/metrics', (req, res) => {
           // Ignore; caller can show "--" when unavailable.
         }
       }
+
+      // Cache the response
+      // await setCache(cacheKey, metrics);
+
       return res.json(maybeBackfillLastWeekOverview(metrics));
     }
     
     // Fall back to processing live if no saved data
     const storeMetrics = lookerProcessor.processStoreMetrics();
+    
+    // Save store metrics to DB for history
+    if (storeMetrics.wtd) {
+      try {
+        await pgQuery(`
+          INSERT INTO store_metrics (
+            date, sales_amount, sales_vs_py, target, vs_target, sph, sph_vs_py,
+            ipc, ipc_vs_py, drop_offs, drop_offs_vs_py, apc, apc_vs_py, cpc, cpc_vs_py
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15
+          )
+          ON CONFLICT (date) DO UPDATE SET
+            sales_amount = EXCLUDED.sales_amount,
+            sales_vs_py = EXCLUDED.sales_vs_py,
+            target = EXCLUDED.target,
+            vs_target = EXCLUDED.vs_target,
+            sph = EXCLUDED.sph,
+            sph_vs_py = EXCLUDED.sph_vs_py,
+            ipc = EXCLUDED.ipc,
+            ipc_vs_py = EXCLUDED.ipc_vs_py,
+            drop_offs = EXCLUDED.drop_offs,
+            drop_offs_vs_py = EXCLUDED.drop_offs_vs_py,
+            apc = EXCLUDED.apc,
+            apc_vs_py = EXCLUDED.apc_vs_py,
+            cpc = EXCLUDED.cpc,
+            cpc_vs_py = EXCLUDED.cpc_vs_py,
+            updated_at = NOW()
+        `, [
+          storeMetrics.date || new Date().toISOString().split('T')[0],
+          storeMetrics.wtd.salesAmount,
+          storeMetrics.wtd.salesVsPY,
+          storeMetrics.wtd.target,
+          storeMetrics.wtd.vsTarget,
+          storeMetrics.metrics?.salesPerHour,
+          storeMetrics.metrics?.sphVsPY,
+          storeMetrics.metrics?.itemsPerCustomer,
+          storeMetrics.metrics?.ipcVsPY,
+          storeMetrics.metrics?.dropOffs,
+          storeMetrics.metrics?.dropOffsVsPY,
+          storeMetrics.metrics?.apc,
+          storeMetrics.metrics?.apcVsPY,
+          storeMetrics.metrics?.cpc,
+          storeMetrics.metrics?.cpcVsPY
+        ]);
+      } catch (dbError) {
+        console.error('Error saving store metrics to DB:', dbError);
+      }
+    }
+    
     const appointments = lookerProcessor.processAppointments();
     const operations = lookerProcessor.processOperationsHealth();
     const customerOrders = lookerProcessor.processCustomerReservedOrders();
@@ -964,6 +1160,9 @@ router.get('/metrics', (req, res) => {
       }
     }
     
+    // Cache the response
+    // await setCache(cacheKey, metrics);
+
     res.json(maybeBackfillLastWeekOverview(metrics));
   } catch (error) {
     console.error('Error loading metrics:', error);

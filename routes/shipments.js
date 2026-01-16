@@ -15,7 +15,7 @@ const upsClient = require('../utils/ups-client');
 
 // Helper function to convert snake_case to camelCase
 function snakeToCamel(obj) {
-  if (obj === null || typeof obj !== 'object') return obj;
+  if (obj === null || typeof obj !== 'object' || obj instanceof Date) return obj;
   if (Array.isArray(obj)) return obj.map(snakeToCamel);
   
   const result = {};
@@ -89,6 +89,43 @@ router.get('/:id', async (req, res) => {
       scans: scans.map(snakeToCamel) 
     });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================================
+// GET /api/shipments/:id/tracking - Get real-time tracking from UPS
+// ============================================================================
+router.get('/:id/tracking', async (req, res) => {
+  try {
+    const shipment = await pgDal.getShipmentById(req.params.id);
+    if (!shipment) {
+      return res.status(404).json({ error: 'Shipment not found' });
+    }
+    if (!shipment.tracking_number) {
+      return res.status(400).json({ error: 'Shipment does not have a tracking number' });
+    }
+
+    // 1. Fetch tracking details from UPS
+    const trackingDetails = await upsClient.getTrackingDetails(shipment.tracking_number);
+    if (!trackingDetails || !trackingDetails.events) {
+      return res.status(502).json({ error: 'Failed to retrieve tracking details from UPS' });
+    }
+
+    // 2. Update our database with the latest info (in a transaction)
+    await pgDal.updateShipmentTrackingInfo(shipment.id, trackingDetails);
+    const trackingEvents = await pgDal.createShipmentTrackingEvents(shipment.id, trackingDetails.events);
+
+    // 3. Return the detailed tracking history
+    res.json({
+      shipmentId: shipment.id,
+      trackingNumber: shipment.tracking_number,
+      latestStatus: trackingDetails.latestStatus,
+      estimatedDelivery: trackingDetails.estimatedDelivery,
+      history: trackingEvents.map(snakeToCamel),
+    });
+  } catch (err) {
+    console.error(`[/api/shipments/:id/tracking] Error getting tracking info for shipment ${req.params.id}:`, err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -203,6 +240,13 @@ router.post('/:id/label', async (req, res) => {
       label_generated_at: new Date(),
       ups_raw_response: label.rawResponse
     });
+
+    // Subscribe to webhook updates for the new tracking number
+    if (label.trackingNumber) {
+      await upsClient.subscribeToTrackingAlerts([label.trackingNumber]);
+      await pgDal.updateShipment(shipment.id, { webhook_subscribed_at: new Date() });
+    }
+
     res.json(label);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -371,6 +415,12 @@ router.post('/:id/generate-label', async (req, res) => {
       ups_raw_response: label.rawResponse
     });
     
+    // Subscribe to webhook updates for the new tracking number
+    if (label.trackingNumber) {
+      await upsClient.subscribeToTrackingAlerts([label.trackingNumber]);
+      await pgDal.updateShipment(shipment.id, { webhook_subscribed_at: new Date() });
+    }
+
     // Broadcast label generation
     const broadcastUpdate = req.app.get('broadcastUpdate');
     if (broadcastUpdate) {
@@ -390,4 +440,84 @@ router.post('/:id/generate-label', async (req, res) => {
   }
 });
 
+// ============================================================================
+// POST /api/shipments/refresh-statuses - Manually refresh all active shipments
+// ============================================================================
+router.post('/refresh-statuses', async (req, res) => {
+  try {
+    // Fetch all shipments that are not in a final state
+    const activeShipments = await pgDal.getShipments({ status: ['REQUESTED', 'PICKING', 'READY_TO_PACK', 'PACKING', 'PACKED', 'LABEL_CREATED', 'In-Transit', 'Unknown', 'Exception'] });
+    
+    let updatedCount = 0;
+    const errors = [];
+
+    console.log(`[Manual Refresh] Found ${activeShipments.length} active shipments to refresh.`);
+
+    // Process sequentially to avoid hitting API rate limits
+    for (const shipment of activeShipments) {
+      if (!shipment.tracking_number) continue;
+
+      try {
+        const trackingDetails = await upsClient.getTrackingDetails(shipment.tracking_number);
+        if (trackingDetails && trackingDetails.latestStatus) {
+          await pgDal.updateShipmentTrackingInfo(shipment.id, trackingDetails);
+          updatedCount++;
+        }
+      } catch (err) {
+        console.error(`[Manual Refresh] Error refreshing shipment ${shipment.id}:`, err.message);
+        errors.push({ shipmentId: shipment.id, error: err.message });
+      }
+    }
+
+    console.log(`[Manual Refresh] Completed. Updated: ${updatedCount}, Errors: ${errors.length}`);
+    
+    // Broadcast a general update to all clients to trigger a refresh
+    const broadcastUpdate = req.app.get('broadcastUpdate');
+    if (broadcastUpdate) {
+      broadcastUpdate('shipments_refreshed', {
+        updatedCount,
+        message: `Bulk refresh complete. ${updatedCount} shipments updated.`
+      });
+    }
+
+    res.json({ success: true, updatedCount, errors });
+
+  } catch (err) {
+    console.error('[Manual Refresh] Failed to refresh shipment statuses:', err);
+    res.status(500).json({ error: 'Failed to refresh statuses' });
+  }
+});
+
+// ============================================================================
+// DELETE /api/shipments/:id - Delete shipment (manager only)
+// ============================================================================
+router.delete('/:id', async (req, res) => {
+  try {
+    const user = req.user || {};
+    if (!user.isManager && !user.isAdmin) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const deleted = await pgDal.deleteShipment(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Shipment not found' });
+
+    // Log deletion for audit and broadcast to connected clients
+    console.info(`[shipments] Shipment deleted id=${deleted.id} by=${user.email || user.name || 'unknown'}`);
+    const broadcastUpdate = req.app.get('broadcastUpdate');
+    if (broadcastUpdate) {
+      broadcastUpdate('shipment_deleted', {
+        shipmentId: deleted.id,
+        deletedBy: user.name || user.email || 'Unknown',
+        deletedAt: new Date()
+      });
+    }
+
+    res.json({ deleted });
+  } catch (err) {
+    console.error('[/api/shipments DELETE] Error deleting shipment:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+
