@@ -11,6 +11,7 @@ import sys
 import time
 import wave
 from datetime import datetime, timezone
+from collections import deque
 from pathlib import Path
 
 import numpy as np
@@ -169,6 +170,22 @@ def find_channel(cfg: dict, channel_id: str | None) -> dict | None:
             if str(c.get("id")) == cid:
                 return c
     return chans[0]
+
+
+def resolve_focus_channel_id(chans: list[dict], focus_id: str | None) -> str:
+    if not chans:
+        return str(focus_id or "").strip()
+    fid = str(focus_id or "").strip()
+    if fid:
+        for ch in chans:
+            if str(ch.get("id") or "").strip() == fid:
+                return fid
+    # Fallback: map to PMR446 channel 2 (446.01875 MHz)
+    target_hz = parse_freq_to_hz("446.01875M")
+    for ch in chans:
+        if int(ch.get("freqHz") or 0) == int(target_hz or 0):
+            return str(ch.get("id") or "").strip()
+    return str(fid or (chans[0].get("id") or "")).strip()
 
 
 def goertzel_power(x: np.ndarray, fs_hz: float, f0_hz: float) -> float:
@@ -376,6 +393,8 @@ def main() -> int:
     parser.add_argument("--clips-dir", default="data/radio/clips", help="Directory to write WAV clips")
     parser.add_argument("--live-audio", default="data/radio/live-audio.wav", help="Rolling WAV buffer for live listening")
     parser.add_argument("--live-audio-window-s", type=float, default=3.0, help="How many seconds of audio to keep in the live buffer")
+    parser.add_argument("--spectrum", default="data/radio/spectrum.json", help="Write latest spectrum snapshot here")
+    parser.add_argument("--finder", default="data/radio/finder.json", help="Write rolling finder stats here")
 
     parser.add_argument("--monitor-udp-host", default="127.0.0.1", help="Host to send live PCM frames (UDP)")
     parser.add_argument("--monitor-udp-port", type=int, default=7355, help="Port to send live PCM frames (UDP)")
@@ -408,6 +427,9 @@ def main() -> int:
     scan_delta_db = safe_float(cfg_obj.get("scanDeltaDb", 8.0), 8.0)
     scan_hold_s = safe_float(cfg_obj.get("scanHoldS", 1.0), 1.0)
     scan_confirm_n = safe_int(cfg_obj.get("scanConfirmN", 3), 3)
+    scan_max_channels = max(0, safe_int(cfg_obj.get("scanMaxChannels", 5), 5))
+    scan_focus_id = str(cfg_obj.get("scanFocusId") or "ch2").strip()
+    scan_focus_margin_db = safe_float(cfg_obj.get("scanFocusMarginDb", 3.0), 3.0)
     scan_selected_id = active_channel_id
     scan_hold_until = 0.0
     scan_last_best_db = None
@@ -416,6 +438,18 @@ def main() -> int:
 
     if not freq_str:
         freq_str = "446.01875M"
+
+    default_ppm = safe_int(cfg_obj.get("defaultPpm", 25), 25)
+    default_gain = safe_int(cfg_obj.get("defaultGain", 35), 35)
+    force_defaults = bool(cfg_obj.get("forceDefaults", str(cfg_obj.get("radioChannelPlan") or "") == "pmr446-16"))
+    if force_defaults and channels_cfg:
+        for ch in channels_cfg:
+            ch["ppm"] = int(default_ppm)
+            ch["gain"] = int(default_gain)
+        ppm = int(default_ppm)
+        gain = int(default_gain)
+
+    scan_focus_id = resolve_focus_channel_id(channels_cfg, scan_focus_id)
 
     tune_hz = parse_freq_to_hz(freq_str) or 446_018_750
     sdr_center_hz = pick_sdr_center_hz(cfg_obj, tune_hz)
@@ -443,6 +477,8 @@ def main() -> int:
     clips_dir = Path(args.clips_dir)
     live_audio_path = Path(args.live_audio)
     live_audio_window_s = max(0.5, float(args.live_audio_window_s or 3.0))
+    spectrum_path = Path(args.spectrum)
+    finder_path = Path(args.finder)
 
     touch(out_segments)
     if not meta_path.exists():
@@ -452,6 +488,7 @@ def main() -> int:
     # VAD / chunking
     vad_threshold = float(cfg_obj.get("vadThreshold", args.vad_threshold) or args.vad_threshold)
     hangover_ms = int(cfg_obj.get("hangoverMs", args.hangover_ms) or args.hangover_ms)
+    pre_roll_ms = safe_int(cfg_obj.get("preRollMs", 250), 250)
 
     # FM noise squelch (SDR++-like): mute idle hiss, open when carrier/voice present.
     # `squelch` is a noise threshold (0 disables). Lower values open more easily.
@@ -540,6 +577,17 @@ def main() -> int:
     win = np.hamming(nfft).astype(np.float32)
     last_fft_send = 0.0
     fft_interval_s = 0.25
+
+    # Finder (rolling 5-minute analysis window, 1 Hz)
+    finder_window_s = float(cfg_obj.get("finderWindowS", 300) or 300)
+    finder_min_samples = int(cfg_obj.get("finderMinSamples", 10) or 10)
+    finder_last_ts = 0.0
+    finder_samples = deque()
+
+    # Pre-roll buffer to avoid cutting the beginning of speech
+    pre_roll_keep = max(0, int(round(float(pre_roll_ms) * float(audio_fs) / 1000.0)))
+    pre_roll_buf: deque[np.ndarray] = deque()
+    pre_roll_samples = 0
 
     # Chunking / VAD
     frame_ms = 100
@@ -676,7 +724,9 @@ def main() -> int:
         nonlocal cfg_obj, cfg_path
         nonlocal sdr_center_hz, tune_hz, freq_str, ppm, gain, soft_gain, channel_label, vad_threshold, hangover_ms, hangover_chunks, proc
         nonlocal channels_cfg, active_channel_id, active_ctcss_hz, active_dcs_code
-        nonlocal scan_enabled, scan_delta_db, scan_hold_s, scan_confirm_n
+        nonlocal scan_enabled, scan_delta_db, scan_hold_s, scan_confirm_n, scan_max_channels, scan_focus_id, scan_focus_margin_db
+        nonlocal finder_window_s, finder_min_samples, finder_last_ts, finder_samples
+        nonlocal pre_roll_ms, pre_roll_keep, pre_roll_buf, pre_roll_samples
         nonlocal squelch, squelch_delay_s
         nonlocal carrier_threshold_db, gate_hold_time
         nonlocal last_saved_mtime, last_live_mtime, last_cfg_check
@@ -718,15 +768,25 @@ def main() -> int:
         scan_delta_db = safe_float(cfg2.get("scanDeltaDb", scan_delta_db), scan_delta_db)
         scan_hold_s = safe_float(cfg2.get("scanHoldS", scan_hold_s), scan_hold_s)
         scan_confirm_n = safe_int(cfg2.get("scanConfirmN", scan_confirm_n), scan_confirm_n)
+        scan_max_channels = max(0, safe_int(cfg2.get("scanMaxChannels", scan_max_channels), scan_max_channels))
+        scan_focus_id = str(cfg2.get("scanFocusId") or scan_focus_id or "ch2").strip()
+        scan_focus_margin_db = safe_float(cfg2.get("scanFocusMarginDb", scan_focus_margin_db), scan_focus_margin_db)
+        finder_window_s = float(cfg2.get("finderWindowS", finder_window_s) or finder_window_s)
+        finder_min_samples = int(cfg2.get("finderMinSamples", finder_min_samples) or finder_min_samples)
         freq2, ppm2, gain2, label2 = extract_active_channel(cfg2)
         vad2 = safe_float(cfg2.get("vadThreshold", vad_threshold), vad_threshold)
         hang2 = safe_int(cfg2.get("hangoverMs", hangover_ms), hangover_ms)
+        pre_roll_ms = safe_int(cfg2.get("preRollMs", pre_roll_ms), pre_roll_ms)
         sq2 = safe_float(cfg2.get("squelch", squelch), squelch)
         sqd2 = safe_float(cfg2.get("squelchDelay", squelch_delay_s), squelch_delay_s)
 
         vad_threshold = float(vad2)
         hangover_ms = int(hang2)
         hangover_chunks = max(1, int(hangover_ms / frame_ms))
+
+        pre_roll_keep = max(0, int(round(float(pre_roll_ms) * float(audio_fs) / 1000.0)))
+        pre_roll_buf.clear()
+        pre_roll_samples = 0
 
         squelch = max(0.0, min(0.1, float(sq2)))
         squelch_delay_s = max(0.0, float(sqd2))
@@ -738,6 +798,18 @@ def main() -> int:
         hz2 = parse_freq_to_hz(freq2) if freq2 else None
         if hz2 is None:
             hz2 = tune_hz
+
+        default_ppm = safe_int(cfg2.get("defaultPpm", 25), 25)
+        default_gain = safe_int(cfg2.get("defaultGain", 35), 35)
+        force_defaults = bool(cfg2.get("forceDefaults", str(cfg2.get("radioChannelPlan") or "") == "pmr446-16"))
+        if force_defaults and channels_cfg:
+            for ch2 in channels_cfg:
+                ch2["ppm"] = int(default_ppm)
+                ch2["gain"] = int(default_gain)
+            ppm2 = int(default_ppm)
+            gain2 = int(default_gain)
+
+        scan_focus_id = resolve_focus_channel_id(channels_cfg, scan_focus_id)
 
         # Digital tune frequency always updates immediately (no rtl_sdr restart if within passband).
         tune_hz = int(hz2)
@@ -908,16 +980,22 @@ def main() -> int:
                 spec = np.fft.fftshift(np.fft.fft(block * win))
                 p = 20.0 * np.log10(np.abs(spec) / nfft + 1e-12)
 
+                low_hz = float(int(sdr_center_hz - iq_fs / 2))
+                step_hz = float(iq_fs) / float(nfft)
+
                 # Auto-scan: pick the strongest channel in the plan (Automatic mode).
                 if scan_enabled and channels_cfg:
-                    low_hz = float(int(sdr_center_hz - iq_fs / 2))
-                    step_hz = float(iq_fs) / float(nfft)
                     noise_floor = float(np.median(p))
                     best = None
                     best_db = None
+                    focus = None
+                    focus_db = None
                     half_bw_hz = 6250.0
                     half_bins = max(1, int(round(half_bw_hz / step_hz)))
-                    for ch in channels_cfg:
+                    scan_channels = channels_cfg
+                    if int(scan_max_channels) > 0:
+                        scan_channels = channels_cfg[: int(scan_max_channels)]
+                    for ch in scan_channels:
                         # Skip channels disabled for scanning (Auto mode checkbox)
                         if ch.get("scanEnabled") is False:
                             continue
@@ -933,9 +1011,21 @@ def main() -> int:
                         if i1 <= i0:
                             continue
                         v = float(np.mean(p[i0:i1]))
+                        if str(ch.get("id") or "") and str(ch.get("id") or "") == str(scan_focus_id or ""):
+                            focus = ch
+                            focus_db = float(v)
                         if best_db is None or v > best_db:
                             best_db = v
                             best = ch
+
+                    if focus is not None and focus_db is not None and best is not None and best_db is not None:
+                        try:
+                            focus_margin = float(scan_focus_margin_db)
+                        except Exception:
+                            focus_margin = 0.0
+                        if str(best.get("id") or "") != str(scan_focus_id or "") and float(best_db) < float(focus_db) + float(focus_margin):
+                            best = focus
+                            best_db = focus_db
 
                     if best is not None and best_db is not None:
                         scan_last_best_db = float(best_db)
@@ -975,11 +1065,107 @@ def main() -> int:
                                         soft_gain = 1.0
                             except Exception:
                                 pass
+                # Rolling finder stats (1 Hz) based on current spectrum
+                if now - finder_last_ts >= 1.0 and channels_cfg:
+                    finder_last_ts = now
+                    scan_channels = channels_cfg
+                    if int(scan_max_channels) > 0:
+                        scan_channels = channels_cfg[: int(scan_max_channels)]
+                    channel_powers = []
+                    for ch in scan_channels:
+                        hz = ch.get("freqHz")
+                        if hz is None:
+                            hz = parse_freq_to_hz(str(ch.get("freq") or ""))
+                            ch["freqHz"] = hz
+                        if hz is None:
+                            continue
+                        idx = int(round((float(hz) - low_hz) / step_hz))
+                        half_bins = max(1, int(round(6250.0 / step_hz)))
+                        i0 = max(0, idx - half_bins)
+                        i1 = min(nfft - 1, idx + half_bins)
+                        if i1 <= i0:
+                            continue
+                        v = float(np.mean(p[i0:i1]))
+                        channel_powers.append(
+                            {
+                                "id": str(ch.get("id") or ""),
+                                "label": str(ch.get("label") or ""),
+                                "freq": str(ch.get("freq") or ""),
+                                "freqHz": int(hz),
+                                "avgDb": v,
+                            }
+                        )
+                    finder_samples.append({"ts": now, "noiseFloor": float(noise_floor), "channels": channel_powers})
+                    # Trim old samples
+                    while finder_samples and now - float(finder_samples[0].get("ts", now)) > float(finder_window_s):
+                        finder_samples.popleft()
+
+                    # Compute rolling stats
+                    stats = {}
+                    noise_vals = [float(s.get("noiseFloor", 0.0)) for s in finder_samples]
+                    noise_floor_avg = float(np.mean(noise_vals)) if noise_vals else None
+                    for s in finder_samples:
+                        for ch in s.get("channels", []):
+                            cid = str(ch.get("id") or "")
+                            if not cid:
+                                continue
+                            stats.setdefault(cid, {"label": ch.get("label"), "freq": ch.get("freq"), "freqHz": ch.get("freqHz"), "vals": []})
+                            stats[cid]["vals"].append(float(ch.get("avgDb", 0.0)))
+
+                    results = []
+                    for cid, item in stats.items():
+                        vals = item.get("vals", [])
+                        if not vals:
+                            continue
+                        avg = float(np.mean(vals))
+                        peak = float(np.max(vals))
+                        stdev = float(np.std(vals))
+                        snr = float(avg - noise_floor_avg) if noise_floor_avg is not None else None
+                        results.append(
+                            {
+                                "id": cid,
+                                "label": str(item.get("label") or ""),
+                                "freq": str(item.get("freq") or ""),
+                                "freqHz": int(item.get("freqHz") or 0),
+                                "avgDb": avg,
+                                "peakDb": peak,
+                                "stdevDb": stdev,
+                                "snrDb": snr,
+                                "samples": len(vals),
+                            }
+                        )
+                    results.sort(key=lambda r: (r.get("snrDb") is None, -(r.get("snrDb") or -9999), -(r.get("avgDb") or -9999)))
+
+                    best = results[0] if results else None
+                    focus = next((r for r in results if r.get("id") == str(scan_focus_id or "")), None)
+                    if best and focus and focus != best:
+                        best_db = float(best.get("avgDb") or -9999)
+                        focus_db = float(focus.get("avgDb") or -9999)
+                        if best_db < focus_db + float(scan_focus_margin_db):
+                            best = focus
+
+                    if len(finder_samples) >= int(max(1, finder_min_samples)):
+                        try:
+                            write_json_atomic(
+                                finder_path,
+                                {
+                                    "ts": utc_now_iso(),
+                                    "windowS": float(finder_window_s),
+                                    "samples": len(finder_samples),
+                                    "noiseFloorDb": noise_floor_avg,
+                                    "focusId": str(scan_focus_id or ""),
+                                    "focusMarginDb": float(scan_focus_margin_db),
+                                    "best": best,
+                                    "channels": results,
+                                },
+                            )
+                        except Exception:
+                            pass
+
                 # Shift to resemble [-120..-30] range used by UI
                 dbm = np.clip(p - 40.0, -140.0, -20.0).astype(np.float32)
                 low_hz = int(sdr_center_hz - iq_fs / 2)
                 high_hz = int(sdr_center_hz + iq_fs / 2)
-                step_hz = float(iq_fs) / float(nfft)
                 
                 # Carrier detection: measure power at tuned frequency vs noise floor
                 try:
@@ -1016,6 +1202,34 @@ def main() -> int:
                 }
                 try:
                     send_udp_json(analyzer_sock, analyzer_addr, msg)
+                except Exception:
+                    pass
+                try:
+                    write_json_atomic(
+                        spectrum_path,
+                        {
+                            "ts": utc_now_iso(),
+                            "lowHz": low_hz,
+                            "highHz": high_hz,
+                            "stepHz": step_hz,
+                            "centerHz": int(sdr_center_hz),
+                            "tuneHz": int(tune_hz),
+                            "freq": str(freq_str),
+                            "channelLabel": channel_label,
+                            "ppm": int(ppm),
+                            "gain": int(gain),
+                            "scan": {
+                                "enabled": bool(scan_enabled),
+                                "selectedId": str(scan_selected_id or ""),
+                                "bestDb": float(scan_last_best_db) if scan_last_best_db is not None else None,
+                                "deltaDb": float(scan_delta_db),
+                                "maxChannels": int(scan_max_channels),
+                                "focusId": str(scan_focus_id or ""),
+                                "focusMarginDb": float(scan_focus_margin_db),
+                            },
+                            "dbm": dbm.tolist(),
+                        },
+                    )
                 except Exception:
                     pass
 
@@ -1225,6 +1439,14 @@ def main() -> int:
                 except Exception:
                     pass
 
+                # Update pre-roll buffer from raw audio before gating (helps avoid clipping starts)
+                if pre_roll_keep > 0 and chunk_pcm.size:
+                    pre_roll_buf.append(chunk_pcm.copy())
+                    pre_roll_samples += int(chunk_pcm.size)
+                    while pre_roll_samples > pre_roll_keep and pre_roll_buf:
+                        dropped = pre_roll_buf.popleft()
+                        pre_roll_samples -= int(dropped.size)
+
                 # Rolling listen buffer
                 try:
                     if live_audio_keep > 0:
@@ -1246,7 +1468,19 @@ def main() -> int:
                 if ptt_gate_open:
                     if not in_speech:
                         in_speech = True
-                        chunks = [out_pcm]
+                        if pre_roll_buf:
+                            try:
+                                pre = np.concatenate(list(pre_roll_buf)).astype(np.int16)
+                            except Exception:
+                                pre = np.zeros(0, dtype=np.int16)
+                            pre_roll_buf.clear()
+                            pre_roll_samples = 0
+                            if pre.size:
+                                chunks = [pre, out_pcm]
+                            else:
+                                chunks = [out_pcm]
+                        else:
+                            chunks = [out_pcm]
                     else:
                         chunks.append(out_pcm)
 
@@ -1290,6 +1524,9 @@ def main() -> int:
                                 "selectedId": str(scan_selected_id or ""),
                                 "bestDb": float(scan_last_best_db) if scan_last_best_db is not None else None,
                                 "deltaDb": float(scan_delta_db),
+                                "maxChannels": int(scan_max_channels),
+                                "focusId": str(scan_focus_id or ""),
+                                "focusMarginDb": float(scan_focus_margin_db),
                             },
                             "freq": str(freq_str),
                             "ppm": int(ppm),

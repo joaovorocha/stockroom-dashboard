@@ -65,12 +65,53 @@ class OpenVINOTranscriber:
             raise FileNotFoundError(f"Missing OpenVINO Whisper encoder IR: {enc_xml}")
 
         # Compile *one* model (encoder) with Core so we can log execution devices.
-        # Requirement: compile using device="AUTO".
+        # Use the requested device to reflect actual target (e.g. NPU).
         # WhisperPipeline will handle encoder/decoder compilation internally.
         core = self._Core()
+        plugins_xml = os.environ.get("OPENVINO_PLUGINS_XML")
+        if plugins_xml:
+            try:
+                core.register_plugins(plugins_xml)
+                if self.verbose:
+                    print(f"[radio-transcriber] OpenVINO plugins loaded from {plugins_xml}", flush=True)
+            except Exception as e:
+                if self.verbose:
+                    print(f"[radio-transcriber] OpenVINO plugins load failed: {e}", flush=True)
+
+        # Explicitly register NPU/GPU plugins if available (ignore if already registered).
+        plugin_dir = os.environ.get("OPENVINO_PLUGIN_PATH")
+        if plugin_dir:
+            try:
+                plugin_path = Path(plugin_dir)
+                npu_lib = plugin_path / "libopenvino_intel_npu_plugin.so"
+                gpu_lib = plugin_path / "libopenvino_intel_gpu_plugin.so"
+                if npu_lib.exists():
+                    try:
+                        core.register_plugin(str(npu_lib), "NPU")
+                        if self.verbose:
+                            print(f"[radio-transcriber] OpenVINO NPU plugin registered: {npu_lib}", flush=True)
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"[radio-transcriber] OpenVINO NPU plugin registration failed: {e}", flush=True)
+                if gpu_lib.exists():
+                    try:
+                        core.register_plugin(str(gpu_lib), "GPU")
+                        if self.verbose:
+                            print(f"[radio-transcriber] OpenVINO GPU plugin registered: {gpu_lib}", flush=True)
+                    except Exception as e:
+                        if self.verbose:
+                            print(f"[radio-transcriber] OpenVINO GPU plugin registration failed: {e}", flush=True)
+            except Exception as e:
+                if self.verbose:
+                    print(f"[radio-transcriber] OpenVINO plugin fallback failed: {e}", flush=True)
         try:
             ov_model = core.read_model(str(enc_xml))
-            compiled = core.compile_model(ov_model, "AUTO")
+            try:
+                compiled = core.compile_model(ov_model, self.device)
+            except Exception as e:
+                if self.verbose:
+                    print(f"[radio-transcriber] OpenVINO device probe failed on {self.device}: {e}", flush=True)
+                compiled = core.compile_model(ov_model, "AUTO")
 
             selected = None
             try:
@@ -217,7 +258,15 @@ class OpenVINOTranscriber:
                 self.start = start
                 self.end = end
 
-        return ([_Seg(s.get("text", ""), float(s.get("start", 0.0)), float(s.get("end", 0.0))) for s in segs] if segs else [_Seg(text, 0.0, float(len(audio_float32)) / float(sample_rate or 16000))] if text else []), {})
+        if segs:
+            segments = [_Seg(s.get("text", ""), float(s.get("start", 0.0)), float(s.get("end", 0.0))) for s in segs]
+        elif text:
+            dur = float(len(audio_float32)) / float(sample_rate or 16000)
+            segments = [_Seg(text, 0.0, dur)]
+        else:
+            segments = []
+
+        return (segments, {})
 
 
 def resolve_openvino_model_dir(model_name: str | None = None) -> Path:

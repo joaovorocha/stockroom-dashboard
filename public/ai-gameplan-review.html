@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Gameplan Review | Stockroom Dashboard</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <style>
+        body {
+            background: #f5f7fa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        
+        .review-container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        
+        .header-bar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .header-bar h1 {
+            margin: 0 0 10px 0;
+            font-size: 2em;
+        }
+        
+        .header-bar p {
+            margin: 0;
+            opacity: 0.9;
+        }
+        
+        .metrics-banner {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-box {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .metric-box .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        
+        .metric-box .label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .metric-box.good .value {
+            color: #4caf50;
+        }
+        
+        .metric-box.warning .value {
+            color: #ff9800;
+        }
+        
+        .actions-bar {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #43a047;
+        }
+        
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        .assignments-grid {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .employee-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.2s;
+        }
+        
+        .employee-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        
+        .employee-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .employee-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .employee-role {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .role-sa {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .role-boh {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .role-mgmt {
+            background: #f3e5f5;
+            color: #7b1fa2;
+        }
+        
+        .assignment-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .detail-item {
+            padding: 10px;
+            background: #f9fafb;
+            border-radius: 6px;
+        }
+        
+        .detail-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .detail-value {
+            font-size: 1.1em;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .zones-list {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .zone-badge {
+            padding: 6px 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+        }
+        
+        .empty-state h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        
+        .modal-content h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: flex-end;
+        }
+    </style>
+</head>
+<body>
+    <div class="review-container">
+        <div class="header-bar">
+            <h1>🤖 AI Gameplan Review</h1>
+            <p>Review and approve AI-generated task assignments</p>
+            <p style="font-size: 0.9em; margin-top: 10px;">
+                <a href="/ai-algorithm-explained.html" style="color: white; text-decoration: underline;">
+                    How does this work?
+                </a>
+            </p>
+        </div>
+
+        <!-- Generation Form -->
+        <div id="generateForm" class="employee-card">
+            <h2>Generate AI Assignments</h2>
+            <div style="display: grid; gap: 15px; margin-top: 20px;">
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Date:</label>
+                    <input type="date" id="assignmentDate" class="form-control" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; width: 100%; max-width: 300px;">
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="generateAssignments()">
+                        ✨ Generate AI Draft
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>AI is generating fair assignments...</p>
+            <p style="color: #666; font-size: 0.9em;">Analyzing 90 days of history...</p>
+        </div>
+
+        <!-- Metrics Banner -->
+        <div id="metricsBanner" class="metrics-banner" style="display: none;">
+            <!-- Populated by JavaScript -->
+        </div>
+
+        <!-- Action Buttons -->
+        <div id="actionsBar" class="actions-bar" style="display: none;">
+            <button class="btn btn-success" onclick="approveAndPublish()">
+                ✅ Approve & Publish
+            </button>
+            <button class="btn btn-secondary" onclick="modifyAssignments()">
+                ✏️ Modify Assignments
+            </button>
+            <button class="btn btn-secondary" onclick="regenerate()">
+                🔄 Regenerate
+            </button>
+            <button class="btn btn-secondary" onclick="viewHistory()">
+                📊 View Fairness History
+            </button>
+        </div>
+
+        <!-- Assignments Grid -->
+        <div id="assignmentsContainer">
+            <div class="empty-state">
+                <h2>No AI Draft Generated</h2>
+                <p>Click "Generate AI Draft" above to create fair task assignments</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Approval Modal -->
+    <div id="approvalModal" class="modal">
+        <div class="modal-content">
+            <h2>Approve & Publish Gameplan?</h2>
+            <p>This will publish the AI-generated assignments to the team.</p>
+            <p style="color: #666; font-size: 0.9em;">
+                You can still make manual changes after publishing.
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-success" onclick="confirmPublish()">Publish</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDraft = null;
+        let currentDate = null;
+
+        // Initialize date picker to today
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('assignmentDate').value = today;
+        });
+
+        async function generateAssignments() {
+            const dateInput = document.getElementById('assignmentDate').value;
+            if (!dateInput) {
+                alert('Please select a date');
+                return;
+            }
+
+            currentDate = dateInput;
+
+            // Show loading
+            document.getElementById('generateForm').style.display = 'none';
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('assignmentsContainer').innerHTML = '';
+
+            try {
+                // Fetch current employees and settings
+                const employeesRes = await fetch('/api/gameplan/employees');
+                const employeesData = await employeesRes.json();
+
+                const settingsRes = await fetch('/api/gameplan/settings');
+                const settingsData = await settingsRes.json();
+
+                // Generate AI assignments
+                const response = await fetch('/api/ai/generate-gameplan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: dateInput,
+                        employees: employeesData.employees,
+                        settings: settingsData
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to generate assignments');
+                }
+
+                const result = await response.json();
+                currentDraft = result;
+
+                // Hide loading
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('generateForm').style.display = 'block';
+
+                // Show metrics
+                displayMetrics(result.metadata);
+
+                // Show assignments
+                displayAssignments(result.assignments, employeesData.employees);
+
+                // Show action buttons
+                document.getElementById('actionsBar').style.display = 'flex';
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('generateForm').style.display = 'block';
+                alert('Failed to generate assignments: ' + error.message);
+            }
+        }
+
+        function displayMetrics(metadata) {
+            const banner = document.getElementById('metricsBanner');
+            banner.style.display = 'grid';
+
+            const fairnessClass = metadata.fairness_score >= 0.9 ? 'good' : 
+                                 metadata.fairness_score >= 0.7 ? 'warning' : '';
+
+            banner.innerHTML = `
+                <div class="metric-box ${fairnessClass}">
+                    <div class="value">${metadata.fairness_score.toFixed(2)}</div>
+                    <div class="label">Fairness Score</div>
+                </div>
+                <div class="metric-box">
+                    <div class="value">${metadata.employees_assigned}</div>
+                    <div class="label">Employees Assigned</div>
+                </div>
+                <div class="metric-box">
+                    <div class="value">${metadata.history_days_analyzed}</div>
+                    <div class="label">Days Analyzed</div>
+                </div>
+                <div class="metric-box good">
+                    <div class="value">${(metadata.confidence * 100).toFixed(0)}%</div>
+                    <div class="label">AI Confidence</div>
+                </div>
+            `;
+        }
+
+        function displayAssignments(assignments, employeesData) {
+            const container = document.getElementById('assignmentsContainer');
+            let html = '<div class="assignments-grid">';
+
+            // Get employee names
+            const empNames = {};
+            for (const role of Object.keys(employeesData)) {
+                for (const emp of employeesData[role] || []) {
+                    empNames[emp.id] = emp.name;
+                }
+            }
+
+            // Render each assignment
+            for (const [empId, assignment] of Object.entries(assignments)) {
+                const name = empNames[empId] || empId;
+                const roleClass = assignment.type === 'SA' ? 'role-sa' : 
+                                 assignment.type === 'BOH' ? 'role-boh' : 'role-mgmt';
+
+                html += `
+                    <div class="employee-card">
+                        <div class="employee-header">
+                            <div class="employee-name">${name}</div>
+                            <div class="employee-role ${roleClass}">${assignment.type}</div>
+                        </div>
+                        <div class="assignment-details">
+                `;
+
+                if (assignment.zones && assignment.zones.length > 0) {
+                    html += `
+                        <div class="detail-item">
+                            <div class="detail-label">Zones</div>
+                            <div class="zones-list">
+                                ${assignment.zones.map(z => `<span class="zone-badge">${z}</span>`).join('')}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (assignment.fittingRoom) {
+                    html += `
+                        <div class="detail-item">
+                            <div class="detail-label">Fitting Room</div>
+                            <div class="detail-value">${assignment.fittingRoom}</div>
+                        </div>
+                    `;
+                }
+
+                if (assignment.shift) {
+                    html += `
+                        <div class="detail-item">
+                            <div class="detail-label">Shift</div>
+                            <div class="detail-value">${assignment.shift}</div>
+                        </div>
+                    `;
+                }
+
+                if (assignment.scheduledLunch || assignment.lunch) {
+                    html += `
+                        <div class="detail-item">
+                            <div class="detail-label">Lunch</div>
+                            <div class="detail-value">${assignment.scheduledLunch || assignment.lunch}</div>
+                        </div>
+                    `;
+                }
+
+                if (assignment.closingSections && assignment.closingSections.length > 0) {
+                    html += `
+                        <div class="detail-item">
+                            <div class="detail-label">Closing Sections</div>
+                            <div class="detail-value">${assignment.closingSections.join(', ')}</div>
+                        </div>
+                    `;
+                }
+
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function approveAndPublish() {
+            document.getElementById('approvalModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('approvalModal').classList.remove('active');
+        }
+
+        async function confirmPublish() {
+            closeModal();
+
+            if (!currentDraft || !currentDate) {
+                alert('No draft to publish');
+                return;
+            }
+
+            try {
+                // Save assignments to gameplan (using existing gameplan API)
+                const response = await fetch('/api/gameplan/daily', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        date: currentDate,
+                        assignments: currentDraft.assignments,
+                        metadata: {
+                            ...currentDraft.metadata,
+                            ai_generated: true,
+                            ai_decision_id: currentDraft.decision_id
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to publish gameplan');
+                }
+
+                alert('✅ Gameplan published successfully!');
+                window.location.href = '/gameplan';
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to publish: ' + error.message);
+            }
+        }
+
+        function modifyAssignments() {
+            if (!currentDate) return;
+            // Redirect to regular gameplan editor with AI draft pre-loaded
+            window.location.href = `/gameplan-edit?date=${currentDate}&aiDraft=true`;
+        }
+
+        function regenerate() {
+            currentDraft = null;
+            document.getElementById('metricsBanner').style.display = 'none';
+            document.getElementById('actionsBar').style.display = 'none';
+            document.getElementById('assignmentsContainer').innerHTML = `
+                <div class="empty-state">
+                    <h2>Ready to Regenerate</h2>
+                    <p>Click "Generate AI Draft" to create new assignments</p>
+                </div>
+            `;
+        }
+
+        function viewHistory() {
+            window.location.href = '/ai-algorithm-explained.html';
+        }
+    </script>
+</body>
+</html>

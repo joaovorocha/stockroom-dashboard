@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<ie>
+  <plugins>
+    <plugin name="CPU" location="libopenvino_intel_cpu_plugin.so"/>
+    <plugin name="GPU" location="libopenvino_intel_gpu_plugin.so"/>
+    <plugin name="NPU" location="libopenvino_intel_npu_plugin.so"/>
+    <plugin name="AUTO" location="libopenvino_auto_plugin.so"/>
+    <plugin name="AUTO_BATCH" location="libopenvino_auto_batch_plugin.so"/>
+    <plugin name="HETERO" location="libopenvino_hetero_plugin.so"/>
+  </plugins>
+</ie>

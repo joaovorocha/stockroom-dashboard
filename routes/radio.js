@@ -2,17 +2,18 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const dal = require('../utils/dal');
 const { getLogsDir } = require('../utils/paths');
 
 const router = express.Router();
 
-const RADIO_DATA_DIR = path.join(dal.paths.dataDir, 'radio');
+const RADIO_DATA_DIR = path.join(__dirname, '..', 'data', 'radio');
 const TRANSCRIPTS_PATH = path.join(RADIO_DATA_DIR, 'transcripts.jsonl');
 const LAST_ID_PATH = path.join(RADIO_DATA_DIR, '_last_id.txt');
 const CONFIG_PATH = path.join(RADIO_DATA_DIR, 'config.json');
 const CONFIG_LIVE_PATH = path.join(RADIO_DATA_DIR, 'config.live.json');
 const SERVICE_PATH = path.join(RADIO_DATA_DIR, 'service.json');
+const SPECTRUM_PATH = path.join(RADIO_DATA_DIR, 'spectrum.json');
+const FINDER_PATH = path.join(RADIO_DATA_DIR, 'finder.json');
 
 const LOGS_DIR = getLogsDir();
 const RADIO_LOG_PATH = path.join(LOGS_DIR, 'radio.log');
@@ -112,14 +113,18 @@ function defaultConfig() {
   return {
     // Backward-compat: keep top-level freq/ppm/gain in sync with the active channel.
     freq: '446.01875M',
-    ppm: 0,
-    gain: 0,
+    ppm: 25,
+    gain: 35,
 
     // New: multi-channel support
     channels: [
-      { id: 'default', label: 'Default', freq: '446.01875M', ppm: 0, gain: 0, ctcssHz: null, dcsCode: null },
+      { id: 'ch1', label: 'Ch 1', freq: '446.00625M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'ch2', label: 'Ch 2', freq: '446.01875M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'ch3', label: 'Ch 3', freq: '446.03125M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'ch4', label: 'Ch 4', freq: '446.04375M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'ch5', label: 'Ch 5', freq: '446.05625M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
     ],
-    activeChannelId: 'default',
+    activeChannelId: 'ch2',
 
     squelch: 0,
     squelchDelay: 1,
@@ -127,17 +132,24 @@ function defaultConfig() {
     vadThreshold: 0.04,
     // Slightly shorter hangover reduces segment length and ASR work.
     hangoverMs: 600,
+    // Pre-roll to avoid cutting initial syllables.
+    preRollMs: 250,
 
     // Admin UI helpers (hardware model + mode). These are not used by the radio pipeline directly,
     // but allow the admin page to keep track of which preset the user is targeting.
-    radioMode: 'manual',
-    radioModel: 'generic',
-    radioChannelPlan: 'custom',
+    radioMode: 'automatic',
+    radioModel: 'clp446e',
+    radioChannelPlan: 'pmr446-16',
 
     // Automatic scan tuning (used by radio_service.py when radioMode=automatic)
     scanDeltaDb: 8,
     scanHoldS: 1.0,
     scanConfirmN: 3,
+    scanMaxChannels: 5,
+    scanFocusId: 'ch2',
+    scanFocusMarginDb: 3,
+    finderWindowS: 300,
+    finderMinSamples: 10,
 
     model: 'tiny',
     device: 'cpu',
@@ -154,6 +166,23 @@ function defaultConfig() {
     },
     carrierThreshold: 18,
     gateHoldTime: 0.1,
+    audioConditioning: {
+      enabled: true,
+      highpassHz: 200,
+      lowpassHz: 3800,
+      compressor: {
+        threshold: 0.125,
+        ratio: 4,
+        attackMs: 10,
+        releaseMs: 200,
+        makeup: 2,
+      },
+      limiter: {
+        limit: 0.9,
+        attackMs: 5,
+        releaseMs: 50,
+      },
+    },
   };
 }
 
@@ -457,6 +486,26 @@ router.get('/live', (req, res) => {
     return res.json({ ok: true, exists: true, live: obj });
   } catch (e) {
     return res.json({ ok: false, exists: true, error: 'Bad live.json' });
+  }
+});
+
+router.get('/spectrum', (req, res) => {
+  if (!fs.existsSync(SPECTRUM_PATH)) return res.json({ ok: false, exists: false });
+  try {
+    const obj = JSON.parse(fs.readFileSync(SPECTRUM_PATH, 'utf8'));
+    return res.json({ ok: true, exists: true, spectrum: obj });
+  } catch (e) {
+    return res.json({ ok: false, exists: true, error: 'Bad spectrum.json' });
+  }
+});
+
+router.get('/finder', (req, res) => {
+  if (!fs.existsSync(FINDER_PATH)) return res.json({ ok: false, exists: false });
+  try {
+    const obj = JSON.parse(fs.readFileSync(FINDER_PATH, 'utf8'));
+    return res.json({ ok: true, exists: true, finder: obj });
+  } catch (e) {
+    return res.json({ ok: false, exists: true, error: 'Bad finder.json' });
   }
 });
 

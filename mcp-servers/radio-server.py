@@ -6,6 +6,7 @@
 import json
 import sys
 import asyncio
+from pathlib import Path
 
 class SimpleMCPServer:
     def __init__(self, name):
@@ -131,6 +132,26 @@ async def get_radio_alerts(args):
     ]
     return alerts
 
+
+def load_json(path: Path) -> dict:
+    try:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return {}
+
+
+async def find_best_frequency(args):
+    """Return the latest frequency finder analysis."""
+    base = Path("/var/lib/stockroom-dashboard/data/radio")
+    if not base.exists():
+        base = Path("data/radio")
+    finder_path = base / "finder.json"
+    if not finder_path.exists():
+        return {"ok": False, "error": "finder.json not found"}
+    return {"ok": True, "finder": load_json(finder_path)}
+
 server.register_tool(
     "get_radio_status",
     get_radio_status,
@@ -178,6 +199,15 @@ server.register_tool(
     get_radio_alerts,
     {
         "description": "Get active radio alerts and notifications",
+        "inputSchema": {"type": "object", "properties": {}}
+    }
+)
+
+server.register_tool(
+    "find_best_frequency",
+    find_best_frequency,
+    {
+        "description": "Get latest frequency finder analysis",
         "inputSchema": {"type": "object", "properties": {}}
     }
 )

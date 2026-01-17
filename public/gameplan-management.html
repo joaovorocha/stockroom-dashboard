@@ -20,19 +20,22 @@
   <script src="/vendor/chart.umd.min.js?v=1" defer></script>
   <style>
     .upcoming-plans-content {
-      display: grid;
+      display: flex;
+      flex-direction: column;
       gap: 8px;
     }
     
     .upcoming-plan-item {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 12px;
+      border-radius: 8px;
+      padding: 14px 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       transition: all 0.2s ease;
+      width: 100%;
+      box-sizing: border-box;
     }
     
     .upcoming-plan-item:hover {
@@ -100,8 +103,15 @@
     .welcome-action-row {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-top: 16px;
+      gap: 8px;
+      margin-bottom: 0;
+      flex-wrap: wrap;
+    }
+    
+    .welcome-action-row .btn {
+      flex: 1;
+      min-width: 120px;
+      text-align: center;
     }
 
     /* Small desktop screens */
@@ -125,6 +135,17 @@
       }
     }
 
+    /* Mobile: adjust header to stack vertically */
+    @media (max-width: 900px) {
+      .welcome-header {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      .welcome-right {
+        align-items: center;
+      }
+    }
+
     .btn-edit-calendar {
       background: var(--success) !important;
       color: white !important;
@@ -142,6 +163,61 @@
       overflow-x: auto;
       padding-bottom: 4px;
       height: 96px; /* fixed row height so KPIs don't expand page */
+    }
+
+    /* Welcome card layout: put profile, upcoming plans, and action column in a tidy grid box */
+    .welcome-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.04);
+      box-sizing: border-box;
+    }
+
+    .welcome-header {
+      display: grid;
+      grid-template-columns: 1fr auto 280px;
+      gap: 24px;
+      align-items: stretch;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .welcome-profile {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start; /* align avatar + info to the top */
+    }
+
+    .welcome-right {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 0;
+      height: 100%;
+    }
+
+    .import-status-card--welcome {
+      margin-top: auto;
+    }
+
+    .upcoming-plans-section {
+      align-self: stretch;
+      min-width: 280px;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 0;
+    }
+
+    .section-subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 6px;
     }
 
     .stat-card {
@@ -283,6 +359,7 @@
             <section class="section upcoming-plans-section boxed-section" id="upcomingPlansSection">
               <div class="section-header">
                 <h2>📅 Upcoming Game Plans</h2>
+                <div class="section-subtitle">Next 3 days</div>
                 <div class="section-actions">
                   
                 </div>
@@ -293,8 +370,8 @@
             </section>
             <div class="welcome-right">
               <div class="welcome-action-row" id="welcomeActionRow" style="display:none;">
-                <a href="/gameplan-edit.html" id="editGameplanBtn" class="btn btn-primary btn-edit-calendar">📅 Edit Game Plan</a>
                 <a href="/gameplan-calendar.html" class="btn btn-secondary btn-view-calendar">View Calendar</a>
+                <a href="/gameplan-edit.html" id="editGameplanBtn" class="btn btn-primary btn-edit-calendar">📅 Edit TODAY Game Plan</a>
               </div>
 
               <!-- Data Import Status (nested inside welcome box) -->
@@ -343,10 +420,6 @@
             <div class="kpi-box">
               <span class="kpi-value" id="kpiTodayTargetValue">$34.0K</span>
               <span class="kpi-label" id="kpiTodayTargetLabel">Today Store Target</span>
-            </div>
-            <div class="kpi-box">
-              <span class="kpi-value" id="kpiPerEmployeeValue">$34.0K</span>
-              <span class="kpi-label" id="kpiPerEmployeeLabel">Per Employee Target (1 SA working)</span>
             </div>
           </div>
 
@@ -762,10 +835,9 @@
         if (!content) return;
         
         try {
-          // Get current date and next 7 days
+          // Get current date and next N days (configurable)
           const today = new Date();
-          const endDate = new Date();
-          endDate.setDate(today.getDate() + 7);
+          const upcomingDaysCount = 3; // change this number to show fewer/more upcoming days
           
           const year = today.getFullYear();
           const month = today.getMonth() + 1; // JS months are 0-based
@@ -777,7 +849,7 @@
           
           // Filter for upcoming dates (today + next 6 days)
           const upcomingDates = [];
-          for (let i = 0; i < 7; i++) {
+          for (let i = 0; i < upcomingDaysCount; i++) {
             const date = new Date(today);
             date.setDate(today.getDate() + i);
             const dateStr = date.toISOString().slice(0, 10);
@@ -786,9 +858,9 @@
           
           // Handle both response formats: data.days array or data.upcomingPlans array
           const daysArray = data.days || data.upcomingPlans || [];
-          const upcomingPlans = daysArray.filter(day => 
-            upcomingDates.includes(day.date) && day.hasPlan
-          );
+          // Server returns `upcomingPlans` entries for dates that have a gameplan file.
+          // Those objects don't include a `hasPlan` boolean, so only filter by date.
+          const upcomingPlans = daysArray.filter(day => upcomingDates.includes(day.date));
           
           if (upcomingPlans.length === 0) {
             content.innerHTML = '<div class="upcoming-plans-empty">No upcoming game plans scheduled</div>';

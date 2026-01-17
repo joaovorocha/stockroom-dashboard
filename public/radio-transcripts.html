@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <style>
     .transcript-list { max-width: 800px; margin: 30px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 24px; }
+    .transcript-actions-bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin: 10px 0 16px; }
+    .transcript-status { color:#666; font-size: 13px; }
     .transcript-item { border-bottom: 1px solid #eee; padding: 12px 0; }
     .transcript-item:last-child { border-bottom: none; }
     .transcript-meta { color: #888; font-size: 13px; margin-bottom: 4px; }
@@ -23,14 +25,22 @@
 <body>
   <!-- Shared Header Mount -->
   <div id="shared-header-mount"></div>
-<div class="transcript-list" id="transcriptList">
+  <div class="transcript-list" id="transcriptList">
     <h2>Recent Radio Transcripts</h2>
+    <div class="transcript-actions-bar">
+      <button id="listenLiveBtn" class="btn btn-secondary" type="button">Listen Live</button>
+      <div id="listenLiveStatus" class="transcript-status">Live listen: Off</div>
+      <div id="eventsStatus" class="transcript-status">Realtime: Connecting…</div>
+    </div>
+    <audio id="liveAudio" preload="none" style="display:none"></audio>
     <audio id="clipPlayer" preload="none" style="display:none"></audio>
     <div id="transcripts"></div>
   </div>
   <script>
     let lastId = 0;
     let currentlyPlayingId = null;
+    let livePlaying = false;
+    let eventsSource = null;
 
     function escapeText(v) {
       return (v ?? '').toString();
@@ -90,6 +100,38 @@
         const isPlaying = (currentlyPlayingId != null && id === currentlyPlayingId);
         btn.textContent = isPlaying ? 'Stop' : 'Play';
       });
+    }
+
+    function setEventsStatus(text) {
+      const el = document.getElementById('eventsStatus');
+      if (el) el.textContent = text;
+    }
+
+    function setLiveStatus(text) {
+      const el = document.getElementById('listenLiveStatus');
+      if (el) el.textContent = text;
+    }
+
+    async function toggleLiveListen() {
+      const audio = document.getElementById('liveAudio');
+      if (!audio) return;
+      if (livePlaying) {
+        try { audio.pause(); } catch (_) {}
+        audio.removeAttribute('src');
+        audio.load();
+        livePlaying = false;
+        setLiveStatus('Live listen: Off');
+        return;
+      }
+      audio.src = `/api/radio/live-audio?ts=${Date.now()}`;
+      try {
+        await audio.play();
+        livePlaying = true;
+        setLiveStatus('Live listen: On');
+      } catch (_) {
+        livePlaying = false;
+        setLiveStatus('Live listen: Tap to allow audio');
+      }
     }
 
     function appendTranscripts(items, { replace = false } = {}) {
@@ -188,8 +230,38 @@
       } catch (_) {}
     }
 
-    loadInitial();
-    setInterval(poll, 5000);
+    function connectEvents() {
+      if (eventsSource) {
+        try { eventsSource.close(); } catch (_) {}
+      }
+      setEventsStatus('Realtime: Connecting…');
+      try {
+        eventsSource = new EventSource(`/api/radio/events?afterId=${lastId}`);
+        eventsSource.addEventListener('ready', () => {
+          setEventsStatus('Realtime: Connected');
+        });
+        eventsSource.addEventListener('transcript', (e) => {
+          try {
+            const item = JSON.parse(e.data);
+            const id = Number(item?.id || 0);
+            if (id > lastId) lastId = id;
+            appendTranscripts([item], { replace: false });
+          } catch (_) {}
+        });
+        eventsSource.onerror = () => {
+          setEventsStatus('Realtime: Disconnected (retrying)');
+          try { eventsSource.close(); } catch (_) {}
+          setTimeout(connectEvents, 2000);
+        };
+      } catch (_) {
+        setEventsStatus('Realtime: Disconnected');
+      }
+    }
+
+    const listenBtn = document.getElementById('listenLiveBtn');
+    if (listenBtn) listenBtn.addEventListener('click', toggleLiveListen);
+
+    loadInitial().then(connectEvents);
   </script>
   <script src="/js/shared-header.js?v=24"></script>
 </body>

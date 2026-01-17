@@ -1,0 +1,18 @@
+{
+  "name": "stockroom-ai-assignment",
+  "version": "1.0.0",
+  "description": "MCP Server for AI-powered fair task assignment",
+  "main": "server.py",
+  "scripts": {
+    "start": "python3 server.py"
+  },
+  "mcp": {
+    "server": {
+      "command": "python3",
+      "args": ["server.py"],
+      "env": {}
+    }
+  },
+  "author": "Victor Rocha",
+  "license": "ISC"
+}

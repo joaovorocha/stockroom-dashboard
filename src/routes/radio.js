@@ -2,12 +2,11 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
-const dal = require('../utils/dal');
 const { getLogsDir } = require('../utils/paths');
 
 const router = express.Router();
 
-const RADIO_DATA_DIR = path.join(dal.paths.dataDir, 'radio');
+const RADIO_DATA_DIR = path.join(__dirname, '..', 'data', 'radio');
 const TRANSCRIPTS_PATH = path.join(RADIO_DATA_DIR, 'transcripts.jsonl');
 const LAST_ID_PATH = path.join(RADIO_DATA_DIR, '_last_id.txt');
 const CONFIG_PATH = path.join(RADIO_DATA_DIR, 'config.json');

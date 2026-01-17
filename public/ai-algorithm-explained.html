@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Task Assignment - How It Works | Stockroom Dashboard</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <style>
+        .algorithm-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 40px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .hero-section h1 {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
+        
+        .hero-section p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .principle-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        
+        .principle-card h2 {
+            color: #667eea;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .principle-card .icon {
+            font-size: 1.5em;
+        }
+        
+        .how-it-works {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+        }
+        
+        .step {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            align-items: flex-start;
+        }
+        
+        .step-number {
+            background: #667eea;
+            color: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .step-content h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .example-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .example-box h4 {
+            color: #1976d2;
+            margin-top: 0;
+        }
+        
+        .fairness-score {
+            display: inline-block;
+            background: #4caf50;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .metric-card .value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .metric-card .label {
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .faq {
+            margin-top: 40px;
+        }
+        
+        .faq-item {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .faq-question {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        
+        .faq-answer {
+            color: #666;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="algorithm-container">
+        <div class="hero-section">
+            <h1>🤖 AI Task Assignment</h1>
+            <p>How Our Fair Rotation Algorithm Works</p>
+            <p style="font-size: 0.9em; opacity: 0.8;">Everyone does everything - no favoritism, just fairness</p>
+        </div>
+
+        <div class="principle-card">
+            <h2><span class="icon">⚖️</span> Core Principle: Equal Rotation</h2>
+            <p>Our AI doesn't play favorites. It analyzes the past <strong>90 days</strong> of assignments and ensures everyone rotates through all zones, fitting rooms, and shifts fairly.</p>
+            <p><strong>Why rotation?</strong> Because everyone should experience all areas of the store. No one gets stuck in the same zone forever. No one always gets the "easy" shift. Fair is fair.</p>
+        </div>
+
+        <div class="principle-card">
+            <h2><span class="icon">🎯</span> No Complex Skill Grading</h2>
+            <p>We deliberately <strong>don't</strong> grade employees on skills. Why? Because:</p>
+            <ul>
+                <li>Everyone at Suit Supply is capable and professional</li>
+                <li>Skill grading creates bias and favoritism</li>
+                <li>Learning happens through experience, not labels</li>
+                <li>Fair rotation ensures everyone develops all skills</li>
+            </ul>
+            <p><strong>Bottom line:</strong> If you're on the team, you're trusted to do the job.</p>
+        </div>
+
+        <div class="how-it-works">
+            <h2 style="text-align: center; margin-top: 0;">How the Algorithm Works (Step-by-Step)</h2>
+            
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h3>Load Historical Data</h3>
+                    <p>The AI looks back at the last 90 days and counts:</p>
+                    <ul>
+                        <li>How many times each employee was assigned to each zone</li>
+                        <li>How many times they worked each fitting room</li>
+                        <li>How many times they had each shift (morning/evening)</li>
+                        <li>How many times they had each lunch time</li>
+                    </ul>
+                    <p><strong>Example:</strong> John has worked Zone A 12 times, Zone B 8 times, Zone C 15 times in the last 90 days.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h3>Calculate Fairness Scores</h3>
+                    <p>For each employee, the AI calculates a "fairness score" for each zone/room/shift:</p>
+                    <ul>
+                        <li><strong>0.0 = Never assigned</strong> (most fair to assign)</li>
+                        <li><strong>0.5 = Assigned moderately</strong></li>
+                        <li><strong>1.0 = Assigned most often</strong> (least fair to assign)</li>
+                    </ul>
+                    
+                    <div class="example-box">
+                        <h4>Example: John's Zone Fairness Scores</h4>
+                        <ul>
+                            <li>Zone A: 0.80 (assigned 12 times - too many!)</li>
+                            <li>Zone B: 0.53 (assigned 8 times - okay)</li>
+                            <li>Zone C: <strong>1.00</strong> (assigned 15 times - way too many!)</li>
+                            <li>Zone D: <strong>0.00</strong> (never assigned - time to assign him here!)</li>
+                        </ul>
+                        <p><strong>Result:</strong> AI will assign John to Zone D because it's the fairest choice.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h3>Make Assignments (Fair First)</h3>
+                    <p>The AI assigns zones, rooms, and shifts by prioritizing the LOWEST fairness scores:</p>
+                    <ul>
+                        <li><strong>SA Employees:</strong> Assigned 2 zones (least-assigned zones first)</li>
+                        <li><strong>Fitting Rooms:</strong> Assigned to each SA (fair rotation)</li>
+                        <li><strong>BOH Employees:</strong> Assigned shifts and tasks fairly</li>
+                        <li><strong>Lunch Times:</strong> Rotated fairly across all employees</li>
+                    </ul>
+                    <p>The algorithm ensures <strong>no zone is over-assigned</strong> and everyone gets a fair rotation.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h3>Manager Reviews & Approves</h3>
+                    <p>The AI generates a <strong>DRAFT</strong> assignment. It's NOT automatically published.</p>
+                    <p><strong>Managers can:</strong></p>
+                    <ul>
+                        <li>Review the AI's suggestions</li>
+                        <li>See the fairness score (0-1, higher = more fair)</li>
+                        <li>Make manual adjustments if needed</li>
+                        <li>Approve and publish the final gameplan</li>
+                    </ul>
+                    <p><strong>Why?</strong> AI is smart, but managers know the team. Human judgment is always the final say.</p>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-content">
+                    <h3>Learn & Improve</h3>
+                    <p>Every assignment is logged in the database. Over time, the AI gets better at:</p>
+                    <ul>
+                        <li>Balancing rotations more evenly</li>
+                        <li>Avoiding patterns (e.g., same person always closing)</li>
+                        <li>Identifying when someone hasn't been assigned to an area in a while</li>
+                    </ul>
+                    <p>The longer we use it, the fairer it gets.</p>
+                </div>
+            </div>
+        </div>
+
+        <h2 style="text-align: center;">Fairness Metrics</h2>
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="value">90</div>
+                <div class="label">Days of History Analyzed</div>
+            </div>
+            <div class="metric-card">
+                <div class="value">0.95</div>
+                <div class="label">Target Fairness Score</div>
+            </div>
+            <div class="metric-card">
+                <div class="value">&lt;100ms</div>
+                <div class="label">Assignment Generation Time</div>
+            </div>
+            <div class="metric-card">
+                <div class="value">100%</div>
+                <div class="label">Manager Approval Required</div>
+            </div>
+        </div>
+
+        <div class="faq">
+            <h2 style="text-align: center;">Frequently Asked Questions</h2>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: Can the AI override manager decisions?</div>
+                <div class="faq-answer">
+                    <strong>No.</strong> The AI only generates draft suggestions. Managers always have the final say. If a manager manually changes an assignment, the AI logs it and learns from it.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: What if someone is sick or on vacation?</div>
+                <div class="faq-answer">
+                    Managers can mark employees as "off" before generating the AI draft. The AI will skip them and distribute tasks among available employees.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: Does the AI consider employee preferences?</div>
+                <div class="faq-answer">
+                    Currently, no. The AI prioritizes <strong>fair rotation</strong> over preferences. However, we can add a "soft preference" feature in the future where preferences are considered as a secondary factor (after fairness).
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: How do I know if the assignment is "fair"?</div>
+                <div class="faq-answer">
+                    The AI calculates a <strong>Fairness Score</strong> (0-1). A score above 0.90 means assignments are very evenly distributed. You'll see this score when reviewing the draft.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: Can I see why the AI assigned someone to a specific zone?</div>
+                <div class="faq-answer">
+                    Yes! (Coming soon) We're building an "Explain Assignment" feature that shows the historical data and fairness scores that led to each assignment.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: What if the AI makes a mistake?</div>
+                <div class="faq-answer">
+                    Managers can reject the AI draft and create assignments manually. The AI will learn from manual assignments and improve over time.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: Is my data private?</div>
+                <div class="faq-answer">
+                    <strong>Yes.</strong> All AI processing happens <strong>locally</strong> on our server. No employee data is sent to external AI services. Assignment history is stored in our secure PostgreSQL database.
+                </div>
+            </div>
+        </div>
+
+        <div class="principle-card" style="margin-top: 40px; border-left-color: #4caf50;">
+            <h2 style="color: #4caf50;"><span class="icon">🎓</span> The Philosophy Behind This</h2>
+            <p><strong>Why did we build this?</strong></p>
+            <p>Managers spend <strong>20-30 minutes every day</strong> manually assigning tasks. It's tedious. It's easy to forget who did what last week. Unconscious bias creeps in.</p>
+            <p><strong>Our solution:</strong> Let AI handle the tedious math of rotation fairness. Let managers focus on coaching, strategy, and customer experience.</p>
+            <p><strong>The result:</strong> Fair assignments in seconds. More time for what matters. Happier team.</p>
+            <p style="text-align: right; font-style: italic; margin-top: 20px;">
+                — Victor Rocha, Stockroom Manager<br>
+                Built with love for the Suit Supply team
+            </p>
+        </div>
+
+        <div style="text-align: center; margin: 40px 0;">
+            <a href="/gameplan" class="btn btn-primary" style="padding: 15px 40px; font-size: 1.1em;">
+                Back to Gameplan
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Add smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

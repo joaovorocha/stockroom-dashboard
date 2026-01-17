@@ -33,6 +33,7 @@ const clientLogsRoutes = require('./routes/clientLogs');
 const printersRoutes = require('./routes/printers');
 const mockApiRoutes = require('./routes/mock-api');
 const webhookRoutes = require('./routes/webhooks'); // Import webhook routes
+const aiAssignmentRoutes = require('./routes/ai-assignment'); // Import AI assignment routes
 const authMiddleware = require('./middleware/auth-pg');
 const dal = require('./utils/dal');
 const { markActive } = require('./utils/active-users');
@@ -305,6 +306,7 @@ app.use('/api/manhattan', authMiddleware, manhattanRoutes);
 app.use('/api/rfid', authMiddleware, rfidRoutes);
 app.use('/api/logs', clientLogsRoutes);
 app.use('/api/printers', authMiddleware, printersRoutes);
+app.use('/api/ai', authMiddleware, aiAssignmentRoutes); // AI task assignment routes
 // Mock API routes - no auth required for testing
 app.use('/api/mock', mockApiRoutes);
 

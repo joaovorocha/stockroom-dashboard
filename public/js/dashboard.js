@@ -1202,7 +1202,6 @@ function setupWelcomeSection() {
         break;
 
       case 'BOH':
-        if (userEmployee.shift) detailsHtml += `<div class="assignment-item"><span class="label">Shift:</span> <span class="value">${userEmployee.shift}</span></div>`;
         if (userEmployee.lunch) detailsHtml += `<div class="assignment-item"><span class="label">Lunch:</span> <span class="value">${userEmployee.lunch}</span></div>`;
         if (userEmployee.taskOfTheDay) detailsHtml += `<div class="assignment-item"><span class="label">Task:</span> <span class="value">${userEmployee.taskOfTheDay}</span></div>`;
 
@@ -1216,7 +1215,6 @@ function setupWelcomeSection() {
 
       case 'MANAGEMENT':
         if (userEmployee.role) detailsHtml += `<div class="assignment-item"><span class="label">Role:</span> <span class="value">${userEmployee.role}</span></div>`;
-        if (userEmployee.shift) detailsHtml += `<div class="assignment-item"><span class="label">Shift:</span> <span class="value">${userEmployee.shift}</span></div>`;
         if (userEmployee.lunch) detailsHtml += `<div class="assignment-item"><span class="label">Lunch:</span> <span class="value">${userEmployee.lunch}</span></div>`;
         storeInfoEl.style.display = 'block';
         break;
@@ -1236,15 +1234,7 @@ function setupWelcomeSection() {
         break;
     }
 
-    // Managers/admins: show daily scan % in the top details box (grey "--" if missing).
-    if (isPrivilegedUser() && userEmployee.type !== 'SA') {
-      const scan = getDailyScanStatsForEmployee(userEmployee);
-      const pct = scan?.accuracy;
-      const hasPct = Number.isFinite(pct);
-      const pctText = hasPct ? `${pct}%` : '--';
-      const cls = hasPct ? (pct >= 99.5 ? 'positive' : pct >= 99 ? 'warning' : 'negative') : 'muted';
-      detailsHtml += `<div class="assignment-item"><span class="label">Daily Scan %:</span> <span class="value ${cls}">${pctText}</span></div>`;
-    }
+    // Daily scan % is now shown in KPI boxes, no need to duplicate here
 
     if (detailsHtml) {
       detailsEl.innerHTML = `<div class="welcome-assignments">${detailsHtml}</div>`;
@@ -1363,9 +1353,8 @@ async function populateWelcomeMetricsBoxes(userEmployee) {
 }
 
 async function setupEmployeeDiscountStatus() {
+  // Update the KPI box with percentage instead of duplicating in welcomeDetails
   if (!currentUser) return;
-  const detailsEl = document.getElementById('welcomeDetails');
-  if (!detailsEl) return;
 
   try {
     const resp = await fetch('/api/expenses/status', { credentials: 'include' });
@@ -1381,25 +1370,19 @@ async function setupEmployeeDiscountStatus() {
     const percent = Number.isFinite(Number(yearly.percentUsed)) ? Number(yearly.percentUsed) : null;
     const over = !!yearly.over;
 
-    const existing = document.getElementById('welcomeDiscountStatus');
-    const row = existing || document.createElement('div');
-    row.id = 'welcomeDiscountStatus';
-    row.className = 'welcome-assignments';
-
-    const cls = over ? 'negative' : remaining <= 250 ? 'warning' : 'positive';
-    const pctText = percent !== null ? `${percent}% used` : '';
-    const line = `
-      <div class="assignment-item">
-        <span class="label">Employee Discount:</span>
-        <span class="value ${cls}">$${Math.round(remaining)} remaining</span>
-        <span class="value muted" style="margin-left:8px;">(of $${Math.round(yearly.limit)} · ${pctText})</span>
-      </div>
-    `;
-
-    row.innerHTML = line;
-    if (!existing) {
-      // Put at the top of the details box for visibility.
-      detailsEl.prepend(row);
+    // Update KPI box
+    const kpiValueEl = document.getElementById('kpiEmployeeDiscountValue');
+    const kpiLabelEl = document.getElementById('kpiEmployeeDiscountLabel');
+    
+    if (kpiValueEl) {
+      const cls = over ? 'negative' : remaining <= 250 ? 'warning' : 'positive';
+      const pctText = percent !== null ? ` (${percent}% used)` : '';
+      kpiValueEl.innerHTML = `$${Math.round(remaining)}${pctText}`;
+      kpiValueEl.style.color = over ? 'var(--danger)' : remaining <= 250 ? 'var(--warning)' : 'var(--success)';
+      kpiValueEl.style.fontWeight = '700';
+    }
+    if (kpiLabelEl) {
+      kpiLabelEl.textContent = `Employee Discount (of $${Math.round(yearly.limit)})`;
     }
   } catch (_) {
     // Quiet fail

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Preferences | Stockroom Dashboard</title>
+    <link rel="stylesheet" href="/css/app.css">
+    <style>
+        body {
+            background-color: #f4f7f6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 30px auto;
+            padding: 30px;
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .preference-group {
+            margin-bottom: 30px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        h2 {
+            color: #667eea;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+        }
+        .checkbox-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            background-color: #f9fafb;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .checkbox-item:hover {
+            border-color: #667eea;
+            background-color: #f0f2ff;
+        }
+        .checkbox-item input {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+        }
+        .actions {
+            text-align: center;
+            margin-top: 40px;
+        }
+        .btn-primary {
+            background-color: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #5568d3;
+        }
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4caf50;
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        #toast.show {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>My Work Preferences</h1>
+        <p class="subtitle">Help the AI make better suggestions. Your preferences are considered, but fair rotation is always the priority.</p>
+
+        <div id="preferences-form">
+            <div class="preference-group">
+                <h2>Preferred Zones</h2>
+                <div id="preferred-zones-grid" class="checkbox-grid">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+
+            <div class="preference-group">
+                <h2>Zones to Avoid</h2>
+                <div id="avoid-zones-grid" class="checkbox-grid">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+
+            <div class="preference-group">
+                <h2>Preferred Shifts</h2>
+                <div id="preferred-shifts-grid" class="checkbox-grid">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+
+             <div class="preference-group">
+                <h2>Other Preferences</h2>
+                <div id="other-preferences-grid" class="checkbox-grid">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="prefers-closing">
+                        <label for="prefers-closing">I prefer closing shifts</label>
+                    </div>
+                     <div class="checkbox-item">
+                        <input type="checkbox" id="avoids-clopens">
+                        <label for="avoids-clopens">Avoid "Clopens"</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn-primary" onclick="savePreferences()">Save Preferences</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast">Preferences saved successfully!</div>
+
+    <script>
+        let availableSettings = {};
+        let currentUser = null;
+
+        async function init() {
+            try {
+                // Get current user
+                const userRes = await fetch('/api/auth/check');
+                const userData = await userRes.json();
+                if (!userData.authenticated) {
+                    window.location.href = '/login';
+                    return;
+                }
+                currentUser = userData.user;
+
+                // Get gameplan settings
+                const settingsRes = await fetch('/api/gameplan/settings');
+                availableSettings = await settingsRes.json();
+                
+                populateCheckboxes('preferred-zones-grid', availableSettings.zones);
+                populateCheckboxes('avoid-zones-grid', availableSettings.zones);
+                populateCheckboxes('preferred-shifts-grid', (availableSettings.shifts || []).map(s => s.name));
+                
+                // Load user's saved preferences
+                loadUserPreferences();
+
+            } catch (error) {
+                console.error("Error initializing page:", error);
+            }
+        }
+
+        function populateCheckboxes(gridId, items) {
+            const grid = document.getElementById(gridId);
+            if (!items || items.length === 0) {
+                grid.innerHTML = '<p>No options available.</p>';
+                return;
+            }
+            grid.innerHTML = items.map(item => `
+                <div class="checkbox-item">
+                    <input type="checkbox" id="${gridId}-${item}" name="${gridId}" value="${item}">
+                    <label for="${gridId}-${item}">${item}</label>
+                </div>
+            `).join('');
+        }
+
+        async function loadUserPreferences() {
+            try {
+                const res = await fetch(`/api/ai/preferences/${currentUser.employee_id}`);
+                if (!res.ok) return;
+                const prefs = await res.json();
+
+                if (prefs.preferred_zones) {
+                    prefs.preferred_zones.forEach(zone => {
+                        const el = document.querySelector(\`#preferred-zones-grid input[value="\${zone}"]\`);
+                        if (el) el.checked = true;
+                    });
+                }
+                if (prefs.avoid_zones) {
+                    prefs.avoid_zones.forEach(zone => {
+                        const el = document.querySelector(\`#avoid-zones-grid input[value="\${zone}"]\`);
+                        if (el) el.checked = true;
+                    });
+                }
+                if (prefs.preferred_shift_times) {
+                    prefs.preferred_shift_times.forEach(shift => {
+                        const el = document.querySelector(\`#preferred-shifts-grid input[value="\${shift}"]\`);
+                        if (el) el.checked = true;
+                    });
+                }
+                document.getElementById('prefers-closing').checked = !!prefs.prefers_closing;
+                document.getElementById('avoids-clopens').checked = !!prefs.avoids_clopens;
+
+            } catch (error) {
+                console.error("Error loading preferences:", error);
+            }
+        }
+
+        async function savePreferences() {
+            const preferred_zones = getCheckedValues('preferred-zones-grid');
+            const avoid_zones = getCheckedValues('avoid-zones-grid');
+            const preferred_shift_times = getCheckedValues('preferred-shifts-grid');
+            const prefers_closing = document.getElementById('prefers-closing').checked;
+            const avoids_clopens = document.getElementById('avoids-clopens').checked;
+
+            const payload = {
+                employee_id: currentUser.employee_id,
+                preferred_zones,
+                avoid_zones,
+                preferred_shift_times,
+                prefers_closing,
+                avoids_clopens
+            };
+
+            try {
+                const res = await fetch('/api/ai/preferences', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    throw new Error('Failed to save preferences.');
+                }
+
+                showToast();
+
+            } catch (error) {
+                console.error("Error saving preferences:", error);
+                alert("Could not save preferences. Please try again.");
+            }
+        }
+
+        function getCheckedValues(gridId) {
+            return Array.from(document.querySelectorAll(`#${gridId} input:checked`)).map(el => el.value);
+        }
+
+        function showToast() {
+            const toast = document.getElementById('toast');
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

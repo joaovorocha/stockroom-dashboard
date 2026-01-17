@@ -6,9 +6,11 @@ import datetime as dt
 import json
 import os
 import signal
+import subprocess
 import time
 import wave
 from pathlib import Path
+import shutil
 
 import numpy as np
 
@@ -73,6 +75,89 @@ def read_wav_int16(path: Path) -> tuple[np.ndarray, int]:
         frames = wf.readframes(wf.getnframes())
     x = np.frombuffer(frames, dtype=np.int16)
     return x, sr
+
+
+def apply_ffmpeg_conditioning(
+    audio_int16: np.ndarray,
+    src_sr: int,
+    dst_sr: int,
+    cfg: dict,
+    *,
+    ffmpeg_path: str | None = None,
+) -> tuple[np.ndarray, int] | None:
+    """Apply FFmpeg audio conditioning filters to int16 PCM.
+
+    References:
+    - https://ffmpeg.org/ffmpeg-filters.html#highpass
+    - https://ffmpeg.org/ffmpeg-filters.html#lowpass
+    - https://ffmpeg.org/ffmpeg-filters.html#acompressor
+    - https://ffmpeg.org/ffmpeg-filters.html#alimiter
+    """
+    if audio_int16.size == 0:
+        return None
+    if src_sr <= 0 or dst_sr <= 0:
+        return None
+
+    ffmpeg_bin = ffmpeg_path or shutil.which("ffmpeg")
+    if not ffmpeg_bin:
+        return None
+
+    hp = float(cfg.get("highpassHz", 200) or 200)
+    lp = float(cfg.get("lowpassHz", 3800) or 3800)
+    comp = cfg.get("compressor", {}) if isinstance(cfg.get("compressor"), dict) else {}
+    lim = cfg.get("limiter", {}) if isinstance(cfg.get("limiter"), dict) else {}
+
+    comp_threshold = float(comp.get("threshold", 0.125) or 0.125)
+    comp_ratio = float(comp.get("ratio", 4) or 4)
+    comp_attack = float(comp.get("attackMs", 10) or 10)
+    comp_release = float(comp.get("releaseMs", 200) or 200)
+    comp_makeup = float(comp.get("makeup", 2) or 2)
+
+    lim_limit = float(lim.get("limit", 0.9) or 0.9)
+    lim_attack = float(lim.get("attackMs", 5) or 5)
+    lim_release = float(lim.get("releaseMs", 50) or 50)
+
+    filters = [
+        f"highpass=f={hp}",
+        f"lowpass=f={lp}",
+        f"acompressor=threshold={comp_threshold}:ratio={comp_ratio}:attack={comp_attack}:release={comp_release}:makeup={comp_makeup}",
+        f"alimiter=limit={lim_limit}:attack={lim_attack}:release={lim_release}",
+    ]
+
+    cmd = [
+        ffmpeg_bin,
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        str(int(src_sr)),
+        "-ac",
+        "1",
+        "-i",
+        "pipe:0",
+        "-af",
+        ",".join(filters),
+        "-ar",
+        str(int(dst_sr)),
+        "-ac",
+        "1",
+        "-f",
+        "s16le",
+        "pipe:1",
+    ]
+
+    try:
+        proc = subprocess.run(cmd, input=audio_int16.tobytes(), capture_output=True, check=False)
+    except Exception:
+        return None
+    if proc.returncode != 0 or not proc.stdout:
+        return None
+    out = np.frombuffer(proc.stdout, dtype=np.int16)
+    if out.size == 0:
+        return None
+    return out, int(dst_sr)
 
 
 def resample_linear_int16_to_float32(audio_int16: np.ndarray, src_rate: int, dst_rate: int) -> np.ndarray:
@@ -262,6 +347,9 @@ def main() -> int:
     model_name = "tiny"
     device = "cpu"
     compute_type = "int8"
+    conditioning_cfg = {}
+    conditioning_enabled = True
+    ffmpeg_path = os.environ.get("FFMPEG_PATH")
 
     def load_effective_config() -> dict:
         cfg = load_json(live_cfg_path) if live_cfg_path.exists() else {}
@@ -276,6 +364,8 @@ def main() -> int:
         model_name = str(cfg.get("model") or model_name)
         device = str(cfg.get("device") or device)
         compute_type = str(cfg.get("computeType") or compute_type)
+        conditioning_cfg = cfg.get("audioConditioning", {}) if isinstance(cfg.get("audioConditioning"), dict) else {}
+        conditioning_enabled = bool(conditioning_cfg.get("enabled", True))
 
     backend_cfg = ""
     if isinstance(cfg, dict):
@@ -421,6 +511,20 @@ def main() -> int:
 
             try:
                 audio_int16, src_sr = read_wav_int16(clip_path)
+                if conditioning_enabled:
+                    conditioned = apply_ffmpeg_conditioning(
+                        audio_int16,
+                        int(src_sr),
+                        int(args.whisper_sample_rate),
+                        conditioning_cfg,
+                        ffmpeg_path=ffmpeg_path,
+                    )
+                else:
+                    conditioned = None
+
+                if conditioned is not None:
+                    audio_int16, src_sr = conditioned
+
                 audio_float32 = resample_linear_int16_to_float32(audio_int16, src_sr, int(args.whisper_sample_rate)).flatten()
 
                 start = time.time()
