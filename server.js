@@ -3,6 +3,10 @@ const { initCache } = require('./src/utils/cache');
 
 // Initialize cache
 initCache();
+
+// SECURITY PATCH: CRITICAL-01 - Redis session configuration
+const { getSessionMiddleware } = require('./config/redis-session');
+
 const express = require('express');
 const http = require('http');
 const https = require('https');
@@ -35,7 +39,9 @@ const printersRoutes = require('./routes/printers');
 const mockApiRoutes = require('./routes/mock-api');
 const webhookRoutes = require('./routes/webhooks'); // Import webhook routes
 const aiAssignmentRoutes = require('./routes/ai-assignment'); // Import AI assignment routes
-const authMiddleware = require('./middleware/auth-pg');
+
+// SECURITY PATCH: CRITICAL-01 - Use Redis-based auth middleware
+const authMiddleware = require('./middleware/auth-redis');
 const dal = require('./utils/dal');
 const { query: pgQuery } = require('./utils/dal/pg');
 const { markActive } = require('./utils/active-users');
@@ -99,6 +105,9 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' })); // Increased for large iPhone photos
 app.use(express.urlencoded({ extended: true, limit: '50mb' })); // Increased for large iPhone photos
 app.use(cookieParser());
+
+// SECURITY PATCH: CRITICAL-01 - Add Redis session middleware
+app.use(getSessionMiddleware());
 
 // --- Webhook Endpoint (NO AUTH) ---
 // This must come *before* the general auth middleware

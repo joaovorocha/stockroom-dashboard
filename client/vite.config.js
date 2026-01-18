@@ -4,12 +4,14 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/react-preview/',
+  // Remove base path for development to avoid routing issues
+  // base: '/react-preview/',
   server: {
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
-        changeOrigin: true
+        changeOrigin: true,
+        secure: false
       }
     }
   }

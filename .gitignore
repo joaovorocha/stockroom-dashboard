@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+client/node_modules/
 
 # Local Python env / caches
 .venv/
@@ -20,7 +21,7 @@ ssl/
 *.key
 *.crt
 
-# Sensitive data
+# Sensitive data - Employee and operational data
 data
 data/
 data/users.json
@@ -38,20 +39,45 @@ data/sync-results/
 data/closing-duties/
 data/._*
 data/radio/
+data/*.json
+data/**/*.json
+
+# Session data
+user-sessions/
 
 # Logs
 logs/
 *.log
 .pm2/
+/home/suit/.pm2/
 
 # OS files
 .DS_Store
 ._*
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# IDE files
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
 
 # Uploads
 data/feedback-uploads/
+public/user-uploads/
 files
 files/
+
+# Build outputs
+client/build/
+client/dist/
+*.min.js
+*.min.css
 
 # Personal/temporary documentation (not for permanent codebase)
 PLAN_*.md
@@ -63,3 +89,5 @@ QUICK_REFERENCE.md
 COO_DEMO_SCRIPT.md
 IOS_TESTING_CHECKLIST.md
 WAITWHILE_INTEGRATION_SPEC.md
+CLEANUP_SUMMARY.md
+done

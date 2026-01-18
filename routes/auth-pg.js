@@ -1,10 +1,13 @@
 /**
- * Auth Routes - PostgreSQL Version
- * Complete replacement of auth.js using PostgreSQL database
+ * Auth Routes - Redis Session Version
+ * SECURITY PATCH: CRITICAL-01 - Migrated to Redis sessions
+ * SECURITY PATCH: CRITICAL-02 - Added role guards
  */
 
 const express = require('express');
 const router = express.Router();
+const { requireAdmin } = require('../middleware/roleGuard');
+const { createSession: createRedisSession, destroySession } = require('../config/redis-session');
 const crypto = require('crypto');
 const multer = require('multer');
 const path = require('path');
@@ -208,15 +211,19 @@ function formatUserResponse(user) {
   };
 }
 
-// Get verified session user
+// Get verified session user (Redis version)
 async function getVerifiedSessionUser(req) {
-  const sessionToken = req.cookies?.userSession;
-  if (!sessionToken) return null;
+  if (!req.session || !req.session.userId) {
+    return null;
+  }
 
-  const user = await getUserFromSession(sessionToken);
-  if (!user) return null;
+  // Get user from database
+  const result = await query('SELECT * FROM users WHERE id = $1 AND is_active = true', [req.session.userId]);
+  if (result.rows.length === 0) {
+    return null;
+  }
 
-  return formatUserResponse(user);
+  return formatUserResponse(result.rows[0]);
 }
 
 // ===================================
@@ -264,13 +271,9 @@ router.post('/login', async (req, res) => {
     // Log audit
     await logUserAudit(user.id, 'LOGIN_SUCCESS', { role: user.role }, req);
 
-    // Create session
+    // Create Redis session
     const maxAge = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-    const sessionToken = await createSession(user.id, req, maxAge);
-
-    // Set cookie
-    const cookieOptions = getUserSessionCookieOptions(req, { maxAge });
-    res.cookie('userSession', sessionToken, cookieOptions);
+    await createRedisSession(req, user.id, maxAge);
 
     // Return user data
     const userData = formatUserResponse(user);
@@ -303,19 +306,14 @@ router.post('/login', async (req, res) => {
 // POST /api/auth/logout
 router.post('/logout', async (req, res) => {
   try {
-    const sessionToken = req.cookies?.userSession;
-    if (sessionToken) {
-      // Get user before deleting session
-      const user = await getUserFromSession(sessionToken);
-      if (user) {
-        await logUserAudit(user.id, 'LOGOUT', {}, req);
-      }
+    if (req.session && req.session.userId) {
+      // Log audit before destroying session
+      await logUserAudit(req.session.userId, 'LOGOUT', {}, req);
       
-      // Delete session
-      await query('DELETE FROM user_sessions WHERE session_token = $1', [sessionToken]);
+      // Destroy Redis session
+      await destroySession(req);
     }
 
-    res.clearCookie('userSession', getUserSessionCookieOptions(req));
     return res.json({ success: true });
 
   } catch (error) {
@@ -328,16 +326,18 @@ router.post('/logout', async (req, res) => {
 // GET /api/auth/check - Check if user is authenticated
 router.get('/check', async (req, res) => {
   try {
-    const sessionToken = req.cookies?.userSession;
-    if (!sessionToken) {
+    if (!req.session || !req.session.userId) {
       return res.json({ authenticated: false });
     }
 
-    const user = await getUserFromSession(sessionToken);
-    if (!user) {
-      res.clearCookie('userSession', getUserSessionCookieOptions(req));
+    // Get user from database
+    const result = await query('SELECT * FROM users WHERE id = $1 AND is_active = true', [req.session.userId]);
+    if (result.rows.length === 0) {
+      await destroySession(req);
       return res.json({ authenticated: false });
     }
+    
+    const user = result.rows[0];
 
     return res.json({
       authenticated: true,
@@ -563,15 +563,10 @@ router.post('/switch', async (req, res) => {
 });
 
 // GET /api/auth/users - Get all users (managers/admins only)
-router.get('/users', async (req, res) => {
+// SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
+router.get('/users', requireAdmin, async (req, res) => {
   try {
-    const currentUser = await getVerifiedSessionUser(req);
-    if (!currentUser) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-    if (!currentUser.isManager && !currentUser.isAdmin) {
-      return res.status(403).json({ error: 'Access denied. Managers only.' });
-    }
+    // Authentication and permission checks moved to requireAdmin middleware
 
     const result = await query(`
       SELECT 
@@ -610,15 +605,10 @@ router.get('/users', async (req, res) => {
 });
 
 // POST /api/auth/users - Create new user (managers only)
-router.post('/users', async (req, res) => {
+// SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
+router.post('/users', requireAdmin, async (req, res) => {
   try {
-    const currentUser = await getVerifiedSessionUser(req);
-    if (!currentUser) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-    if (!currentUser.isManager && !currentUser.isAdmin) {
-      return res.status(403).json({ error: 'Access denied. Managers only.' });
-    }
+    // Authentication and permission checks moved to requireAdmin middleware
 
     const {
       employeeId,
@@ -713,15 +703,10 @@ router.put('/users/:id', async (req, res) => {
     const currentUser = await getVerifiedSessionUser(req);
     if (!currentUser) {
       return res.status(401).json({ error: 'Not authenticated' });
-    }
-    if (!currentUser.isManager && !currentUser.isAdmin) {
-      return res.status(403).json({ error: 'Access denied. Managers only.' });
-    }
-
-    const { id } = req.params;
-    const updates = req.body;
-
-    // Get existing user
+// SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
+router.put('/users/:id', requireAdmin, async (req, res) => {
+  try {
+    // Authentication and permission checks moved to requireAdmin middleware/ Get existing user
     const userResult = await query('SELECT * FROM users WHERE id = $1 AND is_active = true', [id]);
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
@@ -811,15 +796,12 @@ router.put('/users/:id', async (req, res) => {
 });
 
 // DELETE /api/auth/users/:id - Delete user (admin only)
-router.delete('/users/:id', async (req, res) => {
+// DELETE /api/auth/users/:id - Soft delete user (admin only)
+// SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
+router.delete('/users/:id', requireAdmin, async (req, res) => {
   try {
     const currentUser = await getVerifiedSessionUser(req);
-    if (!currentUser) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-    if (!currentUser.isAdmin) {
-      return res.status(403).json({ error: 'Access denied. Admin only.' });
-    }
+    // Authentication and permission checks moved to requireAdmin middleware
 
     const { id } = req.params;
 

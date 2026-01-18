@@ -13,18 +13,24 @@ let client = null;
 function initCache() {
   if (client) return client;
 
+  // Redis is optional - app will work without it (no caching)
   const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
   client = redis.createClient({ url: redisUrl });
 
   client.on('error', (err) => {
     console.error('Redis Client Error:', err);
+    // Mark client as null so we don't try to use it
+    client = null;
   });
 
   client.on('connect', () => {
     console.log('Connected to Redis');
   });
 
-  client.connect().catch(console.error);
+  client.connect().catch((err) => {
+    console.error('Redis connection failed (will run without cache):', err.message);
+    client = null;
+  });
 
   return client;
 }

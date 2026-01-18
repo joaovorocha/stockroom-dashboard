@@ -3,8 +3,10 @@ import ShipmentTable from '../components/ShipmentTable';
 
 const Shipments = () => {
   return (
-    <div>
-      <h1>Shipments</h1>
+    <div className="container-fluid">
+      <div className="page-header">
+        <h1>Shipments</h1>
+      </div>
       <ShipmentTable />
     </div>
   );

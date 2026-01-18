@@ -33,79 +33,39 @@ const Login = () => {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh',
-      backgroundColor: '#f8f9fa'
-    }}>
-      <div style={{
-        width: '400px',
-        padding: '40px',
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-      }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '30px' }}>Stockroom Dashboard Login</h2>
+    <div className="login-container">
+      <div className="login-form">
+        <h2 className="login-title">Stockroom Dashboard Login</h2>
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Employee ID:</label>
+          <div className="form-group">
+            <label className="form-label">Employee ID:</label>
             <input
               type="text"
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
               required
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
+              className="form-control"
             />
           </div>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>Password:</label>
+          <div className="form-group">
+            <label className="form-label">Password:</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              style={{
-                width: '100%',
-                padding: '10px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                fontSize: '16px'
-              }}
+              className="form-control"
             />
           </div>
           {error && (
-            <div style={{
-              color: '#dc3545',
-              marginBottom: '20px',
-              padding: '10px',
-              backgroundColor: '#f8d7da',
-              border: '1px solid #f5c6cb',
-              borderRadius: '4px'
-            }}>
+            <div className="alert alert-danger">
               {error}
             </div>
           )}
           <button
             type="submit"
             disabled={loading}
-            style={{
-              width: '100%',
-              padding: '12px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '16px',
-              cursor: loading ? 'not-allowed' : 'pointer'
-            }}
+            className="btn btn-primary btn-block"
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>

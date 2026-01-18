@@ -6,6 +6,7 @@ const { LookerDataProcessor } = require('../utils/looker-data-processor');
 const dal = require('../utils/dal');
 const { query: pgQuery } = require('../utils/dal/pg');
 const { get: getCache, set: setCache } = require('../src/utils/cache');
+const { withTransaction } = require('../utils/transaction');
 
 const DATA_DIR = dal.paths.dataDir;
 const USERS_FILE = dal.paths.usersFile;
@@ -414,7 +415,12 @@ async function pruneEmployeesFile() {
     nextFromDb.lastDailyResetForDate = today;
     nextFromDb.lastSyncedFromDB = new Date().toISOString();
     nextFromDb.syncedUserCount = dbUsers.length;
-    writeJsonFile(EMPLOYEES_FILE, nextFromDb);
+    
+    // SECURITY PATCH: CRITICAL-03 - Atomic file write
+    const tempFile = EMPLOYEES_FILE + '.tmp';
+    writeJsonFile(tempFile, nextFromDb);
+    fs.renameSync(tempFile, EMPLOYEES_FILE);
+    
     return nextFromDb;
   }
   console.log('[GAMEPLAN] Processed', processedCount, 'employees, skipped', skippedCount);
@@ -430,7 +436,12 @@ async function pruneEmployeesFile() {
   const afterStr = JSON.stringify(next.employees);
   if (beforeStr !== afterStr || shouldResetDailyAssignments) {
     next.lastPrunedAt = new Date().toISOString();
-    writeJsonFile(EMPLOYEES_FILE, next);
+    
+    // SECURITY PATCH: CRITICAL-03 - Atomic file write
+    const tempFile = EMPLOYEES_FILE + '.tmp';
+    writeJsonFile(tempFile, next);
+    fs.renameSync(tempFile, EMPLOYEES_FILE);
+    
     return next;
   }
 
@@ -494,29 +505,40 @@ router.get('/employees/:type', async (req, res) => {
 });
 
 // POST /api/gameplan/employees - Add or update employee
-router.post('/employees', requireManager, (req, res) => {
-  const employee = req.body;
-  const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
+// SECURITY PATCH: CRITICAL-03 - Added atomic file write protection
+router.post('/employees', requireManager, async (req, res) => {
+  try {
+    const employee = req.body;
+    const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
 
-  if (!employee.id || !employee.type) {
-    return res.status(400).json({ error: 'Employee ID and type are required' });
+    if (!employee.id || !employee.type) {
+      return res.status(400).json({ error: 'Employee ID and type are required' });
+    }
+
+    const type = employee.type.toUpperCase();
+    if (!employees.employees[type]) {
+      employees.employees[type] = [];
+    }
+
+    const index = employees.employees[type].findIndex(e => e.id === employee.id);
+    if (index >= 0) {
+      employees.employees[type][index] = { ...employees.employees[type][index], ...employee };
+    } else {
+      employees.employees[type].push(employee);
+    }
+
+    employees.lastUpdated = getTodayDate();
+    
+    // Write file atomically - create temp file, then rename
+    const tempFile = EMPLOYEES_FILE + '.tmp';
+    writeJsonFile(tempFile, employees);
+    fs.renameSync(tempFile, EMPLOYEES_FILE);
+    
+    res.json({ success: true, employee });
+  } catch (error) {
+    console.error('[GAMEPLAN] Error updating employee:', error);
+    res.status(500).json({ error: 'Failed to update employee' });
   }
-
-  const type = employee.type.toUpperCase();
-  if (!employees.employees[type]) {
-    employees.employees[type] = [];
-  }
-
-  const index = employees.employees[type].findIndex(e => e.id === employee.id);
-  if (index >= 0) {
-    employees.employees[type][index] = { ...employees.employees[type][index], ...employee };
-  } else {
-    employees.employees[type].push(employee);
-  }
-
-  employees.lastUpdated = getTodayDate();
-  writeJsonFile(EMPLOYEES_FILE, employees);
-  res.json({ success: true, employee });
 });
 
 // GET /api/gameplan/today - Get today's gameplan

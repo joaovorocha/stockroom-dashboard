@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Shipments from './pages/Shipments';
 import Gameplan from './pages/Gameplan';
+import AdminUsers from './pages/AdminUsers';
 import './App.css';
 
 function App() {
@@ -18,9 +19,9 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={
               <ProtectedRoute>
-                <div style={{ display: 'flex' }}>
+                <div className="wrapper">
                   <Sidebar />
-                  <div style={{ marginLeft: '250px', width: '100%', padding: '20px' }}>
+                  <div className="main-content">
                     <Dashboard />
                   </div>
                 </div>
@@ -28,9 +29,9 @@ function App() {
             } />
             <Route path="/shipments" element={
               <ProtectedRoute>
-                <div style={{ display: 'flex' }}>
+                <div className="wrapper">
                   <Sidebar />
-                  <div style={{ marginLeft: '250px', width: '100%', padding: '20px' }}>
+                  <div className="main-content">
                     <Shipments />
                   </div>
                 </div>
@@ -38,10 +39,20 @@ function App() {
             } />
             <Route path="/gameplan" element={
               <ProtectedRoute>
-                <div style={{ display: 'flex' }}>
+                <div className="wrapper">
                   <Sidebar />
-                  <div style={{ marginLeft: '250px', width: '100%', padding: '20px' }}>
+                  <div className="main-content">
                     <Gameplan />
+                  </div>
+                </div>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-users" element={
+              <ProtectedRoute>
+                <div className="wrapper">
+                  <Sidebar />
+                  <div className="main-content">
+                    <AdminUsers />
                   </div>
                 </div>
               </ProtectedRoute>

@@ -75,53 +75,32 @@ const Gameplan = () => {
     const canEdit = isManagement;
 
     return (
-      <div key={employee.employeeId} style={{
-        border: '1px solid #ddd',
-        borderRadius: '8px',
-        padding: '16px',
-        margin: '8px',
-        backgroundColor: 'white',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+      <div key={employee.employeeId} className="employee-card">
+        <div className="employee-header">
           {employee.imageUrl && (
             <img
               src={employee.imageUrl}
               alt={employee.name}
-              style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                marginRight: '12px',
-                objectFit: 'cover'
-              }}
+              className="employee-avatar"
             />
           )}
-          <div>
-            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px' }}>{employee.name}</h3>
-            <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>
+          <div className="employee-info">
+            <h3 className="employee-name">{employee.name}</h3>
+            <p className="employee-details">
               ID: {employee.employeeId} • {role}
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div className="employee-fields">
           {/* Zone */}
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-              Zone
-            </label>
+          <div className="field-group">
+            <label className="field-label">Zone</label>
             {canEdit ? (
               <select
                 value={employee.zone || ''}
                 onChange={(e) => handleEmployeeUpdate(employee.employeeId, { zone: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '6px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px'
-                }}
+                className="form-select"
               >
                 <option value="">Not Assigned</option>
                 <option value="A">Zone A</option>
@@ -131,28 +110,20 @@ const Gameplan = () => {
                 <option value="Fitting">Fitting Room</option>
               </select>
             ) : (
-              <div style={{ padding: '6px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '14px' }}>
+              <div className="field-value">
                 {employee.zone || 'Not Assigned'}
               </div>
             )}
           </div>
 
           {/* Shift */}
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-              Shift
-            </label>
+          <div className="field-group">
+            <label className="field-label">Shift</label>
             {canEdit ? (
               <select
                 value={employee.shift || ''}
                 onChange={(e) => handleEmployeeUpdate(employee.employeeId, { shift: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '6px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px'
-                }}
+                className="form-select"
               >
                 <option value="">Not Set</option>
                 <option value="9-5">9 AM - 5 PM</option>
@@ -161,28 +132,20 @@ const Gameplan = () => {
                 <option value="12-8">12 PM - 8 PM</option>
               </select>
             ) : (
-              <div style={{ padding: '6px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '14px' }}>
+              <div className="field-value">
                 {employee.shift || 'Not Set'}
               </div>
             )}
           </div>
 
           {/* Lunch */}
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-              Lunch
-            </label>
+          <div className="field-group">
+            <label className="field-label">Lunch</label>
             {canEdit ? (
               <select
                 value={employee.lunch || ''}
                 onChange={(e) => handleEmployeeUpdate(employee.employeeId, { lunch: e.target.value })}
-                style={{
-                  width: '100%',
-                  padding: '6px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontSize: '14px'
-                }}
+                className="form-select"
               >
                 <option value="">Not Set</option>
                 <option value="11-12">11 AM - 12 PM</option>
@@ -191,24 +154,16 @@ const Gameplan = () => {
                 <option value="2-3">2 PM - 3 PM</option>
               </select>
             ) : (
-              <div style={{ padding: '6px', backgroundColor: '#f8f9fa', borderRadius: '4px', fontSize: '14px' }}>
+              <div className="field-value">
                 {employee.lunch || 'Not Set'}
               </div>
             )}
           </div>
 
           {/* Status */}
-          <div>
-            <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-              Status
-            </label>
-            <div style={{
-              padding: '6px',
-              backgroundColor: employee.isOff ? '#fff3cd' : '#d4edda',
-              borderRadius: '4px',
-              fontSize: '14px',
-              color: employee.isOff ? '#856404' : '#155724'
-            }}>
+          <div className="field-group">
+            <label className="field-label">Status</label>
+            <div className={`status-badge ${employee.isOff ? 'status-off' : 'status-working'}`}>
               {employee.isOff ? 'Off Today' : 'Working'}
             </div>
           </div>
@@ -218,68 +173,49 @@ const Gameplan = () => {
   };
 
   if (loading) {
-    return <div style={{ padding: '20px', textAlign: 'center' }}>Loading employees...</div>;
+    return <div className="loading">Loading employees...</div>;
   }
 
   if (error) {
-    return <div style={{ padding: '20px', color: 'red', textAlign: 'center' }}>{error}</div>;
+    return <div className="error">{error}</div>;
   }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Daily Gameplan</h1>
-        {isManagement && (
-          <button
-            onClick={handleSync}
-            disabled={syncLoading}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: syncLoading ? 'not-allowed' : 'pointer'
-            }}
-          >
-            {syncLoading ? 'Syncing...' : 'Sync from Database'}
-          </button>
-        )}
+    <div className="container-fluid">
+      <div className="page-header">
+        <div className="page-header-content">
+          <h1>Daily Gameplan</h1>
+          {isManagement && (
+            <button
+              onClick={handleSync}
+              disabled={syncLoading}
+              className="btn btn-primary"
+            >
+              {syncLoading ? 'Syncing...' : 'Sync from Database'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Search */}
-      <div style={{ marginBottom: '20px' }}>
+      <div className="search-container">
         <input
           type="text"
           placeholder="Search employees by name, ID, or role..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '12px',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            fontSize: '16px'
-          }}
+          className="form-control search-input"
         />
       </div>
 
       {/* Employee Grid */}
       {Object.entries(filteredEmployees).map(([role, employeeList]) => (
         employeeList.length > 0 && (
-          <div key={role} style={{ marginBottom: '40px' }}>
-            <h2 style={{
-              borderBottom: '2px solid #007bff',
-              paddingBottom: '8px',
-              color: '#333'
-            }}>
+          <div key={role} className="employee-section">
+            <h2 className="section-title">
               {role} ({employeeList.length})
             </h2>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-              gap: '16px'
-            }}>
+            <div className="employee-grid">
               {employeeList.map(employee => renderEmployeeCard(employee, role))}
             </div>
           </div>
@@ -287,7 +223,7 @@ const Gameplan = () => {
       ))}
 
       {Object.values(filteredEmployees).every(list => list.length === 0) && searchTerm && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+        <div className="no-results">
           No employees found matching "{searchTerm}"
         </div>
       )}
