@@ -994,15 +994,6 @@
                 <div class="form-group"></div>
               </div>
 
-                <!-- CHANNEL LIST SELECTOR -->
-                <div style="margin:16px 0; padding:12px; background:#f9f9f9; border-radius:4px;">
-                  <label for="radioActiveChannel" style="display:block; margin-bottom:8px; font-weight:500;">Edit Channel:</label>
-                  <select id="radioActiveChannel" style="width:100%;" aria-label="Select channel to edit">
-                    <option>Loading...</option>
-                  </select>
-                  <div style="font-size:12px; color:#777; margin-top:6px;">Select a channel to edit its settings, then click Save Channel.</div>
-                </div>
-
                 <!-- Edit Existing Channel -->
                 <div class="radio-channel-details-card" id="radioChannelDetails">
                   <div class="radio-channel-details-head">
@@ -2665,12 +2656,13 @@
         
         // Update each metric field
         const updates = {
-          'liveStatusPlaying': cfg.playing ? '🔴 Yes' : '⚫ No',
-          'liveStatusFrequency': freq,
-          'liveStatusMode': mode,
-          'liveStatusGain': gain + ' dB',
-          'liveStatusSquelch': squelch + ' dB',
-          'liveStatusPpm': ppm,
+          radioLiveChannel: ch?.label || ch?.id || '—',
+          radioLiveFreq: freq,
+          radioLiveStatus: cfg.playing ? '🔴 Yes' : '⚫ No',
+          radioLiveMode: mode,
+          radioLiveGain: `${gain} dB`,
+          radioLiveSquelch: squelch,
+          radioLivePPM: ppm,
         };
         
         for (const [id, val] of Object.entries(updates)) {
@@ -3266,6 +3258,7 @@
         radioAdmin.initialized = true;
 
         syncRadioFreqDatalist();
+        loadRadioTab();
 
         const helpBtn = document.getElementById('radioHelpBtn');
         const reloadBtn = document.getElementById('radioReloadBtn');
@@ -3334,6 +3327,14 @@
         });
 
         if (reloadBtn) reloadBtn.addEventListener('click', loadRadioTab);
+
+        if (listenBtn) listenBtn.addEventListener('click', startRadioLiveListen);
+        if (stopBtn) stopBtn.addEventListener('click', stopRadioLiveListen);
+
+        if (captureStartBtn) captureStartBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/start-radio'));
+        if (captureStopBtn) captureStopBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/stop-radio'));
+        if (transStartBtn) transStartBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/start-transcriber'));
+        if (transStopBtn) transStopBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/stop-transcriber'));
 
         // Keep the tuned freq/band display fresh (supports live edits).
         refreshRadioLiveOnce();
