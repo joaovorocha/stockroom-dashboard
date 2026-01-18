@@ -6,6 +6,7 @@
   const clearUiBtn = document.getElementById('clearUiBtn');
   const listenLiveBtn = document.getElementById('listenLiveBtn');
   const listenLiveStatus = document.getElementById('listenLiveStatus');
+  const liveAudio = document.getElementById('liveAudio');
 
   const controlsEl = document.getElementById('radioControls');
   const serviceStatusEl = document.getElementById('serviceStatus');
@@ -41,6 +42,9 @@
     queueOffset: 0,
     queuedSamples: 0,
     enabled: false,
+    lastAudioAt: 0,
+    fallbackTimer: null,
+    fallbackOn: false,
   };
 
   function setListenStatus(text) {
@@ -165,6 +169,14 @@
         const dstRate = monitor.audioCtx.sampleRate || 48000;
         f32 = resampleLinear(f32, monitor.sourceSampleRate, dstRate);
         enqueueAudio(f32);
+        monitor.lastAudioAt = Date.now();
+        if (monitor.fallbackOn && liveAudio) {
+          try { liveAudio.pause(); } catch {}
+          liveAudio.removeAttribute('src');
+          liveAudio.load();
+          monitor.fallbackOn = false;
+        }
+        setListenStatus('Live listen: On');
       } catch {}
     };
 
@@ -175,6 +187,20 @@
     ws.onclose = () => {
       stopLiveListen();
     };
+
+    monitor.fallbackTimer = setInterval(() => {
+      if (!monitor.enabled) return;
+      const age = monitor.lastAudioAt ? (Date.now() - monitor.lastAudioAt) : 99999;
+      if (age > 2000 && liveAudio && !monitor.fallbackOn) {
+        liveAudio.src = `/api/radio/live-audio?ts=${Date.now()}`;
+        liveAudio.play().then(() => {
+          monitor.fallbackOn = true;
+          setListenStatus('Live listen: Fallback stream');
+        }).catch(() => {
+          setListenStatus('Live listen: Tap to allow audio');
+        });
+      }
+    }, 800);
   }
 
   function stopLiveListen() {
@@ -184,6 +210,17 @@
     }
     monitor.enabled = false;
     setListenStatus('Live listen: Off');
+    monitor.lastAudioAt = 0;
+    if (monitor.fallbackTimer) {
+      clearInterval(monitor.fallbackTimer);
+      monitor.fallbackTimer = null;
+    }
+    if (liveAudio) {
+      try { liveAudio.pause(); } catch {}
+      liveAudio.removeAttribute('src');
+      liveAudio.load();
+    }
+    monitor.fallbackOn = false;
 
     try { monitor.ws?.close(); } catch {}
     monitor.ws = null;

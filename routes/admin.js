@@ -50,6 +50,7 @@ const USERS_FILE = dal.paths.usersFile;
 const AWARDS_CONFIG_FILE = path.join(DATA_DIR, 'awards-config.json');
 const WORK_EXPENSES_CONFIG_FILE = path.join(DATA_DIR, 'work-expenses-config.json');
 const STORE_RECOVERY_CONFIG_FILE = dal.paths.storeRecoveryConfigFile || path.join(DATA_DIR, 'store-recovery-config.json');
+const OPENVINO_METRICS_FILE = path.join(DATA_DIR, 'radio', 'openvino_metrics.json');
 
 // Default suitsApi host root (used when admin doesn't have/scan a base URL).
 const DEFAULT_STORE_RECOVERY_BASE_URL = 'https://printlabel.tst.suitapi.com/';
@@ -76,6 +77,17 @@ function extractFirstUrl(text) {
   const s = (text || '').toString();
   const m = s.match(/https?:\/\/[^\s"'<>]+/i);
   return m ? m[0] : '';
+}
+
+function readOpenvinoMetrics() {
+  try {
+    if (!fs.existsSync(OPENVINO_METRICS_FILE)) return { available: false };
+    const raw = fs.readFileSync(OPENVINO_METRICS_FILE, 'utf8');
+    const data = JSON.parse(raw);
+    return { available: true, data };
+  } catch (e) {
+    return { available: false, error: e?.message || 'Failed to read OpenVINO metrics' };
+  }
 }
 
 function looksLikeGzipBase64(text) {
@@ -296,6 +308,7 @@ router.get('/health', (req, res) => {
   const mem = process.memoryUsage();
   const users = getActiveUsersSummary();
   const disk = getDiskUsageBytes('/');
+  const openvino = readOpenvinoMetrics();
 
   return res.json({
     ok: true,
@@ -333,6 +346,7 @@ router.get('/health', (req, res) => {
         uv: process.versions?.uv || null,
       },
     },
+    openvino,
     users: {
       activeCount: users.activeCount,
       windowMs: users.windowMs,

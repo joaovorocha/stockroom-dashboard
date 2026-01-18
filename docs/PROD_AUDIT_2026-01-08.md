@@ -92,7 +92,6 @@ This is the deployed web surface on the new server. For the authoritative route 
 - `GET /api/sse/updates` → Server-Sent Events (SSE) for UI updates (auth required)
 - WebSockets (auth via cookie validation against `data/users.json`):
   - `GET /ws/radio-monitor` → PCM audio frames (UDP→WS bridge)
-  - `GET /ws/radio-spectrum` → spectrum JSON frames (UDP→WS bridge)
 
 ### Internal APIs (Express routers)
 
@@ -243,7 +242,7 @@ Frontend consumption:
 
 - Admin actions via `/api/radio/service/*` start/stop Python services under `radio/` via PM2.
 - Audio clips and transcripts are persisted under `data/radio/*`, and logs under `logs/*`.
-- Live audio/spectrum streams are delivered via `/ws/radio-monitor` and `/ws/radio-spectrum`.
+- Live audio streams are delivered via `/ws/radio-monitor`.
 
 ## Tailscale State (2026-01-08)
 

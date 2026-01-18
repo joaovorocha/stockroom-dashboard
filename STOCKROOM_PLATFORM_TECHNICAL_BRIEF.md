@@ -14,7 +14,7 @@ The Stockroom Dashboard is a self-contained, on-prem style web application:
 - **Data persistence:** File-based JSON storage via a DAL (`utils/dal`) rooted at a canonical data directory (`/var/lib/stockroom-dashboard/data`) and file directory (`/var/lib/stockroom-dashboard/files`).
 - **Security posture (as implemented):** Cookie-based session, “auth-by-default” routing, role/permission gating, basic security headers, and basic CSRF mitigation for API write requests.
 - **Integration points:** Gmail-based ingestion for Looker export emails and UPS shipment emails; optional Microsoft Graph path exists for Looker ingestion (dependencies and endpoints are present).
-- **Real-time:** SSE endpoint for updates; WebSocket endpoints used for radio monitoring/spectrum, with local UDP feeds as the source.
+- **Real-time:** SSE endpoint for updates; WebSocket endpoints used for radio monitoring, with local UDP feeds as the source.
 
 This architecture is operationally simple (few moving parts, no external database required) and is naturally suited to isolated deployment within a store LAN or a private overlay network.
 
@@ -29,7 +29,7 @@ This architecture is operationally simple (few moving parts, no external databas
 - Call JSON APIs under `/api/*`.
 - Receive server push via:
   - **SSE:** `GET /api/sse/updates`
-  - **WebSockets:** `/ws/radio-monitor`, `/ws/radio-spectrum`
+  - **WebSockets:** `/ws/radio-monitor`
 
 **Node/Express Web Server (`server.js`)**
 - Serves static assets from `public/` with `Cache-Control: no-store` on `.js`/`.css`.
@@ -106,12 +106,10 @@ This indicates an alternate ingestion method exists in the API surface for Looke
 - **SSE:** `GET /api/sse/updates` (auth required) maintains client list and sends heartbeat every 30 seconds.
 - **Radio WebSockets:**
   - `/ws/radio-monitor`
-  - `/ws/radio-spectrum`
 
 **Radio internal feeds:**
 - UDP → WebSocket bridge is implemented in `server.js`:
   - Monitor audio: UDP `127.0.0.1:7355` (default) with PCM frames described as “100ms chunks of mono int16 PCM @ 24000 Hz”.
-  - Spectrum: UDP `127.0.0.1:7356` (default) sending JSON payloads.
 
 ---
 

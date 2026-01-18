@@ -20,6 +20,8 @@
     .transcript-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
     .transcript-text { font-size: 16px; color: #222; flex: 1 1 auto; }
     .transcript-error { color: #b00020; margin-top: 10px; }
+    .meter { height: 10px; border-radius: 999px; background: #f0f0f0; overflow: hidden; border: 1px solid #e0e0e0; }
+    .meter > div { height: 100%; width: 0%; background: #95a5a6; transition: width 120ms linear, background 120ms linear; }
   </style>
 </head>
 <body>
@@ -32,7 +34,12 @@
       <div id="listenLiveStatus" class="transcript-status">Live listen: Off</div>
       <div id="eventsStatus" class="transcript-status">Realtime: Connecting…</div>
     </div>
-    <audio id="liveAudio" preload="none" style="display:none"></audio>
+    <div style="margin: 6px 0 12px;">
+      <div class="meter"><div id="audioMeterBar"></div></div>
+      <div id="audioMeterText" class="transcript-status" style="margin-top:6px;">Audio: --</div>
+    </div>
+    <div class="transcript-status" style="margin-bottom:8px;">Tip: if Live Listen is on but silent, press Play on the live player.</div>
+    <audio id="liveAudio" controls preload="none" style="display:none; width: 260px;"></audio>
     <audio id="clipPlayer" preload="none" style="display:none"></audio>
     <div id="transcripts"></div>
   </div>
@@ -112,6 +119,20 @@
       if (el) el.textContent = text;
     }
 
+    function updateAudioMeter(live) {
+      const bar = document.getElementById('audioMeterBar');
+      const txt = document.getElementById('audioMeterText');
+      if (!bar || !txt) return;
+      const energy = Number(live?.energy ?? 0);
+      const threshold = Number(live?.threshold ?? 0.03);
+      const speech = !!live?.speech;
+
+      const scaled = Math.max(0, Math.min(1, energy / Math.max(0.001, threshold * 2)));
+      bar.style.width = `${Math.round(scaled * 100)}%`;
+      bar.style.background = speech ? '#2ecc71' : (energy > threshold ? '#f1c40f' : '#95a5a6');
+      txt.textContent = `Audio: ${energy.toFixed(3)} (threshold ${threshold.toFixed(3)})${speech ? ' — voice' : ''}`;
+    }
+
     async function toggleLiveListen() {
       const audio = document.getElementById('liveAudio');
       if (!audio) return;
@@ -120,10 +141,12 @@
         audio.removeAttribute('src');
         audio.load();
         livePlaying = false;
+        audio.style.display = 'none';
         setLiveStatus('Live listen: Off');
         return;
       }
       audio.src = `/api/radio/live-audio?ts=${Date.now()}`;
+      audio.style.display = 'inline-block';
       try {
         await audio.play();
         livePlaying = true;
@@ -239,6 +262,9 @@
         eventsSource = new EventSource(`/api/radio/events?afterId=${lastId}`);
         eventsSource.addEventListener('ready', () => {
           setEventsStatus('Realtime: Connected');
+        });
+        eventsSource.addEventListener('live', (e) => {
+          try { updateAudioMeter(JSON.parse(e.data)); } catch (_) {}
         });
         eventsSource.addEventListener('transcript', (e) => {
           try {

@@ -12,6 +12,7 @@ const path = require('path');
 const cors = require('cors');
 const dgram = require('dgram');
 const { WebSocketServer } = require('ws');
+const { spawn } = require('child_process');
 
 const authRoutes = require('./routes/auth-pg');
 const shipmentsRoutes = require('./routes/shipments');
@@ -37,6 +38,16 @@ const aiAssignmentRoutes = require('./routes/ai-assignment'); // Import AI assig
 const authMiddleware = require('./middleware/auth-pg');
 const dal = require('./utils/dal');
 const { markActive } = require('./utils/active-users');
+
+const RADIO_DATA_DIR = path.join(dal.paths.dataDir, 'radio');
+const RADIO_LIVE_PATH = path.join(RADIO_DATA_DIR, 'live.json');
+const RADIO_SEGMENTS_PATH = path.join(RADIO_DATA_DIR, 'segments.jsonl');
+
+const RADIO_WATCHDOG_ENABLED = process.env.RADIO_WATCHDOG !== 'false';
+const RADIO_WATCHDOG_STALE_MS = Number.parseInt(process.env.RADIO_WATCHDOG_STALE_MS || '120000', 10);
+const RADIO_WATCHDOG_COOLDOWN_MS = Number.parseInt(process.env.RADIO_WATCHDOG_COOLDOWN_MS || '180000', 10);
+const RADIO_WATCHDOG_INTERVAL_MS = Number.parseInt(process.env.RADIO_WATCHDOG_INTERVAL_MS || '30000', 10);
+let lastRadioRestartAt = 0;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -570,9 +581,6 @@ const RADIO_MONITOR_UDP_HOST = process.env.RADIO_MONITOR_UDP_HOST || '127.0.0.1'
 const RADIO_MONITOR_UDP_PORT = Number.parseInt(process.env.RADIO_MONITOR_UDP_PORT || '7355', 10) || 7355;
 const RADIO_MONITOR_SAMPLE_RATE = Number.parseInt(process.env.RADIO_MONITOR_SAMPLE_RATE || '24000', 10) || 24000;
 
-// --- Radio spectrum/waterfall (rtl_power -> UDP JSON -> WebSocket) ---
-const RADIO_SPECTRUM_UDP_HOST = process.env.RADIO_SPECTRUM_UDP_HOST || '127.0.0.1';
-const RADIO_SPECTRUM_UDP_PORT = Number.parseInt(process.env.RADIO_SPECTRUM_UDP_PORT || '7356', 10) || 7356;
 
 function parseCookieHeader(headerValue) {
   const header = (headerValue || '').toString();
@@ -624,51 +632,49 @@ function validateSessionFromCookie(cookieHeader) {
 }
 
 const radioMonitorClients = new Set();
-const radioSpectrumClients = new Set();
 
-const RADIO_ANALYZER_LOG_PATH = path.join(__dirname, 'logs', 'radio-analyzer.log');
-
-function appendLogLine(filePath, line, { maxBytes = 2 * 1024 * 1024 } = {}) {
+function getMtimeMs(filePath) {
   try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    try {
-      const st = fs.statSync(filePath);
-      if (st.size > maxBytes) {
-        const keep = Math.floor(maxBytes / 2);
-        const fd = fs.openSync(filePath, 'r');
-        try {
-          const buf = Buffer.alloc(keep);
-          fs.readSync(fd, buf, 0, keep, Math.max(0, st.size - keep));
-          fs.writeFileSync(filePath, buf.toString('utf8'), 'utf8');
-        } finally {
-          fs.closeSync(fd);
-        }
-      }
-    } catch {
-      // ignore stat/trim errors
-    }
-    fs.appendFileSync(filePath, line + '\n', 'utf8');
+    const st = fs.statSync(filePath);
+    return Number(st.mtimeMs || 0);
   } catch {
-    // ignore
+    return 0;
   }
 }
 
-function logAnalyzer(event, details) {
-  const obj = {
-    ts: new Date().toISOString(),
-    event: (event || 'event').toString(),
-    ...(details && typeof details === 'object' ? details : {}),
-  };
-  appendLogLine(RADIO_ANALYZER_LOG_PATH, JSON.stringify(obj));
+function restartRadioServices(reason) {
+  const now = Date.now();
+  if (now - lastRadioRestartAt < RADIO_WATCHDOG_COOLDOWN_MS) return;
+  lastRadioRestartAt = now;
+  console.log(`[radio-watchdog] Restarting radio services: ${reason}`);
+  try {
+    const child = spawn('pm2', ['restart', 'radio', 'radio-transcriber'], { cwd: __dirname });
+    child.on('error', (err) => {
+      console.error('[radio-watchdog] PM2 restart failed:', err?.message || err);
+    });
+  } catch (err) {
+    console.error('[radio-watchdog] Restart failed:', err?.message || err);
+  }
+}
+
+if (RADIO_WATCHDOG_ENABLED) {
+  setInterval(() => {
+    try {
+      const now = Date.now();
+      const liveM = getMtimeMs(RADIO_LIVE_PATH);
+      const segM = getMtimeMs(RADIO_SEGMENTS_PATH);
+      const lastM = Math.max(liveM, segM);
+      if (lastM <= 0) return;
+      if (now - lastM > RADIO_WATCHDOG_STALE_MS) {
+        restartRadioServices(`stale data (last update ${(now - lastM) / 1000}s ago)`);
+      }
+    } catch (err) {
+      console.error('[radio-watchdog] Error:', err?.message || err);
+    }
+  }, RADIO_WATCHDOG_INTERVAL_MS);
 }
 
 let radioMonitorLastFrameAt = 0;
-let radioSpectrumLastUdpAt = 0;
-let radioSpectrumLastFftAt = 0;
-let radioSpectrumLastErrorAt = 0;
-let radioSpectrumLastErrorMessage = '';
-let radioSpectrumLastParseErrorAt = 0;
-let radioSpectrumLastState = '';
 
 function broadcastRadioPcm(buf) {
   if (!buf || !buf.length) return;
@@ -721,117 +727,6 @@ wssRadioMonitor.on('connection', (ws, req) => {
   });
 });
 
-function broadcastRadioSpectrum(msgObj) {
-  if (!msgObj) return;
-  const payload = JSON.stringify(msgObj);
-  for (const ws of radioSpectrumClients) {
-    if (!ws || ws.readyState !== 1) continue;
-    if (ws.bufferedAmount > 512 * 1024) continue;
-    try {
-      ws.send(payload);
-    } catch {
-      // ignore
-    }
-  }
-}
-
-const radioSpectrumUdp = dgram.createSocket('udp4');
-radioSpectrumUdp.on('message', (msg) => {
-  try {
-    const s = msg.toString('utf8');
-    const obj = JSON.parse(s);
-    radioSpectrumLastUdpAt = Date.now();
-    if (obj?.type === 'fft') {
-      radioSpectrumLastFftAt = radioSpectrumLastUdpAt;
-    }
-    if (obj?.type === 'status' && obj?.ok === false) {
-      radioSpectrumLastErrorAt = radioSpectrumLastUdpAt;
-      radioSpectrumLastErrorMessage = (obj?.message || obj?.error || '').toString();
-    }
-    broadcastRadioSpectrum(obj);
-  } catch {
-    radioSpectrumLastParseErrorAt = Date.now();
-    logAnalyzer('udp-parse-error', {
-      bytes: msg?.length || 0,
-      sample: (msg ? msg.toString('utf8', 0, Math.min(140, msg.length)) : ''),
-    });
-  }
-});
-radioSpectrumUdp.on('error', (err) => {
-  console.error('Radio spectrum UDP error:', err?.message || err);
-});
-try {
-  radioSpectrumUdp.bind(RADIO_SPECTRUM_UDP_PORT, RADIO_SPECTRUM_UDP_HOST, () => {
-    console.log(`Radio spectrum UDP listening on ${RADIO_SPECTRUM_UDP_HOST}:${RADIO_SPECTRUM_UDP_PORT}`);
-  });
-} catch (e) {
-  console.error('Failed to bind radio spectrum UDP:', e?.message || e);
-}
-
-const wssRadioSpectrum = new WebSocketServer({ noServer: true });
-wssRadioSpectrum.on('connection', (ws, req) => {
-  radioSpectrumClients.add(ws);
-  try {
-    ws.send(JSON.stringify({ type: 'hello', stream: 'radio-spectrum' }));
-  } catch {}
-  logAnalyzer('ws-connect', { clientCount: radioSpectrumClients.size, user: ws.user?.employeeId || ws.user?.id || null });
-  ws.on('close', () => {
-    radioSpectrumClients.delete(ws);
-    logAnalyzer('ws-close', { clientCount: radioSpectrumClients.size, user: ws.user?.employeeId || ws.user?.id || null });
-  });
-});
-
-function broadcastRadioSpectrumStatus() {
-  if (radioSpectrumClients.size === 0) return;
-  const now = Date.now();
-  const fftAgeMs = radioSpectrumLastFftAt ? (now - radioSpectrumLastFftAt) : null;
-
-  // If the spectrum producer reported an error recently and we have no fresh FFT,
-  // surface that error to the UI instead of flapping waiting/stalled.
-  const hasRecentError = radioSpectrumLastErrorAt && (now - radioSpectrumLastErrorAt) < 20_000;
-  const hasFreshFft = radioSpectrumLastFftAt && fftAgeMs != null && fftAgeMs <= 3000;
-  if (hasRecentError && !hasFreshFft) {
-    const status = {
-      type: 'status',
-      ok: false,
-      state: 'error',
-      message: radioSpectrumLastErrorMessage || 'Spectrum source error',
-    };
-    const stateKey = `${status.ok ? 'ok' : 'bad'}:${status.state}`;
-    if (stateKey !== radioSpectrumLastState) {
-      radioSpectrumLastState = stateKey;
-      logAnalyzer('stream-state', { ok: status.ok, state: status.state, ageMs: null, clients: radioSpectrumClients.size });
-    }
-    broadcastRadioSpectrum(status);
-    return;
-  }
-
-  let status = { type: 'status', ok: true, state: 'streaming' };
-  if (!radioSpectrumLastFftAt && !radioSpectrumLastUdpAt) {
-    status = { type: 'status', ok: true, state: 'waiting' };
-  } else if (!radioSpectrumLastFftAt && radioSpectrumLastUdpAt) {
-    // Producer is alive (sending status), but no FFT yet.
-    status = { type: 'status', ok: true, state: 'waiting' };
-  } else if (fftAgeMs != null && fftAgeMs > 3000) {
-    status = { type: 'status', ok: false, state: 'stalled', ageMs: fftAgeMs };
-  } else if (fftAgeMs != null) {
-    status = { type: 'status', ok: true, state: 'streaming', ageMs: fftAgeMs };
-  }
-
-  if (radioSpectrumLastParseErrorAt && (now - radioSpectrumLastParseErrorAt) < 3000) {
-    status = { type: 'status', ok: false, state: 'udp-parse-error' };
-  }
-
-  const stateKey = `${status.ok ? 'ok' : 'bad'}:${status.state}`;
-  if (stateKey !== radioSpectrumLastState) {
-    radioSpectrumLastState = stateKey;
-    logAnalyzer('stream-state', { ok: status.ok, state: status.state, ageMs: status.ageMs ?? null, clients: radioSpectrumClients.size });
-  }
-
-  broadcastRadioSpectrum(status);
-}
-
-setInterval(broadcastRadioSpectrumStatus, 1000).unref?.();
 
 // Start unified Gmail processor
 const UNIFIED_GMAIL_CRON = process.env.UNIFIED_GMAIL_CRON || '*/30 * * * *'; // Every 30 minutes
@@ -873,7 +768,7 @@ server.on('upgrade', (req, socket, head) => {
     pathname = '';
   }
 
-  if (pathname !== '/ws/radio-monitor' && pathname !== '/ws/radio-spectrum') {
+  if (pathname !== '/ws/radio-monitor') {
     return;
   }
 
@@ -886,17 +781,9 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
 
-  if (pathname === '/ws/radio-monitor') {
-    wssRadioMonitor.handleUpgrade(req, socket, head, (ws) => {
-      ws.user = user;
-      wssRadioMonitor.emit('connection', ws, req);
-    });
-    return;
-  }
-
-  wssRadioSpectrum.handleUpgrade(req, socket, head, (ws) => {
+  wssRadioMonitor.handleUpgrade(req, socket, head, (ws) => {
     ws.user = user;
-    wssRadioSpectrum.emit('connection', ws, req);
+    wssRadioMonitor.emit('connection', ws, req);
   });
 });
 

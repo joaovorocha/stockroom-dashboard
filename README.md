@@ -11,7 +11,7 @@ A comprehensive Progressive Web Application for managing retail operations, incl
 - **Shipment Tracking** - Monitor deliveries with automated UPS integration and email processing
 - **Lost Punch Management** - Process and approve time corrections with audit trails
 - **Time Off Requests** - Public Calendar employee leave management
-- **Radio Communications** - Integrated radio system with MCP server and spectrum analysis
+- **Radio Communications** - Integrated radio system with MCP server and live monitoring
 - **Mobile-First Design** - Works on all devices (iOS, Android, desktop) with PWA support
 - **Real-time Updates** - WebSocket support for live data synchronization
 - **MCP Integration** - Model Context Protocol servers for inventory, shipments, and radio operations

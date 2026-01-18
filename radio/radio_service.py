@@ -488,6 +488,7 @@ def main() -> int:
     # VAD / chunking
     vad_threshold = float(cfg_obj.get("vadThreshold", args.vad_threshold) or args.vad_threshold)
     hangover_ms = int(cfg_obj.get("hangoverMs", args.hangover_ms) or args.hangover_ms)
+    pre_roll_ms = int(cfg_obj.get("preRollMs", 250) or 250)
     pre_roll_ms = safe_int(cfg_obj.get("preRollMs", 250), 250)
 
     # FM noise squelch (SDR++-like): mute idle hiss, open when carrier/voice present.
@@ -524,6 +525,10 @@ def main() -> int:
     tone_match = True
     tone_ratio = 0.0
     tone_power = 0.0
+
+    # Pre-roll buffer to avoid cutting the first syllable.
+    pre_roll_samples = max(0, int(audio_fs * max(0, pre_roll_ms) / 1000.0))
+    pre_roll_buf = np.zeros(0, dtype=np.float32)
 
     udp_addr = (str(args.monitor_udp_host), int(args.monitor_udp_port))
     udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -726,6 +731,7 @@ def main() -> int:
         nonlocal channels_cfg, active_channel_id, active_ctcss_hz, active_dcs_code
         nonlocal scan_enabled, scan_delta_db, scan_hold_s, scan_confirm_n, scan_max_channels, scan_focus_id, scan_focus_margin_db
         nonlocal finder_window_s, finder_min_samples, finder_last_ts, finder_samples
+        nonlocal pre_roll_ms, pre_roll_samples
         nonlocal pre_roll_ms, pre_roll_keep, pre_roll_buf, pre_roll_samples
         nonlocal squelch, squelch_delay_s
         nonlocal carrier_threshold_db, gate_hold_time
@@ -777,12 +783,14 @@ def main() -> int:
         vad2 = safe_float(cfg2.get("vadThreshold", vad_threshold), vad_threshold)
         hang2 = safe_int(cfg2.get("hangoverMs", hangover_ms), hangover_ms)
         pre_roll_ms = safe_int(cfg2.get("preRollMs", pre_roll_ms), pre_roll_ms)
+        pre_roll_ms = safe_int(cfg2.get("preRollMs", pre_roll_ms), pre_roll_ms)
         sq2 = safe_float(cfg2.get("squelch", squelch), squelch)
         sqd2 = safe_float(cfg2.get("squelchDelay", squelch_delay_s), squelch_delay_s)
 
         vad_threshold = float(vad2)
         hangover_ms = int(hang2)
         hangover_chunks = max(1, int(hangover_ms / frame_ms))
+        pre_roll_samples = max(0, int(audio_fs * max(0, pre_roll_ms) / 1000.0))
 
         pre_roll_keep = max(0, int(round(float(pre_roll_ms) * float(audio_fs) / 1000.0)))
         pre_roll_buf.clear()

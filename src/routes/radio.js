@@ -16,8 +16,6 @@ const SERVICE_PATH = path.join(RADIO_DATA_DIR, 'service.json');
 const LOGS_DIR = getLogsDir();
 const RADIO_LOG_PATH = path.join(LOGS_DIR, 'radio.log');
 const TRANSCRIBE_LOG_PATH = path.join(LOGS_DIR, 'radio-transcriber.log');
-const SPECTRUM_LOG_PATH = path.join(LOGS_DIR, 'radio-spectrum.log');
-const ANALYZER_LOG_PATH = path.join(LOGS_DIR, 'radio-analyzer.log');
 
 const VENV_PYTHON = path.join(__dirname, '..', '.venv', 'bin', 'python');
 const PYTHON_INTERPRETER = fs.existsSync(VENV_PYTHON) ? VENV_PYTHON : 'python3';
@@ -48,20 +46,6 @@ function readLastBytes(filePath, maxBytes) {
     fs.closeSync(fd);
   }
 }
-
-router.get('/analyzer/logs', (req, res) => {
-  if (!requirePrivileged(req, res)) return;
-  const maxBytes = Math.min(1024 * 1024, safeInt(req.query?.bytes, 1024 * 128));
-  if (!fs.existsSync(ANALYZER_LOG_PATH)) {
-    return res.json({ ok: true, exists: false, logs: '' });
-  }
-  try {
-    const logs = readLastBytes(ANALYZER_LOG_PATH, maxBytes);
-    return res.json({ ok: true, exists: true, logs });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: e?.message || 'Failed to read analyzer logs' });
-  }
-});
 
 function loadTranscripts({ afterId = 0, limit = 200 }) {
   if (!fs.existsSync(TRANSCRIPTS_PATH)) return [];
@@ -315,7 +299,6 @@ async function getRadioProc() {
   return {
     radio: list.find(p => p?.name === 'radio') || null,
     transcriber: list.find(p => p?.name === 'radio-transcriber') || null,
-    spectrum: list.find(p => p?.name === 'radio-spectrum') || null,
   };
 }
 
@@ -385,32 +368,6 @@ function buildTranscriberStartArgs() {
     '--',
     '--config',
     CONFIG_PATH,
-  ];
-}
-
-function buildSpectrumStartArgs() {
-  return [
-    'start',
-    'radio/spectrum_service.py',
-    '--name',
-    'radio-spectrum',
-    '--interpreter',
-    PYTHON_INTERPRETER,
-    '--restart-delay',
-    '2000',
-    '--exp-backoff-restart-delay',
-    '2000',
-    '--output',
-    SPECTRUM_LOG_PATH,
-    '--error',
-    SPECTRUM_LOG_PATH,
-    '--',
-    '--config',
-    CONFIG_PATH,
-    '--udp-host',
-    '127.0.0.1',
-    '--udp-port',
-    '7356',
   ];
 }
 
@@ -581,24 +538,16 @@ router.get('/service', (req, res) => {
   getRadioProc().then((procs) => {
     const radioStatus = procs?.radio?.pm2_env?.status || 'stopped';
     const transcriberStatus = procs?.transcriber?.pm2_env?.status || 'stopped';
-    const spectrumStatus = procs?.spectrum?.pm2_env?.status || 'stopped';
     const radioRunning = radioStatus === 'online';
     const transcriberRunning = transcriberStatus === 'online';
-    const spectrumRunning = spectrumStatus === 'online';
     return res.json({
       ok: true,
-      running: radioRunning || transcriberRunning || spectrumRunning,
+      running: radioRunning || transcriberRunning,
       radio: {
         running: radioRunning,
         status: radioStatus,
         pid: procs?.radio?.pid || null,
         name: procs?.radio?.name || 'radio'
-      },
-      spectrum: {
-        running: spectrumRunning,
-        status: spectrumStatus,
-        pid: procs?.spectrum?.pid || null,
-        name: procs?.spectrum?.name || 'radio-spectrum'
       },
       transcriber: {
         running: transcriberRunning,
@@ -610,80 +559,6 @@ router.get('/service', (req, res) => {
   });
 });
 
-router.post('/service/start-spectrum', (req, res) => {
-  if (!requirePrivileged(req, res)) return;
-  (async () => {
-    ensureDir(SPECTRUM_LOG_PATH);
-    ensureSavedConfigFile();
-
-    // Single-dongle: stop capture so rtl_power can claim the device.
-    try { await execPm2(['stop', 'radio']); } catch {}
-    try { await execPm2(['stop', 'radio-capture']); } catch {}
-
-    const started = await pm2EnsureStarted('radio-spectrum', buildSpectrumStartArgs());
-    const procs = await getRadioProc();
-    const spectrumStatus = procs?.spectrum?.pm2_env?.status || 'unknown';
-    return res.json({
-      ok: started.code === 0 && spectrumStatus === 'online',
-      spectrum: { status: spectrumStatus, pid: procs?.spectrum?.pid || null, out: started.out, err: started.err },
-      radio: { status: procs?.radio?.pm2_env?.status || 'stopped', pid: procs?.radio?.pid || null },
-      transcriber: { status: procs?.transcriber?.pm2_env?.status || 'unknown', pid: procs?.transcriber?.pid || null },
-    });
-  })();
-});
-
-router.post('/service/stop-spectrum', (req, res) => {
-  if (!requirePrivileged(req, res)) return;
-  (async () => {
-    const stopped = await execPm2(['stop', 'radio-spectrum']);
-    const procs = await getRadioProc();
-    const spectrumStatus = procs?.spectrum?.pm2_env?.status || 'stopped';
-    return res.json({
-      ok: stopped.code === 0,
-      spectrum: { status: spectrumStatus, out: stopped.out, err: stopped.err },
-      radio: { status: procs?.radio?.pm2_env?.status || 'unknown', pid: procs?.radio?.pid || null },
-      transcriber: { status: procs?.transcriber?.pm2_env?.status || 'unknown', pid: procs?.transcriber?.pid || null },
-    });
-  })();
-});
-
-// Single-dongle convenience toggles.
-router.post('/service/use-spectrum', (req, res) => {
-  if (!requirePrivileged(req, res)) return;
-  (async () => {
-    ensureDir(SPECTRUM_LOG_PATH);
-    ensureSavedConfigFile();
-    // Stop capture first, then start spectrum.
-    try { await execPm2(['stop', 'radio']); } catch {}
-    try { await execPm2(['stop', 'radio-capture']); } catch {}
-    const started = await pm2EnsureStarted('radio-spectrum', buildSpectrumStartArgs());
-    const procs = await getRadioProc();
-    return res.json({
-      ok: started.code === 0,
-      radio: { status: procs?.radio?.pm2_env?.status || 'stopped', pid: procs?.radio?.pid || null },
-      spectrum: { status: procs?.spectrum?.pm2_env?.status || 'unknown', pid: procs?.spectrum?.pid || null },
-      transcriber: { status: procs?.transcriber?.pm2_env?.status || 'unknown', pid: procs?.transcriber?.pid || null },
-    });
-  })();
-});
-
-router.post('/service/use-capture', (req, res) => {
-  if (!requirePrivileged(req, res)) return;
-  (async () => {
-    ensureDir(RADIO_LOG_PATH);
-    ensureSavedConfigFile();
-    // Stop spectrum first, then start capture.
-    try { await execPm2(['stop', 'radio-spectrum']); } catch {}
-    const started = await pm2EnsureStarted('radio', buildRadioStartArgs());
-    const procs = await getRadioProc();
-    return res.json({
-      ok: started.code === 0,
-      radio: { status: procs?.radio?.pm2_env?.status || 'unknown', pid: procs?.radio?.pid || null },
-      spectrum: { status: procs?.spectrum?.pm2_env?.status || 'stopped', pid: procs?.spectrum?.pid || null },
-      transcriber: { status: procs?.transcriber?.pm2_env?.status || 'unknown', pid: procs?.transcriber?.pid || null },
-    });
-  })();
-});
 
 router.post('/service/start', (req, res) => {
   if (!requirePrivileged(req, res)) return;
@@ -697,7 +572,6 @@ router.post('/service/start', (req, res) => {
     }
 
     // Stop legacy processes if they exist.
-    try { await execPm2(['stop', 'radio-spectrum']); } catch {}
     try { await execPm2(['stop', 'radio-capture']); } catch {}
 
     ensureDir(RADIO_LOG_PATH);
@@ -733,7 +607,6 @@ router.post('/service/start-radio', (req, res) => {
     ensureSavedConfigFile();
 
     // Stop legacy processes that could still hold the dongle.
-    try { await execPm2(['stop', 'radio-spectrum']); } catch {}
     try { await execPm2(['stop', 'radio-capture']); } catch {}
 
     const started = await pm2EnsureStarted('radio', buildRadioStartArgs());
@@ -754,7 +627,6 @@ router.post('/service/start-capture', (req, res) => {
     ensureDir(RADIO_LOG_PATH);
     ensureSavedConfigFile();
 
-    try { await execPm2(['stop', 'radio-spectrum']); } catch {}
     try { await execPm2(['stop', 'radio-capture']); } catch {}
 
     const started = await pm2EnsureStarted('radio', buildRadioStartArgs());

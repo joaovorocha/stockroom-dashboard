@@ -50,6 +50,10 @@ class OpenVINOTranscriber:
         self.language = language
         self.task = task
         self.verbose = verbose
+        self.selected_devices: Optional[str] = None
+        self.last_infer_s: Optional[float] = None
+        self.last_audio_s: Optional[float] = None
+        self.last_rtf: Optional[float] = None
 
         # Lazy imports: if OpenVINO isn't installed, caller can fall back.
         try:
@@ -130,6 +134,7 @@ class OpenVINOTranscriber:
                     print("[radio-transcriber] OpenVINO device selected: (unknown)", flush=True)
                 else:
                     print(f"[radio-transcriber] OpenVINO device selected: {selected}", flush=True)
+            self.selected_devices = selected
         except Exception as e:
             # If AUTO compilation fails here, it's still worth trying the pipeline,
             # but we want a clear log line for ops.
@@ -174,7 +179,11 @@ class OpenVINOTranscriber:
         overlap_samples = int(max(0, round(float(overlap_s) * sr)))
         step = max(1, chunk_samples - overlap_samples)
 
+        total_infer_s = 0.0
+        total_audio_s = 0.0
+
         def run_once(piece: np.ndarray, t0_s: float) -> Tuple[str, List[Dict[str, Any]]]:
+            nonlocal total_infer_s, total_audio_s
             # openvino_genai expects a list of floats (raw speech)
             start = time.time()
             res = self._pipe.generate(piece.astype(np.float32).tolist())
@@ -217,11 +226,17 @@ class OpenVINOTranscriber:
                 dur_s = float(piece.size) / float(sr)
                 segs = [{"start": round(t0_s, 3), "end": round(t0_s + dur_s, 3), "text": text}]
 
-            _ = time.time() - start
+            elapsed = time.time() - start
+            total_infer_s += elapsed
+            total_audio_s += float(piece.size) / float(sr)
             return text, segs
 
         if x.size <= chunk_samples:
-            return run_once(x, 0.0)
+            text, segs = run_once(x, 0.0)
+            self.last_infer_s = total_infer_s
+            self.last_audio_s = total_audio_s
+            self.last_rtf = (total_infer_s / total_audio_s) if total_audio_s > 0 else None
+            return text, segs
 
         out_text_parts: List[str] = []
         out_segments: List[Dict[str, Any]] = []
@@ -241,6 +256,9 @@ class OpenVINOTranscriber:
                 break
             i += step
 
+        self.last_infer_s = total_infer_s
+        self.last_audio_s = total_audio_s
+        self.last_rtf = (total_infer_s / total_audio_s) if total_audio_s > 0 else None
         return " ".join(out_text_parts).strip(), out_segments
 
     def transcribe_legacy(self, audio_float32: np.ndarray, sample_rate: int, *, chunk_s: float = 20.0, overlap_s: float = 0.5):

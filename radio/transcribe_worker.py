@@ -39,6 +39,16 @@ def append_jsonl(path: Path, obj: dict) -> None:
         f.flush()
 
 
+def write_json_atomic(path: Path, obj: dict) -> None:
+    try:
+        ensure_parent(path)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(json.dumps(obj, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(path)
+    except Exception:
+        pass
+
+
 def safe_int(v, default=0) -> int:
     try:
         return int(v)
@@ -323,6 +333,7 @@ def main() -> int:
     seg_path = Path(args.segments)
     out_path = Path(args.out)
     meta_path = Path(args.meta)
+    metrics_path = cfg_path.with_name("openvino_metrics.json")
 
     # Be a good citizen: keep this worker from starving the capture/server under load.
     try:
@@ -561,6 +572,25 @@ def main() -> int:
                     obj["clipUrl"] = str(clip_url)
 
                 append_jsonl(out_path, obj)
+                if backend == "openvino":
+                    infer_s = getattr(model, "last_infer_s", None)
+                    audio_s = getattr(model, "last_audio_s", None)
+                    rtf = getattr(model, "last_rtf", None)
+                    util_pct = None
+                    if isinstance(rtf, (int, float)) and rtf > 0:
+                        util_pct = max(0.0, min(100.0, rtf * 100.0))
+                    metrics = {
+                        "ts": utc_now_iso(),
+                        "backend": "openvino",
+                        "model": model_name,
+                        "requestedDevice": ov_device,
+                        "selectedDevices": getattr(model, "selected_devices", None),
+                        "audioMs": round(float(audio_s) * 1000.0, 1) if isinstance(audio_s, (int, float)) else None,
+                        "inferMs": round(float(infer_s) * 1000.0, 1) if isinstance(infer_s, (int, float)) else None,
+                        "rtf": round(float(rtf), 3) if isinstance(rtf, (int, float)) else None,
+                        "utilPercent": round(float(util_pct), 1) if isinstance(util_pct, (int, float)) else None,
+                    }
+                    write_json_atomic(metrics_path, metrics)
                 last_id = seg_id
                 write_last_id(meta_path, last_id)
                 print(f"[radio-transcriber] #{seg_id}: {text}", flush=True)

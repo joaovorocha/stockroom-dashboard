@@ -17,7 +17,7 @@ Date: 2026-01-06
   - Provides `/api/radio/config`, `/api/radio/service`, and WS `/ws/radio-monitor` (live audio monitor).
 
 **Implication:**
-- We currently do **not** have RF-domain data (IQ) in-process, so we can’t produce a true spectrum/waterfall view without additional tooling.
+- We currently do **not** have RF-domain data (IQ) in-process, so we can’t produce a true RF visualization/waterfall view without additional tooling.
 - We do **not** do privacy-code gating (CTCSS/DCS). We only do VAD.
 
 ---
@@ -32,7 +32,7 @@ Date: 2026-01-06
   - Must expose lock status: MATCH / NO MATCH, with ~300 ms debounce/confidence window.
 
 - Admin UI:
-  - Real-time FFT spectrum + waterfall.
+  - Real-time FFT visualization + waterfall.
   - Center frequency marker + 12.5 kHz channel highlight.
   - Controls: PMR channel selector, gain, PPM, privacy config, monitor, auto-detect + “Press PTT now”, save.
   - Backend streams: FFT, waterfall, tuned freq, gain, PPM, detected CTCSS/DCS, lock status.
@@ -178,7 +178,7 @@ Message types (examples):
 
 Keep it “simple SDR-like” in one page:
 
-1) **Spectrum panel** (canvas)
+1) **FFT panel** (canvas)
 - FFT line plot
 - Center marker
 - Highlight 12.5 kHz window around selected channel

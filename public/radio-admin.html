@@ -20,6 +20,10 @@
     .help-text.show { display: block; }
     .radio-field input, .radio-field select { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
     .radio-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .quick-card { border: 1px solid #e6f0ff; background: #f8fbff; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+    .quick-title { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+    .quick-steps { margin: 8px 0 0; display: grid; gap: 6px; font-size: 13px; color: var(--text-secondary); }
+    .quick-buttons { display:flex; gap:10px; flex-wrap:wrap; margin-top: 10px; }
     .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 12px; }
     .badge.ok { background: #e8f5e9; color: #166534; border-color: #166534; }
     .badge.warn { background: #fff7ed; color: #9a3412; border-color: #9a3412; }
@@ -76,16 +80,92 @@
       </div>
       <div style="margin-top: 10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
         <button class="btn" id="listenToggleBtn" type="button">Listen Live</button>
-        <span class="muted">Streams live audio (near real-time).</span>
+        <span class="muted" id="listenLiveStatus">Live listen: Off</span>
       </div>
+      <div class="muted" style="margin-top:6px;">Tip: if live audio is silent, press Play on the live player.</div>
+      <audio id="liveAudio" controls preload="none" style="display:none; width: 260px;"></audio>
       <div class="live-list" id="liveList"></div>
+    </div>
+
+    <div class="card" id="npuCard">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div>
+          <strong>NPU (OpenVINO)</strong>
+          <p class="muted" style="margin:4px 0 0;">Approx usage based on OpenVINO inference time.</p>
+        </div>
+        <div class="radio-actions">
+          <button class="btn" id="npuRefreshBtn" type="button">Refresh</button>
+        </div>
+      </div>
+      <div class="radio-grid" style="margin-top:10px;">
+        <div class="radio-field">
+          <label>Usage</label>
+          <div id="npuUsage" class="muted">—</div>
+        </div>
+        <div class="radio-field">
+          <label>Device</label>
+          <div id="npuDevice" class="muted">—</div>
+        </div>
+        <div class="radio-field">
+          <label>RTF</label>
+          <div id="npuRtf" class="muted">—</div>
+        </div>
+        <div class="radio-field">
+          <label>Last Update</label>
+          <div id="npuTs" class="muted">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="finderCard">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div>
+          <strong>Best Channel (Finder)</strong>
+          <p class="muted" style="margin:4px 0 0;">Auto-detected clearest channel from the rolling window.</p>
+        </div>
+        <div class="radio-actions">
+          <button class="btn" id="finderRefreshBtn" type="button">Refresh</button>
+        </div>
+      </div>
+      <div class="radio-grid" style="margin-top:10px;">
+        <div class="radio-field">
+          <label>Best Channel</label>
+          <div id="finderBest" class="muted">—</div>
+        </div>
+        <div class="radio-field">
+          <label>Frequency</label>
+          <div id="finderFreq" class="muted">—</div>
+        </div>
+        <div class="radio-field">
+          <label>Noise / SNR</label>
+          <div id="finderSnr" class="muted">—</div>
+        </div>
+        <div class="radio-field">
+          <label>Last Update</label>
+          <div id="finderTs" class="muted">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-card">
+      <div class="quick-title">Manager Quick Setup (simple)</div>
+      <div class="muted">Use this if you just need the system running. The defaults are already set for PMR446 Channel 2.</div>
+      <div class="quick-steps">
+        <div>1) Keep <b>Mode</b> on <b>Manual (Locked)</b> for a stable channel.</div>
+        <div>2) Use <b>PPM 25</b> and <b>Gain 35</b> (recommended start values).</div>
+        <div>3) If words get cut off at the start, increase <b>Pre‑roll</b> to 300–400 ms.</div>
+      </div>
+      <div class="quick-buttons">
+        <button class="btn btn-secondary" id="applyDefaultBtn" type="button">Apply Recommended Defaults</button>
+        <button class="btn btn-primary" id="saveRestartQuickBtn" type="button">Save & Restart</button>
+      </div>
     </div>
 
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
         <div>
           <strong>Configuration</strong>
-          <p class="muted" style="margin:4px 0 0;">Edit tuner + transcription parameters. Save & Restart applies changes to the running service.</p>
+          <p class="muted" style="margin:4px 0 0;">Friendly tuning controls. Save & Restart applies changes to the running service.</p>
         </div>
         <div class="radio-actions">
           <button class="btn" id="saveBtn" type="button">Save</button>
@@ -94,6 +174,17 @@
       </div>
 
       <div class="radio-grid">
+        <div class="radio-field">
+          <div class="label-row">
+            <label for="radioModeSelect">Mode</label>
+            <button class="help-btn" type="button" data-help-for="modeHelp" aria-label="Mode help">i</button>
+          </div>
+          <div class="muted help-text" id="modeHelp">Manual = lock one channel. Automatic = scan channels. Use Manual for stable speech capture.</div>
+          <select id="radioModeSelect">
+            <option value="manual">Manual (Locked)</option>
+            <option value="automatic">Automatic (Scan)</option>
+          </select>
+        </div>
         <div class="radio-field">
           <div class="label-row">
             <label for="activeChannelSelect">Active Channel</label>
@@ -157,41 +248,63 @@
         </div>
         <div class="radio-field">
           <div class="label-row">
-            <label for="modelSelect">Whisper Model</label>
-            <button class="help-btn" type="button" data-help-for="modelHelp" aria-label="Model help">i</button>
+            <label for="carrierThresholdInput">Signal Sensitivity</label>
+            <button class="help-btn" type="button" data-help-for="carrierHelp" aria-label="Carrier threshold help">i</button>
           </div>
-          <div class="muted help-text" id="modelHelp">Bigger models are more accurate but use more CPU. For lowest CPU, keep “tiny”.</div>
-          <select id="modelSelect">
-            <option value="tiny">tiny</option>
-            <option value="base">base</option>
-            <option value="small">small</option>
-            <option value="medium">medium</option>
-          </select>
+          <div class="muted help-text" id="carrierHelp">Lower = more sensitive (opens on weaker signals). Try 8–12 if audio never opens.</div>
+          <input id="carrierThresholdInput" type="number" step="1" placeholder="18">
         </div>
         <div class="radio-field">
           <div class="label-row">
-            <label for="deviceSelect">Device</label>
-            <button class="help-btn" type="button" data-help-for="deviceHelp" aria-label="Device help">i</button>
+            <label for="preRollInput">Pre‑roll (ms)</label>
+            <button class="help-btn" type="button" data-help-for="preRollHelp" aria-label="Pre-roll help">i</button>
           </div>
-          <div class="muted help-text" id="deviceHelp">CPU works everywhere. CUDA requires an NVIDIA GPU + drivers on the server.</div>
-          <select id="deviceSelect">
-            <option value="cpu">CPU</option>
-            <option value="cuda">CUDA</option>
-          </select>
-        </div>
-        <div class="radio-field">
-          <div class="label-row">
-            <label for="computeSelect">Compute Type</label>
-            <button class="help-btn" type="button" data-help-for="computeHelp" aria-label="Compute type help">i</button>
-          </div>
-          <div class="muted help-text" id="computeHelp">For CPU, “int8” is typically the fastest and lowest-memory option.</div>
-          <select id="computeSelect">
-            <option value="int8">int8</option>
-            <option value="int16">int16</option>
-            <option value="float32">float32</option>
-          </select>
+          <div class="muted help-text" id="preRollHelp">Adds a small buffer before voice starts so the first word isn’t clipped. Try 250–400 ms.</div>
+          <input id="preRollInput" type="number" step="10" placeholder="250">
         </div>
       </div>
+
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer; font-weight:600;">Advanced (ASR model + device)</summary>
+        <div class="radio-grid" style="margin-top:10px;">
+          <div class="radio-field">
+            <div class="label-row">
+              <label for="modelSelect">Whisper Model</label>
+              <button class="help-btn" type="button" data-help-for="modelHelp" aria-label="Model help">i</button>
+            </div>
+            <div class="muted help-text" id="modelHelp">Bigger models are more accurate but use more CPU. For lowest CPU, keep “tiny”.</div>
+            <select id="modelSelect">
+              <option value="tiny">tiny</option>
+              <option value="base">base</option>
+              <option value="small">small</option>
+              <option value="medium">medium</option>
+            </select>
+          </div>
+          <div class="radio-field">
+            <div class="label-row">
+              <label for="deviceSelect">Device</label>
+              <button class="help-btn" type="button" data-help-for="deviceHelp" aria-label="Device help">i</button>
+            </div>
+            <div class="muted help-text" id="deviceHelp">CPU works everywhere. CUDA requires an NVIDIA GPU + drivers on the server.</div>
+            <select id="deviceSelect">
+              <option value="cpu">CPU</option>
+              <option value="cuda">CUDA</option>
+            </select>
+          </div>
+          <div class="radio-field">
+            <div class="label-row">
+              <label for="computeSelect">Compute Type</label>
+              <button class="help-btn" type="button" data-help-for="computeHelp" aria-label="Compute type help">i</button>
+            </div>
+            <div class="muted help-text" id="computeHelp">For CPU, “int8” is typically the fastest and lowest-memory option.</div>
+            <select id="computeSelect">
+              <option value="int8">int8</option>
+              <option value="int16">int16</option>
+              <option value="float32">float32</option>
+            </select>
+          </div>
+        </div>
+      </details>
     </div>
   </div>
 
@@ -219,9 +332,26 @@
 
       await loadConfig();
       await refreshStatus();
+      await loadFinder();
+      await loadOpenvinoMetrics();
       startLiveMonitor();
 
       wireLiveListen();
+
+      $('applyDefaultBtn')?.addEventListener('click', () => {
+        $('radioModeSelect').value = 'manual';
+        $('ppmInput').value = 25;
+        $('gainInput').value = 35;
+        $('vadInput').value = 0.04;
+        $('hangoverInput').value = 600;
+        $('carrierThresholdInput').value = 8;
+        $('preRollInput').value = 250;
+        scheduleLiveSave();
+      });
+      $('saveRestartQuickBtn')?.addEventListener('click', () => saveConfig(true));
+
+      $('finderRefreshBtn')?.addEventListener('click', loadFinder);
+      $('npuRefreshBtn')?.addEventListener('click', loadOpenvinoMetrics);
 
       $('refreshStatusBtn')?.addEventListener('click', refreshStatus);
       $('startBtn')?.addEventListener('click', startService);
@@ -243,6 +373,8 @@
     function wireLiveListen() {
       const btn = $('listenToggleBtn');
       if (!btn) return;
+      const liveStatus = $('listenLiveStatus');
+      const liveAudio = $('liveAudio');
 
       const monitor = {
         ws: null,
@@ -253,6 +385,9 @@
         queueOffset: 0,
         queuedSamples: 0,
         enabled: false,
+        lastAudioAt: 0,
+        fallbackTimer: null,
+        fallbackOn: false,
       };
 
       function int16ToFloat32(int16) {
@@ -329,6 +464,18 @@
           return;
         }
         monitor.enabled = false;
+        monitor.lastAudioAt = 0;
+        if (monitor.fallbackTimer) {
+          clearInterval(monitor.fallbackTimer);
+          monitor.fallbackTimer = null;
+        }
+        if (liveAudio) {
+          try { liveAudio.pause(); } catch (_) {}
+          liveAudio.removeAttribute('src');
+          liveAudio.load();
+          liveAudio.style.display = 'none';
+        }
+        monitor.fallbackOn = false;
         try { monitor.ws?.close(); } catch {}
         monitor.ws = null;
         try { monitor.processor?.disconnect(); } catch {}
@@ -339,12 +486,15 @@
         monitor.queueOffset = 0;
         monitor.queuedSamples = 0;
         btn.textContent = 'Listen Live';
+        if (liveStatus) liveStatus.textContent = 'Live listen: Off';
       }
 
       async function start() {
         if (monitor.enabled) return;
         monitor.enabled = true;
         btn.textContent = 'Stop Listening';
+        if (liveStatus) liveStatus.textContent = 'Live listen: Connecting…';
+        if (liveAudio) liveAudio.style.display = 'inline-block';
 
         try {
           monitor.audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
@@ -377,10 +527,32 @@
             const dstRate = monitor.audioCtx.sampleRate || 48000;
             f32 = resampleLinear(f32, monitor.sourceSampleRate, dstRate);
             enqueueAudio(f32);
+            monitor.lastAudioAt = Date.now();
+            if (monitor.fallbackOn && liveAudio) {
+              try { liveAudio.pause(); } catch (_) {}
+              liveAudio.removeAttribute('src');
+              liveAudio.load();
+              monitor.fallbackOn = false;
+            }
+            if (liveStatus) liveStatus.textContent = 'Live listen: On';
           } catch {}
         };
 
         ws.onclose = () => stop();
+
+        monitor.fallbackTimer = setInterval(() => {
+          if (!monitor.enabled) return;
+          const age = monitor.lastAudioAt ? (Date.now() - monitor.lastAudioAt) : 99999;
+          if (age > 2000 && liveAudio && !monitor.fallbackOn) {
+            liveAudio.src = `/api/radio/live-audio?ts=${Date.now()}`;
+            liveAudio.play().then(() => {
+              monitor.fallbackOn = true;
+              if (liveStatus) liveStatus.textContent = 'Live listen: Fallback stream';
+            }).catch(() => {
+              if (liveStatus) liveStatus.textContent = 'Live listen: Tap to allow audio';
+            });
+          }
+        }, 800);
       }
 
       btn.addEventListener('click', () => {
@@ -509,6 +681,9 @@
       $('gainInput').value = cfg.gain ?? '';
       $('vadInput').value = cfg.vadThreshold ?? '';
       $('hangoverInput').value = cfg.hangoverMs ?? '';
+      $('carrierThresholdInput').value = cfg.carrierThreshold ?? 18;
+      $('preRollInput').value = cfg.preRollMs ?? 250;
+      $('radioModeSelect').value = cfg.radioMode || 'manual';
       $('modelSelect').value = cfg.model || 'tiny';
       $('deviceSelect').value = cfg.device || 'cpu';
       $('computeSelect').value = cfg.computeType || 'int8';
@@ -548,13 +723,71 @@
       }
     }
 
+    async function loadOpenvinoMetrics() {
+      const usageEl = $('npuUsage');
+      const devEl = $('npuDevice');
+      const rtfEl = $('npuRtf');
+      const tsEl = $('npuTs');
+      try {
+        const res = await authFetch('/api/admin/health');
+        const data = await res.json();
+        if (!res.ok || !data?.ok) throw new Error(data?.error || `Health unavailable (HTTP ${res.status})`);
+        const ov = data.openvino || {};
+        if (!ov.available || !ov.data) throw new Error('NPU metrics unavailable');
+        const m = ov.data || {};
+        const util = Number.isFinite(Number(m.utilPercent)) ? `${Number(m.utilPercent).toFixed(1)}%` : '—';
+        const dev = (m.selectedDevices || m.requestedDevice || '—').toString();
+        const rtf = Number.isFinite(Number(m.rtf)) ? Number(m.rtf).toFixed(2) : '—';
+        const ts = m.ts ? new Date(m.ts).toLocaleString() : '—';
+        if (usageEl) usageEl.textContent = util;
+        if (devEl) devEl.textContent = dev;
+        if (rtfEl) rtfEl.textContent = rtf;
+        if (tsEl) tsEl.textContent = ts;
+      } catch (e) {
+        if (usageEl) usageEl.textContent = '—';
+        if (devEl) devEl.textContent = '—';
+        if (rtfEl) rtfEl.textContent = '—';
+        if (tsEl) tsEl.textContent = e?.message || 'NPU metrics unavailable';
+      }
+    }
+
+    async function loadFinder() {
+      const bestEl = $('finderBest');
+      const freqEl = $('finderFreq');
+      const snrEl = $('finderSnr');
+      const tsEl = $('finderTs');
+      try {
+        const res = await authFetch('/api/radio/finder');
+        const data = await res.json();
+        if (!data?.ok || !data?.finder) throw new Error('Finder unavailable');
+        const best = data.finder.best || {};
+        const label = best.label || best.id || '—';
+        const freq = best.freq || (best.freqHz ? `${(Number(best.freqHz) / 1e6).toFixed(6)}M` : '—');
+        const snr = (best.snrDb ?? best.avgDb);
+        const snrTxt = Number.isFinite(snr) ? `${snr.toFixed(2)} dB` : '—';
+        const ts = data.finder.ts ? new Date(data.finder.ts).toLocaleString() : '—';
+        if (bestEl) bestEl.textContent = label;
+        if (freqEl) freqEl.textContent = freq;
+        if (snrEl) snrEl.textContent = snrTxt;
+        if (tsEl) tsEl.textContent = ts;
+      } catch (e) {
+        if (bestEl) bestEl.textContent = '—';
+        if (freqEl) freqEl.textContent = '—';
+        if (snrEl) snrEl.textContent = '—';
+        if (tsEl) tsEl.textContent = 'No finder data';
+      }
+    }
+
     function readForm() {
       const next = {
+        radioMode: $('radioModeSelect')?.value || (radioConfig?.radioMode || 'manual'),
         model: $('modelSelect').value,
         device: $('deviceSelect').value,
         computeType: $('computeSelect').value,
         vadThreshold: Number($('vadInput').value || 0),
         hangoverMs: Number($('hangoverInput').value || 0),
+        carrierThreshold: Number($('carrierThresholdInput').value || 0),
+        preRollMs: Number($('preRollInput').value || 0),
       };
 
       // Preserve channel list; edit the currently selected channel in-place.
@@ -609,7 +842,7 @@
     }
 
     // Hot-apply config changes without restart.
-    ;['activeChannelSelect','channelLabelInput','freqInput','ppmInput','gainInput','vadInput','hangoverInput','modelSelect','deviceSelect','computeSelect'].forEach((id) => {
+    ;['radioModeSelect','activeChannelSelect','channelLabelInput','freqInput','ppmInput','gainInput','vadInput','hangoverInput','carrierThresholdInput','preRollInput','modelSelect','deviceSelect','computeSelect'].forEach((id) => {
       const el = $(id);
       if (!el) return;
       el.addEventListener('input', scheduleLiveSave);
