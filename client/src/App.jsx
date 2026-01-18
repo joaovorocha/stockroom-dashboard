@@ -8,6 +8,8 @@ import Dashboard from './pages/Dashboard';
 import Shipments from './pages/Shipments';
 import Gameplan from './pages/Gameplan';
 import AdminUsers from './pages/AdminUsers';
+import TimeOff from './pages/TimeOff';
+import ClosingDuties from './pages/ClosingDuties';
 import './App.css';
 
 function App() {
@@ -48,6 +50,26 @@ function App() {
                   <Sidebar />
                   <div className="main-content">
                     <AdminUsers />
+                  </div>
+                </div>
+              </ProtectedRoute>
+            } />
+            <Route path="/time-off" element={
+              <ProtectedRoute>
+                <div className="dashboard-wrapper">
+                  <Sidebar />
+                  <div className="main-content">
+                    <TimeOff />
+                  </div>
+                </div>
+              </ProtectedRoute>
+            } />
+            <Route path="/closing-duties" element={
+              <ProtectedRoute>
+                <div className="dashboard-wrapper">
+                  <Sidebar />
+                  <div className="main-content">
+                    <ClosingDuties />
                   </div>
                 </div>
               </ProtectedRoute>
