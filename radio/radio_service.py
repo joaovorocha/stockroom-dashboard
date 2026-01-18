@@ -792,6 +792,7 @@ def main() -> int:
         nonlocal squelch, squelch_delay_s
         nonlocal carrier_threshold_db, gate_hold_time
         nonlocal last_saved_mtime, last_live_mtime, last_cfg_check
+        nonlocal freq_adjusted, freq_target_hz, freq_offset_hz
 
         now = time.time()
         if now - last_cfg_check < 0.2:
@@ -862,6 +863,27 @@ def main() -> int:
         hz2 = parse_freq_to_hz(freq2) if freq2 else None
         if hz2 is None:
             hz2 = tune_hz
+
+        try:
+            plan = str(cfg2.get("radioChannelPlan") or "").strip()
+            if plan == "pmr446-16" and hz2 is not None:
+                snapped, adjusted, offset = snap_pmr446_center(int(hz2))
+                if adjusted and snapped is not None:
+                    freq_adjusted = bool(snapped != int(hz2))
+                    freq_target_hz = int(snapped)
+                    freq_offset_hz = int(offset)
+                    hz2 = int(snapped)
+                    freq2 = format_freq_mhz(int(snapped))
+                # Normalize channel list to PMR446 centers for scan stability.
+                if channels_cfg:
+                    for ch2 in channels_cfg:
+                        if ch2.get("freqHz"):
+                            s, a, o = snap_pmr446_center(int(ch2.get("freqHz")))
+                            if a and s is not None:
+                                ch2["freqHz"] = int(s)
+                                ch2["freq"] = format_freq_mhz(int(s))
+        except Exception:
+            pass
 
         default_ppm = safe_int(cfg2.get("defaultPpm", 25), 25)
         default_gain = safe_int(cfg2.get("defaultGain", 35), 35)
@@ -942,6 +964,9 @@ def main() -> int:
                 "error": reason or "rtl_sdr exited",
                 "stderr": (stderr_tail or "")[:400],
                 "freq": str(freq_str),
+                "freqAdjusted": bool(freq_adjusted),
+                "freqTarget": format_freq_mhz(int(freq_target_hz)) if freq_target_hz else None,
+                "freqOffsetHz": int(freq_offset_hz or 0),
                 "ppm": int(ppm),
                 "gain": int(gain),
                 "channelLabel": channel_label,
@@ -1593,6 +1618,9 @@ def main() -> int:
                                 "focusMarginDb": float(scan_focus_margin_db),
                             },
                             "freq": str(freq_str),
+                            "freqAdjusted": bool(freq_adjusted),
+                            "freqTarget": format_freq_mhz(int(freq_target_hz)) if freq_target_hz else None,
+                            "freqOffsetHz": int(freq_offset_hz or 0),
                             "ppm": int(ppm),
                             "gain": int(gain),
                             "channelLabel": channel_label,

@@ -1,7 +1,7 @@
 # Migration Guide: From Node.js Backend to React Frontend
 
 ## Overview
-This guide documents the current Node.js/PostgreSQL backend structure before migrating to a React frontend in the `/client` folder. It serves as a reference for active APIs, UI mappings, and database schemas.
+This guide documents the current Node.js/PostgreSQL backend structure before migrating to a React frontend in the `/client` cfolder. It serves as a reference for active APIs, UI mappings, and database schemas.
 
 ## Active API Endpoints
 

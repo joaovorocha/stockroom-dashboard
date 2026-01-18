@@ -18,6 +18,33 @@ const LOGS_DIR = getLogsDir();
 const RADIO_LOG_PATH = path.join(LOGS_DIR, 'radio.log');
 const TRANSCRIBE_LOG_PATH = path.join(LOGS_DIR, 'radio-transcriber.log');
 
+const PMR446_CENTERS_HZ = [
+  446006250, 446018750, 446031250, 446043750,
+  446056250, 446068750, 446081250, 446093750,
+  446106250, 446118750, 446131250, 446143750,
+  446156250, 446168750, 446181250, 446193750,
+];
+
+function parseFreqToHz(text) {
+  const s = String(text || '').trim();
+  const m = s.match(/([0-9.]+)\s*M/i);
+  if (m) return Math.round(parseFloat(m[1]) * 1e6);
+  const n = Number(s);
+  if (!Number.isFinite(n)) return null;
+  return n < 10000 ? Math.round(n * 1e6) : Math.round(n);
+}
+
+function nearestPmr446(hz) {
+  if (!Number.isFinite(hz)) return null;
+  let best = PMR446_CENTERS_HZ[0];
+  let bestDiff = Math.abs(best - hz);
+  for (const v of PMR446_CENTERS_HZ) {
+    const d = Math.abs(v - hz);
+    if (d < bestDiff) { best = v; bestDiff = d; }
+  }
+  return { centerHz: best, diffHz: hz - best };
+}
+
 const VENV_PYTHON = path.join(__dirname, '..', '.venv', 'bin', 'python');
 const PYTHON_INTERPRETER = fs.existsSync(VENV_PYTHON) ? VENV_PYTHON : 'python3';
 
@@ -96,18 +123,29 @@ function defaultConfig() {
   return {
     // Backward-compat: keep top-level freq/ppm/gain in sync with the active channel.
     freq: '446.01875M',
-    ppm: 25,
+    ppm: 2,
     gain: 35,
 
     // New: multi-channel support
     channels: [
-      { id: 'ch1', label: 'Ch 1', freq: '446.00625M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
-      { id: 'ch2', label: 'Ch 2', freq: '446.01875M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
-      { id: 'ch3', label: 'Ch 3', freq: '446.03125M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
-      { id: 'ch4', label: 'Ch 4', freq: '446.04375M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
-      { id: 'ch5', label: 'Ch 5', freq: '446.05625M', ppm: 25, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch1', label: 'Channel 1', freq: '446.00625M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch2', label: 'Channel 2', freq: '446.01875M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch3', label: 'Channel 3', freq: '446.03125M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch4', label: 'Channel 4', freq: '446.04375M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch5', label: 'Channel 5', freq: '446.05625M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch6', label: 'Channel 6', freq: '446.06875M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch7', label: 'Channel 7', freq: '446.08125M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch8', label: 'Channel 8', freq: '446.09375M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch9', label: 'Channel 9', freq: '446.10625M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch10', label: 'Channel 10', freq: '446.11875M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch11', label: 'Channel 11', freq: '446.13125M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch12', label: 'Channel 12', freq: '446.14375M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch13', label: 'Channel 13', freq: '446.15625M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch14', label: 'Channel 14', freq: '446.16875M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch15', label: 'Channel 15', freq: '446.18125M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
+      { id: 'pmr446-ch16', label: 'Channel 16', freq: '446.19375M', ppm: 2, gain: 35, ctcssHz: null, dcsCode: null },
     ],
-    activeChannelId: 'ch2',
+    activeChannelId: 'pmr446-ch2',
 
     squelch: 0,
     squelchDelay: 1,
@@ -121,7 +159,7 @@ function defaultConfig() {
     // Admin UI helpers (hardware model + mode). These are not used by the radio pipeline directly,
     // but allow the admin page to keep track of which preset the user is targeting.
     radioMode: 'automatic',
-    radioModel: 'clp446e',
+    radioModel: 'motorola-clp446e',
     radioChannelPlan: 'pmr446-16',
 
     // Automatic scan tuning (used by radio_service.py when radioMode=automatic)
@@ -129,13 +167,13 @@ function defaultConfig() {
     scanHoldS: 1.0,
     scanConfirmN: 3,
     scanMaxChannels: 5,
-    scanFocusId: 'ch2',
+    scanFocusId: 'pmr446-ch2',
     scanFocusMarginDb: 3,
     finderWindowS: 300,
     finderMinSamples: 10,
 
     model: 'tiny',
-    device: 'cpu',
+    device: 'auto',
     computeType: 'int8',
 
     // Audio processing
@@ -149,6 +187,9 @@ function defaultConfig() {
     },
     carrierThreshold: 18,
     gateHoldTime: 0.1,
+    defaultPpm: 2,
+    defaultGain: 35,
+    forceDefaults: true,
     audioConditioning: {
       enabled: true,
       highpassHz: 200,
@@ -203,9 +244,14 @@ function normalizeChannels(channels) {
 function normalizeConfig(raw) {
   const base = { ...defaultConfig(), ...(raw && typeof raw === 'object' ? raw : {}) };
 
+  if (base.forceDefaults) {
+    if (!Number.isFinite(base.defaultPpm)) base.defaultPpm = 2;
+    if (!Number.isFinite(base.defaultGain)) base.defaultGain = 35;
+  }
+
   // Migrate legacy single-channel config.
   const hasChannels = Array.isArray(raw?.channels) && raw.channels.length > 0;
-  const channels = hasChannels
+  let channels = hasChannels
     ? normalizeChannels(raw.channels)
     : normalizeChannels([
         {
@@ -217,11 +263,19 @@ function normalizeConfig(raw) {
         },
       ]);
 
+  if (base.forceDefaults) {
+    channels = channels.map((ch) => ({
+      ...ch,
+      ppm: Number.isFinite(ch.ppm) && ch.ppm !== 0 ? ch.ppm : base.defaultPpm,
+      gain: Number.isFinite(ch.gain) && ch.gain !== 0 ? ch.gain : base.defaultGain,
+    }));
+  }
+
   let activeChannelId = String(raw?.activeChannelId || base.activeChannelId || channels[0].id || 'default');
   if (!channels.some(c => c.id === activeChannelId)) activeChannelId = channels[0].id;
 
   const active = channels.find(c => c.id === activeChannelId) || channels[0];
-  return {
+  const normalized = {
     ...base,
     channels,
     activeChannelId,
@@ -230,6 +284,26 @@ function normalizeConfig(raw) {
     ppm: safeInt(active?.ppm, safeInt(base.ppm, 0)),
     gain: safeInt(active?.gain, safeInt(base.gain, 0)),
   };
+
+  if (normalized.radioChannelPlan === 'pmr446-16') {
+    const warnings = [];
+    normalized.channels = (normalized.channels || []).map((ch) => {
+      const parsed = parseFreqToHz(ch.freq);
+      if (!Number.isFinite(parsed)) {
+        warnings.push({ id: ch.id, issue: 'invalid_freq', freq: ch.freq });
+        return ch;
+      }
+      const nearest = nearestPmr446(parsed);
+      if (!nearest) return ch;
+      if (Math.abs(nearest.diffHz) >= 2500) {
+        warnings.push({ id: ch.id, issue: 'non_pmr446', freq: ch.freq, nearestHz: nearest.centerHz, offsetHz: nearest.diffHz });
+      }
+      return ch;
+    });
+    normalized.validation = { warnings };
+  }
+
+  return normalized;
 }
 
 function loadConfigFrom(filePath) {

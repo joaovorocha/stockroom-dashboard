@@ -1,42 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React from 'react';
+import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await axios.get('/api/auth/check', { withCredentials: true });
-        setUser(response.data.user);
-      } catch (err) {
-        // Redirect to login if not authenticated
-        window.location.href = '/login';
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  if (loading) return <div>Loading...</div>;
+  const { user } = useAuth();
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Welcome to Stockroom Dashboard</h1>
+    <div>
+      <h1>Dashboard</h1>
+      <p>Welcome to the Stockroom Dashboard!</p>
       {user && (
-        <div>
-          <p>Hello, {user.name}!</p>
-          <p>Role: {user.role}</p>
+        <div style={{
+          backgroundColor: '#f8f9fa',
+          padding: '20px',
+          borderRadius: '8px',
+          marginTop: '20px'
+        }}>
+          <h3>User Information</h3>
+          <p><strong>Name:</strong> {user.name}</p>
+          <p><strong>Role:</strong> {user.role}</p>
+          <p><strong>Employee ID:</strong> {user.employeeId}</p>
         </div>
       )}
-      <nav>
-        <a href="/shipments">Shipments</a> | 
-        <a href="/gameplan">Gameplan</a> | 
-        <a href="/admin">Admin</a>
-      </nav>
+      <div style={{ marginTop: '30px' }}>
+        <h3>Quick Actions</h3>
+        <ul>
+          <li><a href="/shipments">View Shipments</a></li>
+          <li><a href="/gameplan">Check Gameplan</a></li>
+          {user?.role?.toLowerCase() === 'management' && (
+            <li><a href="/admin">Admin Panel</a></li>
+          )}
+        </ul>
+      </div>
     </div>
   );
 };

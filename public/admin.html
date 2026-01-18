@@ -2333,6 +2333,34 @@
         if (el) el.textContent = text || '';
       }
 
+      function buildRadioMetaMessage() {
+        const cfg = radioAdmin.config;
+        const base = radioAdmin.draft
+          ? 'Live changes are active (NOT saved). Click Save to keep them.'
+          : 'Hot config applies automatically (no restart needed for channel changes).';
+        if (!cfg) return base;
+        const warnings = cfg?.validation?.warnings || [];
+        if (!warnings.length) return base;
+        const map = new Map((cfg.channels || []).map(ch => [ch.id, ch]));
+        const details = warnings.slice(0, 3).map((w) => {
+          const ch = map.get(w.id) || {};
+          const name = ch.label || w.id || 'Channel';
+          if (w.issue === 'invalid_freq') return `${name}: invalid freq ${w.freq}`;
+          if (w.issue === 'non_pmr446') {
+            const nearest = Number.isFinite(w.nearestHz) ? `${(w.nearestHz / 1e6).toFixed(5)}M` : 'unknown';
+            const offset = Number.isFinite(w.offsetHz) ? `${Math.round(w.offsetHz)} Hz` : '';
+            return `${name}: ${w.freq} (nearest ${nearest}${offset ? `, ${offset}` : ''})`;
+          }
+          return `${name}: ${w.issue}`;
+        });
+        const extra = warnings.length > 3 ? ` +${warnings.length - 3} more` : '';
+        return `${base} ⚠ PMR446 warnings: ${warnings.length}. ${details.join(' | ')}${extra}`;
+      }
+
+      function refreshRadioMeta() {
+        setRadioMeta(buildRadioMetaMessage());
+      }
+
       function setRadioListenStatus(text) {
         const el = document.getElementById('radioListenStatus');
         if (el) el.textContent = text || '';
@@ -2763,6 +2791,8 @@
         
         applyRadioModeUi();
 
+        refreshRadioMeta();
+
         const activeSel = document.getElementById('radioActiveChannel');
         if (activeSel) {
           activeSel.innerHTML = '';
@@ -2808,9 +2838,7 @@
           radioAdmin.privileged = !!data.privileged;
           radioAdmin.draft = !!data.draft;
 
-          setRadioMeta(radioAdmin.draft
-            ? 'Live changes are active (NOT saved). Click Save to keep them.'
-            : 'Hot config applies automatically (no restart needed for channel changes).');
+          refreshRadioMeta();
           renderRadioConfig();
           await refreshRadioServiceStatus();
         } catch (e) {
