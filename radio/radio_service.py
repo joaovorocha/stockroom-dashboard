@@ -16,6 +16,26 @@ from pathlib import Path
 
 import numpy as np
 
+# PMR446 channel centers (Hz)
+PMR446_CENTERS_HZ = [
+    446_006_250,
+    446_018_750,
+    446_031_250,
+    446_043_750,
+    446_056_250,
+    446_068_750,
+    446_081_250,
+    446_093_750,
+    446_106_250,
+    446_118_750,
+    446_131_250,
+    446_143_750,
+    446_156_250,
+    446_168_750,
+    446_181_250,
+    446_193_750,
+]
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -99,6 +119,20 @@ def parse_freq_to_hz(text: str | None) -> int | None:
         return int(round(n))
     except Exception:
         return None
+
+
+def format_freq_mhz(hz: int) -> str:
+    return f"{float(hz) / 1_000_000.0:.5f}M"
+
+
+def snap_pmr446_center(hz: int | None, tolerance_hz: int = 7000) -> tuple[int | None, bool, int]:
+    if hz is None:
+        return None, False, 0
+    nearest = min(PMR446_CENTERS_HZ, key=lambda v: abs(v - int(hz)))
+    diff = int(hz) - int(nearest)
+    if abs(diff) <= int(tolerance_hz):
+        return int(nearest), True, diff
+    return int(hz), False, diff
 
 
 def extract_active_channel(cfg: dict) -> tuple[str | None, int, int, str]:
@@ -452,6 +486,28 @@ def main() -> int:
     scan_focus_id = resolve_focus_channel_id(channels_cfg, scan_focus_id)
 
     tune_hz = parse_freq_to_hz(freq_str) or 446_018_750
+    freq_adjusted = False
+    freq_target_hz = int(tune_hz)
+    freq_offset_hz = 0
+    try:
+        plan = str(cfg_obj.get("radioChannelPlan") or "").strip()
+        if plan == "pmr446-16":
+            snapped, adjusted, offset = snap_pmr446_center(int(tune_hz))
+            if adjusted and snapped is not None:
+                freq_adjusted = bool(snapped != int(tune_hz))
+                freq_target_hz = int(snapped)
+                freq_offset_hz = int(offset)
+                tune_hz = int(snapped)
+                freq_str = format_freq_mhz(int(snapped))
+                # Normalize channel list to PMR446 centers for scan stability.
+                for ch in channels_cfg:
+                    if ch.get("freqHz"):
+                        s, a, o = snap_pmr446_center(int(ch.get("freqHz")))
+                        if a and s is not None:
+                            ch["freqHz"] = int(s)
+                            ch["freq"] = format_freq_mhz(int(s))
+    except Exception:
+        pass
     sdr_center_hz = pick_sdr_center_hz(cfg_obj, tune_hz)
 
     # Keep rtl_sdr settings stable to avoid audible dropouts on live edits.

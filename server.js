@@ -295,6 +295,16 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// DEV ONLY: React preview redirect to Vite dev server.
+// NOTE: Keep this during the transition phase, remove for production builds.
+app.get(['/react-preview', '/react-preview/*'], (req, res) => {
+  const suffix = (req.originalUrl || '').replace(/^\/react-preview/, '') || '/';
+  return res.redirect(302, `http://localhost:5173/react-preview${suffix}`);
+});
+
+// Serve React app static files
+app.use(express.static(path.join(__dirname, 'client/build')));
+
 // Serve closing duties photos (auth required)
 app.use('/closing-duties', authMiddleware, express.static(dal.paths.closingDutiesDir));
 // Routes - Order matters! More specific routes before generic ones
@@ -827,6 +837,11 @@ server.on('upgrade', (req, socket, head) => {
       wssRadioMonitor.emit('connection', ws, req);
     });
   })();
+});
+
+// Catch-all handler: send back React's index.html for client-side routing
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client/build/index.html'));
 });
 
 server.listen(PORT, '0.0.0.0', () => {
