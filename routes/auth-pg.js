@@ -698,15 +698,17 @@ router.post('/users', requireAdmin, async (req, res) => {
 });
 
 // PUT /api/auth/users/:id - Update user (managers only)
-router.put('/users/:id', async (req, res) => {
+// SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
+router.put('/users/:id', requireAdmin, async (req, res) => {
   try {
     const currentUser = await getVerifiedSessionUser(req);
     if (!currentUser) {
       return res.status(401).json({ error: 'Not authenticated' });
-// SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
-router.put('/users/:id', requireAdmin, async (req, res) => {
-  try {
-    // Authentication and permission checks moved to requireAdmin middleware/ Get existing user
+    }
+    
+    const { id } = req.params;
+    
+    // Get existing user
     const userResult = await query('SELECT * FROM users WHERE id = $1 AND is_active = true', [id]);
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });

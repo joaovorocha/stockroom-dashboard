@@ -6,22 +6,15 @@
  * Prevents race conditions and ensures data integrity
  */
 
-const { Pool } = require('pg');
+const { getPool } = require('../db/setup-database');
 
-// Get connection string
-const connectionString = process.env.DATABASE_URL || process.env.PG_CONNECTION_STRING;
-
-if (!connectionString) {
-  throw new Error('DATABASE_URL or PG_CONNECTION_STRING environment variable is required');
+// Get existing pool from setup-database
+let pool;
+try {
+  pool = getPool();
+} catch (error) {
+  console.error('[TRANSACTION] Warning: Could not get database pool. Transactions will fail.', error.message);
 }
-
-// Create pool for transactions
-const pool = new Pool({
-  connectionString,
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
 
 /**
  * Execute callback within a PostgreSQL transaction
@@ -38,6 +31,9 @@ const pool = new Pool({
  * });
  */
 async function withTransaction(callback) {
+  if (!pool) {
+    throw new Error('Database pool not available');
+  }
   const client = await pool.connect();
   
   try {
