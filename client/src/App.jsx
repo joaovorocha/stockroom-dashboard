@@ -19,12 +19,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={
               <ProtectedRoute>
-                <div className="dashboard-wrapper">
-                  <Sidebar />
-                  <div className="main-content">
-                    <Dashboard />
-                  </div>
-                </div>
+                <Dashboard />
               </ProtectedRoute>
             } />
             <Route path="/shipments" element={
