@@ -51,6 +51,7 @@ const AWARDS_CONFIG_FILE = path.join(DATA_DIR, 'awards-config.json');
 const WORK_EXPENSES_CONFIG_FILE = path.join(DATA_DIR, 'work-expenses-config.json');
 const STORE_RECOVERY_CONFIG_FILE = dal.paths.storeRecoveryConfigFile || path.join(DATA_DIR, 'store-recovery-config.json');
 const OPENVINO_METRICS_FILE = path.join(DATA_DIR, 'radio', 'openvino_metrics.json');
+const OPENVINO_METRICS_FALLBACK = path.join(__dirname, '..', 'data', 'radio', 'openvino_metrics.json');
 
 // Default suitsApi host root (used when admin doesn't have/scan a base URL).
 const DEFAULT_STORE_RECOVERY_BASE_URL = 'https://printlabel.tst.suitapi.com/';
@@ -81,8 +82,12 @@ function extractFirstUrl(text) {
 
 function readOpenvinoMetrics() {
   try {
-    if (!fs.existsSync(OPENVINO_METRICS_FILE)) return { available: false };
-    const raw = fs.readFileSync(OPENVINO_METRICS_FILE, 'utf8');
+    let metricsPath = OPENVINO_METRICS_FILE;
+    if (!fs.existsSync(metricsPath) && fs.existsSync(OPENVINO_METRICS_FALLBACK)) {
+      metricsPath = OPENVINO_METRICS_FALLBACK;
+    }
+    if (!fs.existsSync(metricsPath)) return { available: false };
+    const raw = fs.readFileSync(metricsPath, 'utf8');
     const data = JSON.parse(raw);
     return { available: true, data };
   } catch (e) {
