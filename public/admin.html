@@ -3038,6 +3038,18 @@
         try { await radioMonitor.audioCtx.resume(); } catch {}
         startRadioAudioPump();
 
+        // Start fallback audio immediately (user gesture context), then switch to WS when available.
+        const audioEl = document.getElementById('radioLiveAudio');
+        if (audioEl) {
+          audioEl.src = `/api/radio/live-audio?ts=${Date.now()}`;
+          audioEl.play().then(() => {
+            radioMonitor.fallbackOn = true;
+            setRadioListenStatus('Live listen: Fallback stream');
+          }).catch(() => {
+            setRadioListenStatus('Live listen: Tap to allow audio');
+          });
+        }
+
         const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
         const url = `${proto}://${window.location.host}/ws/radio-monitor`;
         console.log('[radio] Connecting to:', url);
