@@ -37,6 +37,7 @@ const webhookRoutes = require('./routes/webhooks'); // Import webhook routes
 const aiAssignmentRoutes = require('./routes/ai-assignment'); // Import AI assignment routes
 const authMiddleware = require('./middleware/auth-pg');
 const dal = require('./utils/dal');
+const { query: pgQuery } = require('./utils/dal/pg');
 const { markActive } = require('./utils/active-users');
 
 const RADIO_DATA_DIR = path.join(dal.paths.dataDir, 'radio');
@@ -605,7 +606,7 @@ function decodeCookieValue(v) {
   }
 }
 
-function validateSessionFromCookie(cookieHeader) {
+async function validateSessionFromCookie(cookieHeader) {
   const cookies = parseCookieHeader(cookieHeader);
   const sessionRaw = cookies.userSession;
   if (!sessionRaw) return null;
@@ -615,6 +616,44 @@ function validateSessionFromCookie(cookieHeader) {
     sessionObj = JSON.parse(decodeCookieValue(sessionRaw));
   } catch {
     return null;
+  }
+
+  try {
+    if (pgQuery) {
+      const result = await pgQuery(`
+        SELECT 
+          u.id, u.employee_id, u.name, u.email, u.role,
+          u.image_url, u.is_manager, u.is_admin, u.can_edit_gameplan,
+          u.can_config_radio, u.can_manage_lost_punch, u.must_change_password
+        FROM user_sessions s 
+        JOIN users u ON s.user_id = u.id 
+        WHERE s.session_token = $1 
+          AND s.expires_at > NOW()
+          AND u.is_active = true
+        LIMIT 1
+      `, [sessionRaw]);
+
+      if (result?.rows?.length) {
+        const user = result.rows[0];
+        return {
+          userId: user.id,
+          id: user.id,
+          employeeId: user.employee_id,
+          name: user.name,
+          email: user.email || '',
+          role: user.role,
+          imageUrl: user.image_url,
+          isManager: user.is_manager,
+          isAdmin: user.is_admin,
+          canEditGameplan: user.can_edit_gameplan,
+          canConfigRadio: user.can_config_radio,
+          canManageLostPunch: user.can_manage_lost_punch,
+          mustChangePassword: user.must_change_password,
+        };
+      }
+    }
+  } catch {
+    // fall through to file-based lookup
   }
 
   const usersFile = dal.paths.usersFile;
@@ -772,19 +811,21 @@ server.on('upgrade', (req, socket, head) => {
     return;
   }
 
-  const user = validateSessionFromCookie(req.headers.cookie || '');
-  if (!user) {
-    try {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-    } catch {}
-    try { socket.destroy(); } catch {}
-    return;
-  }
+  (async () => {
+    const user = await validateSessionFromCookie(req.headers.cookie || '');
+    if (!user) {
+      try {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      } catch {}
+      try { socket.destroy(); } catch {}
+      return;
+    }
 
-  wssRadioMonitor.handleUpgrade(req, socket, head, (ws) => {
-    ws.user = user;
-    wssRadioMonitor.emit('connection', ws, req);
-  });
+    wssRadioMonitor.handleUpgrade(req, socket, head, (ws) => {
+      ws.user = user;
+      wssRadioMonitor.emit('connection', ws, req);
+    });
+  })();
 });
 
 server.listen(PORT, '0.0.0.0', () => {
