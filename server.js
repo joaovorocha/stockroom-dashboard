@@ -198,10 +198,22 @@ app.use((req, res, next) => {
     }
   }
 
+  // Allow Vite dev server origins for development
+  const allowedDevOrigins = [
+    'localhost:5174',
+    '127.0.0.1:5174',
+    '100.84.243.127:5174',
+    '10.201.48.17:5174'
+  ];
+
   // Prefer Origin when present.
   if (origin) {
     const originHost = getHostFromUrl(origin);
-    if (!originHost || originHost !== expectedHost) {
+    if (!originHost) {
+      return res.status(403).json({ error: 'Invalid origin' });
+    }
+    // Allow if origin matches expected host OR is an allowed dev origin
+    if (originHost !== expectedHost && !allowedDevOrigins.includes(originHost)) {
       return res.status(403).json({ error: 'Invalid origin' });
     }
     return next();
@@ -210,7 +222,11 @@ app.use((req, res, next) => {
   // Fall back to Referer if Origin is absent.
   if (referer) {
     const refererHost = getHostFromUrl(referer);
-    if (!refererHost || refererHost !== expectedHost) {
+    if (!refererHost) {
+      return res.status(403).json({ error: 'Invalid referer' });
+    }
+    // Allow if referer matches expected host OR is an allowed dev origin
+    if (refererHost !== expectedHost && !allowedDevOrigins.includes(refererHost)) {
       return res.status(403).json({ error: 'Invalid referer' });
     }
   }
