@@ -264,6 +264,40 @@ function readServiceState() {
   }
 }
 
+function statFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return { exists: false };
+    const st = fs.statSync(filePath);
+    return {
+      exists: true,
+      size: st.size,
+      mtime: st.mtime.toISOString(),
+      ageMs: Date.now() - st.mtimeMs,
+    };
+  } catch (e) {
+    return { exists: false, error: e?.message || 'stat failed' };
+  }
+}
+
+function sniffWavHeader(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return { ok: false };
+    const fd = fs.openSync(filePath, 'r');
+    try {
+      const buf = Buffer.alloc(12);
+      const read = fs.readSync(fd, buf, 0, buf.length, 0);
+      if (read < 12) return { ok: false };
+      const riff = buf.slice(0, 4).toString('ascii');
+      const wave = buf.slice(8, 12).toString('ascii');
+      return { ok: riff === 'RIFF' && wave === 'WAVE', riff, wave };
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch (e) {
+    return { ok: false, error: e?.message || 'read failed' };
+  }
+}
+
 function writeServiceState(state) {
   try {
     ensureDir(SERVICE_PATH);
@@ -557,6 +591,90 @@ router.get('/service', (req, res) => {
       }
     });
   });
+});
+
+router.get('/diagnostics', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  (async () => {
+    const procs = await getRadioProc();
+    const livePath = path.join(RADIO_DATA_DIR, 'live.json');
+    const segmentsPath = path.join(RADIO_DATA_DIR, 'segments.jsonl');
+    const liveAudioPath = path.join(RADIO_DATA_DIR, 'live-audio.wav');
+    const transcriptsPath = path.join(RADIO_DATA_DIR, 'transcripts.jsonl');
+    const metricsPath = path.join(RADIO_DATA_DIR, 'openvino_metrics.json');
+
+    const liveStat = statFile(livePath);
+    const segmentsStat = statFile(segmentsPath);
+    const liveAudioStat = statFile(liveAudioPath);
+    const transcriptsStat = statFile(transcriptsPath);
+    const metricsStat = statFile(metricsPath);
+    const wavHeader = sniffWavHeader(liveAudioPath);
+
+    const stale = {
+      live: liveStat.exists ? liveStat.ageMs > 30000 : true,
+      segments: segmentsStat.exists ? segmentsStat.ageMs > 120000 : true,
+      liveAudio: liveAudioStat.exists ? liveAudioStat.ageMs > 30000 : true,
+      metrics: metricsStat.exists ? metricsStat.ageMs > 300000 : true,
+    };
+
+    return res.json({
+      ok: true,
+      now: new Date().toISOString(),
+      pm2: {
+        radio: {
+          status: procs?.radio?.pm2_env?.status || 'stopped',
+          pid: procs?.radio?.pid || null,
+        },
+        transcriber: {
+          status: procs?.transcriber?.pm2_env?.status || 'stopped',
+          pid: procs?.transcriber?.pid || null,
+        },
+      },
+      files: {
+        live: liveStat,
+        segments: segmentsStat,
+        liveAudio: liveAudioStat,
+        transcripts: transcriptsStat,
+        openvinoMetrics: metricsStat,
+        wavHeader,
+      },
+      stale,
+    });
+  })();
+});
+
+router.post('/diagnostics/repair', (req, res) => {
+  if (!requirePrivileged(req, res)) return;
+  (async () => {
+    const actions = [];
+    const diag = await new Promise((resolve) => {
+      const livePath = path.join(RADIO_DATA_DIR, 'live.json');
+      const segmentsPath = path.join(RADIO_DATA_DIR, 'segments.jsonl');
+      const liveAudioPath = path.join(RADIO_DATA_DIR, 'live-audio.wav');
+      const metricsPath = path.join(RADIO_DATA_DIR, 'openvino_metrics.json');
+
+      const liveStat = statFile(livePath);
+      const segmentsStat = statFile(segmentsPath);
+      const liveAudioStat = statFile(liveAudioPath);
+      const metricsStat = statFile(metricsPath);
+
+      resolve({ liveStat, segmentsStat, liveAudioStat, metricsStat });
+    });
+
+    const shouldRestartRadio = diag.liveStat.ageMs > 30000 || diag.liveAudioStat.ageMs > 30000 || !diag.liveStat.exists;
+    const shouldRestartTranscriber = diag.segmentsStat.ageMs > 120000 || !diag.segmentsStat.exists || diag.metricsStat.ageMs > 300000;
+
+    if (shouldRestartRadio) {
+      actions.push('restart radio');
+      await execPm2(['restart', 'radio']);
+    }
+    if (shouldRestartTranscriber) {
+      actions.push('restart radio-transcriber');
+      await execPm2(['restart', 'radio-transcriber']);
+    }
+
+    return res.json({ ok: true, actions });
+  })();
 });
 
 

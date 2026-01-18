@@ -767,6 +767,7 @@
                   </div>
                 </div>
               </div>
+              <audio id="radioLiveAudio" style="display:none" preload="none"></audio>
             </div>
 
             <div class="health-grid" style="margin-bottom:12px;">
@@ -826,6 +827,19 @@
                 </div>
               </div>
             </div>
+            <div class="admin-card" style="margin:0 0 12px;">
+              <div class="admin-card-header">
+                <h3>Radio Diagnostics</h3>
+                <div style="display:flex; gap:8px;">
+                  <button class="btn btn-outline btn-sm" id="radioDiagBtn">Run Diagnostics</button>
+                  <button class="btn btn-secondary btn-sm" id="radioFixBtn">Auto-Fix</button>
+                </div>
+              </div>
+              <div class="admin-card-body">
+                <div id="radioDiagStatus" style="font-size:12px; color:#777; margin-bottom:8px;">Diagnostics idle.</div>
+                <pre id="radioDiagOutput" style="background:#f8f8f8; border:1px solid #e0e0e0; padding:10px; border-radius:6px; font-size:12px; white-space:pre-wrap; word-break:break-word; max-height:220px; overflow:auto;"></pre>
+              </div>
+            </div>
             <!-- LIVE STATUS CARD (static, non-moving) -->
             <div style="background:#f0f0f0; border:1px solid #ddd; border-radius:6px; padding:12px; margin:12px 0 16px; font-size:13px;">
               <div style="font-weight:600; margin-bottom:8px;">📡 Live Status</div>
@@ -849,7 +863,8 @@
               Tip: In <b>Automatic</b> mode, use “Apply Automatic” to quickly set VAD / gain / drift. In <b>Manual</b> mode, edit each channel.
             </div>
 
-            <div class="radio-section" data-radio-capture-only="1">
+            <details class="radio-section" data-radio-capture-only="1">
+              <summary style="font-weight:600; cursor:pointer;">Advanced Radio Configuration</summary>
               <div class="radio-section-header">
                 <div>
                   <h3>📡 Radio Configuration</h3>
@@ -882,7 +897,7 @@
                 </select>
                 <div style="font-size:12px; color:#777; margin-top:6px;">PMR446 generates 16 standard 446MHz channels.</div>
               </div>
-            </div>
+            </details>
 
             <!-- PRESET SECTION (only shown in Automatic mode) -->
             <div id="radioPresetSection" style="display:none; background:#f9f9f9; padding:12px; border-radius:6px; margin:12px 0; border-left:3px solid #ffc107;">
@@ -1060,7 +1075,8 @@
             </div>
           </div>
 
-            <div class="radio-section" data-radio-capture-only="1">
+            <details class="radio-section" data-radio-capture-only="1">
+              <summary style="font-weight:600; cursor:pointer;">Advanced Audio Processing</summary>
               <div class="radio-section-header">
                 <div>
                   <h3>🎚️ Audio Processing</h3>
@@ -1134,7 +1150,7 @@
                   <div style="font-size:12px; color:#777; margin-top:6px;">Final volume boost. Increase if audio too quiet. Typical: 12-18.</div>
                 </div>
               </div>
-            </div>
+            </details>
 
             <datalist id="radioFreqList"></datalist>
           </div>
@@ -2852,6 +2868,38 @@
           showToast(e?.message || 'Service action failed', 'error');
         }
       }
+
+      async function runRadioDiagnostics() {
+        const statusEl = document.getElementById('radioDiagStatus');
+        const outEl = document.getElementById('radioDiagOutput');
+        if (statusEl) statusEl.textContent = 'Running diagnostics…';
+        try {
+          const resp = await fetch('/api/radio/diagnostics', { credentials: 'include' });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error(data?.error || `Diagnostics failed (HTTP ${resp.status})`);
+          if (outEl) outEl.textContent = JSON.stringify(data, null, 2);
+          if (statusEl) statusEl.textContent = 'Diagnostics complete.';
+        } catch (e) {
+          if (statusEl) statusEl.textContent = e?.message || 'Diagnostics failed.';
+          if (outEl) outEl.textContent = '';
+          showToast(e?.message || 'Diagnostics failed', 'error');
+        }
+      }
+
+      async function runRadioAutoFix() {
+        const statusEl = document.getElementById('radioDiagStatus');
+        if (statusEl) statusEl.textContent = 'Running auto-fix…';
+        try {
+          const resp = await fetch('/api/radio/diagnostics/repair', { method: 'POST', credentials: 'include' });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok || !data.ok) throw new Error(data?.error || `Auto-fix failed (HTTP ${resp.status})`);
+          showToast('Auto-fix complete');
+          await runRadioDiagnostics();
+        } catch (e) {
+          if (statusEl) statusEl.textContent = e?.message || 'Auto-fix failed.';
+          showToast(e?.message || 'Auto-fix failed', 'error');
+        }
+      }
       // --- Live audio monitor (WebSocket -> WebAudio) ---
       const radioMonitor = {
         ws: null,
@@ -2863,6 +2911,9 @@
         queuedSamples: 0,
         enabled: false,
         meterLastAt: 0,
+        lastAudioAt: 0,
+        fallbackTimer: null,
+        fallbackOn: false,
       };
 
       function updateRadioListenMeterFromFloat32(f32) {
@@ -3032,6 +3083,16 @@
             f32 = resampleLinear(f32, radioMonitor.sourceSampleRate, dstRate);
             updateRadioListenMeterFromFloat32(f32);
             enqueueRadioAudio(f32);
+            radioMonitor.lastAudioAt = Date.now();
+            if (radioMonitor.fallbackOn) {
+              const audioEl = document.getElementById('radioLiveAudio');
+              if (audioEl) {
+                try { audioEl.pause(); } catch {}
+                audioEl.removeAttribute('src');
+                audioEl.load();
+              }
+              radioMonitor.fallbackOn = false;
+            }
           } catch {}
         };
 
@@ -3042,6 +3103,22 @@
           }
           stopRadioLiveListen();
         };
+
+        radioMonitor.fallbackTimer = window.setInterval(() => {
+          if (!radioMonitor.enabled) return;
+          const age = radioMonitor.lastAudioAt ? (Date.now() - radioMonitor.lastAudioAt) : 99999;
+          if (age > 2000 && !radioMonitor.fallbackOn) {
+            const audioEl = document.getElementById('radioLiveAudio');
+            if (!audioEl) return;
+            audioEl.src = `/api/radio/live-audio?ts=${Date.now()}`;
+            audioEl.play().then(() => {
+              radioMonitor.fallbackOn = true;
+              setRadioListenStatus('Live listen: Fallback stream');
+            }).catch(() => {
+              setRadioListenStatus('Live listen: Tap to allow audio');
+            });
+          }
+        }, 800);
       }
 
       function stopRadioLiveListen() {
@@ -3055,6 +3132,18 @@
         }
         radioMonitor.enabled = false;
         setRadioListenStatus('Live listen: Off');
+        radioMonitor.lastAudioAt = 0;
+        if (radioMonitor.fallbackTimer) {
+          window.clearInterval(radioMonitor.fallbackTimer);
+          radioMonitor.fallbackTimer = null;
+        }
+        const audioEl = document.getElementById('radioLiveAudio');
+        if (audioEl) {
+          try { audioEl.pause(); } catch {}
+          audioEl.removeAttribute('src');
+          audioEl.load();
+        }
+        radioMonitor.fallbackOn = false;
 
         try { radioMonitor.ws?.close(); } catch {}
         radioMonitor.ws = null;
@@ -3312,6 +3401,8 @@
         const captureStopBtn = document.getElementById('radioCaptureStopBtn');
         const transStartBtn = document.getElementById('radioTranscriberStartBtn');
         const transStopBtn = document.getElementById('radioTranscriberStopBtn');
+        const diagBtn = document.getElementById('radioDiagBtn');
+        const fixBtn = document.getElementById('radioFixBtn');
 
         if (helpBtn) helpBtn.classList.add('btn-circle');
         if (helpBtn) helpBtn.addEventListener('click', () => {
@@ -3335,6 +3426,8 @@
         if (captureStopBtn) captureStopBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/stop-radio'));
         if (transStartBtn) transStartBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/start-transcriber'));
         if (transStopBtn) transStopBtn.addEventListener('click', () => radioServiceAction('/api/radio/service/stop-transcriber'));
+        if (diagBtn) diagBtn.addEventListener('click', runRadioDiagnostics);
+        if (fixBtn) fixBtn.addEventListener('click', runRadioAutoFix);
 
         // Keep the tuned freq/band display fresh (supports live edits).
         refreshRadioLiveOnce();
