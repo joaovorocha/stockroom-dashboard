@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Shipments from './pages/Shipments';
+import Gameplan from './pages/Gameplan';
 import './App.css';
 
 function App() {
@@ -31,6 +32,16 @@ function App() {
                   <Sidebar />
                   <div style={{ marginLeft: '250px', width: '100%', padding: '20px' }}>
                     <Shipments />
+                  </div>
+                </div>
+              </ProtectedRoute>
+            } />
+            <Route path="/gameplan" element={
+              <ProtectedRoute>
+                <div style={{ display: 'flex' }}>
+                  <Sidebar />
+                  <div style={{ marginLeft: '250px', width: '100%', padding: '20px' }}>
+                    <Gameplan />
                   </div>
                 </div>
               </ProtectedRoute>
