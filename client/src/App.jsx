@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import SharedHeader from './components/SharedHeader';
+import Header from './components/Header';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Shipments from './pages/Shipments';
@@ -21,41 +21,52 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={
               <ProtectedRoute>
-                <SharedHeader />
-                <Dashboard />
+                <>
+                  <Header />
+                  <Dashboard />
+                </>
               </ProtectedRoute>
             } />
             <Route path="/shipments" element={
               <ProtectedRoute>
-                <SharedHeader />
-                <Shipments />
+                <>
+                  <Header />
+                  <Shipments />
+                </>
               </ProtectedRoute>
             } />
             <Route path="/gameplan" element={
               <ProtectedRoute>
-                <SharedHeader />
-                <Gameplan />
+                <>
+                  <Header />
+                  <Gameplan />
+                </>
               </ProtectedRoute>
             } />
             <Route path="/admin-users" element={
               <ProtectedRoute>
-                <SharedHeader />
-                <AdminUsers />
+                <>
+                  <Header />
+                  <AdminUsers />
+                </>
               </ProtectedRoute>
             } />
             <Route path="/time-off" element={
               <ProtectedRoute>
-                <SharedHeader />
-                <TimeOff />
+                <>
+                  <Header />
+                  <TimeOff />
+                </>
               </ProtectedRoute>
             } />
             <Route path="/closing-duties" element={
               <ProtectedRoute>
-                <SharedHeader />
-                <ClosingDuties />
+                <>
+                  <Header />
+                  <ClosingDuties />
+                </>
               </ProtectedRoute>
             } />
-            {/* Add more protected routes as needed */}
           </Routes>
         </div>
       </Router>
