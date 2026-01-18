@@ -615,7 +615,7 @@ async function validateSessionFromCookie(cookieHeader) {
   try {
     sessionObj = JSON.parse(decodeCookieValue(sessionRaw));
   } catch {
-    return null;
+    sessionObj = null;
   }
 
   try {
@@ -658,6 +658,7 @@ async function validateSessionFromCookie(cookieHeader) {
 
   const usersFile = dal.paths.usersFile;
   try {
+    if (!sessionObj) return null;
     if (!fs.existsSync(usersFile)) return null;
     const usersData = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
     const list = usersData.users || [];
