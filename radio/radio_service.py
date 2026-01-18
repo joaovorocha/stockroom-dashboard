@@ -1455,10 +1455,10 @@ def main() -> int:
                         dropped = pre_roll_buf.popleft()
                         pre_roll_samples -= int(dropped.size)
 
-                # Rolling listen buffer
+                # Rolling listen buffer (use raw audio so live listen works even when gate is closed)
                 try:
                     if live_audio_keep > 0:
-                        live_audio_buf = np.concatenate([live_audio_buf, out_pcm]).astype(np.int16)
+                        live_audio_buf = np.concatenate([live_audio_buf, chunk_pcm]).astype(np.int16)
                         if live_audio_buf.size > live_audio_keep:
                             live_audio_buf = live_audio_buf[-live_audio_keep:]
                         now_audio = time.time()
