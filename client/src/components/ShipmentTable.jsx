@@ -154,7 +154,7 @@ export default function ShipmentTable() {
         </div>
       </div>
 
-      <table className="shipment-table">
+      <table className="table shipment-table">
         <thead>
           <tr>
             <th>Tracking Number</th>

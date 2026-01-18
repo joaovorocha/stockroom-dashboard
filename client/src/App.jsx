@@ -19,7 +19,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={
               <ProtectedRoute>
-                <div className="wrapper">
+                <div className="dashboard-wrapper">
                   <Sidebar />
                   <div className="main-content">
                     <Dashboard />
@@ -29,7 +29,7 @@ function App() {
             } />
             <Route path="/shipments" element={
               <ProtectedRoute>
-                <div className="wrapper">
+                <div className="dashboard-wrapper">
                   <Sidebar />
                   <div className="main-content">
                     <Shipments />
@@ -39,7 +39,7 @@ function App() {
             } />
             <Route path="/gameplan" element={
               <ProtectedRoute>
-                <div className="wrapper">
+                <div className="dashboard-wrapper">
                   <Sidebar />
                   <div className="main-content">
                     <Gameplan />
@@ -49,7 +49,7 @@ function App() {
             } />
             <Route path="/admin-users" element={
               <ProtectedRoute>
-                <div className="wrapper">
+                <div className="dashboard-wrapper">
                   <Sidebar />
                   <div className="main-content">
                     <AdminUsers />
