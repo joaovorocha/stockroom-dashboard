@@ -64,12 +64,19 @@ h1, h2, h3, h4, h5, h6 {
   padding: 20px;
 }
 
-/* Header
-   NOTE: Keep this aligned with `public/css/shared-header.css` to prevent layout "blinking"
-   while CSS loads (FOUC/layout shift). Avoid high-specificity selectors that override shared-header. */
+.container-fluid {
+  width: 100%;
+  max-width: 100%;
+  padding: 20px;
+}
+
+/* ========================================
+   Shared Header Styles (from shared-header.css)
+   ======================================== */
+
 .header {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto auto 1fr;
   align-items: center;
   padding: 10px 18px;
   background: #ffffff;
@@ -78,6 +85,8 @@ h1, h2, h3, h4, h5, h6 {
   top: 0;
   z-index: 100;
   min-height: 56px;
+  box-sizing: border-box;
+  gap: 20px;
 }
 
 .header-brand {
@@ -86,6 +95,19 @@ h1, h2, h3, h4, h5, h6 {
   align-items: flex-start;
   gap: 2px;
   justify-self: start;
+}
+
+.header-center-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+}
+
+.suitsupply-logo {
+  height: 32px;
+  width: auto;
+  max-width: 150px;
 }
 
 .logo-link {
@@ -97,6 +119,293 @@ h1, h2, h3, h4, h5, h6 {
 .logo-img {
   height: 24px;
   width: auto;
+}
+
+.logo-text {
+  font-weight: 700;
+  font-size: calc(18px * var(--font-scale));
+  color: var(--text-primary);
+  letter-spacing: 1px;
+}
+
+.header-title h1 {
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.header-title .location {
+  font-size: calc(11px * var(--font-scale));
+  color: var(--text-secondary);
+  line-height: 1.1;
+}
+
+/* Navigation */
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  justify-self: center;
+}
+
+.header-nav a {
+  white-space: nowrap;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 500;
+  padding: 6px 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.header-nav a:hover {
+  color: var(--text-primary);
+}
+
+.header-nav a.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Header Actions */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  justify-self: end;
+  min-width: fit-content;
+}
+
+.header-date {
+  font-size: calc(12px * var(--font-scale));
+  color: var(--text-secondary);
+}
+
+/* User Menu */
+.header-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  position: relative;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.header-user:hover {
+  background: var(--surface);
+}
+
+.user-avatar-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+#userName {
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+/* User Dropdown */
+.user-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  min-width: 160px;
+  z-index: 200;
+  margin-top: 8px;
+}
+
+.user-dropdown.active {
+  display: block;
+}
+
+.user-dropdown a {
+  display: block;
+  padding: 10px 16px;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: calc(14px * var(--font-scale));
+  transition: background 0.2s;
+}
+
+.user-dropdown a:hover {
+  background: var(--surface);
+}
+
+/* Mobile Menu */
+.mobile-menu-btn {
+  display: none;
+  appearance: none;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  border-radius: 999px;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(20px * var(--font-scale));
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mobile-menu-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1000;
+}
+
+.mobile-menu-overlay.active {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.mobile-menu-sheet {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: min(360px, 92vw);
+  background: #fff;
+  border-right: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mobile-menu-title {
+  font-weight: 700;
+  font-size: calc(16px * var(--font-scale));
+  margin: 0;
+}
+
+.mobile-menu-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  font-size: 28px;
+  line-height: 1;
+  padding: 0 6px;
+  cursor: pointer;
+}
+
+.mobile-menu-items {
+  padding: 10px;
+  overflow: auto;
+}
+
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text-primary);
+  font-weight: 600;
+  border: 1px solid transparent;
+  margin-bottom: 4px;
+}
+
+.mobile-menu-item-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mobile-menu-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+
+.mobile-menu-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-menu-item.active {
+  background: #111;
+  color: #fff;
+}
+
+.mobile-menu-item.active .mobile-menu-icon {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.mobile-menu-item:hover {
+  background: var(--surface);
+}
+
+/* Responsive Header */
+@media (max-width: 900px) {
+  .mobile-menu-btn {
+    display: inline-flex;
+  }
+
+  .header {
+    grid-template-columns: 1fr auto;
+  }
+
+  .header-center-logo,
+  .header-nav,
+  .header-date {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 8px 12px;
+  }
+
+  .header-actions {
+    gap: 10px;
+  }
+
+  #userName {
+    max-width: 100px;
+  }
 }
 
 .logo-text {

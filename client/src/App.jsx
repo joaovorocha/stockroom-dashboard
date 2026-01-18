@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import Sidebar from './components/Sidebar';
+import SharedHeader from './components/SharedHeader';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Shipments from './pages/Shipments';
@@ -21,57 +21,38 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/" element={
               <ProtectedRoute>
+                <SharedHeader />
                 <Dashboard />
               </ProtectedRoute>
             } />
             <Route path="/shipments" element={
               <ProtectedRoute>
-                <div className="dashboard-wrapper">
-                  <Sidebar />
-                  <div className="main-content">
-                    <Shipments />
-                  </div>
-                </div>
+                <SharedHeader />
+                <Shipments />
               </ProtectedRoute>
             } />
             <Route path="/gameplan" element={
               <ProtectedRoute>
-                <div className="dashboard-wrapper">
-                  <Sidebar />
-                  <div className="main-content">
-                    <Gameplan />
-                  </div>
-                </div>
+                <SharedHeader />
+                <Gameplan />
               </ProtectedRoute>
             } />
             <Route path="/admin-users" element={
               <ProtectedRoute>
-                <div className="dashboard-wrapper">
-                  <Sidebar />
-                  <div className="main-content">
-                    <AdminUsers />
-                  </div>
-                </div>
+                <SharedHeader />
+                <AdminUsers />
               </ProtectedRoute>
             } />
             <Route path="/time-off" element={
               <ProtectedRoute>
-                <div className="dashboard-wrapper">
-                  <Sidebar />
-                  <div className="main-content">
-                    <TimeOff />
-                  </div>
-                </div>
+                <SharedHeader />
+                <TimeOff />
               </ProtectedRoute>
             } />
             <Route path="/closing-duties" element={
               <ProtectedRoute>
-                <div className="dashboard-wrapper">
-                  <Sidebar />
-                  <div className="main-content">
-                    <ClosingDuties />
-                  </div>
-                </div>
+                <SharedHeader />
+                <ClosingDuties />
               </ProtectedRoute>
             } />
             {/* Add more protected routes as needed */}
