@@ -19,19 +19,38 @@ function initPool(config) {
     return pool;
   }
   
-  const poolConfig = config || (process.env.DATABASE_URL ? {
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
-  } : {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || 'stockroom_dashboard',
-    user: process.env.DB_USER || 'stockroom',
-    password: String(process.env.DB_PASSWORD || ''),
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-  });
+  let poolConfig;
+  
+  if (config) {
+    poolConfig = config;
+  } else if (process.env.DATABASE_URL) {
+    // Use connection string - let pg handle authentication
+    poolConfig = {
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+    };
+  } else {
+    // Use individual parameters
+    // NOTE: Omitting 'host' will use Unix socket with peer authentication
+    poolConfig = {
+      database: process.env.DB_NAME || 'stockroom_dashboard',
+      user: process.env.DB_USER || 'suit',
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    };
+    
+    // Only add host/port if explicitly specified (otherwise uses Unix socket)
+    if (process.env.DB_HOST && process.env.DB_HOST !== 'localhost') {
+      poolConfig.host = process.env.DB_HOST;
+      poolConfig.port = parseInt(process.env.DB_PORT || '5432');
+      
+      // Only add password for remote connections
+      if (process.env.DB_PASSWORD) {
+        poolConfig.password = process.env.DB_PASSWORD;
+      }
+    }
+  }
   
   pool = new Pool(poolConfig);
   

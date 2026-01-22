@@ -42,7 +42,6 @@ const authMiddleware = async (req, res, next) => {
               isManager: user.is_manager,
               isAdmin: user.is_admin,
               canEditGameplan: user.can_edit_gameplan,
-              canConfigRadio: user.can_config_radio,
               canManageLostPunch: user.can_manage_lost_punch,
               needsProfileCompletion: !String(user.email || '').trim(),
               mustChangePassword: user.must_change_password
@@ -110,7 +109,6 @@ const authMiddleware = async (req, res, next) => {
       isManager: user.is_manager,
       isAdmin: user.is_admin,
       canEditGameplan: user.can_edit_gameplan,
-      canConfigRadio: user.can_config_radio,
       canManageLostPunch: user.can_manage_lost_punch,
       needsProfileCompletion,
       mustChangePassword: user.must_change_password

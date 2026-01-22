@@ -974,3 +974,85 @@ router.post('/import-shipments-csv',
     }
   }
 );
+
+
+// ============================================================================
+// AUDIT LOG ENDPOINTS
+// ============================================================================
+
+// GET /api/admin/audit/user - Get user audit log
+router.get('/audit/user', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const since = req.query.since;
+    
+    let query = 'SELECT * FROM user_audit_log';
+    const params = [];
+    
+    if (since) {
+      query += ' WHERE created_at >= $1';
+      params.push(since);
+    }
+    
+    query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1);
+    params.push(limit);
+    
+    const result = await pgDal.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching user audit log:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/audit/gameplan - Get gameplan audit log
+router.get('/audit/gameplan', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const since = req.query.since;
+    
+    let query = 'SELECT * FROM gameplan_audit_log';
+    const params = [];
+    
+    if (since) {
+      query += ' WHERE created_at >= $1';
+      params.push(since);
+    }
+    
+    query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1);
+    params.push(limit);
+    
+    const result = await pgDal.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching gameplan audit log:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/admin/audit/timeoff - Get time-off audit log
+router.get('/audit/timeoff', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const since = req.query.since;
+    
+    let query = 'SELECT * FROM timeoff_audit_log';
+    const params = [];
+    
+    if (since) {
+      query += ' WHERE created_at >= $1';
+      params.push(since);
+    }
+    
+    query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1);
+    params.push(limit);
+    
+    const result = await pgDal.query(query, params);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching time-off audit log:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;

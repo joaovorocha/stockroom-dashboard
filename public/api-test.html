@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>API Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    pre { background: #f4f4f4; padding: 15px; overflow-x: auto; }
+    button { padding: 10px 20px; margin: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Daily Scan API Test</h1>
+  <button onclick="testResults()">Test /api/gameplan/daily-scan/results</button>
+  <button onclick="testLooker()">Test /api/gameplan/daily-scan/looker-data</button>
+  <button onclick="testPerformance()">Test /api/gameplan/daily-scan/performance</button>
+  
+  <h2>Console Output:</h2>
+  <pre id="output">Click a button to test...</pre>
+  
+  <script>
+    const output = document.getElementById('output');
+    
+    function log(msg) {
+      output.textContent += msg + '\n';
+      console.log(msg);
+    }
+    
+    async function testResults() {
+      output.textContent = '';
+      log('[TEST] Fetching /api/gameplan/daily-scan/results...');
+      
+      try {
+        const response = await fetch('/api/gameplan/daily-scan/results', {
+          credentials: 'include'
+        });
+        
+        log(`[TEST] Status: ${response.status} ${response.statusText}`);
+        log(`[TEST] Headers: ${JSON.stringify([...response.headers])}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          log(`[TEST] SUCCESS! Received ${data.length} records`);
+          log(`[TEST] First record: ${JSON.stringify(data[0], null, 2)}`);
+          log(`[TEST] Last record: ${JSON.stringify(data[data.length - 1], null, 2)}`);
+        } else {
+          const text = await response.text();
+          log(`[TEST] ERROR: ${text}`);
+        }
+      } catch (error) {
+        log(`[TEST] EXCEPTION: ${error.message}`);
+        log(`[TEST] Stack: ${error.stack}`);
+      }
+    }
+    
+    async function testLooker() {
+      output.textContent = '';
+      log('[TEST] Fetching /api/gameplan/daily-scan/looker-data...');
+      
+      try {
+        const response = await fetch('/api/gameplan/daily-scan/looker-data', {
+          credentials: 'include'
+        });
+        
+        log(`[TEST] Status: ${response.status}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          log(`[TEST] SUCCESS! Data: ${JSON.stringify(data, null, 2).substring(0, 500)}`);
+        } else {
+          log(`[TEST] ERROR: ${response.statusText}`);
+        }
+      } catch (error) {
+        log(`[TEST] EXCEPTION: ${error.message}`);
+      }
+    }
+    
+    async function testPerformance() {
+      output.textContent = '';
+      log('[TEST] Fetching /api/gameplan/daily-scan/performance...');
+      
+      try {
+        const response = await fetch('/api/gameplan/daily-scan/performance', {
+          credentials: 'include'
+        });
+        
+        log(`[TEST] Status: ${response.status}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          log(`[TEST] SUCCESS! Received ${data.length} performance records`);
+          log(`[TEST] Data: ${JSON.stringify(data, null, 2)}`);
+        } else {
+          log(`[TEST] ERROR: ${response.statusText}`);
+        }
+      } catch (error) {
+        log(`[TEST] EXCEPTION: ${error.message}`);
+      }
+    }
+  </script>
+</body>
+</html>

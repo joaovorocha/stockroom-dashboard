@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Network Detection Test</title>
+  <script src="/js/network-detect.js?v=1"></script>
+  <style>
+    body { 
+      font-family: system-ui; 
+      padding: 40px; 
+      max-width: 800px; 
+      margin: 0 auto;
+    }
+    .info { 
+      background: #f0f0f0; 
+      padding: 20px; 
+      border-radius: 8px; 
+      margin: 10px 0;
+    }
+    .good { background: #d4edda; color: #155724; }
+    .warn { background: #fff3cd; color: #856404; }
+  </style>
+</head>
+<body>
+  <h1>🌐 Network Detection Test</h1>
+  
+  <div class="info">
+    <strong>Current URL:</strong> <span id="currentUrl"></span><br>
+    <strong>Hostname:</strong> <span id="hostname"></span><br>
+    <strong>Expected Behavior:</strong><br>
+    • On WiFi (10.201.48.x): Should redirect to <code>http://10.201.48.17/</code><br>
+    • Remote: Stay on <code>https://suitserver.tail39e95f.ts.net/</code>
+  </div>
+  
+  <div id="status" class="info warn">
+    ⏳ Checking network location...
+  </div>
+  
+  <script>
+    document.getElementById('currentUrl').textContent = window.location.href;
+    document.getElementById('hostname').textContent = window.location.hostname;
+    
+    setTimeout(() => {
+      const status = document.getElementById('status');
+      const isDone = sessionStorage.getItem('network-check-done');
+      
+      if (window.location.hostname === '10.201.48.17') {
+        status.className = 'info good';
+        status.innerHTML = '✅ <strong>SUCCESS!</strong> You are on the fast local IP (WiFi detected)';
+      } else if (isDone) {
+        status.className = 'info good';
+        status.innerHTML = '✅ <strong>Remote Access</strong> - Using Tailscale (network check complete)';
+      } else {
+        status.className = 'info warn';
+        status.innerHTML = '⏳ Still checking... (should redirect soon if on WiFi)';
+      }
+    }, 3000);
+  </script>
+</body>
+</html>

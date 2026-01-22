@@ -18,22 +18,96 @@
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
   <link rel="stylesheet" href="/css/mobile.css?v=6">
   <script src="/vendor/chart.umd.min.js?v=1" defer></script>
+  <style>
+    @media (max-width: 768px) {
+      .metrics-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+      }
+      
+      .metric-card {
+        padding: 12px;
+      }
+      
+      .metric-card h3 {
+        font-size: 13px;
+      }
+      
+      .metric-card .value {
+        font-size: 20px;
+      }
+      
+      .table-wrap, .operations-content table {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        display: block;
+      }
+      
+      table {
+        min-width: 600px;
+      }
+      
+      th, td {
+        padding: 8px;
+        font-size: 13px;
+      }
+      
+      button, .btn, .btn-primary, select, input {
+        min-height: 44px;
+        font-size: 16px;
+      }
+      
+      .controls, .filters {
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .controls > *, .filters > * {
+        width: 100%;
+      }
+      
+      canvas {
+        max-width: 100%;
+        height: auto !important;
+      }
+      
+      .operations-import-inline {
+        min-width: 100% !important;
+      }
+      
+      .page-header {
+        min-width: 100% !important;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .metrics-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .metric-card .value {
+        font-size: 18px;
+      }
+      
+      th, td {
+        padding: 6px;
+        font-size: 12px;
+      }
+    }
+  </style>
 </head>
 <body data-page-type="ops_metrics">
   <!-- Shared Header Mount -->
   <div id="shared-header-mount"></div>
 <main class="dashboard-layout dashboard-layout--single">
     <section class="section operations-section" id="operationsSection" style="margin-top: 20px;">
-      <div class="page-header" style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
-        <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Daily Operations</div>
-        <h2 style="font-size: 24px; font-weight: 600; margin: 0 0 8px;">📊 Operations Overview</h2>
-        <p style="font-size: 14px; color: var(--text-secondary); margin: 0;">Track key performance metrics and operational data for your store.</p>
-      </div>
-      <div class="section-header" style="display: none;">
-        <h2>📊 Operations Overview</h2>
-      </div>
-      <div class="operations-content" id="operationsContent">
-        <div class="operations-import-inline" id="importStatusCardOps">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap;">
+        <div class="page-header" style="margin: 0; padding: 0; border: none; flex: 1; min-width: 300px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Daily Operations</div>
+          <h2 style="font-size: 24px; font-weight: 600; margin: 0 0 8px;">📊 Operations Overview</h2>
+          <p style="font-size: 14px; color: var(--text-secondary); margin: 0;">Track key performance metrics and operational data for your store.</p>
+        </div>
+        <div class="operations-import-inline" id="importStatusCardOps" style="margin: 0; min-width: 240px;">
           <h4 class="operations-import-title">📊 Data Import</h4>
           <div class="import-info">
             <span class="import-label">Last Looker sync:</span>
@@ -44,6 +118,11 @@
             <span class="import-value" id="recordsImported">--</span>
           </div>
         </div>
+      </div>
+      <div class="section-header" style="display: none;">
+        <h2>📊 Operations Overview</h2>
+      </div>
+      <div class="operations-content" id="operationsContent">
 
         <div class="ops-subsection">
           <h4 class="ops-subsection-title">🥇 Main Retail KPIs (WTD)</h4>

@@ -25,6 +25,7 @@ const LOANS_DIR = path.join(FILES_DIR, 'dashboard-loan_dashboard');
 const TAILOR_DIR = path.join(FILES_DIR, 'dashboard-tailor_myr');
 const STORE_OPS_OVERDUE_AUDIT_DIR = path.join(FILES_DIR, 'dashboard-store_ops_overdue_audit');
 const COUNT_PERFORMANCE_DIR = path.join(FILES_DIR, 'dashboard-store_count_performance_-_employee_level');
+const COUNT_PERFORMANCE_STORE_DIR = path.join(FILES_DIR, 'dashboard-store_count_performance_-_store_level');
 const WORK_EXPENSES_DIR = path.join(FILES_DIR, 'dashboard-work_related_expenses');
 const GMAIL_IMPORTS_DIR = path.join(FILES_DIR, 'gmail-imports');
 const DASHBOARD_DATA_FILE = path.join(DATA_DIR, 'dashboard-data.json');
@@ -158,6 +159,7 @@ class LookerDataProcessor {
       
       // Count performance
       countPerformance: results.employeeCountPerformance || existingData.countPerformance || {},
+      storeCountPerformance: results.storeCountPerformance || existingData.storeCountPerformance || {},
       
       // Loans
       loans: results.loans || existingData.loans || {},
@@ -177,11 +179,100 @@ class LookerDataProcessor {
     // so BOH scan accuracy/history remains available even when Looker exports rotate.
     this.persistScanPerformanceSnapshot(results.employeeCountPerformance, dashboardData.dataDate, syncBy);
     
+    // NEW: Also sync Looker data to PostgreSQL database for unified access
+    if (results.employeeCountPerformance?.employees?.length > 0) {
+      this.syncLookerDataToDatabase(results.employeeCountPerformance, dashboardData.dataDate)
+        .then(syncResult => {
+          console.log(`[LOOKER SYNC] Database sync complete: ${syncResult.synced} records synced`);
+        })
+        .catch(err => {
+          console.error('[LOOKER SYNC] Database sync failed:', err);
+        });
+    }
+    
     return dashboardData;
   }
 
   normalizeName(value) {
     return (value || '').toString().trim().toLowerCase();
+  }
+
+  // NEW: Sync Looker snapshot data to PostgreSQL daily_scan_results table
+  async syncLookerDataToDatabase(countPerformance, date) {
+    try {
+      if (!countPerformance || !Array.isArray(countPerformance.employees) || countPerformance.employees.length === 0) {
+        console.log('[LOOKER SYNC] No employee count performance data to sync');
+        return { synced: 0, errors: [] };
+      }
+
+      const { getPool } = require('./dal/pg');
+      const pool = getPool();
+      if (!pool) {
+        console.log('[LOOKER SYNC] No database pool available');
+        return { synced: 0, errors: [] };
+      }
+
+      let synced = 0;
+      const errors = [];
+      const scanDate = date || new Date().toISOString().split('T')[0];
+
+      for (const emp of countPerformance.employees) {
+        try {
+          const countedBy = emp.name || 'Unknown';
+          const accuracy = parseFloat(emp.accuracy || 0);
+          const countsDone = parseInt(emp.countsDone || 0);
+          
+          // Only sync if employee has actually done scans
+          if (countsDone === 0) continue;
+
+          // Check if this employee already has a scan record for this date
+          const existing = await pool.query(
+            `SELECT count_id FROM daily_scan_results 
+             WHERE scan_date = $1 AND LOWER(counted_by) = LOWER($2)
+             LIMIT 1`,
+            [scanDate, countedBy]
+          );
+
+          if (existing.rows.length > 0) {
+            // Record already exists from CSV or previous Looker sync - skip to avoid conflicts
+            console.log(`[LOOKER SYNC] Skipping ${countedBy} - already has scan on ${scanDate}`);
+            continue;
+          }
+
+          // Create synthetic count_id for Looker data
+          const countId = `LOOKER-${scanDate}-${countedBy.replace(/\s+/g, '-')}`;
+
+          // Insert Looker-sourced scan result using correct column names
+          await pool.query(
+            `INSERT INTO daily_scan_results (
+              count_id, status, scan_date, counted_by,
+              expected_units, counted_units,
+              missed_units_available, missed_units_reserved
+            ) VALUES (
+              $1, 'COMPLETED', $2, $3, 
+              $4, $5,
+              $6, $7
+            )
+            ON CONFLICT (count_id) DO NOTHING`,
+            [
+              countId, scanDate, countedBy,
+              100, Math.round(accuracy),
+              emp.missedAvailable || 0, emp.missedReserved || 0
+            ]
+          );
+          synced++;
+        } catch (err) {
+          errors.push({ employee: emp.name, error: err.message });
+          console.error(`[LOOKER SYNC] Error syncing ${emp.name}:`, err);
+        }
+      }
+
+      console.log(`[LOOKER SYNC] Synced ${synced} Looker records to database`);
+      return { synced, errors };
+    } catch (error) {
+      console.error('[LOOKER SYNC] Error in syncLookerDataToDatabase:', error);
+      return { synced: 0, errors: [{ error: error.message }] };
+    }
   }
 
   persistScanPerformanceSnapshot(countPerformance, date, source = 'scheduler') {
@@ -1696,6 +1787,39 @@ class LookerDataProcessor {
   }
 
   // Process employee count performance (new)
+  processStoreCountPerformance() {
+    const result = {
+      storeData: null,
+      summary: {
+        accuracy: 0,
+        totalCounts: 0,
+        missedAvailable: 0,
+        missedReserved: 0,
+        newUnits: 0,
+        undecodable: 0
+      }
+    };
+
+    const storeData = this.readCSV(path.join(COUNT_PERFORMANCE_STORE_DIR, 'store_level.csv'));
+    if (storeData.length > 0) {
+      const row = storeData[0];
+      result.storeData = {
+        location: row['Location Name'] || 'San Francisco',
+        accuracy: this.parsePercent(row['% Inventory Accuracy']),
+        totalCounts: parseInt(row['Count of Store RFID Count ID']) || 0,
+        missedAvailable: parseInt(row['# Missed Available Quantity']) || 0,
+        missedReserved: parseInt(row['# Missed Reserved Quantity']) || 0,
+        newUnits: parseInt(row['# New Units']) || 0,
+        undecodable: parseInt(row['# Un-decodable Units']) || 0,
+        unmappedItems: parseInt(row['# Unmapped Item Units']) || 0,
+        foundPrevMissing: parseInt(row['# Found previously missing']) || 0
+      };
+      result.summary = result.storeData;
+    }
+
+    return result;
+  }
+
   processEmployeeCountPerformance() {
     const result = {
       employees: [],
@@ -1716,10 +1840,13 @@ class LookerDataProcessor {
           const counts = parseInt(row['Count of Store RFID Count ID']) || 0;
           const missedReserved = parseInt(row['# Missed Reserved Quantity']) || 0;
 
+          const missedAvailable = parseInt(row['# Missed Available Quantity']) || 0;
+          
           result.employees.push({
             name: row['Employee Full Name'],
             location: row['Location Name'],
             accuracy: accuracy,
+            missedAvailable: missedAvailable,
             missedReserved: missedReserved,
             countsDone: counts,
             rankAccuracy: parseInt(row['Rank Inventory Acc.']) || 0,
@@ -1815,6 +1942,7 @@ class LookerDataProcessor {
       inventoryIssues: null,
       customerReservedOrders: null,
       employeeCountPerformance: null,
+      storeCountPerformance: null,
       tailorProductivityTrend: null,
       workRelatedExpenses: null,
       filesProcessed: [],
@@ -1849,7 +1977,9 @@ class LookerDataProcessor {
       // Process employee count performance (new)
       console.log('Processing employee count performance...');
       results.employeeCountPerformance = this.processEmployeeCountPerformance();
+      results.storeCountPerformance = this.processStoreCountPerformance();
       results.storeMetrics.employeeCountPerformance = results.employeeCountPerformance;
+      results.storeMetrics.storeCountPerformance = results.storeCountPerformance;
 
       // Process tailor productivity trend (new)
       console.log('Processing tailor productivity trend...');

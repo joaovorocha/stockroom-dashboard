@@ -78,11 +78,11 @@ const SharedHeader = {
     '/qr-decode': 'QR Decode',
     '/dashboard': 'Game Plan',
     '/awards': 'Team Awards',
+    '/daily-scan-performance': 'Daily Scan Performance',
     '/expenses': 'Employee Discount',
     '/employee-discount': 'Employee Discount',
     '/shipments': 'Shipments',
     '/boh-shipments': 'BOH Shipments',
-    '/scanner': 'Scanner',
     '/radio': 'Radio Transcription',
     '/radio-transcripts': 'Radio Transcripts',
     '/lost-punch': 'Lost Punch',
@@ -98,11 +98,11 @@ const SharedHeader = {
     '/dashboard': '📋',
     '/qr-decode': '🔎',
     '/awards': '🏆',
+    '/daily-scan-performance': '📊',
     '/expenses': '💳',
     '/employee-discount': '💳',
     '/shipments': '📦',
     '/boh-shipments': '📦',
-    '/scanner': '📷',
     '/radio': '🎙️',
     '/radio-transcripts': '📝',
     '/lost-punch': '🕒',
@@ -142,10 +142,10 @@ const SharedHeader = {
     const navItems = [
       { href: '/dashboard', label: 'Game Plan', id: 'navGamePlan' },
       { href: '/awards', label: 'Awards', id: 'navAwards' },
+      { href: '/daily-scan-performance', label: 'Daily Scan', id: 'navDailyScan' },
       { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' },
       { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' },
       { href: '/shipments', label: 'Shipments', id: 'navShipments', badge: 'shipmentsBadge' },
-      { href: '/scanner', label: 'Scanner', id: 'navScanner' },
       { href: '/lost-punch', label: 'Lost Punch', id: 'navLostPunch' },
       { href: '/closing-duties', label: 'Closing Duties', id: 'navClosingDuties' },
       { href: '/time-off', label: 'Time Off', id: 'navTimeOff' },
@@ -254,7 +254,6 @@ const SharedHeader = {
         self.ensureCoreNavLinks();
         self.ensureMobileMenu();
         self.bindResponsiveHandlers();
-        self.mountBottomScannerLink();
 
         // Setup user switching early so Logout works even if auth check fails.
         self.setupUserSwitching();
@@ -303,7 +302,6 @@ const SharedHeader = {
         this.applyHomeBehavior();
         this.ensureCoreNavLinks();
         this.ensureMobileMenu();
-        this.mountBottomScannerLink();
       }, 120);
     });
   },
@@ -555,8 +553,6 @@ const SharedHeader = {
           const path = new URL(href, window.location.origin).pathname;
           // We'll always inject Home (/home) ourselves.
           if (path === '/home' || path === '/app') return false;
-          // Scanner is a floating button on phones.
-          if (isPhone && path === '/scanner') return false;
           // Hide Admin portal on phones (available on iPad/desktop only).
           if (isPhone && path === '/admin') return false;
           // Hide Looker dashboards on phones (iPad/desktop only).
@@ -673,7 +669,7 @@ const SharedHeader = {
     }
 
     // Show manager-only links for managers/admins (and explicit radio config permission).
-    const canSeeManagerLinks = !!(user?.isManager || user?.isAdmin || user?.canConfigRadio);
+    const canSeeManagerLinks = !!(user?.isManager || user?.isAdmin);
     document.querySelectorAll('.header-nav a[data-manager-only="true"]').forEach((a) => {
       a.style.display = canSeeManagerLinks ? '' : 'none';
     });
@@ -698,26 +694,6 @@ const SharedHeader = {
       link.className = 'feedback-floating-link';
       link.href = '/feedback';
       link.textContent = 'Feedback';
-      document.body.appendChild(link);
-    }
-  },
-
-  mountBottomScannerLink() {
-    const isPhone = this.isPhoneViewport();
-    const isOnScannerPage = window.location.pathname === '/scanner';
-
-    let link = document.getElementById('bottomScannerLink');
-    if (!isPhone || isOnScannerPage) {
-      if (link) link.remove();
-      return;
-    }
-
-    if (!link) {
-      link = document.createElement('a');
-      link.id = 'bottomScannerLink';
-      link.className = 'scanner-floating-link';
-      link.href = '/scanner';
-      link.textContent = 'Scanner';
       document.body.appendChild(link);
     }
   },

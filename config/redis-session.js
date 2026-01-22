@@ -74,7 +74,8 @@ function getSessionMiddleware(options = {}) {
     name: 'userSession',
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      // Use auto so cookies are sent over HTTPS when available, but still work behind Tailscale/localhost
+      secure: 'auto',
       sameSite: 'lax',
       maxAge: maxAge
     }

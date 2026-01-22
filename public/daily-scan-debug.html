@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Daily Scan Debug</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+    .section { background: #2d2d2d; padding: 15px; margin: 10px 0; border-radius: 5px; }
+    .section h2 { margin-top: 0; color: #4ec9b0; }
+    .success { color: #4ec9b0; }
+    .error { color: #f48771; }
+    .warning { color: #ce9178; }
+    pre { background: #1e1e1e; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    button { background: #0e639c; color: white; border: none; padding: 10px 20px; border-radius: 3px; cursor: pointer; }
+    button:hover { background: #1177bb; }
+  </style>
+</head>
+<body>
+  <h1>Daily Scan Performance - Debug Page</h1>
+  
+  <div class="section">
+    <h2>Quick Actions</h2>
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button onclick="location.href='/daily-scan-performance.html'">Go to Main Page</button>
+  </div>
+
+  <div class="section">
+    <h2>1. API Endpoint Test - /api/gameplan/daily-scan/results</h2>
+    <div id="resultsTest">Click "Run All Tests" to start</div>
+  </div>
+
+  <div class="section">
+    <h2>2. API Endpoint Test - /api/gameplan/daily-scan/looker-data</h2>
+    <div id="lookerTest">Click "Run All Tests" to start</div>
+  </div>
+
+  <div class="section">
+    <h2>3. API Endpoint Test - /api/gameplan/daily-scan/performance</h2>
+    <div id="performanceTest">Click "Run All Tests" to start</div>
+  </div>
+
+  <div class="section">
+    <h2>4. API Endpoint Test - /api/gameplan/daily-scan/import-history</h2>
+    <div id="importHistoryTest">Click "Run All Tests" to start</div>
+  </div>
+
+  <div class="section">
+    <h2>5. Session/Auth Test</h2>
+    <div id="authTest">Click "Run All Tests" to start</div>
+  </div>
+
+  <div class="section">
+    <h2>Browser Console Logs</h2>
+    <pre id="consoleLogs"></pre>
+  </div>
+
+  <script>
+    const logs = [];
+    const originalLog = console.log;
+    const originalError = console.error;
+    
+    console.log = function(...args) {
+      logs.push('[LOG] ' + args.join(' '));
+      updateConsoleLogs();
+      originalLog.apply(console, args);
+    };
+    
+    console.error = function(...args) {
+      logs.push('[ERROR] ' + args.join(' '));
+      updateConsoleLogs();
+      originalError.apply(console, args);
+    };
+    
+    function updateConsoleLogs() {
+      document.getElementById('consoleLogs').textContent = logs.join('\n');
+    }
+
+    async function testEndpoint(url, elementId, label) {
+      const el = document.getElementById(elementId);
+      el.innerHTML = `<span class="warning">Testing ${label}...</span>`;
+      
+      try {
+        const startTime = Date.now();
+        const response = await fetch(url, { credentials: 'include' });
+        const duration = Date.now() - startTime;
+        
+        console.log(`${label} - Status: ${response.status}, Duration: ${duration}ms`);
+        
+        if (response.status === 401 || response.status === 403) {
+          el.innerHTML = `<span class="error">❌ Auth Error - Status ${response.status} (${duration}ms)</span>`;
+          return null;
+        }
+        
+        if (!response.ok) {
+          el.innerHTML = `<span class="error">❌ HTTP ${response.status} (${duration}ms)</span>`;
+          return null;
+        }
+        
+        const data = await response.json();
+        const isArray = Array.isArray(data);
+        const count = isArray ? data.length : (typeof data === 'object' ? Object.keys(data).length : 0);
+        
+        let html = `<span class="success">✓ Status ${response.status} (${duration}ms)</span><br>`;
+        html += `Type: ${isArray ? 'Array' : 'Object'}, Items: ${count}<br>`;
+        
+        if (isArray && data.length > 0) {
+          html += `<br>First item:<pre>${JSON.stringify(data[0], null, 2)}</pre>`;
+          if (data[0].scan_date) {
+            html += `Date range: ${data[data.length - 1].scan_date} to ${data[0].scan_date}`;
+          }
+        } else if (!isArray) {
+          html += `<br>Data:<pre>${JSON.stringify(data, null, 2).substring(0, 500)}</pre>`;
+        } else {
+          html += `<br><span class="warning">⚠️ Empty array returned</span>`;
+        }
+        
+        el.innerHTML = html;
+        return data;
+      } catch (error) {
+        console.error(`${label} error:`, error);
+        el.innerHTML = `<span class="error">❌ Error: ${error.message}</span>`;
+        return null;
+      }
+    }
+
+    async function runAllTests() {
+      console.log('Starting all tests...');
+      
+      // Test with different day ranges
+      for (const days of [30, 90, 365, 730]) {
+        await testEndpoint(
+          `/api/gameplan/daily-scan/results?days=${days}`,
+          'resultsTest',
+          `Results (${days} days)`
+        );
+        await new Promise(r => setTimeout(r, 500)); // Small delay between tests
+      }
+      
+      await testEndpoint('/api/gameplan/daily-scan/looker-data', 'lookerTest', 'Looker Data');
+      await testEndpoint('/api/gameplan/daily-scan/performance?days=365', 'performanceTest', 'Performance');
+      await testEndpoint('/api/gameplan/daily-scan/import-history', 'importHistoryTest', 'Import History');
+      
+      // Auth test
+      const authEl = document.getElementById('authTest');
+      try {
+        const response = await fetch('/api/auth/check', { credentials: 'include' });
+        if (response.ok) {
+          const userData = await response.json();
+          authEl.innerHTML = `<span class="success">✓ Authenticated as: ${userData.username || userData.name || 'Unknown'}</span><pre>${JSON.stringify(userData, null, 2)}</pre>`;
+        } else {
+          authEl.innerHTML = `<span class="error">❌ Not authenticated (Status ${response.status})</span>`;
+        }
+      } catch (error) {
+        authEl.innerHTML = `<span class="error">❌ Auth check failed: ${error.message}</span>`;
+      }
+      
+      console.log('All tests complete');
+    }
+
+    // Auto-run on page load
+    window.addEventListener('load', () => {
+      setTimeout(runAllTests, 500);
+    });
+  </script>
+</body>
+</html>

@@ -374,6 +374,7 @@
       }
     }
   </style>
+  <script src="/js/network-detect.js?v=1"></script>
 </head>
 <body>
   <!-- Shared Header Mount -->
@@ -389,15 +390,16 @@
           <button class="nav-btn" id="next-month">›</button>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <label style="font-size:13px;color:var(--text-secondary);">Upload Shifts</label>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;">
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <label style="font-size:13px;color:var(--text);font-weight:600;">Upload Shifts</label>
+          <small style="font-size:11px;color:var(--text-secondary);">Import CSV from Legion</small>
+        </div>
         <input type="file" id="shift-csv-file" accept=".csv" style="display:inline-block;" />
         <button class="btn btn-sm" id="upload-shift-csv-btn">Upload</button>
       </div>
       <div class="view-toggle">
         <a href="/dashboard" class="btn btn-sm" style="margin-right: 10px;">← Dashboard</a>
-        <button class="btn btn-primary btn-sm" id="create-new-plan-btn" style="margin-right: 10px;">+ Create New Plan</button>
-        <button class="btn btn-secondary btn-sm" id="duplicate-plan-btn" style="margin-right: 10px;">Duplicate Plan</button>
         <button class="view-btn active" data-view="month">Month</button>
         <button class="view-btn" data-view="week">Week</button>
       </div>
@@ -438,65 +440,6 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="create-plan-modal" style="display: none;">
-    <div class="modal" style="max-width: 500px;">
-      <div class="modal-header">
-        <h3>Create or Duplicate Game Plan</h3>
-        <button class="modal-close" id="close-create-plan-modal">×</button>
-      </div>
-      <div class="modal-body">
-        <div class="view-toggle" style="margin-bottom: 20px;">
-          <button class="view-btn active" data-tab="create-blank">Create Blank</button>
-          <button class="view-btn" data-tab="duplicate">Duplicate</button>
-        </div>
-
-        <div id="create-blank-tab">
-          <div class="form-group">
-            <label for="new-plan-date">Select Date</label>
-            <input type="date" id="new-plan-date" class="form-control">
-          </div>
-          <button class="btn btn-primary" id="create-blank-plan-btn">Create Plan</button>
-        </div>
-
-        <div id="duplicate-tab" style="display: none;">
-          <div class="form-group">
-            <label for="duplicate-source-week">Select Retail Week</label>
-            <select id="duplicate-source-week" class="form-control"></select>
-          </div>
-          <div class="form-group">
-            <label for="duplicate-source-date">Or Pick a Specific Day</label>
-            <input type="date" id="duplicate-source-date" class="form-control">
-          </div>
-          <hr style="margin: 20px 0;">
-          <div class="form-group">
-            <label for="duplicate-target-date">New Plan Start Date</label>
-            <input type="date" id="duplicate-target-date" class="form-control">
-            <small style="color:var(--text-secondary);">When duplicating a retail week, this date will be used as the start date for mapped days.</small>
-          </div>
-
-          <div class="form-group" id="week-days-container" style="display: none; margin-top: 12px;">
-            <label>Choose Source Days to Duplicate</label>
-            <div id="week-days-list" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;"></div>
-          </div>
-
-          <div class="form-group" id="duplicate-publish-options" style="display:none; margin-top:12px;">
-            <label>Publish Options</label>
-            <div style="display:flex;gap:8px;align-items:center;margin-top:6px;">
-              <input type="checkbox" id="duplicate-publish-checked">
-              <label for="duplicate-publish-checked">Publish duplicated plans</label>
-            </div>
-            <div style="margin-top:8px;">
-              <label for="duplicate-publisher">Published By (name)</label>
-              <input type="text" id="duplicate-publisher" class="form-control" placeholder="Name of publisher">
-            </div>
-          </div>
-          <button class="btn btn-primary" id="duplicate-plan-confirm-btn">Duplicate Plan</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-
   <script>
     // Calendar functionality
     let currentDate = new Date();
@@ -533,12 +476,6 @@
         loadCalendar();
       });
 
-      // Create New Plan button
-      document.getElementById('create-new-plan-btn').addEventListener('click', () => {
-        document.getElementById('create-plan-modal').style.display = 'flex';
-        openTab('create-blank');
-      });
-
       // View toggle buttons
       document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -548,167 +485,6 @@
           loadCalendar();
         });
       });
-
-      // Modal buttons
-      document.getElementById('close-create-plan-modal').addEventListener('click', () => {
-        document.getElementById('create-plan-modal').style.display = 'none';
-      });
-
-      document.getElementById('duplicate-plan-btn').addEventListener('click', () => {
-        document.getElementById('create-plan-modal').style.display = 'flex';
-        openTab('duplicate');
-      });
-
-      document.querySelectorAll('#create-plan-modal .view-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          openTab(this.dataset.tab);
-        });
-      });
-
-      document.getElementById('create-blank-plan-btn').addEventListener('click', () => {
-        const date = document.getElementById('new-plan-date').value;
-        if (date) {
-          window.location.href = `/gameplan-edit.html?date=${date}`;
-        } else {
-          alert('Please select a date.');
-        }
-      });
-
-      // If user picks a specific source date, hide week selection UI
-      const srcDateInput = document.getElementById('duplicate-source-date');
-      if (srcDateInput) {
-        srcDateInput.addEventListener('change', function() {
-          if (this.value) {
-            document.getElementById('duplicate-source-week').value = '';
-            document.getElementById('week-days-container').style.display = 'none';
-            document.getElementById('duplicate-publish-options').style.display = 'none';
-          }
-        });
-      }
-
-      document.getElementById('duplicate-plan-confirm-btn').addEventListener('click', async () => {
-        const sourceWeek = document.getElementById('duplicate-source-week').value;
-        const sourceDate = document.getElementById('duplicate-source-date').value;
-        const targetDate = document.getElementById('duplicate-target-date').value;
-        const publishChecked = document.getElementById('duplicate-publish-checked').checked;
-        const publisher = document.getElementById('duplicate-publisher').value;
-
-        if (!targetDate) {
-          alert('Please select a new plan start date.');
-          return;
-        }
-
-        // If specific source day chosen, duplicate single
-        if (sourceDate && !sourceWeek) {
-          try {
-            const response = await fetch(`/api/gameplan/date/${sourceDate}`);
-            if (response.ok) {
-              const data = await response.json();
-              const newPlan = { ...data, date: targetDate, published: publishChecked };
-              if (publishChecked && publisher) newPlan.lastEditedBy = publisher;
-              const saveResponse = await fetch('/api/gameplan/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newPlan),
-              });
-              if (saveResponse.ok) {
-                alert('Game plan duplicated successfully.');
-                window.location.href = `/gameplan-edit.html?date=${targetDate}`;
-              } else {
-                alert('Failed to duplicate game plan.');
-              }
-            } else {
-              alert('No game plan found for the selected source.');
-            }
-          } catch (error) {
-            console.error('Error duplicating game plan:', error);
-            alert('An error occurred while duplicating the game plan.');
-          }
-          return;
-        }
-
-        // Retail week duplication: map selected source days to target start date offsets
-        if (sourceWeek) {
-          const week = JSON.parse(sourceWeek);
-          const weekStart = new Date(week.start_date);
-          const selected = Array.from(document.querySelectorAll('#week-days-list input[type="checkbox"]:checked')).map(i => i.value);
-          if (selected.length === 0) {
-            alert('Please choose at least one source day from the selected retail week.');
-            return;
-          }
-
-          const targetStart = new Date(targetDate);
-          const results = { success: [], failed: [] };
-
-          for (const src of selected) {
-            try {
-              const srcDate = new Date(src);
-              const offset = Math.round((srcDate - weekStart) / (1000 * 60 * 60 * 24));
-              const mapped = new Date(targetStart);
-              mapped.setDate(mapped.getDate() + offset);
-              const mappedStr = mapped.toISOString().split('T')[0];
-
-              const resp = await fetch(`/api/gameplan/date/${src}`);
-              if (!resp.ok) {
-                results.failed.push({ src, reason: 'source plan not found' });
-                continue;
-              }
-              const data = await resp.json();
-              const newPlan = { ...data, date: mappedStr, published: publishChecked };
-              if (publishChecked && publisher) newPlan.lastEditedBy = publisher;
-
-              const saveResponse = await fetch('/api/gameplan/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newPlan),
-              });
-
-              if (saveResponse.ok) {
-                results.success.push({ src, mapped: mappedStr });
-              } else {
-                const err = await saveResponse.text();
-                results.failed.push({ src, reason: err || 'save failed' });
-              }
-            } catch (e) {
-              console.error('dup error', e);
-              results.failed.push({ src, reason: e.message });
-            }
-          }
-
-          // report results
-          let msg = '';
-          if (results.success.length) {
-            msg += `Created ${results.success.length} plans.\n`;
-          }
-          if (results.failed.length) {
-            msg += `Failed ${results.failed.length} plans.\n`;
-          }
-          alert(msg || 'No actions performed.');
-
-          if (results.success.length) {
-            // open editor for first created
-            window.location.href = `/gameplan-edit.html?date=${results.success[0].mapped}`;
-          } else {
-            loadCalendar();
-          }
-          return;
-        }
-
-        alert('Please select a source week or a specific source day to duplicate from.');
-      });
-    }
-
-    function openTab(tabName) {
-      document.querySelectorAll('#create-plan-modal .view-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector(`#create-plan-modal .view-btn[data-tab="${tabName}"]`).classList.add('active');
-
-      if (tabName === 'create-blank') {
-        document.getElementById('create-blank-tab').style.display = 'block';
-        document.getElementById('duplicate-tab').style.display = 'none';
-      } else {
-        document.getElementById('create-blank-tab').style.display = 'none';
-        document.getElementById('duplicate-tab').style.display = 'block';
-      }
     }
 
     async function loadCalendar() {
@@ -754,84 +530,12 @@
         renderCalendar(data);
         renderUpcomingPlans(data.upcomingPlans || []);
         updateStats(data.stats || {});
-        populateRetailWeeks();
 
       } catch (error) {
         console.error('Error loading calendar:', error);
       }
     }
-    
-    function populateRetailWeeks() {
-      const select = document.getElementById('duplicate-source-week');
-      // clear existing
-      select.innerHTML = '';
-      const defaultOpt = document.createElement('option');
-      defaultOpt.value = '';
-      defaultOpt.textContent = '-- Select a retail week --';
-      select.appendChild(defaultOpt);
 
-      if (storeMetrics.salesByRetailWeeks) {
-        storeMetrics.salesByRetailWeeks.forEach(week => {
-          const option = document.createElement('option');
-          option.value = JSON.stringify(week);
-          option.textContent = `RW ${week.week_number} (${week.start_date} - ${week.end_date})`;
-          select.appendChild(option);
-        });
-
-        // when a week is selected, render selectable days
-        select.addEventListener('change', function() {
-          const val = this.value;
-          document.getElementById('duplicate-source-date').value = '';
-          if (!val) {
-            document.getElementById('week-days-container').style.display = 'none';
-            document.getElementById('duplicate-publish-options').style.display = 'none';
-            return;
-          }
-          const week = JSON.parse(val);
-          renderWeekDays(week);
-        });
-      }
-    }
-
-    async function renderWeekDays(week) {
-      const list = document.getElementById('week-days-list');
-      list.innerHTML = '';
-      const start = new Date(week.start_date);
-      const end = new Date(week.end_date);
-      const dates = [];
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        dates.push(new Date(d));
-      }
-
-      // check which dates have existing plans
-      const checks = await Promise.all(dates.map(dt => {
-        const ds = dt.toISOString().split('T')[0];
-        return fetch(`/api/gameplan/date/${ds}`, { method: 'GET' }).then(r => ({ date: ds, ok: r.ok })).catch(() => ({ date: ds, ok: false }));
-      }));
-
-      checks.forEach(ch => {
-        const row = document.createElement('label');
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.gap = '8px';
-
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = ch.date;
-        cb.checked = ch.ok; // default to checked if a plan exists
-
-        const info = document.createElement('span');
-        const pretty = new Date(ch.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        info.textContent = `${pretty} ${ch.ok ? '— has plan' : '— no plan'}`;
-
-        row.appendChild(cb);
-        row.appendChild(info);
-        list.appendChild(row);
-      });
-
-      document.getElementById('week-days-container').style.display = 'block';
-      document.getElementById('duplicate-publish-options').style.display = 'block';
-    }
 
     function renderCalendar(data) {
       const grid = document.getElementById('calendar-grid');

@@ -68,6 +68,69 @@
     .employee-card.over .bar > div { background: #dc2626; }
     .employee-card .nums { display:flex; justify-content:space-between; gap:10px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
     @media (max-width: 700px) { .right { text-align:left; } }
+    
+    @media (max-width: 768px) {
+      .page-wrap {
+        padding: 12px !important;
+      }
+      
+      .filters {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .field input, .field select {
+        padding: 12px 10px;
+        font-size: 16px;
+        min-height: 44px;
+      }
+      
+      .btn-sm {
+        min-height: 44px;
+        padding: 10px 12px;
+      }
+      
+      .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      
+      table {
+        min-width: 600px;
+      }
+      
+      thead th, tbody td {
+        padding: 8px 6px;
+        font-size: 12px;
+      }
+      
+      .employee-grid {
+        grid-template-columns: 1fr !important;
+      }
+      
+      .summary-row {
+        flex-direction: column;
+      }
+      
+      .summary-card {
+        min-width: 100%;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .page-wrap {
+        padding: 8px !important;
+      }
+      
+      thead th, tbody td {
+        padding: 6px 4px;
+        font-size: 11px;
+      }
+      
+      .field input, .field select {
+        font-size: 16px;
+      }
+    }
   </style>
 </head>
 <body>

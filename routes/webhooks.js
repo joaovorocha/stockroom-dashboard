@@ -100,4 +100,57 @@ router.post('/ups', async (req, res) => {
   }
 });
 
+// ============================================================================
+// POST /api/webhooks/gmail - Receive Gmail Push Notifications
+// ============================================================================
+router.post('/gmail', async (req, res) => {
+  console.log('[Gmail Webhook] Received push notification');
+  
+  try {
+    // Immediately respond to Google (required within 10 seconds)
+    res.status(200).send('OK');
+    
+    // Parse the Pub/Sub message
+    const message = req.body.message;
+    
+    if (!message || !message.data) {
+      console.log('[Gmail Webhook] No message data received');
+      return;
+    }
+    
+    // Decode the base64 message data
+    const decodedData = Buffer.from(message.data, 'base64').toString('utf-8');
+    const notification = JSON.parse(decodedData);
+    
+    console.log('[Gmail Webhook] Notification:', notification);
+    
+    // Gmail notification format:
+    // {
+    //   "emailAddress": "user@gmail.com",
+    //   "historyId": "123456"
+    // }
+    
+    // Trigger email processing asynchronously
+    setImmediate(async () => {
+      try {
+        console.log('[Gmail Webhook] Triggering email processor...');
+        const { getUnifiedProcessor } = require('../utils/unified-gmail-processor');
+        const processor = getUnifiedProcessor();
+        
+        const results = await processor.processEmails();
+        console.log('[Gmail Webhook] Processing completed:', {
+          success: results.success,
+          emailsProcessed: results.emailsProcessed
+        });
+      } catch (error) {
+        console.error('[Gmail Webhook] Error processing emails:', error);
+      }
+    });
+    
+  } catch (error) {
+    console.error('[Gmail Webhook] Error handling notification:', error);
+    // Don't return error to Google - we already sent 200 OK
+  }
+});
+
 module.exports = router;

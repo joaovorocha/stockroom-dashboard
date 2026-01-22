@@ -77,21 +77,21 @@
     /* Weekly goals + notes: side-by-side on desktop */
     .edit-goal-notes-row {
       display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 480px;
       gap: 20px;
-      align-items: stretch;
+      align-items: start;
       margin-bottom: 20px;
     }
 
     @media (min-width: 1600px) {
       .edit-goal-notes-row {
-        grid-template-columns: 1fr 500px;
+        grid-template-columns: 1fr 520px;
       }
     }
 
     @media (max-width: 1400px) {
       .edit-goal-notes-row {
-        grid-template-columns: 1fr 400px;
+        grid-template-columns: 1fr 420px;
         gap: 16px;
       }
     }
@@ -1016,6 +1016,17 @@
       outline: none;
     }
 
+    .notes-editor a {
+      color: #0066cc;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .notes-editor a:hover {
+      color: #004499;
+      text-decoration: underline;
+    }
+
     .notes-editor:empty:before {
       content: attr(placeholder);
       color: var(--text-muted);
@@ -1093,6 +1104,7 @@
       background: transparent !important;
     }
   </style>
+  <script src="/js/network-detect.js?v=1"></script>
 </head>
 <body>
   <!-- Shared Header Mount -->
@@ -1113,20 +1125,20 @@
 	          </div>
 	        </div>
 	        
-	        <div style="display: flex; gap: 12px; align-items: center;">
+	        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
 	          <!-- Date Picker Widget -->
 	          <div style="display: flex; align-items: center; gap: 8px;">
 	            <label for="datePicker" style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Date:</label>
 	            <input type="date" id="datePicker" class="btn btn-sm" style="padding: 4px 8px; font-size: 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); color: var(--text); width: 130px;">
 	          </div>
 	          
-            <div class="edit-actions" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
-              <a href="/gameplan-calendar.html" class="btn btn-sm" style="background: var(--primary); color: white; padding: 6px 12px; font-size: 13px; text-decoration: none;">📅 View Calendar</a>
+            <div class="edit-actions" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: wrap;">
+              <a href="/gameplan-calendar.html" class="btn btn-sm" style="background: var(--primary); color: white; padding: 6px 12px; font-size: 13px; text-decoration: none; white-space: nowrap;">📅 View Calendar</a>
               
-            <button class="btn btn-sm" id="clearAllBtn" style="background:#f87171; color: white; padding: 6px 12px; font-size: 13px;">Clear All</button>
-            <a href="/dashboard" class="btn btn-sm btn-secondary" style="padding: 6px 12px; font-size: 13px;">Cancel</a>
-            <button class="btn btn-secondary btn-sm" id="saveDraftBtn" style="padding: 6px 16px; font-size: 13px;">Save Draft</button>
-            <button class="btn btn-primary btn-sm" id="publishBtn" style="padding: 6px 16px; font-size: 13px;">Publish</button>
+            <button class="btn btn-sm" id="clearAllBtn" style="background:#f87171; color: white; padding: 6px 12px; font-size: 13px; white-space: nowrap;">Clear All</button>
+            <a href="/dashboard" class="btn btn-sm btn-secondary" style="padding: 6px 12px; font-size: 13px; white-space: nowrap;">Cancel</a>
+            <button class="btn btn-secondary btn-sm" id="saveDraftBtn" style="padding: 6px 16px; font-size: 13px; white-space: nowrap;">Save Draft</button>
+            <button class="btn btn-primary btn-sm" id="publishBtn" style="padding: 6px 16px; font-size: 13px; white-space: nowrap;">Publish</button>
             </div>
 	        </div>
 	      </div>
@@ -1201,13 +1213,13 @@
           <span class="toolbar-divider"></span>
           <!-- Font Size -->
           <select id="fontSizeSelect" title="Font Size">
-            <option value="1">8pt</option>
-            <option value="2">10pt</option>
-            <option value="3" selected>12pt</option>
-            <option value="4">14pt</option>
-            <option value="5">18pt</option>
-            <option value="6">24pt</option>
-            <option value="7">36pt</option>
+            <option value="8">8pt</option>
+            <option value="10">10pt</option>
+            <option value="12" selected>12pt</option>
+            <option value="14">14pt</option>
+            <option value="18">18pt</option>
+            <option value="24">24pt</option>
+            <option value="36">36pt</option>
           </select>
           <span class="toolbar-divider"></span>
           <!-- Basic Formatting -->
@@ -1229,6 +1241,9 @@
           <button type="button" data-cmd="insertUnorderedList" title="Bullet List">•</button>
           <button type="button" data-cmd="insertOrderedList" title="Numbered List">#</button>
           <span class="toolbar-divider"></span>
+          <!-- Link -->
+          <button type="button" id="insertLinkBtn" title="Insert Link (⌘K)">🔗</button>
+          <span class="toolbar-divider"></span>
           <!-- Other -->
           <button type="button" data-cmd="indent" title="Indent">→</button>
           <button type="button" data-cmd="outdent" title="Outdent">←</button>
@@ -1239,6 +1254,25 @@
       </div>
       </div>
     </section>
+    </div>
+
+    <!-- Link Insert Modal -->
+    <div class="modal-overlay" id="linkModalOverlay" style="display: none;">
+      <div class="modal" style="max-width: 500px;">
+        <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">Insert Link</div>
+        <div style="margin-bottom: 12px;">
+          <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px;">Display Text</label>
+          <input type="text" id="linkText" placeholder="Text to display" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px;">
+        </div>
+        <div style="margin-bottom: 16px;">
+          <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px;">URL</label>
+          <input type="url" id="linkUrl" placeholder="https://example.com" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px;">
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" id="cancelLinkBtn">Cancel</button>
+          <button type="button" class="btn btn-primary" id="insertLinkConfirmBtn">Insert</button>
+        </div>
+      </div>
     </div>
 
     <!-- Templates / Copy Modal -->
@@ -1368,6 +1402,22 @@
 
   <script src="/js/shared-header.js?v=24"></script>
   <script>
+        // Safety: some cached scripts reference shouldSchedule; ensure it exists to avoid ReferenceError breaking init
+        if (typeof window.shouldSchedule === 'undefined') {
+          window.shouldSchedule = () => false;
+          console.warn('[EDIT] shimmed window.shouldSchedule to prevent init break');
+        }
+        // Safety: handle stray shouldDisableable references from cached scripts
+        if (typeof window.shouldDisableable === 'undefined') {
+          window.shouldDisableable = () => false;
+          console.warn('[EDIT] shimmed window.shouldDisableable to prevent init break');
+        }
+        // Safety: handle stray shouldDisable references from cached scripts
+        if (typeof window.shouldDisable === 'undefined') {
+          window.shouldDisable = () => false;
+          console.warn('[EDIT] shimmed window.shouldDisable to prevent init break');
+        }
+
         let currentUser = null;
         let employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
           let settings = {};
@@ -1974,7 +2024,11 @@
 			        editLog('[EDIT] Render complete');
 			        editLog('[EDIT] UI ready');
 			      } catch (error) {
-			        console.error('[EDIT] Initialization error:', error);
+			        console.error('[EDIT] Initialization error:', error?.message || error?.toString() || 'Unknown error', error);
+			        // Show error to user
+			        const msg = error?.message || error?.toString() || 'Failed to initialize';
+			        if (error?.stack) console.error('[EDIT] Stack trace:', error.stack);
+			        alert(`Failed to load gameplan editor: ${msg}`);
 			      }
 		    });
 
@@ -2256,6 +2310,10 @@
 	      const lunchOptions = (settings.lunchTimes || []).map(t =>
 	        `<option value="${t}">${t}</option>`).join('');
 
+      // Check if any employee already has daily scan assigned
+      const allEmployees = [...(employees.MANAGEMENT || []), ...(employees.LEAD || []), ...(employees['SALES ASSOCIATE'] || []), ...(employees.BOH || [])];
+      const dailyScanAssignedTo = allEmployees.find(e => gameplanData?.assignments?.[e.id]?.dailyScanAssigned)?.id;
+
 	      const mgmtList = [...(employees.MANAGEMENT || [])].sort((a, b) => {
 	        const aOff = !!a.isOff;
 	        const bOff = !!b.isOff;
@@ -2268,7 +2326,8 @@
 	          ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
 	          : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
 	        const isOff = !!emp.isOff;
-	        const assigned = !!(gameplanData?.assignments?.[emp.id]?.dailyScanAssigned);
+	        const assigned = dailyScanAssignedTo === emp.id;
+        const shouldDisable = dailyScanAssignedTo && dailyScanAssignedTo !== emp.id;
 
 	        grid.innerHTML += `
 	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.employeeId || emp.id}" data-type="MANAGEMENT">
@@ -2290,7 +2349,7 @@
                   </div>
                   <div class="daily-scan-toggle">
                     <label class="daily-scan-label" title="Assign Daily Scan">
-                      <input type="checkbox" class="daily-scan-checkbox" data-empid="${emp.id}" ${assigned ? 'checked' : ''}>
+                      <input type="checkbox" class="daily-scan-checkbox" data-empid="${emp.id}" ${assigned ? 'checked' : ''} ${shouldDisable ? 'disabled' : ''}>
                       Daily Scan
                     </label>
                   </div>
@@ -2347,6 +2406,10 @@
 	      const shifts = settings.shifts || [];
 	      const closingDuties = settings.closingSections || [];
 
+      // Check if any employee already has daily scan assigned
+      const allEmployees = [...(employees.MANAGEMENT || []), ...(employees.LEAD || []), ...(employees.SA || []), ...(employees.BOH || [])];
+      const dailyScanAssignedTo = allEmployees.find(e => gameplanData?.assignments?.[e.id]?.dailyScanAssigned)?.id;
+
 	      const saList = [...(employees.SA || [])].sort((a, b) => {
 	        const aOff = !!a.isOff;
 	        const bOff = !!b.isOff;
@@ -2379,7 +2442,8 @@
         }).join('');
 
 	        const isOff = !!emp.isOff;
-	        const assigned = !!(gameplanData?.assignments?.[emp.id]?.dailyScanAssigned);
+	        const assigned = dailyScanAssignedTo === emp.id;
+	        const shouldDisable = dailyScanAssignedTo && dailyScanAssignedTo !== emp.id;
 	        const saShiftFieldHtml = storeConfig?.requireSaShift ? `
 	              <div class="edit-field">
 	                <label>Shift</label>
@@ -2414,7 +2478,7 @@
                   </div>
                   <div class="daily-scan-toggle">
                     <label class="daily-scan-label" title="Assign Daily Scan">
-                      <input type="checkbox" class="daily-scan-checkbox" data-empid="${emp.id}" ${assigned ? 'checked' : ''}>
+                      <input type="checkbox" class="daily-scan-checkbox" data-empid="${emp.id}" ${assigned ? 'checked' : ''} ${shouldDisable ? 'disabled' : ''}>
                       Daily Scan
                     </label>
                   </div>
@@ -2490,6 +2554,10 @@
 	      const lunchOptions = (settings.lunchTimes || []).map(t =>
 	        `<option value="${t}">${t}</option>`).join('');
 
+      // Check if any employee already has daily scan assigned
+      const allEmployees = [...(employees.MANAGEMENT || []), ...(employees.LEAD || []), ...(employees.SA || []), ...(employees.BOH || [])];
+      const dailyScanAssignedTo = allEmployees.find(e => gameplanData?.assignments?.[e.id]?.dailyScanAssigned)?.id;
+
 	      const bohList = [...(employees.BOH || [])].sort((a, b) => {
 	        const aOff = !!a.isOff;
 	        const bOff = !!b.isOff;
@@ -2502,7 +2570,8 @@
 	          ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
 	          : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
 	        const isOff = !!emp.isOff;
-	        const assigned = !!(gameplanData?.assignments?.[emp.id]?.dailyScanAssigned);
+	        const assigned = dailyScanAssignedTo === emp.id;
+	        const shouldDisable = dailyScanAssignedTo && dailyScanAssignedTo !== emp.id;
 
 	        grid.innerHTML += `
 	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.employeeId || emp.id}" data-type="BOH">
@@ -2524,7 +2593,7 @@
                   </div>
                   <div class="daily-scan-toggle">
                     <label class="daily-scan-label" title="Assign Daily Scan">
-                      <input type="checkbox" class="daily-scan-checkbox" data-empid="${emp.id}" ${assigned ? 'checked' : ''}>
+                      <input type="checkbox" class="daily-scan-checkbox" data-empid="${emp.id}" ${assigned ? 'checked' : ''} ${shouldDisable ? 'disabled' : ''}>
                       Daily Scan
                     </label>
                   </div>
@@ -2577,8 +2646,12 @@
 	      grid.innerHTML = '';
 	      count.textContent = (employees.TAILOR || []).length;
 
-	      const stationOptions = (settings.tailorStations || []).map(s =>
-	        `<option value="${s.name}">${s.name}</option>`).join('');
+        // Daily scan selection: only one person across all teams
+        const allEmployees = [...(employees.MANAGEMENT || []), ...(employees.LEAD || []), ...(employees.SA || []), ...(employees.BOH || []), ...(employees.TAILOR || [])];
+        const dailyScanAssignedTo = allEmployees.find(e => gameplanData?.assignments?.[e.id]?.dailyScanAssigned)?.id;
+
+        const stationOptions = (settings.tailorStations || []).map(s =>
+          `<option value="${s.name}">${s.name}</option>`).join('');
 	      const lunchOptions = (settings.lunchTimes || []).map(t =>
 	        `<option value="${t}">${t}</option>`).join('');
 
@@ -2594,7 +2667,8 @@
 	          ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="edit-card-photo">`
 	          : `<div class="edit-card-photo placeholder">${getInitials(emp.name)}</div>`;
 	        const isOff = !!emp.isOff;
-	        const assigned = !!(gameplanData?.assignments?.[emp.id]?.dailyScanAssigned);
+          const assigned = dailyScanAssignedTo === emp.id;
+          const shouldDisable = dailyScanAssignedTo && dailyScanAssignedTo !== emp.id;
 
 	        grid.innerHTML += `
 	          <div class="edit-card${isOff ? ' off' : ''}" data-id="${emp.employeeId || emp.id}" data-type="TAILOR">
@@ -2616,7 +2690,7 @@
                   </div>
                   <div class="daily-scan-toggle">
                     <label class="daily-scan-label" title="Assign Daily Scan">
-                      <input type="checkbox" class="daily-scan-checkbox" data-empid="${emp.id}" ${assigned ? 'checked' : ''}>
+                      <input type="checkbox" class="daily-scan-checkbox" data-empid="${emp.id}" ${assigned ? 'checked' : ''} ${shouldDisable ? 'disabled' : ''}>
                       Daily Scan
                     </label>
                   </div>
@@ -2803,9 +2877,12 @@
 	        if (!empId) return;
 	        const assign = checkbox.checked;
 
-	        // Optimistically uncheck others
+	        // Optimistically uncheck and disable others when one is checked
 	        document.querySelectorAll('.daily-scan-checkbox').forEach(cb => {
-	          if (cb !== checkbox) cb.checked = false;
+	          if (cb !== checkbox) {
+	            cb.checked = false;
+	            cb.disabled = assign; // Disable others when this one is checked
+	          }
 	        });
 
 	        try {
@@ -2816,31 +2893,39 @@
 	          });
 	          const result = await resp.json().catch(() => ({}));
 	          if (!resp.ok) throw new Error(result?.error || 'Failed');
-	          // Update gameplanData
+	          // Update gameplanData - clear all other assignments first
 	          if (!gameplanData.assignments) gameplanData.assignments = {};
+	          
+	          // Clear all daily scan assignments
+	          Object.keys(gameplanData.assignments).forEach(id => {
+	            if (gameplanData.assignments[id]) {
+	              delete gameplanData.assignments[id].dailyScanAssigned;
+	              delete gameplanData.assignments[id].dailyScanAssignedBy;
+	              delete gameplanData.assignments[id].dailyScanAssignedAt;
+	            }
+	          });
+	          
+	          // Set the new assignment
 	          if (assign) {
 	            if (!gameplanData.assignments[empId]) gameplanData.assignments[empId] = {};
 	            gameplanData.assignments[empId].dailyScanAssigned = true;
 	            gameplanData.assignments[empId].dailyScanAssignedBy = currentUser?.email || currentUser?.name || 'system';
 	            gameplanData.assignments[empId].dailyScanAssignedAt = new Date().toISOString();
-	          } else {
-	            if (gameplanData.assignments[empId]) {
-	              delete gameplanData.assignments[empId].dailyScanAssigned;
-	              delete gameplanData.assignments[empId].dailyScanAssignedBy;
-	              delete gameplanData.assignments[empId].dailyScanAssignedAt;
-	            }
 	          }
 	          hasUnsavedChanges = true;
 	          // Re-render all sections to show updated assignments
 	          renderAll();
 	        } catch (err) {
-	          console.error('Failed to assign daily scan', err);
+	          console.error('Failed to assign daily scan:', err?.message || err?.toString() || 'Unknown error', err);
+	          if (err?.stack) console.error('[DAILY-SCAN] Stack trace:', err.stack);
+	          alert(`Failed to assign daily scan: ${err?.message || err?.toString() || 'Unknown error'}`);
 	          // Revert UI
 	          checkbox.checked = !assign;
 	          document.querySelectorAll('.daily-scan-checkbox').forEach(cb => {
 	            const cbEmpId = cb.dataset.empid;
 	            const cbAssigned = !!(gameplanData?.assignments?.[cbEmpId]?.dailyScanAssigned);
 	            cb.checked = cbAssigned;
+	            cb.disabled = cbAssigned && cb !== checkbox; // Re-enable based on actual state
 	          });
 	        }
 	      });
@@ -3652,7 +3737,16 @@
       const fontSizeSelect = document.getElementById('fontSizeSelect');
       if (fontSizeSelect) {
         fontSizeSelect.addEventListener('change', (e) => {
-          document.execCommand('fontSize', false, e.target.value);
+          const size = e.target.value + 'px';
+          document.execCommand('fontSize', false, '7'); // Use temp value
+          // Replace all font tags with span with actual size
+          const fontElements = notesEditor.querySelectorAll('font[size="7"]');
+          fontElements.forEach(font => {
+            const span = document.createElement('span');
+            span.style.fontSize = size;
+            span.innerHTML = font.innerHTML;
+            font.parentNode.replaceChild(span, font);
+          });
           notesEditor.focus();
           hasUnsavedChanges = true;
         });
@@ -3703,6 +3797,144 @@
           }
         });
       }
+      
+      // Link insertion
+      const insertLinkBtn = document.getElementById('insertLinkBtn');
+      const linkModalOverlay = document.getElementById('linkModalOverlay');
+      const linkTextInput = document.getElementById('linkText');
+      const linkUrlInput = document.getElementById('linkUrl');
+      const insertLinkConfirmBtn = document.getElementById('insertLinkConfirmBtn');
+      const cancelLinkBtn = document.getElementById('cancelLinkBtn');
+      let savedSelection = null;
+
+      function saveSelection() {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          savedSelection = selection.getRangeAt(0);
+        }
+      }
+
+      function restoreSelection() {
+        const selection = window.getSelection();
+        if (savedSelection) {
+          selection.removeAllRanges();
+          selection.addRange(savedSelection);
+        }
+      }
+
+      function showLinkModal() {
+        saveSelection();
+        const selectedText = window.getSelection().toString();
+        linkTextInput.value = selectedText || '';
+        linkUrlInput.value = '';
+        linkModalOverlay.style.display = 'flex';
+        linkTextInput.focus();
+      }
+
+      function hideLinkModal() {
+        linkModalOverlay.style.display = 'none';
+        linkTextInput.value = '';
+        linkUrlInput.value = '';
+      }
+
+      function insertLink() {
+        let text = linkTextInput.value.trim();
+        let url = linkUrlInput.value.trim();
+
+        if (!url) {
+          alert('Please enter a URL');
+          linkUrlInput.focus();
+          return;
+        }
+
+        // Add https:// if no protocol specified
+        if (!/^https?:\/\//i.test(url)) {
+          url = 'https://' + url;
+        }
+
+        if (!text) {
+          text = url;
+        }
+
+        restoreSelection();
+        
+        // Create link element
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = text;
+        link.style.color = '#0066cc';
+        link.style.textDecoration = 'underline';
+
+        // Insert at cursor
+        const selection = window.getSelection();
+        if (savedSelection) {
+          savedSelection.deleteContents();
+          savedSelection.insertNode(link);
+          
+          // Move cursor after the link
+          const range = document.createRange();
+          range.setStartAfter(link);
+          range.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+
+        notesEditor.focus();
+        hasUnsavedChanges = true;
+        hideLinkModal();
+      }
+
+      if (insertLinkBtn) {
+        insertLinkBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          showLinkModal();
+        });
+      }
+
+      if (cancelLinkBtn) {
+        cancelLinkBtn.addEventListener('click', hideLinkModal);
+      }
+
+      if (insertLinkConfirmBtn) {
+        insertLinkConfirmBtn.addEventListener('click', insertLink);
+      }
+
+      if (linkModalOverlay) {
+        linkModalOverlay.addEventListener('click', (e) => {
+          if (e.target === linkModalOverlay) {
+            hideLinkModal();
+          }
+        });
+      }
+
+      // Handle Enter key in link modal
+      if (linkUrlInput) {
+        linkUrlInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            insertLink();
+          }
+        });
+      }
+
+      if (linkTextInput) {
+        linkTextInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            linkUrlInput.focus();
+          }
+        });
+      }
+
+      // Keyboard shortcut for link insertion (Ctrl+K / Cmd+K)
+      notesEditor.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          showLinkModal();
+        }
+      });
       
       // Track notes changes
       notesEditor.addEventListener('input', () => {

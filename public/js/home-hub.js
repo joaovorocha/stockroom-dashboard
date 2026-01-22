@@ -128,11 +128,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     setText('homeLunch', lunchText);
     setText('homeFittingRoom', fittingRoomText);
 
-    setCardVisibleByValue('homeShift', !isEmptyDisplayValue(shiftText));
-    setCardVisibleByValue('homePosition', !isEmptyDisplayValue(positionText));
-    setCardVisibleByValue('homeZone', !isEmptyDisplayValue(zoneDisplayText));
-    setCardVisibleByValue('homeLunch', !isEmptyDisplayValue(lunchText));
-    setCardVisibleByValue('homeFittingRoom', !isEmptyDisplayValue(fittingRoomText));
+    // Check if user is assigned to daily scan
+    let dailyScanText = '--';
+    try {
+      const today = (typeof getLocalISODate === 'function' ? getLocalISODate() : new Date().toISOString().split('T')[0]);
+      const resp = await fetch('/api/gameplan/daily-scan/check?date=' + today, { credentials: 'include' });
+      const data = await safeJson(resp);
+      if (data?.assigned && userEmp) {
+        const assignedEmpId = (data.employeeId || '').toString();
+        const currentEmpId = (userEmp.employeeId || userEmp.id || '').toString();
+        if (assignedEmpId === currentEmpId) {
+          dailyScanText = '✓ Assigned';
+          setCardStatusClass('homeDailyScan', 'success');
+        }
+      }
+    } catch (e) {
+      console.error('[home-hub] Failed to check daily scan assignment:', e);
+    }
+    setText('homeDailyScan', dailyScanText);
+
+    // Always show all cards (removed hide logic)
 
     // Available fitting rooms (store-wide)
     try {
@@ -191,7 +206,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const listText = list || '--';
       setText('homeClosingList', listText);
 
-      setCardVisibleByValue('homeClosingSummary', !isEmptyDisplayValue(summaryText) && !isEmptyDisplayValue(listText));
+      // Always show closing card
 
       // Visual status: yellow if anything pending, green when fully complete.
       if (pendingCount === 0 && completedCount > 0) {
@@ -225,13 +240,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    // If everything is empty, hide the whole Today section.
-    const todaySection = document.getElementById('homeTodaySection');
-    if (todaySection) {
-      const cards = Array.from(todaySection.querySelectorAll('.metric-card'));
-      const visibleCards = cards.filter(c => c.style.display !== 'none');
-      todaySection.style.display = visibleCards.length ? '' : 'none';
-    }
+    // Always show the Today section
   } catch (e) {
     console.error('[home-hub] Failed to load home summary:', e);
   }

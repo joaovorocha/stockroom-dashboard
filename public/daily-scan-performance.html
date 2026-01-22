@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="view-transition" content="same-origin">
+  <title>Daily Scan Performance | Suitsupply</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="stylesheet" href="/css/theme.css?v=14">
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17">
+  <style>
+    .scan-performance-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    .import-section {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+      border: 2px dashed var(--border);
+    }
+
+    .import-section h3 {
+      margin-top: 0;
+      margin-bottom: 16px;
+      font-size: 18px;
+    }
+
+    .upload-area {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .upload-area input[type="file"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .upload-area button {
+      padding: 10px 20px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .upload-area button:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .upload-area button:disabled {
+      background: var(--border);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+      padding: 0;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      padding: 20px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      transition: all 0.2s;
+    }
+
+    .kpi-card:hover {
+      border-color: var(--primary);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    }
+
+    .kpi-card.success { border-color: #10b981; }
+    .kpi-card.warning { border-color: #f59e0b; }
+    .kpi-card.error { border-color: #ef4444; }
+
+    .kpi-card h4 {
+      margin: 0 0 8px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 8px 0;
+    }
+
+    .kpi-value.success {
+      color: #10b981;
+    }
+
+    .kpi-value.warning {
+      color: #f59e0b;
+    }
+
+    .kpi-value.error {
+      color: #ef4444;
+    }
+
+    .kpi-trend {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .charts-section {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      padding: 24px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+
+    .chart-card h3 {
+      margin: 0 0 20px 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .chart-card canvas {
+      max-height: 350px;
+    }
+
+    .chart-placeholder {
+      width: 100%;
+      height: 300px;
+      background: var(--background);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .results-section {
+      background: var(--surface);
+      padding: 0;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 32px;
+      overflow: hidden;
+    }
+
+    .results-header {
+      padding: 24px 24px 20px 24px;
+      margin: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .results-header h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .filters {
+      display: flex;
+      gap: 12px;
+      padding: 0;
+      margin: 0;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .filter-group label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      background: var(--background);      min-height: 44px;
+      -webkit-appearance: none;
+      appearance: none;
+      cursor: pointer;    }
+
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      max-height: 600px;
+      overflow-y: auto;
+      margin: 0;
+      table-layout: fixed;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #resultsTableContainer {
+      width: 100%;
+      margin: 0;
+      padding: 0 24px 24px 24px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    @media (max-width: 768px) {
+      #resultsTableContainer {
+        padding: 0 12px 12px 12px;
+        overflow-x: scroll;
+      }
+      
+      .results-table {
+        min-width: 900px;
+      }
+    }
+
+    .results-table thead {
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 10;
+    }
+
+    .results-table th {
+      text-align: left;
+      padding: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .results-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .results-table tbody tr:hover {
+      background: var(--background);
+    }
+
+    .accuracy-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .accuracy-badge.excellent {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .accuracy-badge.good {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .accuracy-badge.fair {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .accuracy-badge.poor {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .assignment-match {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .assignment-match.matched {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .assignment-match.unmatched {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .assignment-match.unknown {
+      background: #f3f4f6;
+      color: #6b7280;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state h3 {
+      margin: 0 0 8px 0;
+      font-size: 18px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state p {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    @media (max-width: 768px) {
+      .scan-performance-container {
+        padding: 12px;
+        overflow-x: hidden;
+      }
+
+      .charts-section {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .chart-card {
+        padding: 16px;
+      }
+
+      .kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .kpi-card {
+        padding: 16px;
+      }
+
+      .kpi-value {
+        font-size: 24px;
+      }
+
+      .results-table {
+        font-size: 12px;
+      }
+
+      .results-table th,
+      .results-table td {
+        padding: 8px 4px;
+      }
+
+      #resultsTableContainer {
+        padding: 0 12px 12px 12px;
+      }
+
+      .results-header {
+        padding: 12px 12px 12px 12px;
+      }
+
+      .filter-group label {
+        font-size: 11px;
+      }
+
+      .filter-group select {
+        font-size: 13px;
+        padding: 6px 8px;
+      }
+
+      .filters {
+        flex-direction: column;
+        width: 100%;
+        gap: 8px;
+      }
+
+      .chart-card {
+        padding: 16px;
+      }
+
+      .chart-card h3 {
+        font-size: 16px;
+      }
+
+      /* Make Store Metrics header stack on mobile */
+      .store-metrics-header {
+        flex-direction: column !important;
+        gap: 16px !important;
+      }
+
+      .store-metrics-header .filters {
+        width: 100%;
+      }
+
+      /* Make header section stack */
+      .header-section {
+        flex-direction: column !important;
+      }
+
+      /* Table improvements for mobile - enable horizontal scrolling */
+      #resultsTableContainer {
+        padding: 0 12px 12px 12px;
+        overflow-x: scroll !important;
+      }
+      
+      .results-table {
+        min-width: 900px;
+      }
+
+      /* Table improvements for mobile */
+      .results-table th {
+        font-size: 11px;
+        letter-spacing: 0.3px;
+      }
+
+      .results-table {
+        max-height: 500px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .kpi-value {
+        font-size: 28px;
+      }
+
+      h1 {
+        font-size: 24px !important;
+      }
+
+      .results-table {
+        font-size: 11px;
+      }
+
+      .results-table th,
+      .results-table td {
+        padding: 6px 2px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="shared-header-mount"></div>
+
+  <main class="scan-performance-container">
+    <!-- Header with Import Section -->
+    <div class="header-section" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 32px; flex-wrap: wrap;">
+      <header style="flex: 1; min-width: 300px;">
+        <h1 style="margin: 0 0 8px 0; font-size: 28px; font-weight: 700;">Daily Scan Performance</h1>
+        <p style="margin: 0; color: var(--text-secondary); font-size: 16px;">Track inventory accuracy and employee performance</p>
+        <div id="lastUpdated" style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">Loading...</div>
+      </header>
+
+      <!-- CSV Import Section (Top Right) -->
+      <section style="background: var(--surface); border-radius: 12px; padding: 20px; border: 2px dashed var(--border); min-width: 320px; max-width: 450px;">
+        <h3 style="margin: 0 0 12px 0; font-size: 16px;">📤 Import StoreCount Data</h3>
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+          <input type="file" id="csvFileInput" accept=".csv" style="flex: 1; min-width: 180px; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px;" />
+          <button id="uploadBtn" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;">Upload CSV</button>
+        </div>
+        <span id="uploadStatus" style="font-size: 13px; color: var(--text-secondary); display: block; margin-top: 8px;"></span>
+      </section>
+    </div>
+
+    <!-- Today's Assignment Card -->
+    <div style="background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="margin: 0;">Today's Daily Scan Assignment</h3>
+        <span id="todayStatus" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #fee2e2; color: #991b1b;">Not Started</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+        <div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Assigned To</div>
+          <div style="font-size: 16px; font-weight: 600;" id="assignedEmployee">--</div>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Expected Units</div>
+          <div style="font-size: 16px; font-weight: 600;" id="todayExpected">--</div>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Counted Units</div>
+          <div style="font-size: 16px; font-weight: 600;" id="todayCounted">--</div>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Accuracy</div>
+          <div style="font-size: 16px; font-weight: 600;" id="todayAccuracy">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Store Metrics YTD -->
+    <div class="store-metrics-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <h2 style="margin: 0 0 4px 0; font-size: 20px; font-weight: 600;" id="storeMetricsTitle">📊 Store Metrics YTD</h2>
+        <p style="margin: 0; color: var(--text-secondary); font-size: 14px;" id="storeMetricsSubtitle">Year-to-date performance indicators for San Francisco</p>
+      </div>
+      <div class="filters" style="margin: 0;">
+        <div class="filter-group">
+          <label>Employee</label>
+          <select id="filterEmployee">
+            <option value="">All Employees</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Date Range</label>
+          <select id="filterDateRange">
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+            <option value="90">Last 90 days</option>
+            <option value="365">Last year</option>
+            <option value="all" selected>All time</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>Status</label>
+          <select id="filterStatus">
+            <option value="">All</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="IN_PROGRESS">In Progress</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card" id="kpiAccuracy">
+        <h4 id="kpiAccuracyLabel">Average Accuracy YTD</h4>
+        <div class="kpi-value" id="avgAccuracy">--</div>
+        <div class="kpi-trend" id="accuracyTrend">Loading...</div>
+      </div>
+      <div class="kpi-card" id="kpiCompleted">
+        <h4 id="kpiCompletedLabel">Total Scans YTD</h4>
+        <div class="kpi-value" id="totalCompleted">--</div>
+        <div class="kpi-trend" id="scansTrend">All time</div>
+      </div>
+      <div class="kpi-card" id="kpiMissed">
+        <h4 id="kpiMissedLabel">Avg Missed Units YTD</h4>
+        <div class="kpi-value" id="avgMissed">--</div>
+        <div class="kpi-trend" id="missedTrend">Per scan</div>
+      </div>
+      <div class="kpi-card" id="kpiUndecodable">
+        <h4 id="kpiUndecodableLabel">Undecodable Rate YTD</h4>
+        <div class="kpi-value" id="undecodableRate">--</div>
+        <div class="kpi-trend" id="matchTrend">Average %</div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-section">
+      <div class="chart-card">
+        <h3 id="accuracyTrendTitle">Accuracy Trend YTD</h3>
+        <canvas id="accuracyTrendChart" width="400" height="250"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3 id="discrepancyTitle">Discrepancy Breakdown YTD</h3>
+        <canvas id="discrepancyChart" width="400" height="250"></canvas>
+      </div>
+    </div>
+
+    <!-- Employee Performance Charts -->
+    <div class="charts-section">
+      <div class="chart-card">
+        <h3 id="topPerformersTitle">🏆 Top Performers YTD (Accuracy)</h3>
+        <canvas id="topPerformersChart" width="400" height="250"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3 id="employeeTableTitle">👤 YTD Employee Scan</h3>
+        <div id="employeePerformanceTableContainer">
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Scan<br>Accuracy</th>
+                <th>Counts<br>Done</th>
+                <th>Missed<br>Scans</th>
+                <th>Missed<br>Available</th>
+                <th>Missed<br>Reserved</th>
+              </tr>
+            </thead>
+            <tbody id="employeePerformanceBody">
+              <tr>
+                <td colspan="6" class="empty-state">
+                  <div>
+                    <h3>Loading employee data...</h3>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+            <tfoot id="employeePerformanceTotals" style="display:none;">
+              <tr style="font-weight:700; background-color:#f9fafb; border-top:2px solid #e5e7eb;">
+                <td>YTD Totals</td>
+                <td id="totalAccuracy">--</td>
+                <td id="totalCountsDone">--</td>
+                <td id="totalMissedScans">--</td>
+                <td id="totalMissedAvailable">--</td>
+                <td id="totalMissedReserved">--</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results Table -->
+    <section class="results-section">
+      <div class="results-header">
+        <h3>📅 Historical Scan Results</h3>
+      </div>
+
+      <div id="resultsTableContainer">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Employee</th>
+              <th>Scheduled<br>Scan</th>
+              <th>Expected</th>
+              <th>Counted</th>
+              <th>Missed</th>
+              <th>New</th>
+              <th>Undecodable</th>
+              <th>Accuracy</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="resultsTableBody">
+            <tr>
+              <td colspan="9" class="empty-state">
+                <div>
+                  <h3>No Data Available</h3>
+                  <p>Upload a StoreCount CSV file to see performance metrics</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/shared-header.js?v=24"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="/js/daily-scan-performance.js?v=13"></script>
+</body>
+</html>

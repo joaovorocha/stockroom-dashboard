@@ -1,6 +1,20 @@
-# Stockroom Dashboard — Server Map (Routes + Config)
+# Daily Operations Dashboard — Server Map (Routes + Config)
 
-This repo's server entrypoint is `server.js` (Express). Route handlers live in `routes/*.js`. Persistent data is stored in PostgreSQL via the DAL in `utils/dal/pg.js`.
+**Last Updated:** January 22, 2026  
+**Server:** Express.js on Node.js 18+  
+**Database:** PostgreSQL 15  
+**Entry Point:** `server.js`
+
+This repo's server entrypoint is `server.js` (Express). Route handlers live in `routes/*.js` (21 route files). Persistent data is stored in PostgreSQL via the DAL in `utils/dal/pg.js`.
+
+## Quick Stats
+
+- **Total API Endpoints:** 58+
+- **Route Files:** 21
+- **Server Port:** 3000 (default) - proxied by Apache on port 80
+- **Local IP:** 10.201.48.17
+- **Tailscale:** suitserver.tail39e95f.ts.net
+- **Smart Network Detection:** Enabled (auto-switches WiFi/Tailscale)
 
 ## How To Get IPs (Client/Proxy/Tailscale)
 
@@ -77,6 +91,7 @@ All of these are served from `public/*.html` and require auth unless stated othe
 
 Mounted in `server.js`:
 
+- `app.use('/api/webhooks', webhookRoutes)` → `routes/webhooks.js` (**NO AUTH - Public webhooks**)
 - `app.use('/api/auth', authRoutes)` → `routes/auth.js`
 - `app.use('/api/shipments', authMiddleware, shipmentsRoutes)` → `routes/shipments.js`
 - `app.use('/api/closing-duties', authMiddleware, closingDutiesRoutes)` → `routes/closingDuties.js`
@@ -89,6 +104,26 @@ Mounted in `server.js`:
 - `app.use('/api/radio', authMiddleware, radioRoutes)` → `routes/radio.js`
 - `app.use('/api/expenses', authMiddleware, expensesRoutes)` → `routes/expenses.js`
 - `app.use('/api/store-recovery', authMiddleware, storeRecoveryRoutes)` → `routes/storeRecovery.js`
+- `app.use('/api/pickups', authMiddleware, pickupsRoutes)` → `routes/pickups.js`
+- `app.use('/api/waitwhile', authMiddleware, waitwhileRoutes)` → `routes/waitwhile.js`
+- `app.use('/api/manhattan', authMiddleware, manhattanRoutes)` → `routes/manhattan.js`
+- `app.use('/api/rfid', authMiddleware, rfidRoutes)` → `routes/rfid.js`
+- `app.use('/api/logs', clientLogsRoutes)` → `routes/clientLogs.js`
+- `app.use('/api/printers', authMiddleware, printersRoutes)` → `routes/printers.js`
+- `app.use('/api/ai', authMiddleware, aiAssignmentRoutes)` → `routes/ai-assignment.js`
+- `app.use('/api/mock', mockApiRoutes)` → `routes/mockApi.js`
+
+### Special Endpoints (No Auth Required)
+
+- `GET /api/health` - Health check endpoint (returns `{status: 'ok', timestamp}`)
+
+### `/api/webhooks` (NO AUTH) — `routes/webhooks.js`
+**Gmail Push Notifications (January 2026)**
+- `POST /api/webhooks/gmail` - Google Cloud Pub/Sub push notification endpoint
+  - Receives real-time Gmail notifications
+  - Decodes base64 Pub/Sub message
+  - Triggers async email processing via `unified-gmail-processor.js`
+  - Responds 200 OK immediately (required by Google within 10 seconds)
 
 ### `/api/admin` (admin only) — `routes/admin.js`
 - `GET /api/admin/store-config`
@@ -218,7 +253,38 @@ Mounted in `server.js`:
 - `GET /api/awards/tomato`
 
 ### SSE (server push)
-- `GET /api/sse/updates` (auth required)
+- `GET /api/sse/updates` (auth required) - Real-time server-sent events for dashboard updates
+
+## Recent Features (January 2026)
+
+### Gmail Push Notifications
+- **Real-time email processing** using Gmail API + Google Cloud Pub/Sub
+- **OAuth 2.0 authentication** with automatic token refresh
+- **Gmail watch** expires every 7 days, auto-renewed by cron job
+- **PM2 process:** `gmail-watch-renewal` - Runs renewal cron
+- **Credentials:** `data/gmail-credentials.json`, `data/gmail-token.json`, `data/gmail-watch-info.json`
+- **Commands:**
+  - `npm run gmail-watch-setup` - Enable Gmail watch
+  - `npm run gmail-watch-status` - Check watch status
+
+### Smart Network Detection  
+- **Automatic WiFi/Tailscale switching** for optimal performance
+- **Local WiFi users** (10.201.48.x) → Auto-redirect to `http://10.201.48.17/` (1000+ Mbps)
+- **Remote users** → Stay on `https://suitserver.tail39e95f.ts.net/` (Tailscale 10 Mbps)
+- **JavaScript:** `public/js/network-detect.js` - Loaded on all gameplan and admin pages
+- **Detection:** Tests local IP connectivity, redirects if reachable
+- **Test page:** `https://suitserver.tail39e95f.ts.net/network-test.html`
+
+### PWA Enhancements
+- **App Name:** Changed from "Stockroom Dashboard" to "Daily Operations"
+- **Add to Home Screen:** iOS-optimized installation prompt
+- **JavaScript:** `public/js/add-to-homescreen.js` - Balloon prompt on home page
+- **Features:** 
+  - Shows after 2 seconds on first visit
+  - Dismissible with 7-day cooldown
+  - Auto-dismisses after 15 seconds
+  - Dark mode support
+- **iOS optimization:** Black translucent status bar, full-screen mode, no zoom
 
 ## Config Files / Data Paths
 
@@ -226,18 +292,22 @@ The JSON DAL defines canonical paths in `utils/dal/json.js`:
 
 - Store config: `data/store-config.json` (admin editable)
   - Example: `docs/examples/store-config.json`
-- Users: `data/users.json`
+- Users: `data/users.json` (**DEPRECATED - migrated to PostgreSQL**)
 - Employees index: `data/employees-v2.json`
 - Dashboard payload cache: `data/dashboard-data.json`
-- Game plan daily data: `data/gameplan-daily/`
+- Game plan daily data: `data/gameplan-daily/` (**DEPRECATED - migrated to PostgreSQL**)
 - Shipments: `data/shipments.json` (+ backups in `data/shipments-backups/`)
-- Time off: `data/time-off.json`
+- Time off: `data/time-off.json` (**DEPRECATED - migrated to PostgreSQL**)
 - Work expenses limits: `data/work-expenses-config.json`
 - Awards config: `data/awards-config.json`
+- Gmail API: `data/gmail-credentials.json`, `data/gmail-token.json`, `data/gmail-watch-info.json` (**NEW - Jan 2026**)
 - Logs/metrics:
   - `data/activity-log.json`
   - `data/scan-performance-history/`
   - `data/store-metrics/`
+  - `data/scheduler-logs/`
+  - `data/cache/`
+  - `data/radio/`
 
 ### Work-Related Expenses (Employee Discount)
 - Looker email import assets live under `files/dashboard-work_related_expenses/`
@@ -263,3 +333,55 @@ The JSON DAL defines canonical paths in `utils/dal/json.js`:
   - `UPS_CLIENT_SECRET` / `UPS_OAUTH_CLIENT_SECRET`
   - `UPS_MERCHANT_ID` / `UPS_ACCOUNT_NUMBER`
   - `UPS_ENV`
+
+## Known TODOs & Incomplete Features
+
+### Minor Issues
+1. **Hardcoded Store Value** - `routes/gameplan.js:2561`
+   - Currently hardcoded to 'SF' (San Francisco)
+   - Should be made dynamic based on user's store
+
+### Incomplete Integrations
+1. **Manhattan POS** - `routes/manhattan.js:536`
+   - Order and unit sync logic not implemented
+   - Placeholder endpoints exist but need real integration
+
+2. **WaitWhile Pickup System** - `routes/pickups.js:290,299`
+   - Database creation logic incomplete
+   - Inventory sync logic placeholder
+   - See `routes/waitwhile.js:489` for real-time sync placeholder
+
+### Migration Status
+- ✅ **PostgreSQL Migration Complete** - All user data, gameplan, time-off, closing duties migrated
+- ✅ **Gmail Push Notifications** - Fully implemented and operational
+- ✅ **Network Optimization** - Smart WiFi/Tailscale detection working
+- ✅ **PWA Enhancements** - iOS optimization complete
+- ⏳ **Manhattan Integration** - Pending implementation
+- ⏳ **WaitWhile Integration** - Pending completion
+
+## PM2 Processes
+
+Current running processes:
+- `stockroom-dashboard` (id:6) - Main Express server
+- `gmail-watch-renewal` (id:7) - Gmail watch auto-renewal cron
+- `radio` (id:1) - Radio monitoring service
+- `radio-transcriber` (id:4) - Radio transcription service
+
+## Environment Variables
+
+Key environment variables in `.env`:
+- `PORT` - Server port (default: 3000)
+- `DATABASE_URL` - PostgreSQL connection string
+- `REDIS_URL` - Redis connection string
+- `GMAIL_USER` - Gmail account for push notifications
+- `GMAIL_PUBSUB_TOPIC` - Google Cloud Pub/Sub topic
+- `SESSION_SECRET` - Session encryption key
+- `NODE_ENV` - Environment (production/development)
+
+See `.env.example` for complete list.
+
+---
+
+**Last Updated:** January 22, 2026  
+**Documentation:** See `README.md`, `NETWORK_OPTIMIZATION.md`, `GMAIL_PUSH_QUICKSTART.md`  
+**Legacy Docs:** Moved to `legacy-docs/` folder

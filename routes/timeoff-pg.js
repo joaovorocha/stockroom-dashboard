@@ -7,6 +7,18 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../utils/dal/pg');
 
+// Helper: Log time-off audit trail
+async function logTimeOffAudit(requestId, userId, action, oldStatus, newStatus, notes = '') {
+  try {
+    await query(`
+      INSERT INTO timeoff_audit_log (request_id, user_id, action, old_status, new_status, notes)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [requestId, userId, action, oldStatus, newStatus, notes]);
+  } catch (err) {
+    console.error('Error logging time-off audit:', err);
+  }
+}
+
 // Helper: Normalize date to ISO format (YYYY-MM-DD)
 function coerceIsoDate(d) {
   if (!d) return '';
@@ -26,8 +38,8 @@ function formatTimeOffEntry(row) {
     employeeId: row.employee_id,
     employeeName: row.name,
     employeeImageUrl: row.image_url || '',
-    startDate: row.start_date,
-    endDate: row.end_date,
+    startDate: coerceIsoDate(row.start_date),
+    endDate: coerceIsoDate(row.end_date),
     reason: row.reason,
     notes: row.notes,
     status: row.status === 'approved' ? 'published' : row.status, // Map to legacy status
@@ -79,10 +91,9 @@ router.get('/', async (req, res) => {
 // POST /api/timeoff/request - Submit time-off request
 router.post('/request', async (req, res) => {
   try {
-    const user = await getUserFromSession(req);
-    if (!user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }req.user; // Set by auth middleware
+    const user = req.user; // Set by auth middleware
+    const { startDate, endDate, reason, notes } = req.body || {};
+    
     if (!startDate || !endDate) {
       return res.status(400).json({ error: 'Start and end dates are required' });
     }
@@ -182,10 +193,9 @@ router.post('/request', async (req, res) => {
 // PUT /api/timeoff/:id - Update own request
 router.put('/:id', async (req, res) => {
   try {
-    const user = await getUserFromSession(req);
-    if (!user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }req.user; // Set by auth middlewareonst { startDate, endDate, reason, notes } = req.body || {};
+    const user = req.user; // Set by auth middleware
+    const { id } = req.params;
+    const { startDate, endDate, reason, notes } = req.body || {};
 
     const nextStart = coerceIsoDate(startDate);
     const nextEnd = coerceIsoDate(endDate);
@@ -229,6 +239,16 @@ router.put('/:id', async (req, res) => {
       id
     ]);
 
+    // Log audit trail
+    await logTimeOffAudit(
+      id,
+      user.id,
+      'updated',
+      null,
+      null,
+      `Updated dates: ${nextStart} to ${nextEnd}`
+    );
+
     // Get updated request
     const updatedResult = await query(`
       SELECT 
@@ -258,10 +278,8 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/timeoff/:id - Cancel own request
 router.delete('/:id', async (req, res) => {
   try {
-    const user = await getUserFromSession(req);
-    if (!user) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }req.user; // Set by auth middleware
+    const user = req.user; // Set by auth middleware
+    const { id } = req.params;
     // Find request and verify ownership
     const requestResult = await query(`
       SELECT user_id 
@@ -279,6 +297,16 @@ router.delete('/:id', async (req, res) => {
     if (!user.is_admin && request.user_id !== user.id) {
       return res.status(403).json({ error: 'Not authorized to delete this request' });
     }
+
+    // Log audit trail before deletion
+    await logTimeOffAudit(
+      id,
+      user.id,
+      'cancelled',
+      null,
+      'cancelled',
+      'Request cancelled by user'
+    );
 
     // Delete request
     await query('DELETE FROM timeoff_requests WHERE id = $1', [id]);

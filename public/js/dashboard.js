@@ -608,7 +608,7 @@ function handleSSEUpdate(update) {
     case 'weekly_goal_distribution_updated':
       if (update.data?.weekKey && weeklyGoalWeekKey && update.data.weekKey !== weeklyGoalWeekKey) break;
       loadWeeklyGoalDistributionFromMetrics().then(() => {
-        renderRetailWeekStoreInfo();
+        // renderRetailWeekStoreInfo(); // Removed per user request
         debouncedRenderAll();
       });
       break;
@@ -747,7 +747,9 @@ async function loadMetrics() {
     }
 
     const welcomeImportCard = document.getElementById('importStatusCardWelcome');
+    const dataImportSection = document.getElementById('dataImportSection');
     if (welcomeImportCard) welcomeImportCard.style.display = 'block';
+    // dataImportSection removed per user request
   } catch (error) {
     console.error('Error loading metrics:', error);
   }
@@ -1252,7 +1254,7 @@ function setupWelcomeSection() {
   applyUnpublishedVisibility();
 
   // Show Retail Week info in the Week to Date Store Overview section
-  renderRetailWeekStoreInfo();
+  // renderRetailWeekStoreInfo(); // Removed per user request
 
   // Lunch timeline should show for everyone (not only SA).
   setupLunchTimeline(userEmployee || null);
@@ -1930,7 +1932,7 @@ function renderAll() {
   updateLastSyncTime(); // Update sidebar sync time
 
   // Keep the Retail Week info in the Week to Date Store Overview up to date.
-  renderRetailWeekStoreInfo();
+  // renderRetailWeekStoreInfo(); // Removed per user request
 
   const setDisplay = (id, value) => {
     const el = document.getElementById(id);
@@ -2203,7 +2205,7 @@ function updateMetricsDisplay() {
     setVsPyEl(document.getElementById('cjNewsletterVsPY'), cj.newsletterVsPY);
   }
 
-  renderRetailWeekStoreInfo();
+  // renderRetailWeekStoreInfo(); // Removed per user request
 }
 
 window.updateMetricsDisplay = updateMetricsDisplay;

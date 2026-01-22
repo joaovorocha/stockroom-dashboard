@@ -72,6 +72,18 @@ async function loadMetrics() {
 async function loadTomatoAwards() {
   const resp = await fetch('/api/awards/tomato', { credentials: 'include' });
   tomato = resp.ok ? await resp.json() : null;
+  
+  // Also load missed daily scans data
+  try {
+    const missedResp = await fetch('/api/gameplan/daily-scan/missed?days=365', { credentials: 'include' });
+    if (missedResp.ok) {
+      const missedData = await missedResp.json();
+      if (!tomato) tomato = {};
+      tomato.missedScans = missedData;
+    }
+  } catch (error) {
+    console.error('Error loading missed scans:', error);
+  }
 }
 
 function renderTopSales() {
@@ -201,7 +213,8 @@ function renderTopBoh() {
 function renderTomatoLists() {
   const lostPunchEl = document.getElementById('tomatoLostPunchList');
   const closingMissedEl = document.getElementById('tomatoClosingMissedList');
-  if (!lostPunchEl && !closingMissedEl) return;
+  const missedScansEl = document.getElementById('tomatoMissedScans');
+  const lowestCompletionEl = document.getElementById('tomatoLowestCompletion');
 
   const windowLabel = tomato?.windowDays ? ` (last ${tomato.windowDays} days)` : '';
   const sinceLabel = tomato?.startDate ? ` (since ${tomato.startDate})` : '';
@@ -240,6 +253,85 @@ function renderTomatoLists() {
           .join('')
       : `<div class="best-seller-placeholder">No closing duty misses${label}</div>`;
   }
+
+  // Render Missed Daily Scans
+  if (missedScansEl) {
+    const items = Array.isArray(tomato?.missedScans) ? tomato.missedScans : [];
+    const sorted = items
+      .filter(item => item.missed_count > 0)
+      .sort((a, b) => b.missed_count - a.missed_count)
+      .slice(0, 5);
+
+    missedScansEl.innerHTML = sorted.length
+      ? sorted
+          .map((row, idx) => {
+            const name = getEmployeeNameFromEmail(row.scheduled_employee);
+            return renderLeaderboardRow({
+              rank: idx + 1,
+              name: name,
+              imageUrl: null,
+              primary: `${row.missed_count || 0}`,
+              secondary: `missed scans (YTD)`
+            });
+          })
+          .join('')
+      : `<div class="best-seller-placeholder">No missed scans (YTD)</div>`;
+  }
+
+  // Render Lowest Completion Rate
+  if (lowestCompletionEl) {
+    const items = Array.isArray(tomato?.missedScans) ? tomato.missedScans : [];
+    const sorted = items
+      .filter(item => item.total_assigned > 0)
+      .sort((a, b) => parseFloat(a.completion_rate || 0) - parseFloat(b.completion_rate || 0))
+      .slice(0, 5);
+
+    lowestCompletionEl.innerHTML = sorted.length
+      ? sorted
+          .map((row, idx) => {
+            const name = getEmployeeNameFromEmail(row.scheduled_employee);
+            const rate = parseFloat(row.completion_rate || 0).toFixed(1);
+            return renderLeaderboardRow({
+              rank: idx + 1,
+              name: name,
+              imageUrl: null,
+              primary: `${rate}%`,
+              secondary: `${row.executed_count}/${row.total_assigned} completed`
+            });
+          })
+          .join('')
+      : `<div class="best-seller-placeholder">No completion data (YTD)</div>`;
+  }
+}
+
+// Helper to get employee name from email
+function getEmployeeNameFromEmail(email) {
+  if (!email) return 'Unknown';
+  
+  // Search in all employee categories
+  const allEmployees = [
+    ...(employees.SA || []),
+    ...(employees.BOH || []),
+    ...(employees.MANAGEMENT || []),
+    ...(employees.TAILOR || [])
+  ];
+  
+  const found = allEmployees.find(emp => 
+    (emp.id && emp.id.toLowerCase() === email.toLowerCase()) ||
+    (emp.employeeId && emp.employeeId.toLowerCase() === email.toLowerCase())
+  );
+  
+  if (found && found.name) {
+    return found.name.split(' ')[0]; // Return first name only
+  }
+  
+  // Fallback to email prefix
+  if (email.includes('@')) {
+    const prefix = email.split('@')[0];
+    return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  }
+  
+  return email;
 }
 
 function renderSalesTable() {

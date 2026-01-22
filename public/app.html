@@ -2,24 +2,36 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <meta name="view-transition" content="same-origin">
   <title>Home | Daily Operations</title>
 
+  <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.webmanifest">
+  
+  <!-- Favicons -->
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-  <meta name="theme-color" content="#ffffff">
+  
+  <!-- iOS PWA Optimization -->
+  <meta name="theme-color" content="#1a5490">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Daily Operations">
+  
+  <!-- Disable iOS phone number detection -->
+  <meta name="format-detection" content="telephone=no">
 
   <link rel="stylesheet" href="/css/theme.css?v=14">
   <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/app-home.css?v=1">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
   <link rel="stylesheet" href="/css/mobile.css?v=3">
+  
+  <!-- Add to Home Screen Prompt -->
+  <script src="/js/add-to-homescreen.js?v=1"></script>>
 </head>
 <body>
   <!-- Shared Header Mount -->
@@ -71,11 +83,11 @@
         </div>
       </a>
 
-      <a class="app-tile" href="/scanner">
-        <div class="app-tile-icon">📷</div>
+      <a class="app-tile" href="/daily-scan-performance">
+        <div class="app-tile-icon">📊</div>
         <div class="app-tile-text">
-          <div class="app-tile-title">Scanner</div>
-          <div class="app-tile-subtitle">Order tools</div>
+          <div class="app-tile-title">Daily Scan</div>
+          <div class="app-tile-subtitle">Performance</div>
         </div>
       </a>
 
@@ -153,6 +165,10 @@
           <div class="metric-card">
             <span class="metric-label">Fitting Room</span>
             <span class="metric-value" id="homeFittingRoom">--</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Daily Scan</span>
+            <span class="metric-value" id="homeDailyScan">--</span>
           </div>
           <div class="metric-card" id="homeAvailableRoomsCard" style="display:none; grid-column: span 2; text-align:left;">
             <span class="metric-label" style="display:block; text-align:left;">Available Rooms</span>

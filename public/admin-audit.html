@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit Log Dashboard - Stockroom</title>
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <style>
+    .audit-container {
+      max-width: 1400px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    
+    .audit-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    
+    .audit-filters {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 8px;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    
+    .filter-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+    }
+    
+    .filter-group select,
+    .filter-group input {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .audit-tables {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 30px;
+    }
+    
+    .audit-section {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .audit-section h2 {
+      margin-top: 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .audit-badge {
+      background: #333;
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    
+    .audit-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    
+    .audit-table th {
+      background: #f8f9fa;
+      text-align: left;
+      padding: 12px;
+      font-weight: 600;
+      border-bottom: 2px solid #dee2e6;
+      font-size: 13px;
+      color: #495057;
+    }
+    
+    .audit-table td {
+      padding: 12px;
+      border-bottom: 1px solid #dee2e6;
+      font-size: 13px;
+    }
+    
+    .audit-table tr:hover {
+      background: #f8f9fa;
+    }
+    
+    .action-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .action-created { background: #d4edda; color: #155724; }
+    .action-updated { background: #fff3cd; color: #856404; }
+    .action-deleted { background: #f8d7da; color: #721c24; }
+    .action-published { background: #d1ecf1; color: #0c5460; }
+    .action-login { background: #d1ecf1; color: #0c5460; }
+    .action-logout { background: #e2e3e5; color: #383d41; }
+    .action-cancelled { background: #f8d7da; color: #721c24; }
+    
+    .timestamp {
+      color: #6c757d;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    
+    .user-info {
+      font-weight: 600;
+      color: #495057;
+    }
+    
+    .changes-json {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: #6c757d;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    
+    .changes-json:hover {
+      color: #007bff;
+    }
+    
+    .no-data {
+      text-align: center;
+      padding: 40px;
+      color: #6c757d;
+      font-style: italic;
+    }
+    
+    .refresh-btn {
+      padding: 8px 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    .refresh-btn:hover {
+      background: #0056b3;
+    }
+    
+    .ip-address {
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      color: #6c757d;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    
+    .stat-card h3 {
+      margin: 0;
+      font-size: 32px;
+      font-weight: bold;
+    }
+    
+    .stat-card p {
+      margin: 5px 0 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+<body>
+  <div id="shared-header"></div>
+  
+  <div class="audit-container">
+    <div class="audit-header">
+      <h1>📊 Audit Log Dashboard</h1>
+      <button class="refresh-btn" onclick="loadAllAudits()">🔄 Refresh</button>
+    </div>
+    
+    <div class="stats-grid" id="statsGrid">
+      <!-- Stats will be populated here -->
+    </div>
+    
+    <div class="audit-filters">
+      <div class="filter-group">
+        <label>Log Type</label>
+        <select id="logTypeFilter" onchange="filterLogs()">
+          <option value="all">All Logs</option>
+          <option value="user">User Activity</option>
+          <option value="gameplan">Gameplan Changes</option>
+          <option value="timeoff">Time-Off Changes</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label>Action</label>
+        <select id="actionFilter" onchange="filterLogs()">
+          <option value="all">All Actions</option>
+          <option value="created">Created</option>
+          <option value="updated">Updated</option>
+          <option value="deleted">Deleted</option>
+          <option value="published">Published</option>
+          <option value="LOGIN_SUCCESS">Login</option>
+          <option value="LOGOUT">Logout</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label>Date Range</label>
+        <select id="dateRangeFilter" onchange="loadAllAudits()">
+          <option value="today">Today</option>
+          <option value="week" selected>Last 7 Days</option>
+          <option value="month">Last 30 Days</option>
+          <option value="all">All Time</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="audit-tables">
+      <!-- User Audit Log -->
+      <div class="audit-section">
+        <h2>
+          👤 User Activity Log
+          <span class="audit-badge" id="userAuditCount">0</span>
+        </h2>
+        <table class="audit-table" id="userAuditTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Action</th>
+              <th>User ID</th>
+              <th>Changed By</th>
+              <th>IP Address</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="userAuditBody">
+            <tr><td colspan="6" class="no-data">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Gameplan Audit Log -->
+      <div class="audit-section">
+        <h2>
+          📋 Gameplan Changes
+          <span class="audit-badge" id="gameplanAuditCount">0</span>
+        </h2>
+        <table class="audit-table" id="gameplanAuditTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Action</th>
+              <th>Plan ID</th>
+              <th>User ID</th>
+              <th>IP Address</th>
+              <th>Changes</th>
+            </tr>
+          </thead>
+          <tbody id="gameplanAuditBody">
+            <tr><td colspan="6" class="no-data">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Time-Off Audit Log -->
+      <div class="audit-section">
+        <h2>
+          🏖️ Time-Off Changes
+          <span class="audit-badge" id="timeoffAuditCount">0</span>
+        </h2>
+        <table class="audit-table" id="timeoffAuditTable">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Action</th>
+              <th>Request ID</th>
+              <th>User ID</th>
+              <th>Old Status</th>
+              <th>New Status</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="timeoffAuditBody">
+            <tr><td colspan="7" class="no-data">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/js/shared-header.js"></script>
+  <script>
+    let allAudits = {
+      user: [],
+      gameplan: [],
+      timeoff: []
+    };
+    
+    async function loadAllAudits() {
+      try {
+        const dateRange = document.getElementById('dateRangeFilter').value;
+        let dateFilter = '';
+        
+        if (dateRange === 'today') {
+          dateFilter = `&since=${new Date().toISOString().split('T')[0]}`;
+        } else if (dateRange === 'week') {
+          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          dateFilter = `&since=${weekAgo.toISOString().split('T')[0]}`;
+        } else if (dateRange === 'month') {
+          const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          dateFilter = `&since=${monthAgo.toISOString().split('T')[0]}`;
+        }
+        
+        // Load all audit logs
+        const [userRes, gameplanRes, timeoffRes] = await Promise.all([
+          fetch(`/api/admin/audit/user?limit=100${dateFilter}`),
+          fetch(`/api/admin/audit/gameplan?limit=100${dateFilter}`),
+          fetch(`/api/admin/audit/timeoff?limit=100${dateFilter}`)
+        ]);
+        
+        allAudits.user = await userRes.json();
+        allAudits.gameplan = await gameplanRes.json();
+        allAudits.timeoff = await timeoffRes.json();
+        
+        updateStats();
+        filterLogs();
+      } catch (err) {
+        console.error('Error loading audits:', err);
+        showError('Failed to load audit logs');
+      }
+    }
+    
+    function updateStats() {
+      const statsGrid = document.getElementById('statsGrid');
+      const totalEvents = allAudits.user.length + allAudits.gameplan.length + allAudits.timeoff.length;
+      const logins = allAudits.user.filter(a => a.action === 'LOGIN_SUCCESS').length;
+      const gameplanUpdates = allAudits.gameplan.filter(a => a.action === 'updated').length;
+      
+      statsGrid.innerHTML = `
+        <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+          <h3>${totalEvents}</h3>
+          <p>Total Events</p>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+          <h3>${allAudits.user.length}</h3>
+          <p>User Activities</p>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+          <h3>${allAudits.gameplan.length}</h3>
+          <p>Gameplan Changes</p>
+        </div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+          <h3>${logins}</h3>
+          <p>User Logins</p>
+        </div>
+      `;
+    }
+    
+    function filterLogs() {
+      const logType = document.getElementById('logTypeFilter').value;
+      const action = document.getElementById('actionFilter').value;
+      
+      // Filter and render each log type
+      if (logType === 'all' || logType === 'user') {
+        renderUserAudits(filterByAction(allAudits.user, action));
+      }
+      if (logType === 'all' || logType === 'gameplan') {
+        renderGameplanAudits(filterByAction(allAudits.gameplan, action));
+      }
+      if (logType === 'all' || logType === 'timeoff') {
+        renderTimeoffAudits(filterByAction(allAudits.timeoff, action));
+      }
+      
+      // Hide sections not matching filter
+      document.querySelector('#userAuditTable').closest('.audit-section').style.display = 
+        (logType === 'all' || logType === 'user') ? 'block' : 'none';
+      document.querySelector('#gameplanAuditTable').closest('.audit-section').style.display = 
+        (logType === 'all' || logType === 'gameplan') ? 'block' : 'none';
+      document.querySelector('#timeoffAuditTable').closest('.audit-section').style.display = 
+        (logType === 'all' || logType === 'timeoff') ? 'block' : 'none';
+    }
+    
+    function filterByAction(logs, action) {
+      if (action === 'all') return logs;
+      return logs.filter(log => log.action === action);
+    }
+    
+    function renderUserAudits(logs) {
+      const tbody = document.getElementById('userAuditBody');
+      document.getElementById('userAuditCount').textContent = logs.length;
+      
+      if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No user activity logs found</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = logs.map(log => `
+        <tr>
+          <td class="timestamp">${formatTimestamp(log.created_at)}</td>
+          <td><span class="action-badge action-${log.action.toLowerCase()}">${log.action}</span></td>
+          <td class="user-info">User ${log.user_id || 'N/A'}</td>
+          <td class="user-info">User ${log.changed_by || 'N/A'}</td>
+          <td class="ip-address">${log.ip_address || 'N/A'}</td>
+          <td class="changes-json" onclick="showJson(${JSON.stringify(log.changes || {}).replace(/"/g, '&quot;')})">${
+            log.changes ? JSON.stringify(log.changes).substring(0, 50) + '...' : '-'
+          }</td>
+        </tr>
+      `).join('');
+    }
+    
+    function renderGameplanAudits(logs) {
+      const tbody = document.getElementById('gameplanAuditBody');
+      document.getElementById('gameplanAuditCount').textContent = logs.length;
+      
+      if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="no-data">No gameplan changes found</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = logs.map(log => `
+        <tr>
+          <td class="timestamp">${formatTimestamp(log.created_at)}</td>
+          <td><span class="action-badge action-${log.action.toLowerCase()}">${log.action}</span></td>
+          <td class="user-info">Plan ${log.plan_id || 'N/A'}</td>
+          <td class="user-info">User ${log.user_id || 'N/A'}</td>
+          <td class="ip-address">${log.ip_address || 'N/A'}</td>
+          <td class="changes-json" onclick="showJson(${JSON.stringify(log.changes || {}).replace(/"/g, '&quot;')})">${
+            log.changes ? JSON.stringify(log.changes).substring(0, 50) + '...' : '-'
+          }</td>
+        </tr>
+      `).join('');
+    }
+    
+    function renderTimeoffAudits(logs) {
+      const tbody = document.getElementById('timeoffAuditBody');
+      document.getElementById('timeoffAuditCount').textContent = logs.length;
+      
+      if (logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="no-data">No time-off changes found</td></tr>';
+        return;
+      }
+      
+      tbody.innerHTML = logs.map(log => `
+        <tr>
+          <td class="timestamp">${formatTimestamp(log.created_at)}</td>
+          <td><span class="action-badge action-${log.action.toLowerCase()}">${log.action}</span></td>
+          <td class="user-info">${log.request_id || 'N/A'}</td>
+          <td class="user-info">User ${log.user_id || 'N/A'}</td>
+          <td>${log.old_status || '-'}</td>
+          <td>${log.new_status || '-'}</td>
+          <td>${log.notes || '-'}</td>
+        </tr>
+      `).join('');
+    }
+    
+    function formatTimestamp(timestamp) {
+      if (!timestamp) return 'N/A';
+      const date = new Date(timestamp);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+    
+    function showJson(obj) {
+      alert(JSON.stringify(obj, null, 2));
+    }
+    
+    function showError(message) {
+      alert('Error: ' + message);
+    }
+    
+    // Initialize
+    (async () => {
+      await SharedHeader.init();
+      await loadAllAudits();
+    })();
+  </script>
+</body>
+</html>

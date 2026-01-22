@@ -1,26 +1,42 @@
-# Stockroom Dashboard
+# Daily Operations Dashboard
 
-A comprehensive Progressive Web Application for managing retail operations, including game plans, shipments, employee scheduling, radio communications, and task management.
+A comprehensive Progressive Web Application for managing retail operations, including game plans, shipments, employee scheduling, radio communications, task management, and real-time email processing.
 
-**Current Status:** Production (Single Store) | **Technology:** Node.js, PostgreSQL, MCP Servers, Real-time Updates
+**Current Status:** Production (Single Store) | **Technology:** Node.js, PostgreSQL, MCP Servers, Gmail API, Real-time Updates
 
 ## 🎯 Key Features
 
+### Core Operations
 - **Role-based Dashboard** - Customized views for Sales Associates, Back of House, Tailors, and Managers
 - **Daily Game Planning** - Set goals and track employee assignments with real-time updates
 - **Shipment Tracking** - Monitor deliveries with automated UPS integration and email processing
 - **Lost Punch Management** - Process and approve time corrections with audit trails
 - **Time Off Requests** - Public Calendar employee leave management
-- **Radio Communications** - Integrated radio system with MCP server and live monitoring
-- **Mobile-First Design** - Works on all devices (iOS, Android, desktop) with PWA support
-- **Real-time Updates** - WebSocket support for live data synchronization
+- **Closing Duties** - Automated end-of-day task management and checklists
+
+### Real-time Communications
+- **Radio System** - Integrated radio communications with MCP server and live monitoring
+- **Gmail Push Notifications** - Real-time email processing using Google Cloud Pub/Sub (Jan 2026)
+- **WebSocket Updates** - Live data synchronization across all connected clients
+
+### Mobile & PWA
+- **Mobile-First Design** - Optimized for iOS, Android, and desktop
+- **PWA Support** - Install as app with offline capabilities
+- **Add to Home Screen** - iOS-optimized installation prompt with visual instructions
+- **Smart Network Detection** - Auto-switches between WiFi (fast) and Tailscale (secure) (Jan 2026)
+
+### Integrations
 - **MCP Integration** - Model Context Protocol servers for inventory, shipments, and radio operations
+- **Gmail API** - OAuth 2.0 with automatic watch renewal for real-time email notifications
+- **UPS API** - Automated shipment tracking and status updates
+- **Looker Data** - Automated sales data extraction from email reports
 
 ## 📊 Business Impact
 
-**Current Deployment:** Single store production system
-**Technology Stack:** Node.js, PostgreSQL, MCP servers, WebSockets, automated email processing
-**Performance:** < 200ms response times, real-time data processing
+**Current Deployment:** Single store production system  
+**Technology Stack:** Node.js 18+, PostgreSQL 15, Redis, MCP servers, Gmail API, WebSockets  
+**Performance:** < 200ms response times, real-time data processing, 100x faster on local WiFi  
+**App Name:** Daily Operations (formerly Stockroom Dashboard)
 
 ## 🚀 Quick Start
 
@@ -58,10 +74,38 @@ pm2 start ecosystem.config.json
 
 ## 📚 Documentation
 
-- **[API Documentation](docs/API.md)** - Complete endpoint reference
-- **[Architecture](docs/ARCHITECTURE.md)** - System design and data flow
-- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production setup and maintenance
+### Active Documentation
+- **[Server Map](SERVER_MAP.md)** - Complete API endpoint reference and route documentation
+- **[Network Optimization](NETWORK_OPTIMIZATION.md)** - Smart WiFi/Tailscale detection setup
+- **[Gmail Push Setup](GMAIL_PUSH_QUICKSTART.md)** - Quick start for Gmail real-time notifications  
+- **[Gmail Push Details](GMAIL_PUSH_SETUP.md)** - Complete Gmail API integration guide
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute code
+- **[Quick Reference](QUICK_REFERENCE.md)** - Common commands and workflows
+
+### Legacy Documentation
+See `legacy-docs/` folder for historical migration guides, completed feature plans, and deprecated documentation.
+
+## 🆕 Recent Updates (January 2026)
+
+1. **Gmail Push Notifications** - Real-time email processing using Gmail API + Google Cloud Pub/Sub
+   - OAuth 2.0 authentication
+   - Auto-renewal cron (7-day watch expiration)
+   - Webhook endpoint at `/api/webhooks/gmail`
+   
+2. **Network Optimization** - Smart network detection for local WiFi users
+   - Auto-redirects WiFi users to local IP (1000+ Mbps)
+   - Remote users stay on Tailscale (secure 10 Mbps connection)
+   - Zero configuration required
+   
+3. **PWA Enhancements** - iPhone-optimized installation
+   - Add to Home Screen balloon prompt
+   - Black translucent status bar
+   - Full-screen standalone mode
+   - App renamed to "Daily Operations"
+
+4. **App Rebranding** - Changed from "Stockroom Dashboard" to "Daily Operations"
+   - Updated manifest and all page titles
+   - New short name: "Daily Ops"
 
 ## 🏗️ Project Structure
 

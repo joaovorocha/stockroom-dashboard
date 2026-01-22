@@ -1,6 +1,6 @@
 {
-  "name": "Stockroom Daily Operations",
-  "short_name": "Stockroom",
+  "name": "Daily Operations",
+  "short_name": "Daily Ops",
   "description": "Daily Operations Dashboard for Store Managers",
   "start_url": "/home",
   "scope": "/",

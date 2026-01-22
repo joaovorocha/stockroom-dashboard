@@ -7,6 +7,8 @@
     "start": "node server.js",
     "sync-looker": "node utils/unified-gmail-processor.js run",
     "scheduler": "node utils/unified-gmail-processor.js start",
+    "gmail-watch-setup": "node utils/gmail-watch-setup.js setup",
+    "gmail-watch-status": "node utils/gmail-watch-setup.js status",
     "import-storecount": "node scripts/import-storecount-to-postgres.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

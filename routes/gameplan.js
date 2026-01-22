@@ -7,6 +7,7 @@ const dal = require('../utils/dal');
 const { query: pgQuery } = require('../utils/dal/pg');
 const { get: getCache, set: setCache } = require('../src/utils/cache');
 const { withTransaction } = require('../utils/transaction');
+const gameplanDB = require('../utils/gameplan-db');
 
 const DATA_DIR = dal.paths.dataDir;
 const USERS_FILE = dal.paths.usersFile;
@@ -26,10 +27,10 @@ const upload = multer({ dest: path.join(DATA_DIR, 'tmp') });
 // Optional Postgres pool (if DATABASE_URL present)
 let pgPool = null;
 try {
-  const { Pool } = require('pg');
-  const conn = process.env.DATABASE_URL || process.env.PG_CONNECTION_STRING || null;
-  if (conn) pgPool = new Pool({ connectionString: conn });
+  const { getPool } = require('../utils/dal/pg');
+  pgPool = getPool();
 } catch (e) {
+  console.error('[GAMEPLAN] Failed to get database pool:', e.message);
   pgPool = null;
 }
 
@@ -100,8 +101,8 @@ function getYesterdayDate() {
   return dal.getYesterdayBusinessDate();
 }
 
-// GET /api/gameplan/today - Store-day date info (timezone + dayStart aware)
-router.get('/today', (req, res) => {
+// GET /api/gameplan/business-day - Store-day date info (timezone + dayStart aware)
+router.get('/business-day', (req, res) => {
   try {
     const info = dal.getBusinessDayInfo ? dal.getBusinessDayInfo() : { date: getTodayDate(), weekdayIndex: null };
     return res.json(info);
@@ -541,35 +542,66 @@ router.post('/employees', requireManager, async (req, res) => {
   }
 });
 
-// GET /api/gameplan/today - Get today's gameplan
-router.get('/today', (req, res) => {
-  const today = getTodayDate();
-  const gameplanFile = path.join(GAMEPLAN_DIR, `${today}.json`);
-  let gameplan = readJsonFile(gameplanFile, null);
-  
-  // If no gameplan for today, try to inherit closing sections from yesterday
-  if (!gameplan) {
-    gameplan = { date: today, notes: '', assignments: {} };
+// GET /api/gameplan/today - Get today's gameplan (DATABASE VERSION)
+router.get('/today', async (req, res) => {
+  try {
+    const today = getTodayDate();
+    const planData = await gameplanDB.getDailyPlanWithAssignments(today);
     
-    const yesterdayStr = getYesterdayDate();
-    const yesterdayFile = path.join(GAMEPLAN_DIR, `${yesterdayStr}.json`);
-    const yesterdayPlan = readJsonFile(yesterdayFile, null);
-    
-    // Inherit closing sections assignments from yesterday
-    if (yesterdayPlan && yesterdayPlan.assignments) {
-      Object.keys(yesterdayPlan.assignments).forEach(empId => {
-        const yesterdayAssignment = yesterdayPlan.assignments[empId];
-        if (yesterdayAssignment.closingSections && yesterdayAssignment.closingSections.length > 0) {
-          gameplan.assignments[empId] = {
-            closingSections: yesterdayAssignment.closingSections
-          };
-        }
+    // Convert database format to legacy JSON format for compatibility
+    const assignments = {};
+    if (planData.assignments && planData.assignments.length > 0) {
+      planData.assignments.forEach(a => {
+        assignments[a.user_id || a.employee_id] = {
+          type: a.employee_type,
+          isOff: a.is_off,
+          shift: a.shift || '',
+          scheduledLunch: a.scheduled_lunch || '',
+          lunch: a.lunch || '',
+          role: a.role || '',
+          station: a.station || '',
+          taskOfTheDay: a.task_of_the_day || '',
+          zones: a.zones || [],
+          zone: a.zone || '',
+          fittingRoom: a.fitting_room || '',
+          closingSections: a.closing_sections || []
+        };
       });
-      gameplan.inheritedFromDate = yesterdayStr;
+    } else {
+      // If no assignments for today, try to inherit closing sections from yesterday
+      const yesterdayStr = getYesterdayDate();
+      try {
+        const inherited = await gameplanDB.inheritClosingSections(today, yesterdayStr);
+        inherited.forEach(a => {
+          assignments[a.user_id || a.employee_id] = {
+            closingSections: a.closing_sections || []
+          };
+        });
+      } catch (err) {
+        console.error('[GAMEPLAN] Error inheriting closing sections:', err);
+      }
     }
+    
+    const gameplan = {
+      date: today,
+      notes: planData.notes || '',
+      weatherNotes: planData.weather_notes || '',
+      morningNotes: planData.morning_notes || '',
+      closingNotes: planData.closing_notes || '',
+      salesGoal: planData.sales_goal,
+      targetSph: planData.target_sph,
+      targetIpc: planData.target_ipc,
+      inheritedFromDate: planData.inherited_from_date,
+      isPublished: planData.is_published,
+      publishedAt: planData.published_at,
+      assignments
+    };
+    
+    res.json(gameplan);
+  } catch (error) {
+    console.error('[GAMEPLAN] Error fetching today\'s plan:', error);
+    res.status(500).json({ error: 'Failed to fetch gameplan' });
   }
-  
-  res.json(gameplan);
 });
 
 // GET /api/gameplan/yesterday - Get yesterday's gameplan for copy feature
@@ -618,128 +650,126 @@ router.get('/yesterday', (req, res) => {
   });
 });
 
-// POST /api/gameplan/save - Save gameplan
-router.post('/save', requireManager, (req, res) => {
-  const gameplan = req.body;
-  const today = gameplan.date || getTodayDate();
-  const gameplanFile = path.join(GAMEPLAN_DIR, `${today}.json`);
-
-  // Check if the gameplan is locked by another user
-  const existingGameplan = readJsonFile(gameplanFile, null);
-  if (existingGameplan && existingGameplan.locked && existingGameplan.lockedBy !== req.user?.name) {
-    return res.status(409).json({
-      error: 'Game plan is currently locked by another user',
-      lockedBy: existingGameplan.lockedBy
+// POST /api/gameplan/save - Save gameplan (DATABASE VERSION)
+router.post('/save', requireManager, async (req, res) => {
+  try {
+    const gameplan = req.body;
+    const planDate = gameplan.date || getTodayDate();
+    const userId = req.user?.id;
+    
+    // Update plan metadata
+    await gameplanDB.updateDailyPlan(planDate, {
+      notes: gameplan.notes,
+      weatherNotes: gameplan.weatherNotes,
+      morningNotes: gameplan.morningNotes,
+      closingNotes: gameplan.closingNotes,
+      salesGoal: gameplan.salesGoal,
+      targetSph: gameplan.targetSph,
+      targetIpc: gameplan.targetIpc
     });
-  }
-
-  // LEGACY SUPPORT: Normalize assignments for backward compatibility:
-  // - zones: array (employees can have 1+ zones)
-  // - zone: keep first zone for legacy UIs
-  // - fittingRoom: always single value
-  if (gameplan.assignments && typeof gameplan.assignments === 'object') {
-    Object.keys(gameplan.assignments).forEach(empId => {
-      const assignment = gameplan.assignments[empId];
-      if (!assignment || typeof assignment !== 'object') return;
-
-      // isOff (boolean)
-      if (assignment.isOff === 'true') assignment.isOff = true;
-      if (assignment.isOff === 'false') assignment.isOff = false;
-
-      // zones
-      if (assignment.zones === undefined && assignment.zone !== undefined) {
-        assignment.zones = assignment.zone ? [assignment.zone] : [];
-      }
-      if (assignment.zones !== undefined) {
+    
+    const plan = await gameplanDB.getOrCreateDailyPlan(planDate);
+    
+    // Save all assignments
+    if (gameplan.assignments && typeof gameplan.assignments === 'object') {
+      for (const [empId, assignment] of Object.entries(gameplan.assignments)) {
+        if (!assignment || typeof assignment !== 'object') continue;
+        
+        // Normalize zones
+        let zones = [];
         if (Array.isArray(assignment.zones)) {
-          assignment.zones = assignment.zones.map(z => (z || '').toString().trim()).filter(Boolean);
-        } else {
-          const z = (assignment.zones || '').toString().trim();
-          assignment.zones = z ? [z] : [];
+          zones = assignment.zones.map(z => (z || '').toString().trim()).filter(Boolean);
+        } else if (assignment.zone) {
+          zones = [(assignment.zone || '').toString().trim()];
         }
-        assignment.zone = assignment.zones[0] || '';
-      }
-
-      // fittingRoom (single)
-      if (Array.isArray(assignment.fittingRoom)) {
-        assignment.fittingRoom = (assignment.fittingRoom[0] || '').toString().trim();
-      } else if (assignment.fittingRoom !== undefined) {
-        assignment.fittingRoom = (assignment.fittingRoom || '').toString().trim();
-      }
-
-      // closingSections (array)
-      if (assignment.closingSections !== undefined && !Array.isArray(assignment.closingSections)) {
-        const raw = (assignment.closingSections || '').toString();
-        assignment.closingSections = raw
-          .split(',')
-          .map(s => s.trim())
-          .filter(Boolean);
-      }
-    });
-  }
-
-  gameplan.savedAt = new Date().toISOString();
-  gameplan.lastEditedBy = req.user?.name || 'Unknown';
-
-  // Handle publish/draft state
-  if (req.body.publish === true) {
-    gameplan.published = true;
-    gameplan.publishedAt = new Date().toISOString();
-    gameplan.publishedBy = req.user?.name || 'Unknown';
-  } else if (req.body.publish === false) {
-    gameplan.published = false;
-  } else {
-    // Default: if it's today, publish; if future, save as draft
-    const isToday = today === getTodayDate();
-    gameplan.published = isToday;
-  }
-
-  // Remove lock when saving
-  gameplan.locked = false;
-  gameplan.lockedBy = null;
-
-  writeJsonFile(gameplanFile, gameplan);
-
-  // Also update the main employees file with assignments
-  if (gameplan.assignments) {
-    const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
-
-    Object.keys(gameplan.assignments).forEach(id => {
-      const assignment = gameplan.assignments[id];
-      for (const type of Object.keys(employees.employees)) {
-        // Use employeeId field since employees don't have 'id' field
-        const index = employees.employees[type].findIndex(e => 
-          e.employeeId === id || e.id === id
-        );
-        if (index >= 0) {
-          // Update only daily assignment fields, not metrics
-          const dailyFields = ['isOff', 'zones', 'zone', 'fittingRoom', 'scheduledLunch', 'closingSections',
-                              'shift', 'lunch', 'taskOfTheDay', 'role', 'station'];
-          dailyFields.forEach(field => {
-            if (assignment[field] !== undefined) {
-              employees.employees[type][index][field] = assignment[field];
+        
+        // Normalize closing sections
+        let closingSections = [];
+        if (Array.isArray(assignment.closingSections)) {
+          closingSections = assignment.closingSections;
+        } else if (assignment.closingSections) {
+          closingSections = assignment.closingSections.toString().split(',').map(s => s.trim()).filter(Boolean);
+        }
+        
+        // Get user ID from employee ID or email - with proper error handling
+        let assignmentUserId = null;
+        
+        // First try to parse empId as numeric user_id
+        if (!isNaN(empId)) {
+          // Check if this user_id exists in users table
+          try {
+            const userCheck = await pgQuery('SELECT id FROM users WHERE id = $1 LIMIT 1', [parseInt(empId)]);
+            if (userCheck.rows.length > 0) {
+              assignmentUserId = parseInt(empId);
             }
-          });
-          break;
+          } catch (e) {
+            console.error('[GAMEPLAN] Error checking user by id:', e.message);
+          }
         }
+        
+        // If not found, try to find by employee_id
+        if (!assignmentUserId) {
+          try {
+            const userResult = await pgQuery('SELECT id FROM users WHERE employee_id = $1 LIMIT 1', [empId]);
+            if (userResult.rows.length > 0) {
+              assignmentUserId = userResult.rows[0].id;
+            }
+          } catch (e) {
+            console.error('[GAMEPLAN] Error finding user by employee_id:', e.message);
+          }
+        }
+        
+        // Skip this assignment if we can't find a valid user
+        if (!assignmentUserId) {
+          console.warn(`[GAMEPLAN] Skipping assignment for empId ${empId} - user not found in database`);
+          continue;
+        }
+        
+        await gameplanDB.savePlanAssignment(plan.id, assignmentUserId, {
+          employeeId: empId,
+          employeeName: assignment.name || '',
+          employeeType: assignment.type || 'SA',
+          isOff: assignment.isOff === true || assignment.isOff === 'true',
+          shift: assignment.shift || '',
+          scheduledLunch: assignment.scheduledLunch || '',
+          lunch: assignment.lunch || '',
+          role: assignment.role || '',
+          station: assignment.station || '',
+          taskOfTheDay: assignment.taskOfTheDay || '',
+          zones: zones,
+          zone: zones[0] || '',
+          fittingRoom: assignment.fittingRoom || '',
+          closingSections: closingSections
+        });
       }
-    });
-
-    employees.lastUpdated = getTodayDate();
-    writeJsonFile(EMPLOYEES_FILE, employees);
+    }
+    
+    // Handle publish state
+    if (req.body.publish === true) {
+      await gameplanDB.publishDailyPlan(planDate, userId);
+    }
+    
+    // Log the action
+    await gameplanDB.logGameplanAction(plan.id, userId, 'updated', {
+      assignmentCount: Object.keys(gameplan.assignments || {}).length,
+      published: req.body.publish === true
+    }, req);
+    
+    // Broadcast real-time update to all connected clients
+    const broadcastUpdate = req.app.get('broadcastUpdate');
+    if (broadcastUpdate) {
+      broadcastUpdate('gameplan_updated', {
+        date: planDate,
+        lastEditedBy: req.user?.name,
+        lastEditedAt: new Date().toISOString()
+      });
+    }
+    
+    res.json({ success: true, date: planDate });
+  } catch (error) {
+    console.error('[GAMEPLAN] Error saving gameplan:', error);
+    res.status(500).json({ error: 'Failed to save gameplan' });
   }
-
-  // Broadcast real-time update to all connected clients
-  const broadcastUpdate = req.app.get('broadcastUpdate');
-  if (broadcastUpdate) {
-    broadcastUpdate('gameplan_updated', {
-      date: today,
-      lastEditedBy: gameplan.lastEditedBy,
-      lastEditedAt: gameplan.savedAt
-    });
-  }
-
-  res.json({ success: true, date: today });
 });
 
 // POST /api/gameplan/lock/:date - Lock a gameplan for editing
@@ -1609,6 +1639,98 @@ router.post('/daily-scan/assign', requireManager, async (req, res) => {
       return res.status(500).json({ error: e?.message || 'Failed to assign daily scan' });
     }
   });
+
+// GET /api/gameplan/daily-scan/check - check if there's an active daily scan assignment for a date
+router.get('/daily-scan/check', async (req, res) => {
+  try {
+    const { date } = req.query;
+    const targetDate = date || getTodayDate();
+
+    // Check PostgreSQL first
+    if (pgPool) {
+      const result = await pgPool.query(
+        `SELECT employee_id, assigned_by, assigned_at 
+         FROM daily_scan_assignments 
+         WHERE date = $1 AND active = true 
+         LIMIT 1`,
+        [targetDate]
+      );
+      
+      if (result.rows.length > 0) {
+        return res.json({
+          assigned: true,
+          employeeId: result.rows[0].employee_id,
+          assignedBy: result.rows[0].assigned_by,
+          assignedAt: result.rows[0].assigned_at,
+          date: targetDate
+        });
+      }
+    }
+
+    // Fallback to file-based gameplan
+    const gameplanFile = path.join(GAMEPLAN_DIR, `${targetDate}.json`);
+    const gameplan = readJsonFile(gameplanFile, null);
+    
+    if (gameplan?.assignments) {
+      const assignedEntry = Object.entries(gameplan.assignments).find(([_, data]) => 
+        data?.dailyScanAssigned === true
+      );
+      
+      if (assignedEntry) {
+        const [empId, data] = assignedEntry;
+        return res.json({
+          assigned: true,
+          employeeId: empId,
+          assignedBy: data.dailyScanAssignedBy,
+          assignedAt: data.dailyScanAssignedAt,
+          date: targetDate
+        });
+      }
+    }
+
+    return res.json({ assigned: false, date: targetDate });
+  } catch (e) {
+    console.error('[GAMEPLAN] Failed to check daily scan assignment:', e);
+    return res.status(500).json({ error: e?.message || 'Failed to check daily scan assignment' });
+  }
+});
+
+// GET /api/gameplan/daily-scan/assignments - Get all daily scan assignments (for performance tracking)
+router.get('/daily-scan/assignments', async (req, res) => {
+  try {
+    const { days = 90 } = req.query;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - parseInt(days));
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+    if (pgPool) {
+      const result = await pgPool.query(
+        `SELECT date, employee_id, assigned_by, assigned_at, active 
+         FROM daily_scan_assignments 
+         WHERE date >= $1 AND active = true
+         ORDER BY date DESC`,
+        [cutoffStr]
+      );
+      
+      return res.json({ 
+        assignments: result.rows.map(r => ({
+          date: r.date,
+          employee_id: r.employee_id,
+          assigned_by: r.assigned_by,
+          assigned_at: r.assigned_at
+        }))
+      });
+    }
+
+    // Fallback to file-based (limited to recent gameplans)
+    const assignments = [];
+    // This would require scanning gameplan files - skip for now
+    return res.json({ assignments });
+  } catch (e) {
+    console.error('[GAMEPLAN] Failed to get assignments:', e);
+    return res.status(500).json({ error: e?.message || 'Failed to get assignments' });
+  }
+});
 
 // GET /api/gameplan/daily-scan/report - parse a StoreCount.csv in files/ if present and return summary
 router.get('/daily-scan/report', (req, res) => {
@@ -2564,6 +2686,629 @@ router.get('/calendar/:year/:month', (req, res) => {
   } catch (error) {
     console.error('Error loading calendar data:', error);
     res.status(500).json({ error: 'Failed to load calendar data' });
+  }
+});
+
+// ===== DAILY SCAN PERFORMANCE API =====
+
+// GET /api/gameplan/daily-scan/looker-data - Get Looker scan performance data with employee KPIs
+router.get('/daily-scan/looker-data', async (req, res) => {
+  try {
+    const savedData = LookerDataProcessor.getSavedDashboardData();
+    
+    if (!savedData) {
+      return res.json({
+        employee: { employees: [], summary: { avgAccuracy: 0, totalCounts: 0 } },
+        store: { storeData: null, summary: { accuracy: 0, totalCounts: 0 } },
+        employeeKPIs: [],
+        lastUpdated: null
+      });
+    }
+
+    const employee = savedData.countPerformance || { employees: [], summary: { avgAccuracy: 0, totalCounts: 0 } };
+    const store = savedData.storeCountPerformance || { storeData: null, summary: { accuracy: 0, totalCounts: 0 } };
+
+    // Load employee KPIs from "Stores Performance" Looker email using proper CSV parser
+    const employeeKPIs = [];
+    try {
+      const lookerDir = path.join(__dirname, '..', 'src', 'files', 'dashboard-stores_performance');
+      const kpiFile = path.join(lookerDir, 'kpis_per_employee.csv');
+      
+      if (fs.existsSync(kpiFile)) {
+        const csvData = fs.readFileSync(kpiFile, 'utf8');
+        const processor = new LookerDataProcessor();
+        const rows = processor.parseCSV(csvData);
+        
+        rows.forEach(row => {
+          const name = row['Employee'];
+          if (!name || !name.trim()) return;
+          
+          employeeKPIs.push({
+            name: name.trim(),
+            imageUrl: row['Employee Image'] || null,
+            salesAmount: (row['Sales Amount'] || '0').replace(/[K,]/g, ''),
+            apc: row['APC'] || '0',
+            ipc: row['IPC'] || '0',
+            cpc: row['CPC'] || '0',
+            sph: (row['Sales per Hour'] || '0').replace(/[K,]/g, ''),
+            salesShare: (row['Sales Shares'] || '0').replace(/%/g, '')
+          });
+        });
+      }
+    } catch (err) {
+      console.error('Error loading employee KPIs:', err);
+    }
+
+    // Helper function to normalize employee identifier
+    function normalizeEmployeeName(name) {
+      if (!name) return 'unknown';
+      
+      // If it's an email, extract prefix
+      if (name.includes('@')) {
+        return name.split('@')[0].toLowerCase();
+      }
+      
+      // If it's a full name like "Daniel iraheta", convert to email format
+      const nameParts = name.trim().split(/\s+/);
+      if (nameParts.length >= 2) {
+        const firstName = nameParts[0];
+        const lastName = nameParts[nameParts.length - 1];
+        return (firstName[0] + lastName).toLowerCase();
+      }
+      
+      return name.toLowerCase().replace(/\s+/g, '');
+    }
+
+    // Group employees by normalized name to avoid duplicates
+    const employeeMap = new Map();
+    
+    // Add Looker scan performance data
+    employee.employees.forEach(emp => {
+      const normalizedName = normalizeEmployeeName(emp.name);
+      if (!employeeMap.has(normalizedName)) {
+        employeeMap.set(normalizedName, { ...emp });
+      } else {
+        // Merge data if duplicate found
+        const existing = employeeMap.get(normalizedName);
+        existing.countsDone = (existing.countsDone || 0) + (emp.countsDone || 0);
+        existing.missedAvailable = (existing.missedAvailable || 0) + (emp.missedAvailable || 0);
+        existing.missedReserved = (existing.missedReserved || 0) + (emp.missedReserved || 0);
+        // Take the best accuracy
+        if (emp.accuracy > (existing.accuracy || 0)) {
+          existing.accuracy = emp.accuracy;
+        }
+      }
+    });
+
+    // Merge with KPIs
+    employeeKPIs.forEach(kpi => {
+      const normalizedName = normalizeEmployeeName(kpi.name);
+      if (employeeMap.has(normalizedName)) {
+        const existing = employeeMap.get(normalizedName);
+        Object.assign(existing, kpi);
+      } else {
+        employeeMap.set(normalizedName, { ...kpi });
+      }
+    });
+
+    // Convert back to array
+    const enrichedEmployees = Array.from(employeeMap.values())
+      .sort((a, b) => (b.accuracy || 0) - (a.accuracy || 0));
+
+    res.json({
+      employee: { ...employee, employees: enrichedEmployees },
+      store,
+      employeeKPIs,
+      lastUpdated: savedData.lastUpdated || savedData.dataDate
+    });
+  } catch (error) {
+    console.error('Error fetching Looker data:', error);
+    res.status(500).json({ error: 'Failed to fetch Looker data' });
+  }
+});
+
+// GET /api/gameplan/daily-scan/results - Fetch scan results with date range
+router.get('/daily-scan/results', async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const result = await pgPool.query(
+      `SELECT 
+        ds.id, ds.count_id, ds.status, ds.scan_date, ds.counted_by,
+        ds.expected_units, ds.counted_units,
+        ds.missed_units_available AS missed_available,
+        ds.missed_units_reserved AS missed_reserved,
+        ds.new_units,
+        ds.found_previously_missed_units AS found_previously_missed,
+        ds.undecodable_units, ds.unmapped_item_units,
+        ds.imported_at AS created_at,
+        ds.scheduled_employee,
+        ds.scan_status,
+        ds.completed_by_other
+       FROM daily_scan_results ds
+       WHERE ds.scan_date >= $1
+       ORDER BY ds.scan_date DESC`,
+      [startDate.toISOString().split('T')[0]]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching scan results:', error);
+    res.status(500).json({ error: 'Failed to fetch scan results' });
+  }
+});
+
+// GET /api/gameplan/daily-scan/performance - Employee performance aggregates
+router.get('/daily-scan/performance', async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const result = await pgPool.query(
+      `SELECT 
+        counted_by,
+        COUNT(*) as total_scans,
+        AVG((counted_units::FLOAT / NULLIF(expected_units, 0)) * 100) as avg_accuracy,
+        SUM(missed_units_available + missed_units_reserved) as total_missed,
+        SUM(new_units) as total_new,
+        SUM(undecodable_units) as total_undecodable
+       FROM daily_scan_results
+       WHERE scan_date >= $1 AND status = 'COMPLETED'
+       GROUP BY counted_by
+       ORDER BY avg_accuracy DESC`,
+      [startDate.toISOString().split('T')[0]]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching performance data:', error);
+    res.status(500).json({ error: 'Failed to fetch performance data' });
+  }
+});
+
+// GET /api/gameplan/daily-scan/import-history - List of past imports
+router.get('/daily-scan/import-history', async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const result = await pgPool.query(
+      `SELECT id, filename, records_count, imported_by, imported_at, status
+       FROM daily_scan_imports
+       ORDER BY imported_at DESC
+       LIMIT 50`
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching import history:', error);
+    res.status(500).json({ error: 'Failed to fetch import history' });
+  }
+});
+
+// POST /api/gameplan/daily-scan/import - CSV upload and parsing
+// Helper function to parse CSV dates (MM/DD/YYYY, YYYY-MM-DD, or "Month DD, YYYY at HH:MM:SS AM PST")
+function parseCSVDate(dateStr) {
+  if (!dateStr || dateStr.trim() === '') return null;
+  const cleaned = dateStr.trim();
+  
+  // Try MM/DD/YYYY format first
+  const mmddyyyy = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (mmddyyyy) {
+    const [_, month, day, year] = mmddyyyy;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  
+  // Try YYYY-MM-DD format
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+    return cleaned;
+  }
+  
+  // Try "Month DD, YYYY at HH:MM:SS AM PST" format
+  const monthNames = {
+    'January': '01', 'February': '02', 'March': '03', 'April': '04', 'May': '05', 'June': '06',
+    'July': '07', 'August': '08', 'September': '09', 'October': '10', 'November': '11', 'December': '12'
+  };
+  const longDate = cleaned.match(/^([A-Za-z]+) (\d{1,2}), (\d{4}) at (\d{1,2}):(\d{2}):(\d{2}) (AM|PM) PST$/);
+  if (longDate) {
+    const [_, monthName, day, year, hour, minute, second, ampm] = longDate;
+    let hour24 = parseInt(hour);
+    if (ampm === 'PM' && hour24 !== 12) hour24 += 12;
+    if (ampm === 'AM' && hour24 === 12) hour24 = 0;
+    const month = monthNames[monthName];
+    if (month) {
+      return `${year}-${month}-${day.padStart(2, '0')}`;
+    }
+  }
+  
+  return null;
+}
+
+router.post('/daily-scan/import', upload.single('file'), async (req, res) => {
+  console.log('CSV import endpoint called - using scan_date column');
+  if (!pgPool) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+
+  try {
+    const filePath = req.file.path;
+    const fileName = req.file.originalname;
+    
+    // Read and parse CSV
+    const csvContent = fs.readFileSync(filePath, 'utf-8');
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 2) {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ error: 'CSV file is empty or invalid' });
+    }
+
+    // Parse header
+    const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const records = [];
+    const duplicates = [];
+    const errors = [];
+
+    // Parse data rows
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+      
+      if (values.length < header.length) continue;
+
+      const record = {};
+      header.forEach((key, idx) => {
+        record[key] = values[idx] || '';
+      });
+
+      try {
+        // Map CSV columns to database columns (Migration 012 schema - uses 'scan_date' not 'date')
+        const scanDate = parseCSVDate(record['Created Date']);
+        const scanResult = {
+          count_id: record['Count ID'] || `SCAN-${Date.now()}-${i}`,
+          status: record['Status'] || 'COMPLETED',
+          // Column is boolean in DB; coerce common truthy strings
+          store_load: ['true', '1', 'yes', 'y'].includes(String(record['Store Load']).toLowerCase()),
+          location_id: record['Location ID'] || null,
+          organization_id: record['Organization ID'] || null,
+          scan_date: scanDate, // Column name is 'scan_date'
+          counted_by: record['Counted By'] || 'Unknown',
+          expected_units: parseInt(record['Expected Units']) || 0,
+          counted_units: parseInt(record['Counted Units']) || 0,
+          missed_available: parseInt(record['Missed Units that were in Available status']) || 0,
+          missed_reserved: parseInt(record['Missed Units that were in Reserved status']) || 0,
+          new_units: parseInt(record['New Units']) || 0,
+          found_previously_missed: parseInt(record['Found previously Missed Units']) || 0,
+          undecodable_units: parseInt(record['Undecodable Units']) || 0,
+          unmapped_item_units: parseInt(record['Unmapped Item Units']) || 0
+        };
+
+        if (scanResult.scan_date && scanResult.status !== 'CANCELLED') {
+          records.push(scanResult);
+        }
+      } catch (parseError) {
+        errors.push({ row: i + 1, error: parseError.message });
+      }
+    }
+
+    // Delete temp file
+    fs.unlinkSync(filePath);
+
+    if (records.length === 0) {
+      return res.status(400).json({ 
+        error: 'No valid records found in CSV',
+        errors: errors.length > 0 ? errors : undefined
+      });
+    }
+
+    // DEDUPLICATION LOGIC: Check for existing records before import
+    let imported = 0;
+    let updated = 0;
+    let skipped = 0;
+    const client = await pgPool.connect();
+    
+    try {
+      await client.query('BEGIN');
+
+      for (const record of records) {
+        // Check if record exists by count_id (primary deduplication key)
+        const existingById = await client.query(
+          'SELECT id, count_id, counted_by, scan_date FROM daily_scan_results WHERE count_id = $1',
+          [record.count_id]
+        );
+
+        // Check if record exists by (scan_date, counted_by) - secondary matching
+        const existingByEmployee = await client.query(
+          `SELECT id, count_id, counted_by, scan_date 
+           FROM daily_scan_results 
+           WHERE scan_date = $1 AND LOWER(counted_by) = LOWER($2)
+           LIMIT 1`,
+          [record.scan_date, record.counted_by]
+        );
+
+        // Determine if this is a duplicate or update
+        if (existingById.rows.length > 0) {
+          // Update existing record
+          await client.query(
+            `UPDATE daily_scan_results SET
+              status = $1,
+              counted_units = $2,
+              missed_units_available = $3,
+              missed_units_reserved = $4,
+              new_units = $5,
+              found_previously_missed_units = $6,
+              undecodable_units = $7,
+              unmapped_item_units = $8,
+              expected_units = $9
+            WHERE count_id = $10`,
+            [
+              record.status, record.counted_units, record.missed_available,
+              record.missed_reserved, record.new_units, record.found_previously_missed,
+              record.undecodable_units, record.unmapped_item_units,
+              record.expected_units, record.count_id
+            ]
+          );
+          updated++;
+          duplicates.push({ count_id: record.count_id, action: 'updated' });
+        } else if (existingByEmployee.rows.length > 0) {
+          // Possible duplicate - same employee, same date, different count_id
+          // Skip to avoid duplicates
+          skipped++;
+          duplicates.push({ 
+            count_id: record.count_id, 
+            action: 'skipped',
+            reason: `Employee ${record.counted_by} already has scan on ${record.scan_date}`,
+            existing_count_id: existingByEmployee.rows[0].count_id
+          });
+        } else {
+          // New record - insert
+          await client.query(
+            `INSERT INTO daily_scan_results (
+              count_id, status, store_load, location_id, organization_id,
+              scan_date, counted_by, expected_units, counted_units,
+              missed_units_available, missed_units_reserved, new_units,
+              found_previously_missed_units, undecodable_units, unmapped_item_units
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+            [
+              record.count_id, record.status, record.store_load, record.location_id,
+              record.organization_id, record.scan_date, record.counted_by,
+              record.expected_units, record.counted_units,
+              record.missed_available, record.missed_reserved,
+              record.new_units, record.found_previously_missed,
+              record.undecodable_units, record.unmapped_item_units
+            ]
+          );
+          imported++;
+        }
+      }
+
+      // Log import history
+      const username = req.user?.username || req.session?.user?.username || 'Unknown';
+      await client.query(
+        `INSERT INTO daily_scan_imports (filename, records_count, imported_by, status)
+         VALUES ($1, $2, $3, 'SUCCESS')`,
+        [fileName, imported + updated + skipped, username]
+      );
+
+      await client.query('COMMIT');
+      
+      res.json({ 
+        success: true, 
+        imported,
+        updated,
+        skipped,
+        total: records.length,
+        duplicates: duplicates.length > 0 ? duplicates : undefined,
+        errors: errors.length > 0 ? errors : undefined,
+        message: `Processed ${records.length} records: ${imported} new, ${updated} updated, ${skipped} skipped`
+      });
+
+    } catch (dbError) {
+      await client.query('ROLLBACK');
+      throw dbError;
+    } finally {
+      client.release();
+    }
+
+  } catch (error) {
+    console.error('Error importing CSV:', error);
+    
+    // Clean up temp file if it exists
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
+    res.status(500).json({ error: 'Failed to import CSV: ' + error.message });
+  }
+});
+
+// Helper function to parse CSV date formats
+function parseCSVDate(dateStr) {
+  if (!dateStr) return null;
+  
+  try {
+    // Handle formats like "February 17, 2025 at 9:34:05 AM PST" or "2025-02-17"
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return null;
+    
+    // Return full timestamp for PostgreSQL
+    return date.toISOString();
+  } catch {
+    return null;
+  }
+}
+
+// ========== SCHEDULED DAILY SCAN ENDPOINTS ==========
+
+// POST /api/gameplan/daily-scan/schedule - Create scheduled scan assignment
+router.post('/daily-scan/schedule', requireManager, async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const { scan_date, scheduled_employee, notes } = req.body;
+    
+    if (!scan_date || !scheduled_employee) {
+      return res.status(400).json({ error: 'scan_date and scheduled_employee are required' });
+    }
+
+    const username = req.user?.username || req.session?.user?.username || 'Unknown';
+
+    const result = await pgPool.query(
+      `INSERT INTO game_plan_daily_scans (scan_date, scheduled_employee, created_by, notes)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (scan_date) 
+       DO UPDATE SET scheduled_employee = $2, created_by = $3, notes = $4
+       RETURNING *`,
+      [scan_date, scheduled_employee, username, notes || null]
+    );
+
+    res.json({ success: true, schedule: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating scheduled scan:', error);
+    res.status(500).json({ error: 'Failed to create scheduled scan' });
+  }
+});
+
+// GET /api/gameplan/daily-scan/schedule - Get scheduled scans
+router.get('/daily-scan/schedule', async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const days = parseInt(req.query.days) || 60;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30); // Past 30 days
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + days); // Future days
+
+    const result = await pgPool.query(
+      `SELECT * FROM game_plan_daily_scans
+       WHERE scan_date >= $1 AND scan_date <= $2
+       ORDER BY scan_date DESC`,
+      [startDate.toISOString().split('T')[0], endDate.toISOString().split('T')[0]]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching scheduled scans:', error);
+    res.status(500).json({ error: 'Failed to fetch scheduled scans' });
+  }
+});
+
+// DELETE /api/gameplan/daily-scan/schedule/:date - Remove scheduled scan
+router.delete('/daily-scan/schedule/:date', requireManager, async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const { date } = req.params;
+
+    await pgPool.query(
+      `DELETE FROM game_plan_daily_scans WHERE scan_date = $1`,
+      [date]
+    );
+
+    res.json({ success: true, message: 'Scheduled scan removed' });
+  } catch (error) {
+    console.error('Error deleting scheduled scan:', error);
+    res.status(500).json({ error: 'Failed to delete scheduled scan' });
+  }
+});
+
+// GET /api/gameplan/daily-scan/missed - Get missed scans metrics
+router.get('/daily-scan/missed', async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const days = parseInt(req.query.days) || 30;
+    const employee = req.query.employee;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    let query = `
+      SELECT 
+        scheduled_employee,
+        COUNT(*) FILTER (WHERE status = 'MISSED') as missed_count,
+        COUNT(*) FILTER (WHERE status = 'EXECUTED') as executed_count,
+        COUNT(*) FILTER (WHERE status = 'COMPLETED_BY_OTHER') as completed_by_other_count,
+        COUNT(*) as total_assigned,
+        ROUND(
+          (COUNT(*) FILTER (WHERE status = 'EXECUTED')::NUMERIC / 
+           NULLIF(COUNT(*), 0) * 100), 1
+        ) as completion_rate
+      FROM missed_daily_scans
+      WHERE scan_date >= $1 AND scan_date <= CURRENT_DATE
+        AND scheduled_employee IS NOT NULL
+    `;
+
+    const params = [startDate.toISOString().split('T')[0]];
+
+    if (employee) {
+      query += ` AND scheduled_employee = $2`;
+      params.push(employee);
+    }
+
+    query += ` GROUP BY scheduled_employee ORDER BY missed_count DESC`;
+
+    const result = await pgPool.query(query, params);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching missed scans:', error);
+    res.status(500).json({ error: 'Failed to fetch missed scans' });
+  }
+});
+
+// GET /api/gameplan/daily-scan/status/:date - Get today's scan status
+router.get('/daily-scan/status/:date', async (req, res) => {
+  if (!pgPool) {
+    return res.status(503).json({ error: 'Database not configured' });
+  }
+
+  try {
+    const { date } = req.params;
+
+    const result = await pgPool.query(
+      `SELECT 
+        scan_date,
+        scheduled_employee,
+        actual_employee,
+        status,
+        scan_result_id
+       FROM missed_daily_scans
+       WHERE scan_date = $1`,
+      [date]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ status: 'UNSCHEDULED', scan_date: date });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching scan status:', error);
+    res.status(500).json({ error: 'Failed to fetch scan status' });
   }
 });
 

@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <meta name="view-transition" content="same-origin">
   <title>Admin Console - Daily Game Plan</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#1a5490">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Daily Operations">
@@ -408,6 +408,7 @@
       .health-grid { grid-template-columns: 1fr; }
     }
   </style>
+  <script src="/js/network-detect.js?v=1"></script>
 </head>
 <body>
   <!-- Main Header -->
@@ -1358,24 +1359,8 @@
           </div>
         </div>
 	        <div class="checkbox-group">
-	          <input type="checkbox" id="userIsManager">
-	          <label for="userIsManager">Is Manager (management access)</label>
-	        </div>
-	        <div class="checkbox-group" id="userCanEditGameplanRow" style="display:none;">
 	          <input type="checkbox" id="userCanEditGameplan">
-	          <label for="userCanEditGameplan">Can Edit Game Plan (without being a manager)</label>
-	        </div>
-	        <div class="checkbox-group" id="userCanConfigRadioRow">
-	          <input type="checkbox" id="userCanConfigRadio">
-	          <label for="userCanConfigRadio">Can Configure Radio</label>
-	        </div>
-	        <div class="checkbox-group" id="userCanManageLostPunchRow">
-	          <input type="checkbox" id="userCanManageLostPunch">
-	          <label for="userCanManageLostPunch">Can Manage Lost Punch</label>
-	        </div>
-	        <div class="checkbox-group">
-	          <input type="checkbox" id="userIsAdmin">
-	          <label for="userIsAdmin">Is Admin (Admin portal + full data export)</label>
+	          <label for="userCanEditGameplan">Can Edit Game Plan</label>
 	        </div>
       </div>
       <div class="modal-footer">
@@ -1457,11 +1442,23 @@
 	    }
 
 		    async function loadUsers() {
-		      const response = await fetch('/api/auth/users', { credentials: 'include' });
-		      const data = await response.json();
-		      users = data.users || [];
-		      applyUsersSort();
-		      renderUsers();
+		      try {
+		        const response = await fetch('/api/auth/users', { credentials: 'include' });
+		        console.log('Users API response status:', response.status);
+		        if (!response.ok) {
+		          const errorText = await response.text();
+		          console.error('Failed to load users:', response.status, response.statusText, errorText);
+		          return;
+		        }
+		        const data = await response.json();
+		        console.log('Users API response data:', data);
+		        users = data.users || [];
+		        console.log('Loaded users:', users.length, users);
+		        applyUsersSort();
+		        renderUsers();
+		      } catch (error) {
+		        console.error('Error loading users:', error, error.message, error.stack);
+		      }
 		    }
 
 		    function applyUsersSort() {
@@ -1711,6 +1708,73 @@
       window.location.href = '/api/admin/export.zip';
     }
 
+    // Drag and drop handlers
+    let draggedElement = null;
+    let draggedKey = null;
+
+    function handleDragStart(e) {
+      draggedElement = e.target;
+      draggedKey = e.target.dataset.key;
+      e.target.style.opacity = '0.4';
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+      if (e.preventDefault) {
+        e.preventDefault();
+      }
+      e.dataTransfer.dropEffect = 'move';
+      
+      const target = e.target.closest('.settings-item');
+      if (target && target !== draggedElement && target.dataset.key === draggedKey) {
+        const bounding = target.getBoundingClientRect();
+        const offset = bounding.y + (bounding.height / 2);
+        
+        if (e.clientY - offset > 0) {
+          target.style.borderBottom = '2px solid #007bff';
+          target.style.borderTop = '';
+        } else {
+          target.style.borderTop = '2px solid #007bff';
+          target.style.borderBottom = '';
+        }
+      }
+      
+      return false;
+    }
+
+    function handleDrop(e) {
+      if (e.stopPropagation) {
+        e.stopPropagation();
+      }
+
+      const target = e.target.closest('.settings-item');
+      if (draggedElement !== target && target && target.dataset.key === draggedKey) {
+        const key = draggedKey;
+        const draggedIndex = parseInt(draggedElement.dataset.index);
+        const targetIndex = parseInt(target.dataset.index);
+        
+        // Reorder the array
+        const items = [...settings[key]];
+        const [removed] = items.splice(draggedIndex, 1);
+        items.splice(targetIndex, 0, removed);
+        
+        settings[key] = items;
+        saveSettings();
+      }
+
+      return false;
+    }
+
+    function handleDragEnd(e) {
+      e.target.style.opacity = '1';
+      
+      // Remove all border highlights
+      document.querySelectorAll('.settings-item').forEach(item => {
+        item.style.borderTop = '';
+        item.style.borderBottom = '';
+      });
+    }
+
     // Render functions
     function renderSettings() {
       renderSettingsList('zones', 'zonesList');
@@ -1725,15 +1789,30 @@
       const items = settings[key] || [];
 
       container.innerHTML = items.map((item, index) => `
-        <div class="settings-item">
+        <div class="settings-item" draggable="true" data-index="${index}" data-key="${key}">
+          <span class="drag-handle" style="cursor: grab; margin-right: 8px; color: #666;">⋮⋮</span>
           <input type="text" value="${item.name}" onchange="updateSettingItem('${key}', ${index}, this.value)">
           <button class="btn-remove" onclick="removeSettingItem('${key}', ${index})">Remove</button>
         </div>
       `).join('');
+
+      // Add drag and drop event listeners
+      const draggableItems = container.querySelectorAll('.settings-item[draggable="true"]');
+      draggableItems.forEach(item => {
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragover', handleDragOver);
+        item.addEventListener('drop', handleDrop);
+        item.addEventListener('dragend', handleDragEnd);
+      });
     }
 
 	    function renderUsers() {
 	      const tbody = document.getElementById('usersTableBody');
+	      if (!tbody) {
+	        console.error('usersTableBody element not found!');
+	        return;
+	      }
+	      console.log('Rendering', users.length, 'users');
 	      tbody.innerHTML = users.map(user => {
 	        const managerLike = !!user.isManager || !!user.isAdmin;
 	        const adminLike = !!user.isAdmin;
@@ -1835,12 +1914,7 @@
 	      const fileEl = document.getElementById('userPhotoFile');
 	      if (fileEl) fileEl.value = '';
       setPhotoMode('url');
-	      document.getElementById('userIsManager').checked = false;
 	      document.getElementById('userCanEditGameplan').checked = false;
-	      document.getElementById('userCanConfigRadio').checked = false;
-	      document.getElementById('userCanManageLostPunch').checked = false;
-	      document.getElementById('userIsAdmin').checked = false;
-	      syncCanEditGameplanVisibility();
 	      document.getElementById('userModal').classList.add('active');
 	    }
 
@@ -1861,12 +1935,7 @@
 	      const fileEl = document.getElementById('userPhotoFile');
 	      if (fileEl) fileEl.value = '';
       setPhotoMode('url');
-	      document.getElementById('userIsManager').checked = user.isManager || false;
 	      document.getElementById('userCanEditGameplan').checked = user.canEditGameplan || false;
-	      document.getElementById('userCanConfigRadio').checked = user.canConfigRadio || false;
-	      document.getElementById('userCanManageLostPunch').checked = user.canManageLostPunch || false;
-	      document.getElementById('userIsAdmin').checked = user.isAdmin || false;
-	      syncCanEditGameplanVisibility();
 	      document.getElementById('userModal').classList.add('active');
 	    }
 
@@ -1913,43 +1982,6 @@
       if (uploadRow) uploadRow.style.display = mode === 'upload' ? 'block' : 'none';
     }
 
-	    function syncCanEditGameplanVisibility() {
-	      const isManagerEl = document.getElementById('userIsManager');
-	      const isAdminEl = document.getElementById('userIsAdmin');
-	      const row = document.getElementById('userCanEditGameplanRow');
-	      const canEditEl = document.getElementById('userCanEditGameplan');
-	      const radioRow = document.getElementById('userCanConfigRadioRow');
-	      const radioEl = document.getElementById('userCanConfigRadio');
-	      const lostRow = document.getElementById('userCanManageLostPunchRow');
-	      const lostEl = document.getElementById('userCanManageLostPunch');
-	      if (!isManagerEl || !isAdminEl || !row || !canEditEl) return;
-
-	      const isManagerLike = !!isManagerEl.checked || !!isAdminEl.checked;
-
-	      row.style.display = isManagerLike ? 'none' : 'block';
-	      canEditEl.disabled = isManagerLike;
-	      if (isManagerLike) canEditEl.checked = false;
-
-	      // Managers/admins already have these abilities; only show toggles for non-managers.
-	      if (radioRow && radioEl) {
-	        radioRow.style.display = isManagerLike ? 'none' : 'block';
-	        radioEl.disabled = isManagerLike;
-	        if (isManagerLike) radioEl.checked = false;
-	      }
-	      if (lostRow && lostEl) {
-	        lostRow.style.display = isManagerLike ? 'none' : 'block';
-	        lostEl.disabled = isManagerLike;
-	        if (isManagerLike) lostEl.checked = false;
-	      }
-	    }
-
-    document.getElementById('userIsManager')?.addEventListener('change', syncCanEditGameplanVisibility);
-    document.getElementById('userIsAdmin')?.addEventListener('change', syncCanEditGameplanVisibility);
-	    document.getElementById('userRole')?.addEventListener('change', () => {
-	      // Role is for visualization only; permissions are controlled by the checkboxes.
-	      syncCanEditGameplanVisibility();
-	    });
-
 	    async function uploadUserPhoto(userId, file) {
 	      const form = new FormData();
 	      form.append('photo', file);
@@ -1967,17 +1999,20 @@
 		      const resetArmed = passwordEl?.dataset?.resetArmed === 'true';
 		      const passwordValue = resetArmed ? (passwordEl.value || '1234') : '';
 
+		      const role = document.getElementById('userRole').value;
+		      const isManagerRole = (role === 'MANAGEMENT');
+		      const isAdminRole = (role === 'ADMIN');
+
 		      const userData = {
 		        name: document.getElementById('userFullName').value,
 		        employeeId: document.getElementById('userEmployeeId').value,
 		        email: document.getElementById('userEmail').value,
-		        role: document.getElementById('userRole').value,
+		        role: role,
 		        imageUrl: photoMode === 'url' ? document.getElementById('userPhotoUrl').value : '',
-		        isManager: document.getElementById('userIsManager').checked,
+		        isManager: isManagerRole || isAdminRole,
+		        isAdmin: isAdminRole,
 		        canEditGameplan: document.getElementById('userCanEditGameplan').checked,
-		        canConfigRadio: document.getElementById('userCanConfigRadio').checked,
-		        canManageLostPunch: document.getElementById('userCanManageLostPunch').checked,
-		        isAdmin: document.getElementById('userIsAdmin').checked
+		        canManageLostPunch: isManagerRole || isAdminRole
 		      };
 
 		      // Only include password when creating or when reset was requested.
@@ -4181,9 +4216,11 @@
 
         // Init
 		    initUsersSortUI();
-		    checkAuth();
-		    loadSettings();
-		    loadUsers();
+		    (async () => {
+		      await checkAuth();
+		      loadSettings();
+		      loadUsers();
+		    })();
 		    document.getElementById('saveStoreConfigBtn')?.addEventListener('click', saveStoreConfig);
 		    document.getElementById('resetTomatoAwardsBtn')?.addEventListener('click', resetTomatoAwards);
         document.getElementById('srDecodeBtn')?.addEventListener('click', onSrDecode);

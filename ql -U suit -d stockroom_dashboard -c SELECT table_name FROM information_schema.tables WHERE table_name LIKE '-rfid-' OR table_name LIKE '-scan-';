@@ -1,0 +1,38 @@
+                                            Table "public.rfid_scans"
+      Column       |            Type             | Collation | Nullable |                Default                 
+-------------------+-----------------------------+-----------+----------+----------------------------------------
+ id                | integer                     |           | not null | nextval('rfid_scans_id_seq'::regclass)
+ sgtin             | character varying(255)      |           | not null | 
+ epc               | character varying(255)      |           |          | 
+ inventory_item_id | integer                     |           |          | 
+ scan_type         | character varying(50)       |           | not null | 
+ scanner_id        | character varying(255)      |           |          | 
+ scanner_location  | character varying(255)      |           |          | 
+ zone_id           | integer                     |           |          | 
+ zone_code         | character varying(50)       |           |          | 
+ x_coordinate      | numeric(10,2)               |           |          | 
+ y_coordinate      | numeric(10,2)               |           |          | 
+ scanned_by_id     | integer                     |           |          | 
+ scanned_by_name   | character varying(255)      |           |          | 
+ previous_zone_id  | integer                     |           |          | 
+ movement_type     | character varying(50)       |           |          | 
+ scanned_at        | timestamp without time zone |           | not null | now()
+ raw_scan_data     | jsonb                       |           |          | 
+Indexes:
+    "rfid_scans_pkey" PRIMARY KEY, btree (id)
+    "idx_rfid_scans_employee" btree (scanned_by_id)
+    "idx_rfid_scans_inventory" btree (inventory_item_id)
+    "idx_rfid_scans_sgtin" btree (sgtin)
+    "idx_rfid_scans_timestamp" btree (scanned_at)
+    "idx_rfid_scans_zone" btree (zone_id)
+Check constraints:
+    "rfid_scans_movement_type_check" CHECK (movement_type::text = ANY (ARRAY['received'::character varying, 'moved'::character varying, 'picked'::character varying, 'returned'::character varying, 'staged'::character varying, NULL::character varying]::text[]))
+    "rfid_scans_scan_type_check" CHECK (scan_type::text = ANY (ARRAY['overhead'::character varying, 'handheld'::character varying, 'portal'::character varying, 'inventory'::character varying, 'manual'::character varying]::text[]))
+Foreign-key constraints:
+    "rfid_scans_inventory_item_id_fkey" FOREIGN KEY (inventory_item_id) REFERENCES inventory_items(id)
+    "rfid_scans_previous_zone_id_fkey" FOREIGN KEY (previous_zone_id) REFERENCES store_zones(id)
+    "rfid_scans_scanned_by_id_fkey" FOREIGN KEY (scanned_by_id) REFERENCES employees(id)
+    "rfid_scans_zone_id_fkey" FOREIGN KEY (zone_id) REFERENCES store_zones(id)
+Referenced by:
+    TABLE "shipment_items" CONSTRAINT "shipment_items_last_rfid_scan_id_fkey" FOREIGN KEY (last_rfid_scan_id) REFERENCES rfid_scans(id)
+

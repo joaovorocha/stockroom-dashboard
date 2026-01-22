@@ -7,6 +7,7 @@
 const express = require('express');
 const router = express.Router();
 const { requireAdmin } = require('../middleware/roleGuard');
+const authMiddleware = require('../middleware/auth-redis');
 const { createSession: createRedisSession, destroySession } = require('../config/redis-session');
 const crypto = require('crypto');
 const multer = require('multer');
@@ -204,7 +205,6 @@ function formatUserResponse(user) {
     isManager: user.is_manager,
     isAdmin: user.is_admin,
     canEditGameplan: user.can_edit_gameplan,
-    canConfigRadio: user.can_config_radio,
     canManageLostPunch: user.can_manage_lost_punch,
     needsProfileCompletion,
     mustChangePassword: user.must_change_password
@@ -564,20 +564,23 @@ router.post('/switch', async (req, res) => {
 
 // GET /api/auth/users - Get all users (managers/admins only)
 // SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
-router.get('/users', requireAdmin, async (req, res) => {
+router.get('/users', authMiddleware, requireAdmin, async (req, res) => {
   try {
     // Authentication and permission checks moved to requireAdmin middleware
+    console.log('[GET /users] Request from user:', req.user?.name, 'isAdmin:', req.user?.isAdmin);
 
     const result = await query(`
       SELECT 
         id, employee_id, login_alias, name, email, phone, role, 
         image_url, is_manager, is_admin, can_edit_gameplan, 
-        can_config_radio, can_manage_lost_punch,
+        can_manage_lost_punch,
         is_active, last_login, created_at
       FROM users 
       WHERE is_active = true 
       ORDER BY name
     `);
+
+    console.log('[GET /users] Found', result.rows.length, 'users');
 
     const users = result.rows.map(u => ({
       id: u.id,
@@ -590,12 +593,12 @@ router.get('/users', requireAdmin, async (req, res) => {
       isManager: u.is_manager,
       isAdmin: u.is_admin,
       canEditGameplan: u.can_edit_gameplan,
-      canConfigRadio: u.can_config_radio,
       canManageLostPunch: u.can_manage_lost_punch,
       lastLogin: u.last_login,
       createdAt: u.created_at
     }));
 
+    console.log('[GET /users] Returning', users.length, 'users');
     return res.json({ users });
 
   } catch (error) {
@@ -606,9 +609,10 @@ router.get('/users', requireAdmin, async (req, res) => {
 
 // POST /api/auth/users - Create new user (managers only)
 // SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
-router.post('/users', requireAdmin, async (req, res) => {
+router.post('/users', authMiddleware, requireAdmin, async (req, res) => {
   try {
     // Authentication and permission checks moved to requireAdmin middleware
+    const currentUser = req.user;
 
     const {
       employeeId,
@@ -619,7 +623,6 @@ router.post('/users', requireAdmin, async (req, res) => {
       isManager,
       isAdmin,
       canEditGameplan,
-      canConfigRadio,
       canManageLostPunch,
       email,
       mustChangePassword
@@ -646,9 +649,9 @@ router.post('/users', requireAdmin, async (req, res) => {
       INSERT INTO users (
         store_id, employee_id, name, password_hash, role, 
         email, image_url,
-        is_manager, is_admin, can_edit_gameplan, can_config_radio, can_manage_lost_punch,
+        is_manager, is_admin, can_edit_gameplan, can_manage_lost_punch,
         must_change_password
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `, [
       storeId,
@@ -661,7 +664,6 @@ router.post('/users', requireAdmin, async (req, res) => {
       !!isManager,
       !!isAdmin,
       canEditGameplan !== undefined ? !!canEditGameplan : !!(isManager || isAdmin),
-      !!canConfigRadio,
       !!canManageLostPunch,
       mustChangePassword !== undefined ? !!mustChangePassword : true
     ]);
@@ -686,7 +688,6 @@ router.post('/users', requireAdmin, async (req, res) => {
         isManager: newUser.is_manager,
         isAdmin: newUser.is_admin,
         canEditGameplan: newUser.can_edit_gameplan,
-        canConfigRadio: newUser.can_config_radio,
         canManageLostPunch: newUser.can_manage_lost_punch
       }
     });
@@ -699,14 +700,11 @@ router.post('/users', requireAdmin, async (req, res) => {
 
 // PUT /api/auth/users/:id - Update user (managers only)
 // SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
-router.put('/users/:id', requireAdmin, async (req, res) => {
+router.put('/users/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const currentUser = await getVerifiedSessionUser(req);
-    if (!currentUser) {
-      return res.status(401).json({ error: 'Not authenticated' });
-    }
-    
+    const currentUser = req.user;
     const { id } = req.params;
+    const updates = req.body;
     
     // Get existing user
     const userResult = await query('SELECT * FROM users WHERE id = $1 AND is_active = true', [id]);
@@ -747,7 +745,6 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
       isManager: 'is_manager',
       isAdmin: 'is_admin',
       canEditGameplan: 'can_edit_gameplan',
-      canConfigRadio: 'can_config_radio',
       canManageLostPunch: 'can_manage_lost_punch',
       mustChangePassword: 'must_change_password'
     };
@@ -800,7 +797,7 @@ router.put('/users/:id', requireAdmin, async (req, res) => {
 // DELETE /api/auth/users/:id - Delete user (admin only)
 // DELETE /api/auth/users/:id - Soft delete user (admin only)
 // SECURITY PATCH: Added requireAdmin middleware (CRITICAL-02)
-router.delete('/users/:id', requireAdmin, async (req, res) => {
+router.delete('/users/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const currentUser = await getVerifiedSessionUser(req);
     // Authentication and permission checks moved to requireAdmin middleware

@@ -109,6 +109,11 @@ app.use(cookieParser());
 // SECURITY PATCH: CRITICAL-01 - Add Redis session middleware
 app.use(getSessionMiddleware());
 
+// --- Simple health check for network detection (NO AUTH) ---
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // --- Webhook Endpoint (NO AUTH) ---
 // This must come *before* the general auth middleware
 app.use('/api/webhooks', webhookRoutes);
@@ -320,21 +325,6 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
-// DEV ONLY: React preview redirect to Vite dev server.
-// NOTE: Keep this during the transition phase, remove for production builds.
-// Temporarily disabled due to Express 5 wildcard route issues
-// app.get('/react-preview', (req, res) => {
-//   return res.redirect(302, 'http://localhost:5173/react-preview/');
-// });
-//
-// app.get('/react-preview/*', (req, res) => {
-//   const suffix = req.params[0] || '/';
-//   return res.redirect(302, `http://localhost:5173/react-preview/${suffix}`);
-// });
-
-// Serve React app static files
-app.use(express.static(path.join(__dirname, 'client/build')));
-
 // Serve closing duties photos (auth required)
 app.use('/closing-duties', authMiddleware, express.static(dal.paths.closingDutiesDir));
 // Routes - Order matters! More specific routes before generic ones
@@ -461,6 +451,10 @@ app.get('/awards', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'awards.html'));
 });
 
+app.get('/daily-scan-performance', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'daily-scan-performance.html'));
+});
+
 // Canonical home
 app.get(HOME_PATH, authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'app.html'));
@@ -515,10 +509,6 @@ app.get('/qr-decode', authMiddleware, (req, res) => {
 });
 
 // CampusShip import page removed (shipments are captured from UPS emails now).
-
-app.get('/scanner', authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'scanner.html'));
-});
 
 app.get('/radio', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'radio.html'));
@@ -686,7 +676,6 @@ async function validateSessionFromCookie(cookieHeader) {
           isManager: user.is_manager,
           isAdmin: user.is_admin,
           canEditGameplan: user.can_edit_gameplan,
-          canConfigRadio: user.can_config_radio,
           canManageLostPunch: user.can_manage_lost_punch,
           mustChangePassword: user.must_change_password,
         };
@@ -869,10 +858,6 @@ server.on('upgrade', (req, socket, head) => {
   })();
 });
 
-// Catch-all handler: send back React's index.html for client-side routing
-app.use((req, res) => {
-  res.sendFile(path.join(__dirname, 'client/build/index.html'));
-});
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n╔═══════════════════════════════════════════════════════════╗`);

@@ -1341,10 +1341,26 @@
       });
       document.getElementById('todayBtn').addEventListener('click', () => {
         (async () => {
-          await initSelectedDate();
+          // Force reset to today's date
+          try {
+            const res = await fetch('/api/gameplan/today');
+            if (res.ok) {
+              const info = await res.json();
+              if (info?.date && /^\d{4}-\d{2}-\d{2}$/.test(info.date)) {
+                selectedDate = info.date;
+              } else {
+                selectedDate = localISODate();
+              }
+            } else {
+              selectedDate = localISODate();
+            }
+          } catch (_) {
+            selectedDate = localISODate();
+          }
           document.getElementById('historyDate').value = selectedDate;
           syncHistoryDateDisplay();
-          loadTodayDuties();
+          await loadTodayDuties();
+          await renderHistory();
         })();
       });
 

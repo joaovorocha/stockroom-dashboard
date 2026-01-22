@@ -2,21 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <meta name="view-transition" content="same-origin">
   <title>Daily Game Plan - Management | Suitsupply</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#1a5490">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Daily Operations">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="/css/theme.css?v=14">
 	  <link rel="stylesheet" href="/css/shared-header.css?v=22">
   <link rel="stylesheet" href="/css/dashboard.css?v=17">
   <link rel="stylesheet" href="/css/mobile.css?v=7">
+  <script src="/js/network-detect.js?v=1"></script>
   <script src="/vendor/chart.umd.min.js?v=1" defer></script>
   <style>
     .upcoming-plans-content {
@@ -325,6 +328,7 @@
     .manager-stat-cards::-webkit-scrollbar { height: 8px; }
     .manager-stat-cards::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.06); border-radius: 6px; }
   </style>
+  <script src="/js/network-detect.js?v=1"></script>
 </head>
 <body>
   <div id="shared-header-mount"></div>
@@ -583,7 +587,12 @@
 
 		          <!-- Daily Scan Log (formerly Count Leaderboard) -->
 		          <div class="ops-subsection">
-		            <h4 class="ops-subsection-title">Daily Scan Log</h4>
+		            <h4 class="ops-subsection-title">
+		              Daily Scan Log
+		              <a href="/daily-scan-performance" style="float: right; font-size: 13px; font-weight: 500; color: var(--primary); text-decoration: none;">
+		                View Performance →
+		              </a>
+		            </h4>
 		            <div class="scan-log-content" id="scanLogContent">
               <div class="scan-log-grid" id="scanLogGrid">
                 <!-- Populated by JS with employee photos -->
@@ -822,7 +831,31 @@
             }
             document.addEventListener('DOMContentLoaded', function() {
               setTimeout(showManagerStatCardsIfManager, 400); // after welcomeRole loads
+              setTimeout(checkTodayPublishStatus, 500); // Check if today's plan is published
             });
+      
+      // Check if today's game plan is published
+      async function checkTodayPublishStatus() {
+        try {
+          const response = await authFetch('/api/gameplan/today');
+          if (!response.ok) return;
+          
+          const gameplan = await response.json();
+          const statusBanner = document.getElementById('statusBanner');
+          
+          if (statusBanner) {
+            // Show banner only if plan is NOT published
+            if (!gameplan.isPublished) {
+              statusBanner.style.display = 'block';
+            } else {
+              statusBanner.style.display = 'none';
+            }
+          }
+        } catch (error) {
+          console.error('Error checking publish status:', error);
+        }
+      }
+      
       // Authenticated fetch function
       function authFetch(url, options = {}) {
         const merged = { credentials: 'include', ...options };
