@@ -26,6 +26,11 @@
     overflow-x: hidden;
   }
 
+  /* Hide desktop-only content on mobile */
+  .desktop-only {
+    display: none !important;
+  }
+
   /* Touch-friendly tap targets */
   button, .btn, a, input, select, textarea {
     min-height: 44px;

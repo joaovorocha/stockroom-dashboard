@@ -286,6 +286,46 @@ class UnifiedGmailProcessor {
     return 'UNKNOWN';
   }
 
+  // Get Looker email category from subject
+  getLookerCategory(email) {
+    const subject = (email.subject || '').toLowerCase();
+    
+    // Map subject patterns to categories
+    if (subject.includes('stores performance') || subject.includes('store ops')) return 'stores_performance';
+    if (subject.includes('expense')) return 'expenses';
+    if (subject.includes('appointment') || subject.includes('booking')) return 'appointments';
+    if (subject.includes('loan')) return 'loan';
+    if (subject.includes('tailor') || subject.includes('myr')) return 'tailor';
+    if (subject.includes('overdue') || subject.includes('audit')) return 'overdue_audit';
+    
+    // Default to subject as category
+    return subject.substring(0, 30).replace(/[^a-z0-9]/g, '_');
+  }
+
+  // Deduplicate Looker emails - keep only latest per category
+  deduplicateLookerEmails(emails) {
+    const categoryMap = new Map();
+    
+    for (const email of emails) {
+      const category = this.getLookerCategory(email);
+      const emailDate = new Date(email.date);
+      
+      const existing = categoryMap.get(category);
+      if (!existing || new Date(existing.date) < emailDate) {
+        categoryMap.set(category, email);
+      }
+    }
+    
+    const deduplicated = Array.from(categoryMap.values());
+    
+    this.log(`Deduplicated ${emails.length} Looker emails to ${deduplicated.length} (latest per category)`);
+    for (const [category, email] of categoryMap.entries()) {
+      this.log(`  - ${category}: ${email.subject} (${new Date(email.date).toISOString()})`);
+    }
+    
+    return deduplicated;
+  }
+
   // Process emails
   async processEmails() {
     if (this.isRunning) {
@@ -416,11 +456,17 @@ class UnifiedGmailProcessor {
       // Process Looker emails
       if (lookerEmails.length > 0) {
         this.log(`Processing ${lookerEmails.length} Looker emails`);
+        
+        // OPTIMIZATION: Deduplicate - keep only latest per category
+        // Since Looker emails contain full datasets, we don't need historical ones
+        const deduplicatedEmails = this.deduplicateLookerEmails(lookerEmails);
+        this.log(`Reduced from ${lookerEmails.length} to ${deduplicatedEmails.length} emails after deduplication`);
+        
         const lookerFetcher = new GmailLookerFetcher();
 
         // Extract attachments from Looker emails
         const extractedFiles = [];
-        for (const email of lookerEmails) {
+        for (const email of deduplicatedEmails) {
           try {
             const files = await lookerFetcher.processAttachments(email);
             extractedFiles.push(...files);

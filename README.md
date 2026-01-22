@@ -29,7 +29,7 @@ A comprehensive Progressive Web Application for managing retail operations, incl
 - **MCP Integration** - Model Context Protocol servers for inventory, shipments, and radio operations
 - **Gmail API** - OAuth 2.0 with automatic watch renewal for real-time email notifications
 - **UPS API** - Automated shipment tracking and status updates
-- **Looker Data** - Automated sales data extraction from email reports
+- **Looker Data** - Automated sales data extraction from email reports with intelligent deduplication (Jan 2026)
 
 ## 📊 Business Impact
 
@@ -79,6 +79,8 @@ pm2 start ecosystem.config.json
 - **[Network Optimization](NETWORK_OPTIMIZATION.md)** - Smart WiFi/Tailscale detection setup
 - **[Gmail Push Setup](GMAIL_PUSH_QUICKSTART.md)** - Quick start for Gmail real-time notifications  
 - **[Gmail Push Details](GMAIL_PUSH_SETUP.md)** - Complete Gmail API integration guide
+- **[Gmail Processing Flow](GMAIL_PROCESSING_FLOW.md)** - How Gmail polling and webhooks work (Jan 2026)
+- **[Looker Optimization](LOOKER_OPTIMIZATION.md)** - Email deduplication strategy (Jan 2026)
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute code
 - **[Quick Reference](QUICK_REFERENCE.md)** - Common commands and workflows
 
@@ -87,10 +89,12 @@ See `legacy-docs/` folder for historical migration guides, completed feature pla
 
 ## 🆕 Recent Updates (January 2026)
 
-1. **Gmail Push Notifications** - Real-time email processing using Gmail API + Google Cloud Pub/Sub
-   - OAuth 2.0 authentication
-   - Auto-renewal cron (7-day watch expiration)
-   - Webhook endpoint at `/api/webhooks/gmail`
+1. **Gmail Email Processing** - Automated Looker data extraction with intelligent optimization
+   - OAuth 2.0 authentication with `sanfranciscosuitsupplyredirect@gmail.com`
+   - Scheduled polling every 30 minutes (cron-based)
+   - Smart deduplication: Only process latest email per category (80-90% faster)
+   - Webhook endpoint ready at `/api/webhooks/gmail` (configured but not actively receiving)
+   - Auto-renewal cron for 7-day Gmail watch expiration
    
 2. **Network Optimization** - Smart network detection for local WiFi users
    - Auto-redirects WiFi users to local IP (1000+ Mbps)
