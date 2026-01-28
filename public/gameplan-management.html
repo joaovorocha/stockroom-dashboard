@@ -327,6 +327,58 @@
 
     .manager-stat-cards::-webkit-scrollbar { height: 8px; }
     .manager-stat-cards::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.06); border-radius: 6px; }
+
+    /* Horizontal Scroll for Employee Grids */
+    .employee-grid {
+      display: flex !important;
+      gap: 16px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 8px;
+      scroll-behavior: smooth;
+      grid-template-columns: unset !important;
+    }
+
+    .employee-grid::-webkit-scrollbar {
+      height: 8px;
+    }
+
+    .employee-grid::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.05);
+      border-radius: 4px;
+    }
+
+    .employee-grid::-webkit-scrollbar-thumb {
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+    }
+
+    .employee-grid::-webkit-scrollbar-thumb:hover {
+      background: rgba(0,0,0,0.3);
+    }
+
+    .employee-card {
+      flex: 0 0 auto;
+      min-width: 200px;
+      max-width: 240px;
+      scroll-snap-align: start;
+    }
+
+    /* Day Off section - keep as regular grid, not horizontal scroll */
+    .day-off-grid {
+      display: grid !important;
+      grid-template-columns: repeat(2, 1fr) !important;
+      overflow-x: visible !important;
+      scroll-snap-type: none !important;
+      gap: 12px !important;
+    }
+
+    .day-off-grid .employee-card {
+      min-width: auto !important;
+      max-width: none !important;
+    }
   </style>
   <script src="/js/network-detect.js?v=1"></script>
 </head>

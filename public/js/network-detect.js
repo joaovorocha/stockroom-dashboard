@@ -2,10 +2,14 @@
  * Smart Network Detection
  * Auto-redirects to local IP when on same WiFi network
  * Falls back to Tailscale when remote
+ * DISABLED - Preventing photo loading issues
  */
 
 (function() {
   'use strict';
+  
+  // DISABLED: Network redirect feature
+  return;
   
   const LOCAL_IP = '10.201.48.17';
   const LOCAL_PORT = '80'; // Apache proxy

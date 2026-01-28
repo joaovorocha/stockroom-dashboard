@@ -4,6 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const dal = require('../utils/dal');
+const { query: pgQuery } = require('../utils/dal/pg');
 const { LookerDataProcessor } = require('../utils/looker-data-processor');
 const { compressUploadedImages } = require('../utils/image-compressor');
 
@@ -66,10 +67,51 @@ function safeFileName(value) {
     .slice(0, 120) || 'unknown';
 }
 
-function readUsersIndex() {
+async function readUsersIndex() {
   const byEmail = new Map();
   const byEmployeeId = new Map();
   const byName = new Map();
+  
+  try {
+    // Try to read from PostgreSQL database first
+    if (pgQuery) {
+      const result = await pgQuery(`
+        SELECT id, employee_id, name, email, image_url, role, is_manager, is_admin
+        FROM users
+        WHERE is_active = true
+      `);
+      
+      if (result?.rows?.length) {
+        result.rows.forEach(u => {
+          const userObj = {
+            id: u.id,
+            employeeId: u.employee_id,
+            name: u.name,
+            email: u.email,
+            imageUrl: u.image_url,
+            role: u.role,
+            isManager: u.is_manager,
+            isAdmin: u.is_admin
+          };
+          
+          const email = normalizeEmail(u.email);
+          if (email) byEmail.set(email, userObj);
+          
+          const empId = (u.employee_id || '').toString().trim();
+          if (empId) byEmployeeId.set(empId, userObj);
+          
+          const nameKey = normalizeNameKey(u.name);
+          if (nameKey) byName.set(nameKey, userObj);
+        });
+        
+        return { byEmail, byEmployeeId, byName };
+      }
+    }
+  } catch (err) {
+    console.error('Error reading users from database:', err);
+  }
+  
+  // Fallback to JSON file if database fails
   try {
     const raw = readJson(dal.paths.usersFile, null);
     const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.users) ? raw.users : []);
@@ -82,6 +124,7 @@ function readUsersIndex() {
       if (nameKey) byName.set(nameKey, u);
     });
   } catch (_) {}
+  
   return { byEmail, byEmployeeId, byName };
 }
 
@@ -354,13 +397,28 @@ router.get('/config', (req, res) => {
   return res.json({ ...config, limits });
 });
 
+// DEBUG ENDPOINT
+router.get('/debug-users', async (req, res) => {
+  try {
+    const usersIndex = await readUsersIndex();
+    const sample = {
+      byEmailSize: usersIndex.byEmail.size,
+      byNameSize: usersIndex.byName.size,
+      sampleUsers: Array.from(usersIndex.byEmail.values()).slice(0, 3)
+    };
+    return res.json({ success: true, ...sample });
+  } catch (err) {
+    return res.status(500).json({ error: err.message, stack: err.stack });
+  }
+});
+
 // GET /api/expenses - list orders (visible to all authed users)
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const exp = getSavedExpenses();
   if (!exp) return res.json({ success: true, source: null, orders: [], employees: [], storeTotals: null });
 
   const config = getConfig();
-  const usersIndex = readUsersIndex();
+  const usersIndex = await readUsersIndex();
 
   const requestedRaw = (req.query.employeeEmail || '').toString().trim();
   const effectiveEmployeeFilter = requestedRaw || '';
@@ -391,11 +449,11 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/expenses/status - current user's limit status (for header/banner)
-router.get('/status', (req, res) => {
+router.get('/status', async (req, res) => {
   const exp = getSavedExpenses();
   const config = getConfig();
   const limits = resolveLimits(config, req.user?.email);
-  const usersIndex = readUsersIndex();
+  const usersIndex = await readUsersIndex();
 
   if (!exp) {
     return res.json({
@@ -438,11 +496,11 @@ router.get('/status', (req, res) => {
 });
 
 // GET /api/expenses/orders/:orderId/notes - read notes + attachments
-router.get('/orders/:orderId/notes', (req, res) => {
+router.get('/orders/:orderId/notes', async (req, res) => {
   const exp = getSavedExpenses();
   if (!exp) return res.status(404).json({ error: 'No expenses data available' });
 
-  const usersIndex = readUsersIndex();
+  const usersIndex = await readUsersIndex();
   const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const orderId = (req.params.orderId || '').toString().trim();
   const order = normalizedOrders.find(o => String(o?.orderId || '') === orderId);
@@ -456,11 +514,11 @@ router.get('/orders/:orderId/notes', (req, res) => {
 });
 
 // POST /api/expenses/orders/:orderId/notes - add note
-router.post('/orders/:orderId/notes', (req, res) => {
+router.post('/orders/:orderId/notes', async (req, res) => {
   const exp = getSavedExpenses();
   if (!exp) return res.status(404).json({ error: 'No expenses data available' });
 
-  const usersIndex = readUsersIndex();
+  const usersIndex = await readUsersIndex();
   const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const orderId = (req.params.orderId || '').toString().trim();
   const order = normalizedOrders.find(o => String(o?.orderId || '') === orderId);
@@ -486,11 +544,11 @@ router.post('/orders/:orderId/notes', (req, res) => {
 });
 
 // POST /api/expenses/orders/:orderId/attachments - upload attachments
-router.post('/orders/:orderId/attachments', upload.array('files', 5), compressUploadedImages({ maxWidth: 1920, maxHeight: 1920, quality: 80 }), (req, res) => {
+router.post('/orders/:orderId/attachments', upload.array('files', 5), compressUploadedImages({ maxWidth: 1920, maxHeight: 1920, quality: 80 }), async (req, res) => {
   const exp = getSavedExpenses();
   if (!exp) return res.status(404).json({ error: 'No expenses data available' });
 
-  const usersIndex = readUsersIndex();
+  const usersIndex = await readUsersIndex();
   const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const orderId = (req.params.orderId || '').toString().trim();
   const order = normalizedOrders.find(o => String(o?.orderId || '') === orderId);
@@ -528,11 +586,11 @@ router.post('/orders/:orderId/attachments', upload.array('files', 5), compressUp
 });
 
 // GET /api/expenses/orders/:orderId/attachments/:attachmentId - download
-router.get('/orders/:orderId/attachments/:attachmentId', (req, res) => {
+router.get('/orders/:orderId/attachments/:attachmentId', async (req, res) => {
   const exp = getSavedExpenses();
   if (!exp) return res.status(404).json({ error: 'No expenses data available' });
 
-  const usersIndex = readUsersIndex();
+  const usersIndex = await readUsersIndex();
   const normalizedOrders = (exp.orders || []).map(o => normalizeOrder(o, usersIndex));
   const orderId = (req.params.orderId || '').toString().trim();
   const order = normalizedOrders.find(o => String(o?.orderId || '') === orderId);

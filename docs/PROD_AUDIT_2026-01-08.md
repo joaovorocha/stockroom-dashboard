@@ -18,7 +18,6 @@ Target: new server `10.201.48.17` (old: `10.201.48.16`)
   - Express server
   - Serves HTML pages + API routes
   - Hosts SSE endpoint `/api/sse/updates`
-  - Runs UDP listeners and WebSocket upgrade handlers for radio monitoring
   - Runs unified Gmail processor for both UPS and Looker email processing
 
 ### Storage Layout
@@ -49,8 +48,8 @@ Authoritative route inventory is maintained in `SERVER_MAP.md`.
 
 High-level:
 
-- Pages: `/dashboard`, `/gameplan-*`, `/ops-dashboard`, `/shipments`, `/radio`, `/radio-transcripts`, `/closing-duties`, `/lost-punch`, `/time-off`, `/awards`, `/expenses`, `/admin`, plus auth pages.
-- APIs: `/api/auth`, `/api/gameplan`, `/api/shipments`, `/api/closing-duties`, `/api/lost-punch`, `/api/timeoff`, `/api/feedback`, `/api/admin`, `/api/awards`, `/api/radio`, `/api/expenses`.
+- Pages: `/dashboard`, `/gameplan-*`, `/ops-dashboard`, `/shipments`, `/closing-duties`, `/lost-punch`, `/time-off`, `/awards`, `/expenses`, `/admin`, plus auth pages.
+- APIs: `/api/auth`, `/api/gameplan`, `/api/shipments`, `/api/closing-duties`, `/api/lost-punch`, `/api/timeoff`, `/api/feedback`, `/api/admin`, `/api/awards`, `/api/expenses`.
 
 ## Website Map (Full Web Surface)
 
@@ -77,7 +76,6 @@ This is the deployed web surface on the new server. For the authoritative route 
 - `GET /gameplan-edit` → requires gameplan editor or manager/admin
 - `GET /ops-dashboard`, `/operations-metrics`, `/shipments`, `/scanner`, `/qr-decode`
 - `GET /store-recovery`, `/employee-discount` (alias: `/expenses`)
-- `GET /radio`, `/radio-transcripts` (admin-only controls via admin UI)
 - `GET /closing-duties`, `/lost-punch`, `/time-off`, `/awards`, `/feedback`
 - `GET /admin` → admin only
 
@@ -90,8 +88,6 @@ This is the deployed web surface on the new server. For the authoritative route 
 ### Real-time endpoints
 
 - `GET /api/sse/updates` → Server-Sent Events (SSE) for UI updates (auth required)
-- WebSockets (auth via cookie validation against `data/users.json`):
-  - `GET /ws/radio-monitor` → PCM audio frames (UDP→WS bridge)
 
 ### Internal APIs (Express routers)
 
@@ -130,11 +126,6 @@ The server mounts routers under `/api/*` (see `SERVER_MAP.md` for the complete l
 - `/api/store-recovery` → reads/writes:
   - `data/store-recovery-scan-log.json`
   - `data/store-recovery-config.json` (also editable via admin API)
-- `/api/radio` → reads/writes:
-  - `data/radio/config.json`, `data/radio/config.live.json`, `data/radio/service.json`
-  - `data/radio/transcripts.jsonl`
-  - `data/radio/clips/*.wav` (recorded clips)
-  - Logs under `logs/` (radio.log, radio-transcriber.log, radio-analyzer.log)
 - `/api/admin` (admin-only) → reads/writes:
   - `data/store-config.json`
   - `data/awards-config.json`
@@ -237,12 +228,6 @@ Frontend consumption:
 - `server.js` starts the unified Gmail processor at runtime.
 - `utils/ups-email-parser.js` (invoked by unified Gmail processor) imports shipments from Gmail and updates `data/shipments.json`.
 - UI uses `/api/shipments` to view/manage shipments.
-
-### Radio (SDR capture → clips/transcripts)
-
-- Admin actions via `/api/radio/service/*` start/stop Python services under `radio/` via PM2.
-- Audio clips and transcripts are persisted under `data/radio/*`, and logs under `logs/*`.
-- Live audio streams are delivered via `/ws/radio-monitor`.
 
 ## Tailscale State (2026-01-08)
 

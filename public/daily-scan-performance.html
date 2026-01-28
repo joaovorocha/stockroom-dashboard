@@ -342,6 +342,50 @@
       color: #6b7280;
     }
 
+    /* Today's scan status badges */
+    .scan-status-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .scan-status-badge.completed {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .scan-status-badge.pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .scan-status-badge.not-started {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .scan-status-badge.cancelled {
+      background: #f3f4f6;
+      color: #6b7280;
+    }
+
+    /* Today's accuracy colors */
+    .accuracy-excellent {
+      color: #10b981;
+      font-weight: 700;
+    }
+
+    .accuracy-good {
+      color: #f59e0b;
+      font-weight: 700;
+    }
+
+    .accuracy-poor {
+      color: #ef4444;
+      font-weight: 700;
+    }
+
     .empty-state {
       text-align: center;
       padding: 60px 20px;
@@ -514,24 +558,27 @@
     <div style="background: var(--surface); border: 2px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 24px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
         <h3 style="margin: 0;">Today's Daily Scan Assignment</h3>
-        <span id="todayStatus" style="padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: #fee2e2; color: #991b1b;">Not Started</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="todayStatusEmployee" style="font-size: 14px; font-weight: 600;"></span>
+          <span id="todayStatus" class="scan-status-badge not-started">Not Started</span>
+        </div>
       </div>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
         <div>
           <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Assigned To</div>
-          <div style="font-size: 16px; font-weight: 600;" id="assignedEmployee">--</div>
+          <div style="font-size: 22px; font-weight: 700;" id="assignedEmployee">--</div>
         </div>
         <div>
           <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Expected Units</div>
-          <div style="font-size: 16px; font-weight: 600;" id="todayExpected">--</div>
+          <div style="font-size: 22px; font-weight: 700;" id="todayExpected">--</div>
         </div>
         <div>
           <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Counted Units</div>
-          <div style="font-size: 16px; font-weight: 600;" id="todayCounted">--</div>
+          <div style="font-size: 22px; font-weight: 700;" id="todayCounted">--</div>
         </div>
         <div>
           <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">Accuracy</div>
-          <div style="font-size: 16px; font-weight: 600;" id="todayAccuracy">--</div>
+          <div style="font-size: 22px; font-weight: 700;" id="todayAccuracy">--</div>
         </div>
       </div>
     </div>
@@ -552,11 +599,11 @@
         <div class="filter-group">
           <label>Date Range</label>
           <select id="filterDateRange">
-            <option value="7">Last 7 days</option>
+            <option value="7" selected>Last 7 days</option>
             <option value="30">Last 30 days</option>
             <option value="90">Last 90 days</option>
             <option value="365">Last year</option>
-            <option value="all" selected>All time</option>
+            <option value="all">All time</option>
           </select>
         </div>
         <div class="filter-group">

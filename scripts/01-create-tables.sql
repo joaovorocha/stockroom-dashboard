@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS users (
   is_manager BOOLEAN DEFAULT false,
   is_admin BOOLEAN DEFAULT false,
   can_edit_gameplan BOOLEAN DEFAULT false,
-  can_config_radio BOOLEAN DEFAULT false,
   can_manage_lost_punch BOOLEAN DEFAULT false,
   can_access_admin BOOLEAN DEFAULT false,
   must_change_password BOOLEAN DEFAULT false,

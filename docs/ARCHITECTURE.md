@@ -2,7 +2,7 @@
 
 ## Overview
 
-Stockroom Dashboard is a comprehensive Progressive Web Application (PWA) built with Node.js/Express backend, PostgreSQL database, and integrated MCP (Model Context Protocol) servers. It manages retail operations including game plans, shipments, employee scheduling, radio communications, and real-time task management.
+Stockroom Dashboard is a comprehensive Progressive Web Application (PWA) built with Node.js/Express backend, PostgreSQL database, and integrated MCP (Model Context Protocol) servers. It manages retail operations including game plans, shipments, employee scheduling, and real-time task management.
 
 ---
 
@@ -14,9 +14,9 @@ Stockroom Dashboard is a comprehensive Progressive Web Application (PWA) built w
 - **Database:** PostgreSQL with automated migrations
 - **Language:** JavaScript (ES6+)
 - **Session Management:** Cookie-based with PostgreSQL storage
-- **Real-time:** WebSockets (ws library)
+- **Real-time:** Server-Sent Events (SSE)
 - **Email Processing:** Gmail IMAP with automated Looker report ingestion
-- **MCP Integration:** Custom servers for inventory, shipments, and radio operations
+- **MCP Integration:** Custom servers for inventory and shipments
 
 ### Frontend
 - **Languages:** HTML5, CSS3, JavaScript (vanilla, no frameworks)
@@ -42,7 +42,6 @@ stockroom-dashboard/
 │   ├── auth-pg.js              # Authentication & user management
 │   ├── gameplan.js             # Daily game plans & assignments
 │   ├── shipments.js            # Shipment tracking & UPS integration
-│   ├── radio.js                # Radio communications
 │   ├── lostPunch-pg.js         # Lost punch requests
 │   ├── timeoff-pg.js           # Time off management
 │   ├── closingDuties-pg.js     # Store closing tasks
@@ -64,7 +63,6 @@ stockroom-dashboard/
 ├── mcp-servers/                # Model Context Protocol servers
 │   ├── stockroom-inventory/    # Inventory management MCP
 │   ├── stockroom-shipments/    # Shipment tracking MCP
-│   └── stockroom-radio/        # Radio communications MCP
 ├── public/                     # Static web assets
 │   ├── *.html                  # Page templates
 │   ├── css/                    # Stylesheets
@@ -161,7 +159,6 @@ function canManageShipments(user) {
 - Model Context Protocol servers for specialized operations
 - Inventory management via `stockroom-inventory` MCP server
 - Shipment tracking via `stockroom-shipments` MCP server
-- Radio communications via `stockroom-radio` MCP server
 
 ---
 
@@ -182,7 +179,6 @@ CREATE TABLE users (
   is_manager BOOLEAN DEFAULT false,
   is_admin BOOLEAN DEFAULT false,
   can_edit_gameplan BOOLEAN DEFAULT false,
-  can_config_radio BOOLEAN DEFAULT false,
   can_manage_lost_punch BOOLEAN DEFAULT false,
   must_change_password BOOLEAN DEFAULT false,
   image_url VARCHAR(500),

@@ -27,10 +27,25 @@ function formatNumberOrDash(value, digits = 2) {
   return n.toFixed(digits);
 }
 
-function renderLeaderboardRow({ rank, name, imageUrl, primary, secondary }) {
+function renderLeaderboardRow({ rank, name, imageUrl, primary, secondary, accuracy }) {
+  const initials = getInitials(name);
   const photoHtml = imageUrl
-    ? `<img src="${imageUrl}" alt="${name}" class="employee-photo" style="width:40px;height:40px;">`
-    : `<div class="employee-photo placeholder" style="width:40px;height:40px;">${getInitials(name)}</div>`;
+    ? `<img src="${imageUrl}" alt="${name}" class="employee-photo" style="width:40px;height:40px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="employee-photo placeholder" style="width:40px;height:40px;display:none;">${initials}</div>`
+    : `<div class="employee-photo placeholder" style="width:40px;height:40px;">${initials}</div>`;
+
+  // Determine color class based on accuracy
+  let colorClass = '';
+  if (accuracy !== undefined && accuracy !== null) {
+    if (accuracy >= 99.8) {
+      colorClass = 'accuracy-excellent';
+    } else if (accuracy >= 99.5) {
+      colorClass = 'accuracy-good';
+    } else if (accuracy >= 99.0) {
+      colorClass = 'accuracy-fair';
+    } else {
+      colorClass = 'accuracy-poor';
+    }
+  }
 
   return `
     <div class="best-seller-item">
@@ -40,7 +55,7 @@ function renderLeaderboardRow({ rank, name, imageUrl, primary, secondary }) {
         <div class="best-seller-code">${name}</div>
         <div class="best-seller-desc">${secondary || ''}</div>
       </div>
-      <div class="best-seller-value">${primary}</div>
+      <div class="best-seller-value ${colorClass}">${primary}</div>
     </div>
   `;
 }
@@ -114,44 +129,118 @@ function renderTopSales() {
     .join('');
 }
 
-function renderTopScan() {
+async function renderTopScan() {
   const list = document.getElementById('topScanList');
   if (!list) return;
 
-  const scan = metrics.employeeCountPerformance?.employees || [];
-  if (!Array.isArray(scan) || scan.length === 0) {
-    list.innerHTML = '<div class="best-seller-placeholder">No scan data available</div>';
-    return;
+  try {
+    // Fetch real-time scan performance data from database (YTD)
+    const response = await fetch('/api/gameplan/daily-scan/performance?days=9999', {
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch scan performance data');
+    }
+
+    const scanData = await response.json();
+    
+    if (!Array.isArray(scanData) || scanData.length === 0) {
+      list.innerHTML = '<div class="best-seller-placeholder">No scan data available</div>';
+      return;
+    }
+
+    // Match photos from employee roster
+    const allEmployees = []
+      .concat(employees.SA || [])
+      .concat(employees.BOH || [])
+      .concat(employees.MANAGEMENT || [])
+      .concat(employees.TAILOR || []);
+
+    // Get top 5 performers by accuracy
+    const sorted = scanData
+      .map(emp => {
+        const accuracy = parseFloat(emp.avg_accuracy) || 0;
+        const totalScans = parseInt(emp.total_scans) || 0;
+        const totalMissed = parseInt(emp.total_missed) || 0;
+        
+        // Extract email prefix for matching (e.g., "IRamos@suitsupply.com" -> "iramos")
+        const countedBy = emp.counted_by || '';
+        const emailPrefix = countedBy.includes('@') 
+          ? countedBy.split('@')[0].toLowerCase() 
+          : countedBy.toLowerCase();
+        
+        // Match employee by email prefix or full name match
+        const matched = allEmployees.find(e => {
+          // Try exact email match (case-insensitive)
+          if (e.email && countedBy && e.email.toLowerCase() === countedBy.toLowerCase()) {
+            return true;
+          }
+          // Try ID match
+          if (e.id && countedBy && e.id.toLowerCase() === countedBy.toLowerCase()) {
+            return true;
+          }
+          // Try name match (case-insensitive)
+          if (e.name && countedBy) {
+            const nameLower = e.name.toLowerCase();
+            const countedByLower = countedBy.toLowerCase();
+            if (nameLower === countedByLower) return true;
+          }
+          // Try email prefix match against name parts
+          if (e.name && emailPrefix) {
+            const nameParts = e.name.toLowerCase().split(' ');
+            // Check if email prefix matches first initial + last name (e.g., "iramos" matches "Ivan Ramos")
+            if (nameParts.length >= 2) {
+              const firstInitial = nameParts[0][0];
+              const lastName = nameParts[nameParts.length - 1];
+              const namePrefix = firstInitial + lastName;
+              if (namePrefix === emailPrefix) return true;
+            }
+          }
+          return false;
+        });
+        
+        return {
+          name: matched?.name || getDisplayName(emp.counted_by),
+          imageUrl: matched?.imageUrl || '',
+          accuracy: accuracy,
+          countsDone: totalScans,
+          missedReserved: totalMissed
+        };
+      })
+      .sort((a, b) => b.accuracy - a.accuracy)
+      .slice(0, 5);
+
+    list.innerHTML = sorted
+      .map((emp, idx) =>
+        renderLeaderboardRow({
+          rank: idx + 1,
+          name: emp.name,
+          imageUrl: emp.imageUrl,
+          primary: `${formatNumberOrDash(emp.accuracy, 1)}%`,
+          secondary: `${emp.countsDone} scans • ${emp.missedReserved} missed`,
+          accuracy: emp.accuracy
+        })
+      )
+      .join('');
+  } catch (error) {
+    console.error('Error loading scan performance:', error);
+    list.innerHTML = '<div class="best-seller-placeholder">Error loading scan data</div>';
   }
+}
 
-  // Match photos from employee roster when possible.
-  const allEmployees = []
-    .concat(employees.SA || [])
-    .concat(employees.BOH || [])
-    .concat(employees.MANAGEMENT || [])
-    .concat(employees.TAILOR || []);
-
-  const sorted = scan
-    .slice()
-    .sort((a, b) => (b.accuracy || 0) - (a.accuracy || 0))
-    .slice(0, 5);
-
-  list.innerHTML = sorted
-    .map((emp, idx) => {
-      const matched = allEmployees.find(e =>
-        (e.name || '').toLowerCase() === (emp.name || '').toLowerCase() ||
-        (e.employeeId || '').toString() === (emp.employeeId || '').toString()
-      );
-      const photo = matched?.imageUrl || emp.imageUrl || '';
-      return renderLeaderboardRow({
-        rank: idx + 1,
-        name: emp.name || 'Unknown',
-        imageUrl: photo,
-        primary: `${formatNumberOrDash(emp.accuracy, 1)}%`,
-        secondary: `${emp.countsDone || 0} scans • ${emp.missedReserved || 0} missed`
-      });
-    })
-    .join('');
+// Helper function to get display name from email
+function getDisplayName(email) {
+  if (!email) return 'Unknown';
+  
+  // If it's an email, extract the part before @
+  if (email.includes('@')) {
+    const prefix = email.split('@')[0];
+    // Capitalize first letter
+    return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  }
+  
+  return email;
 }
 
 function renderTopTailor() {
@@ -364,10 +453,13 @@ function renderUpdatedAt() {
 
   const d = new Date(lookerTime);
   const lookerStr = d.toLocaleString('en-US');
+  const now = new Date();
+  const nowStr = now.toLocaleString('en-US');
+  
   if (scanFrom) {
-    el.textContent = `Updated (Looker): ${lookerStr} • Scan data: ${scanFrom}`;
+    el.textContent = `Updated (Looker): ${lookerStr} • Scan data: Real-time from database`;
   } else {
-    el.textContent = `Updated: ${lookerStr}`;
+    el.textContent = `Updated (Looker): ${lookerStr} • Scan data: Real-time`;
   }
 }
 

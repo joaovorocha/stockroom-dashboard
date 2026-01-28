@@ -1,0 +1,6 @@
+                 count_id                  | scan_date  |       counted_by        | expected_units | counted_units 
+-------------------------------------------+------------+-------------------------+----------------+---------------
+ 06618e8b-af5b-5003-4721-a80a-0370808b3c5b | 2026-01-23 | DIraheta@suitsupply.com |           7894 |          7787
+ 06618efb-5003-4721-a80a-0370808b3c5b      | 2026-01-23 | DIraheta@suitsupply.com |           7894 |          7787
+(2 rows)
+

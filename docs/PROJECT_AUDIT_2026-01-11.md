@@ -178,7 +178,6 @@ PATCH  /api/pickups/:id            # Update pickup status
 | **Operations Metrics** | `/operations-metrics` | KPI dashboard | ✅ Modern | ✅ Yes |
 | **Awards** | `/awards` | Team awards & recognition | ✅ Modern | ✅ Yes |
 | **Employee Discount** | `/employee-discount` | Expense tracking | ✅ Modern | ✅ Yes |
-| **Radio Transcripts** | `/radio-transcripts` | Walkie-talkie transcription | ✅ Modern | ✅ Yes |
 | **Shipments** | `/shipments` | UPS shipment tracking | ✅ Modern | ✅ Yes |
 | **Scanner** | `/scanner` | Barcode/QR scanner | ✅ Modern | ✅ Yes |
 | **Lost Punch** | `/lost-punch` | Time clock corrections | ✅ Modern | ✅ Yes |

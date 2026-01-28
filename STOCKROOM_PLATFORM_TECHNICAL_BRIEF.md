@@ -10,11 +10,11 @@
 The Stockroom Dashboard is a self-contained, on-prem style web application:
 
 - **Runtime:** Node.js application (`server.js`) serving static HTML/JS from `public/` and JSON APIs under `/api/*`.
-- **Process model:** Managed by **PM2** with multiple processes: the web server, a Looker/Gmail ingestion scheduler, and two Python radio/transcription services.
+- **Process model:** Managed by **PM2** with multiple processes: the web server and a Looker/Gmail ingestion scheduler.
 - **Data persistence:** File-based JSON storage via a DAL (`utils/dal`) rooted at a canonical data directory (`/var/lib/stockroom-dashboard/data`) and file directory (`/var/lib/stockroom-dashboard/files`).
 - **Security posture (as implemented):** Cookie-based session, “auth-by-default” routing, role/permission gating, basic security headers, and basic CSRF mitigation for API write requests.
 - **Integration points:** Gmail-based ingestion for Looker export emails and UPS shipment emails; optional Microsoft Graph path exists for Looker ingestion (dependencies and endpoints are present).
-- **Real-time:** SSE endpoint for updates; WebSocket endpoints used for radio monitoring, with local UDP feeds as the source.
+- **Real-time:** SSE endpoint for updates.
 
 This architecture is operationally simple (few moving parts, no external database required) and is naturally suited to isolated deployment within a store LAN or a private overlay network.
 
@@ -25,25 +25,20 @@ This architecture is operationally simple (few moving parts, no external databas
 ### 2.1 High-level component view
 
 **User Clients (Browsers)**
-- Access authenticated HTML pages (e.g., `/home`, `/dashboard`, `/operations-metrics`, `/shipments`, `/radio`, etc.).
+- Access authenticated HTML pages (e.g., `/home`, `/dashboard`, `/operations-metrics`, `/shipments`, etc.).
 - Call JSON APIs under `/api/*`.
 - Receive server push via:
   - **SSE:** `GET /api/sse/updates`
-  - **WebSockets:** `/ws/radio-monitor`
 
 **Node/Express Web Server (`server.js`)**
 - Serves static assets from `public/` with `Cache-Control: no-store` on `.js`/`.css`.
 - Mounts API routers from `routes/*.js`.
 - Enforces auth-by-default; only a small set of public routes/assets are unauthenticated.
-- Hosts SSE broadcast mechanism and WebSocket upgrade handling for radio endpoints.
+- Hosts SSE broadcast mechanism.
 - Starts the UPS email import scheduler in-process at boot.
 
 **Background Schedulers (Node)**
 - **Unified Gmail processor:** `utils/unified-gmail-processor.js` (in `server.js`, default cron `*/30 * * * *`, timezone `America/Los_Angeles`) - handles both UPS shipping emails and Looker data exports
-
-**Radio Services (Python)**
-- `radio/radio_service.py` (PM2 app: `radio`)
-- `radio/transcribe_worker.py` (PM2 app: `radio-transcriber`)
 
 **Persistence Layer (File-based)**
 - JSON data and uploads stored under `STOCKROOM_DATA_DIR` and `STOCKROOM_FILES_DIR`.
@@ -53,8 +48,6 @@ This architecture is operationally simple (few moving parts, no external databas
 PM2 ecosystem configuration in `ecosystem.config.json` defines:
 
 - `stockroom-dashboard` → `server.js` (includes unified Gmail processor)
-- `radio` → `radio/radio_service.py` (Python interpreter: `/var/www/stockroom-dashboard/.venv/bin/python`)
-- `radio-transcriber` → `radio/transcribe_worker.py` (Python interpreter: `/var/www/stockroom-dashboard/.venv/bin/python`)
 
 Each process sets (via PM2 env):
 - `STOCKROOM_DATA_DIR=/var/lib/stockroom-dashboard/data`
@@ -104,12 +97,6 @@ This indicates an alternate ingestion method exists in the API surface for Looke
 
 ### 4.4 Real-time mechanisms
 - **SSE:** `GET /api/sse/updates` (auth required) maintains client list and sends heartbeat every 30 seconds.
-- **Radio WebSockets:**
-  - `/ws/radio-monitor`
-
-**Radio internal feeds:**
-- UDP → WebSocket bridge is implemented in `server.js`:
-  - Monitor audio: UDP `127.0.0.1:7355` (default) with PCM frames described as “100ms chunks of mono int16 PCM @ 24000 Hz”.
 
 ---
 
@@ -121,13 +108,12 @@ This indicates an alternate ingestion method exists in the API surface for Looke
 - If validation fails (missing user or users file read failure), the middleware **fails closed** (clears cookie and requires re-authentication).
 
 ### 5.2 Authorization
-- Role/permission flags are computed in `middleware/auth.js` (e.g., `isAdmin`, `isManager`, `canEditGameplan`, `canConfigRadio`, `canManageLostPunch`).
+- Role/permission flags are computed in `middleware/auth.js` (e.g., `isAdmin`, `isManager`, `canEditGameplan`, `canManageLostPunch`).
 - Server-side route guards exist:
   - `adminOnly`, `managerOnly`, `gameplanEditorOnly` in `server.js`.
 - Admin-only routes include:
   - `/api/admin/*`
   - `/admin` (HTML)
-  - `/radio-admin` redirects to `/admin#radio`.
 
 ### 5.3 Auth-by-default routing
 In `server.js`:
@@ -185,7 +171,6 @@ Pages served from `public/*.html` include (non-exhaustive; see `SERVER_MAP.md` f
 - Operations: `/operations-metrics`, `/ops-dashboard`
 - Workflows: `/shipments`, `/closing-duties`, `/lost-punch`, `/time-off`, `/feedback`, `/employee-discount`
 - Tools: `/scanner`, `/store-recovery`, `/qr-decode`
-- Radio: `/radio`, `/radio-transcripts`, `/radio-admin` (admin only)
 - Admin: `/admin` (admin only)
 
 ### 7.2 API routers
@@ -199,7 +184,6 @@ Mounted routers in `server.js` (see also `SERVER_MAP.md`):
 - `/api/feedback`
 - `/api/admin` (admin only)
 - `/api/awards`
-- `/api/radio`
 - `/api/expenses`
 - `/api/store-recovery`
 
@@ -208,13 +192,13 @@ Mounted routers in `server.js` (see also `SERVER_MAP.md`):
 ## 8) Maintainability and Operational Characteristics
 
 ### 8.1 Code organization
-- `server.js` is the single entrypoint and contains cross-cutting concerns (auth-by-default, headers, CSRF check, SSE, WebSocket upgrades).
+- `server.js` is the single entrypoint and contains cross-cutting concerns (auth-by-default, headers, CSRF check, SSE).
 - Feature APIs are modularized in `routes/*.js`.
 - Persistence paths are centralized in the DAL (`utils/dal`).
 - Scheduling logic is explicit and isolated in `utils/unified-gmail-processor.js`.
 
 ### 8.2 Operability
-- PM2 provides process supervision and log file separation (ecosystem config includes dedicated logs for radio processes).
+- PM2 provides process supervision and log file separation.
 - Scheduler jobs maintain their own log files under the data directory.
 
 ### 8.3 Change safety
@@ -251,14 +235,13 @@ This section describes additional work typically required for enterprise-grade p
 - Define retention policy for:
   - scheduler logs (`data/scheduler-logs/`)
   - sync results (`data/sync-results/`)
-  - uploads and audio/transcription artifacts (as applicable)
+  - uploads and artifacts (as applicable)
 
 ### 10.4 Observability
 - Centralize logs (PM2 stdout/stderr + app logs + scheduler logs) into the enterprise log pipeline.
 - Add health endpoints and/or external monitoring checks around:
   - web server availability
   - scheduler run outcomes
-  - radio services health (already has `/api/radio/status` per server map)
 
 ### 10.5 Release engineering and configuration management
 - Establish CI/CD pipeline that:

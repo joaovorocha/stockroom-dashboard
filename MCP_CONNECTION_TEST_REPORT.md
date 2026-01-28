@@ -6,13 +6,12 @@
 
 ## 🎯 Test Results Summary
 
-### ✅ **All 3 MCP Servers: WORKING**
+### ✅ **All 2 MCP Servers: WORKING**
 
 | Server | Status | Tools Listed | Tool Execution | Protocol |
 |--------|--------|--------------|----------------|----------|
 | **Inventory** | ✅ PASS | ✅ 2 tools | ✅ Working | JSON-RPC 2.0 |
 | **Shipments** | ✅ PASS | ✅ 3 tools | ✅ Working | JSON-RPC 2.0 |
-| **Radio** | ✅ PASS | ✅ 4 tools | ✅ Working | JSON-RPC 2.0 |
 
 ---
 
@@ -68,44 +67,6 @@
 }
 ```
 *(Expected - no shipments.json file exists yet)*
-
----
-
-### 3. Radio Server (`radio-server.py`)
-
-**✅ Tools List Request:**
-```json
-{"jsonrpc":"2.0","id":3,"method":"tools/list"}
-```
-
-**Response:** Successfully returned 4 tools:
-- `get_radio_status` - Get current radio monitoring status and active frequencies
-- `get_radio_transcripts` - Get recent radio transcripts
-- `monitor_frequency` - Start monitoring a specific radio frequency
-- `get_radio_alerts` - Get active radio alerts and notifications
-
-**✅ Tool Execution Test:**
-```json
-{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"get_radio_status","arguments":{}}}
-```
-
-**Response:** 
-```json
-{
-  "active": true,
-  "frequencies": ["144.390", "145.210", "146.520"],
-  "last_transmission": "2026-01-12T10:30:00Z",
-  "signal_strength": "good"
-}
-```
-✅ **SUCCESS - Returned mock data as expected**
-
-**✅ Tool with Arguments Test:**
-```json
-{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_radio_transcripts","arguments":{"limit":5}}}
-```
-
-**Response:** Successfully returned transcript data with limit applied.
 
 ---
 

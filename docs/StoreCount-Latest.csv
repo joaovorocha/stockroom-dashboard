@@ -1,0 +1,4 @@
+Status,Count ID,Store Load,Location ID,Organization ID,Created Date,Overhead Read Included From,Counted By,Different Location Units,Expected Units,Counted Units,Missed Units that were in Available status,Missed Units that were in Reserved status,New Units,Found previously Missed Units,Undecodable Units,Unmapped Item Units,
+COMPLETED,50712bac-af5d-4b2e-94cf-a7a589fbb1e5,true,SR-US-SanFrancisco-Maiden,SUIT-US,"February 17, 2025 at 9:34:05 AM PST","February 17, 2025 at 3:34:05 AM PST",VRocha@suitsupply.com,5,0,0,0,0,6652,0,32,4,
+COMPLETED,c974ae5c-e50e-4383-984c-6abd6e6f516e,true,SR-US-SanFrancisco-Maiden,SUIT-US,"February 17, 2025 at 10:00:58 AM PST","February 17, 2025 at 4:00:58 AM PST",VRocha@suitsupply.com,4,6700,6656,32,12,76,0,48,5,
+COMPLETED,c251a425-ff5a-4b79-b6b9-ee274c81f67d,true,SR-US-SanFrancisco-Maiden,SUIT-US,"February 19, 2025 at 8:26:56 AM PST","February 19, 2025 at 2:26:56 AM PST",VRocha@suitsupply.com,2,6713,6666,42,5,162,5,24,18,

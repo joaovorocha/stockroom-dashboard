@@ -8,17 +8,13 @@ Legend:
 
 ## Pages
 
-- **OK (reviewed)**
-  - `/radio` (page exists; backend storage paths hardened)
-  - `/radio-transcripts` (page exists; backend storage paths hardened)
-
 - **Needs review**
   - `/dashboard`, `/gameplan-*`, `/gameplan-edit`
   - `/ops-dashboard`, `/operations-metrics`
   - `/shipments`, `/scanner`
   - `/lost-punch`, `/closing-duties`, `/time-off`
   - `/awards`, `/expenses`, `/feedback`
-  - `/admin`, `/radio-admin`
+  - `/admin`
 
 ## APIs
 
@@ -27,7 +23,6 @@ Legend:
   - `/api/lost-punch` (migrated to DAL paths + atomic JSON writes)
   - `/api/closing-duties` (migrated to DAL paths + atomic JSON writes; uploads now go under canonical closing-duties dir)
   - `/api/feedback` (migrated to DAL paths + atomic JSON writes; uploads and delete-path mapping fixed)
-  - `/api/radio` (migrated to canonical data dir; logs dir via `STOCKROOM_LOG_DIR`)
 
 - **Needs review**
   - `/api/auth`

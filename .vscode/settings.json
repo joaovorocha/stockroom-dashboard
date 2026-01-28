@@ -25,22 +25,10 @@
                 "env": {
                     "STOCKROOM_DATA_DIR": "/var/lib/stockroom-dashboard/data"
                 }
-            },
-            "stockroom-radio": {
-                "command": "python3",
-                "args": ["radio-server.py"],
-                "cwd": "/var/www/stockroom-dashboard/mcp-servers",
-                "env": {
-                    "PYTHONPATH": "/var/www/stockroom-dashboard"
-                }
             }
         }
     },
     "chat.tools.terminal.autoApprove": {
-        "/^echo '\\{\"jsonrpc\":\"2\\.0\",\"id\":6,\"method\":\"tools/call\",\"params\":\\{\"name\":\"get_radio_status\",\"arguments\":\\{\\}\\}\\}' \\| python3 mcp-servers/radio-server\\.py$/": {
-            "approve": true,
-            "matchCommandLine": true
-        },
         "pm2": true,
         "/^node scripts/import-storecount-to-postgres\\.js$/": {
             "approve": true,

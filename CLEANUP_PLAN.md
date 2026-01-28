@@ -64,7 +64,6 @@ None
 - data/gmail-credentials.json - Gmail API auth
 - data/gmail-token.json - OAuth tokens
 - data/gmail-watch-info.json - Gmail push config
-- data/radio/ - Active radio data
 - data/scan-performance-history/ - Active metrics
 - data/scheduler-logs/ - Active logs
 - data/store-metrics/ - Active analytics

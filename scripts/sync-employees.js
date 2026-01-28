@@ -29,10 +29,8 @@ function mapUserToEmployee(user) {
   let department = 'Style Advisor';
   let specialty = null;
   
-  if (user.isAdmin) {
-    role = 'Admin';
-    department = 'Management';
-  } else if (user.isManager) {
+  // Note: ADMIN role deprecated - use MANAGEMENT role with is_admin flag
+  if (user.isAdmin || user.isManager) {
     role = 'Manager';
     department = 'Management';
   } else if (user.department) {

@@ -32,18 +32,60 @@ async function saveScanPerformance(date, data) {
     // Save individual employee metrics
     if (data.employees && Array.isArray(data.employees)) {
       for (const emp of data.employees) {
-        // Get user_id from employee_id or id
+        // Get user_id from employee_id, email, or name matching
         let userId = null;
+        let empName = emp.name || '';
+        
+        // Try to match by employee_id first
         if (emp.employeeId) {
           const userResult = await pgQuery(
-            'SELECT id FROM users WHERE employee_id = $1 LIMIT 1',
+            'SELECT id, name FROM users WHERE employee_id = $1 LIMIT 1',
             [emp.employeeId]
           );
           if (userResult.rows.length > 0) {
             userId = userResult.rows[0].id;
+            empName = userResult.rows[0].name; // Use canonical name from users table
           }
-        } else if (emp.id && emp.id.startsWith('u:')) {
+        }
+        
+        // If no match, try email format (e.g., "DIraheta@suitsupply.com")
+        if (!userId && empName.includes('@')) {
+          const email = empName;
+          const userResult = await pgQuery(
+            'SELECT id, name FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1',
+            [email]
+          );
+          if (userResult.rows.length > 0) {
+            userId = userResult.rows[0].id;
+            empName = userResult.rows[0].name; // Use canonical name
+          }
+        }
+        
+        // If still no match, try name normalization (remove spaces, case insensitive)
+        if (!userId) {
+          const normalizedName = empName.replace(/\s+/g, '').toLowerCase();
+          const userResult = await pgQuery(
+            `SELECT id, name FROM users 
+             WHERE LOWER(REPLACE(name, ' ', '')) = $1 
+             OR LOWER(REPLACE(SPLIT_PART(email, '@', 1), '.', '')) = $1
+             LIMIT 1`,
+            [normalizedName]
+          );
+          if (userResult.rows.length > 0) {
+            userId = userResult.rows[0].id;
+            empName = userResult.rows[0].name; // Use canonical name
+          }
+        }
+        
+        // Fallback to id field if provided
+        if (!userId && emp.id && emp.id.startsWith('u:')) {
           userId = parseInt(emp.id.replace('u:', ''));
+        }
+
+        // Skip if we still don't have a user_id (can't match to users table)
+        if (!userId) {
+          console.warn(`[SCAN-PERF-DB] Could not match employee: ${emp.name}`);
+          continue;
         }
 
         await pgQuery(
@@ -69,7 +111,7 @@ async function saveScanPerformance(date, data) {
             date,
             userId,
             emp.employeeId || null,
-            emp.name || '',
+            empName, // Use canonical name from users table
             emp.location || 'San Francisco',
             emp.accuracy || 0,
             emp.missedReserved || 0,
@@ -107,13 +149,18 @@ async function getScanPerformance(date) {
         [date]
       );
 
-      // Get employee metrics
+      // Get employee metrics - ONLY include employees that matched to users table
+      // Filter out junk data and generic emails
       const metricsResult = await pgQuery(
-        `SELECT spm.*, u.image_url, u.role
+        `SELECT DISTINCT ON (spm.user_id)
+           spm.*,
+           u.image_url,
+           u.role,
+           u.name as user_name
          FROM scan_performance_metrics spm
-         LEFT JOIN users u ON spm.user_id = u.id
-         WHERE spm.scan_date = $1
-         ORDER BY spm.rank_accuracy`,
+         INNER JOIN users u ON spm.user_id = u.id AND u.is_active = true
+         WHERE spm.scan_date = $1 AND spm.user_id IS NOT NULL
+         ORDER BY spm.user_id, spm.rank_accuracy NULLS LAST`,
         [date]
       );
 
@@ -132,7 +179,7 @@ async function getScanPerformance(date) {
           totalCounts: summary.total_counts
         },
         employees: metricsResult.rows.map(row => ({
-          name: row.employee_name,
+          name: row.user_name, // Use the canonical name from users table
           location: row.location,
           accuracy: parseFloat(row.accuracy),
           missedReserved: row.missed_reserved,

@@ -77,14 +77,6 @@ create_shipment(recipient, address, items) - New shipment
 update_shipment_status(trackingNumber, status) - Update tracking
 ```
 
-### Radio Monitoring
-```
-get_radio_status() - Current radio status
-get_radio_transcripts(limit) - Recent communications
-monitor_frequency(frequency) - Monitor specific channel
-get_radio_alerts() - Active alerts
-```
-
 ## 🔧 Testing Your Setup
 
 ### Test Commands in VSCode:

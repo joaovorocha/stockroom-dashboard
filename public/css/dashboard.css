@@ -546,6 +546,8 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: fit-content;
 }
 
 .employee-card:hover {
@@ -562,6 +564,7 @@
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .employee-photo {
@@ -597,6 +600,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+  flex: 0 0 auto;
 }
 
 .card-field {
@@ -637,6 +641,7 @@
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 
 .sa-metric {
@@ -664,6 +669,7 @@
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
+  flex: 0 0 auto;
 }
 
 .boh-metric {
@@ -690,6 +696,10 @@
 
 .boh-metric .value.negative {
   color: var(--danger);
+}
+
+.boh-metric .value.muted {
+  color: var(--text-muted);
 }
 
 .boh-metric .label {
@@ -2877,6 +2887,26 @@ body[data-page-type="sa"] .management-quick-card .card-name {
   font-weight: 700;
   font-size: 16px;
   color: #10b981;
+}
+
+.best-seller-value.accuracy-excellent {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.best-seller-value.accuracy-good {
+  color: #84cc16;
+  font-weight: 700;
+}
+
+.best-seller-value.accuracy-fair {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.best-seller-value.accuracy-poor {
+  color: #ef4444;
+  font-weight: 700;
 }
 
 .best-seller-placeholder {

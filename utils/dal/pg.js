@@ -910,5 +910,9 @@ module.exports = {
   getLastRFIDScan,
   
   // Sync
-  logSync
+  logSync,
+  
+  // Pool management
+  getPool,
+  initPool
 };

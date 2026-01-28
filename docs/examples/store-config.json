@@ -4,7 +4,6 @@
   "timezone": "America/Los_Angeles",
   "currency": "USD",
   "features": {
-    "radioTranscription": true,
     "lookerDashboards": true,
     "shipments": true,
     "scanner": true,

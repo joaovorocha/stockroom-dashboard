@@ -6,14 +6,19 @@
  * Prevents race conditions and ensures data integrity
  */
 
-const { getPool } = require('../db/setup-database');
-
-// Get existing pool from setup-database
-let pool;
-try {
-  pool = getPool();
-} catch (error) {
-  console.error('[TRANSACTION] Warning: Could not get database pool. Transactions will fail.', error.message);
+// Lazy load to avoid circular dependency
+let getPoolFn;
+function getPool() {
+  if (!getPoolFn) {
+    try {
+      const pgModule = require('./dal/pg');
+      getPoolFn = pgModule.getPool;
+    } catch (error) {
+      console.error('[TRANSACTION] Error loading dal/pg:', error.message);
+      throw new Error('Database pool not available');
+    }
+  }
+  return getPoolFn();
 }
 
 /**
@@ -31,6 +36,7 @@ try {
  * });
  */
 async function withTransaction(callback) {
+  const pool = getPool();
   if (!pool) {
     throw new Error('Database pool not available');
   }
@@ -123,14 +129,16 @@ function hashStringToInt(str) {
  * Call this when shutting down the application
  */
 async function closePool() {
-  await pool.end();
-  console.log('[TRANSACTION] Pool closed');
+  const pool = getPool();
+  if (pool) {
+    await pool.end();
+    console.log('[TRANSACTION] Pool closed');
+  }
 }
 
 module.exports = {
   withTransaction,
   executeTransaction,
   acquireFileLock,
-  closePool,
-  pool
+  closePool
 };

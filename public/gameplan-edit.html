@@ -909,6 +909,31 @@
       color: #fff;
     }
 
+    /* Fitting room chips (same style as zones) */
+    .fr-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+
+    .fr-chip:hover {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    .fr-chip.selected {
+      background: #16a34a;
+      border-color: #16a34a;
+      color: #fff;
+    }
+
     /* Notes Editor Section */
     .notes-edit-section {
       background: var(--background);
@@ -2367,10 +2392,26 @@
                 </select>
               </div>
               <div class="edit-field">
+                <label>Lunch</label>
                 <select data-field="lunch">
                   <option value="">Select...</option>
                   ${lunchOptions.replace(`value="${emp.lunch}"`, `value="${emp.lunch}" selected`)}
                 </select>
+              </div>
+              <div class="edit-field">
+                <label>Closing Duties</label>
+                <div class="chip-container" data-field="closingSections">
+                  ${(settings.closingSections || []).map(duty => {
+                    const assignedTo = []
+                      .concat(employees.SA || [])
+                      .concat(employees.MANAGEMENT || [])
+                      .concat(employees.BOH || [])
+                      .find(e => (e.id || e.employeeId) !== (emp.id || emp.employeeId) && Array.isArray(e.closingSections) && e.closingSections.includes(duty.name));
+                    const taken = !!assignedTo;
+                    const selected = Array.isArray(emp.closingSections) && emp.closingSections.includes(duty.name);
+                    return `<div class="duty-chip ${selected ? 'selected' : ''} ${taken && !selected ? 'taken' : ''}" data-duty="${duty.name}" title="${taken && !selected ? 'Assigned to ' + assignedTo.name : ''}">${duty.name}</div>`;
+                  }).join('')}
+                </div>
               </div>
             </div>
           </div>
@@ -2516,8 +2557,7 @@
               </div>
               <div class="edit-field">
                 <label>Closing Duties</label>
-                <select data-field="closingSections">
-                  <option value="">Select...</option>
+                <div class="chip-container" data-field="closingSections">
                   ${(settings.closingSections || []).map(duty => {
                     const assignedTo = []
                       .concat(employees.SA || [])
@@ -2526,10 +2566,9 @@
                       .find(e => (e.id || e.employeeId) !== (emp.id || emp.employeeId) && Array.isArray(e.closingSections) && e.closingSections.includes(duty.name));
                     const taken = !!assignedTo;
                     const selected = Array.isArray(emp.closingSections) && emp.closingSections.includes(duty.name);
-                    const dot = taken ? '🔴' : '🟢';
-                    return `<option value="${duty.name}"${taken && !selected ? ' disabled' : ''}${selected ? ' selected' : ''}>${dot} ${duty.name}${taken ? ' (Taken by ' + getFirstName(assignedTo.name) + ')' : ''}</option>`;
+                    return `<div class="duty-chip ${selected ? 'selected' : ''} ${taken && !selected ? 'taken' : ''}" data-duty="${duty.name}" title="${taken && !selected ? 'Assigned to ' + assignedTo.name : ''}">${duty.name}</div>`;
                   }).join('')}
-                </select>
+                </div>
               </div>
             </div>
           </div>
@@ -2612,10 +2651,9 @@
                   ${lunchOptions.replace(`value="${emp.lunch}"`, `value="${emp.lunch}" selected`)}
                 </select>
               </div>
-               <div class="edit-field">
+              <div class="edit-field">
                 <label>Closing Duties</label>
-                <select data-field="closingSections">
-                  <option value="">Select...</option>
+                <div class="chip-container" data-field="closingSections">
                   ${(settings.closingSections || []).map(duty => {
                     const assignedTo = []
                       .concat(employees.SA || [])
@@ -2624,10 +2662,9 @@
                       .find(e => (e.id || e.employeeId) !== (emp.id || emp.employeeId) && Array.isArray(e.closingSections) && e.closingSections.includes(duty.name));
                     const taken = !!assignedTo;
                     const selected = Array.isArray(emp.closingSections) && emp.closingSections.includes(duty.name);
-                    const dot = taken ? '🔴' : '🟢';
-                    return `<option value="${duty.name}"${taken && !selected ? ' disabled' : ''}${selected ? ' selected' : ''}>${dot} ${duty.name}${taken ? ' (Taken by ' + getFirstName(assignedTo.name) + ')' : ''}</option>`;
+                    return `<div class="duty-chip ${selected ? 'selected' : ''} ${taken && !selected ? 'taken' : ''}" data-duty="${duty.name}" title="${taken && !selected ? 'Assigned to ' + assignedTo.name : ''}">${duty.name}</div>`;
                   }).join('')}
-                </select>
+                </div>
               </div>
             </div>
           </div>
@@ -2763,6 +2800,12 @@
               selected.push(chip.dataset.zone);
             });
             fields[field] = selected;
+          } else if (field === 'fittingRooms') {
+            const selected = [];
+            el.querySelectorAll('.fr-chip.selected').forEach(chip => {
+              selected.push(chip.dataset.fr);
+            });
+            fields[field] = selected;
           } else if (field === 'isOff') {
             // Persist as boolean (strings like "false" break `!!emp.isOff` on reload).
             fields[field] = String(el.value).toLowerCase() === 'true';
@@ -2819,6 +2862,75 @@
 	          emp[field] = el.value;
 	          hasUnsavedChanges = true;
 	        }
+	      });
+
+	      // Fitting rooms toggle (multi-select)
+	      document.addEventListener('click', function(e) {
+	        const frChip = e.target.closest('.fr-chip');
+	        if (!frChip) return;
+	        const card = frChip.closest('.edit-card');
+	        if (!card) return;
+	        if (card.classList.contains('off')) return;
+	        const emp = findEmployeeById(card.dataset.id);
+	        if (!emp) return;
+
+	        const roomName = frChip.dataset.fr;
+	        const rooms = Array.isArray(emp.fittingRooms) ? emp.fittingRooms : (emp.fittingRoom ? [emp.fittingRoom] : []);
+	        const idx = rooms.indexOf(roomName);
+	        if (idx >= 0) rooms.splice(idx, 1);
+	        else rooms.push(roomName);
+	        emp.fittingRooms = rooms;
+	        hasUnsavedChanges = true;
+
+	        // Re-render so taken/available status updates
+	        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+	      });
+
+	      // Fitting rooms toggle (multi-select)
+	      document.addEventListener('click', function(e) {
+	        const frChip = e.target.closest('.fr-chip');
+	        if (!frChip) return;
+	        const card = frChip.closest('.edit-card');
+	        if (!card) return;
+	        if (card.classList.contains('off')) return;
+	        const emp = findEmployeeById(card.dataset.id);
+	        if (!emp) return;
+
+	        const roomName = frChip.dataset.fr;
+	        const rooms = Array.isArray(emp.fittingRooms) ? emp.fittingRooms : (emp.fittingRoom ? [emp.fittingRoom] : []);
+	        const idx = rooms.indexOf(roomName);
+	        if (idx >= 0) rooms.splice(idx, 1);
+	        else rooms.push(roomName);
+	        emp.fittingRooms = rooms;
+	        hasUnsavedChanges = true;
+
+	        // Re-render so taken/available status updates
+	        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+	      });
+
+	      // Closing duties chip toggle (multi-select for SA, BOH, Management)
+	      document.addEventListener('click', function(e) {
+	        const dutyChip = e.target.closest('.duty-chip');
+	        if (!dutyChip) return;
+	        if (dutyChip.classList.contains('taken')) return; // Can't select duties assigned to others
+	        const card = dutyChip.closest('.edit-card');
+	        if (!card) return;
+	        if (card.classList.contains('off')) return;
+	        const emp = findEmployeeById(card.dataset.id);
+	        if (!emp) return;
+
+	        const dutyName = dutyChip.dataset.duty;
+	        const duties = Array.isArray(emp.closingSections) ? emp.closingSections : [];
+	        const idx = duties.indexOf(dutyName);
+	        if (idx >= 0) duties.splice(idx, 1);
+	        else duties.push(dutyName);
+	        emp.closingSections = duties;
+	        hasUnsavedChanges = true;
+
+	        // Re-render all sections since duties are shared across SA/BOH/Management
+	        if (typeof renderSA === 'function') setTimeout(renderSA, 0);
+	        if (typeof renderBOH === 'function') setTimeout(renderBOH, 0);
+	        if (typeof renderManagement === 'function') setTimeout(renderManagement, 0);
 	      });
 
 	      // Zones toggle (multi-select)
@@ -2935,23 +3047,9 @@
 
     function validateAssignments(assignments) {
       const errors = [];
-      const fittingRoomMap = new Map();
-
-      // Collect fitting room assignments
-      Object.keys(assignments).forEach(empId => {
-        const assignment = assignments[empId];
-        const empName = getEmployeeName(empId);
-
-        if (assignment.isOff === true || assignment.isOff === 'true') return;
-
-        if (assignment.fittingRoom && assignment.fittingRoom !== '') {
-          if (fittingRoomMap.has(assignment.fittingRoom)) {
-            errors.push(`Fitting Room "${assignment.fittingRoom}" is assigned to both ${fittingRoomMap.get(assignment.fittingRoom)} and ${empName}`);
-          } else {
-	            fittingRoomMap.set(assignment.fittingRoom, empName);
-	          }
-	        }
-	      });
+      
+      // Fitting rooms can now be shared by multiple people - no validation needed
+      // Remove the duplicate fitting room check
 
       return errors;
     }
@@ -2966,16 +3064,22 @@
 	    }
 
     async function saveAllChanges(isPublishing = true) {
+      console.log('[SAVE] Starting save, isPublishing:', isPublishing);
+      
       const saveBtn = document.getElementById(isPublishing ? 'publishBtn' : 'saveDraftBtn');
       const otherBtn = document.getElementById(isPublishing ? 'saveDraftBtn' : 'publishBtn');
+
+      console.log('[SAVE] Buttons found:', { saveBtn: !!saveBtn, otherBtn: !!otherBtn });
 
       saveBtn.disabled = true;
       if(otherBtn) otherBtn.disabled = true;
       saveBtn.textContent = isPublishing ? 'Publishing...' : 'Saving...';
       
       const assignments = collectAllChanges();
+      console.log('[SAVE] Collected assignments:', Object.keys(assignments).length);
       
       const validationErrors = validateAssignments(assignments);
+      console.log('[SAVE] Validation errors:', validationErrors.length);
 	      if (validationErrors.length > 0) {
 	        alert('Cannot save due to conflicts:\n\n' + validationErrors.join('\n'));
 	        saveBtn.disabled = false;
@@ -2994,12 +3098,21 @@
       gameplanData.lastEditedAt = new Date().toISOString();
       gameplanData.isPublished = isPublishing;
 
+      console.log('[SAVE] Prepared gameplan data:', {
+        date: gameplanData.date,
+        assignmentCount: Object.keys(assignments).length,
+        isPublishing
+      });
+
 	      try {
+	        console.log('[SAVE] Sending POST request to /api/gameplan/save');
 	        const response = await authFetch('/api/gameplan/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...gameplanData, publish: isPublishing })
         });
+
+        console.log('[SAVE] Response status:', response.status, 'OK:', response.ok);
 
         if (response.ok) {
           saveBtn.textContent = isPublishing ? '✓ Published!' : '✓ Saved!';
@@ -3007,6 +3120,7 @@
           saveBtn.classList.add('btn-success');
           hasUnsavedChanges = false;
           
+          console.log('[SAVE] Success! Redirecting in 1 second...');
           setTimeout(() => {
             window.location.href = isPublishing ? `/gameplan-management.html` : `/gameplan-edit.html?date=${currentEditorDate}`;
           }, 1000);
@@ -3014,11 +3128,13 @@
           let msg = `Save failed (HTTP ${response.status})`;
           try {
             const data = await response.json();
+            console.error('[SAVE] Error response:', data);
             if (data?.error) msg = data.error;
           } catch (e) {}
           throw new Error(msg);
         }
       } catch (error) {
+        console.error('[SAVE] Exception caught:', error);
         alert(error?.message || 'Error saving changes');
         saveBtn.disabled = false;
         if(otherBtn) otherBtn.disabled = false;

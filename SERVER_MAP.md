@@ -75,9 +75,6 @@ All of these are served from `public/*.html` and require auth unless stated othe
 - `GET /ops-dashboard` → `public/ops-dashboard.html`
 - `GET /shipments` → `public/shipments.html`
 - `GET /scanner` → `public/scanner.html`
-- `GET /radio` → `public/radio.html`
-- `GET /radio-transcripts` → `public/radio-transcripts.html`
-- `GET /radio-admin` → `public/radio-admin.html` (**admin only**)
 - `GET /lost-punch` → `public/lost-punch.html`
 - `GET /closing-duties` → `public/closing-duties.html`
 - `GET /time-off` → `public/time-off.html`
@@ -101,7 +98,6 @@ Mounted in `server.js`:
 - `app.use('/api/feedback', authMiddleware, feedbackRoutes)` → `routes/feedback.js`
 - `app.use('/api/admin', authMiddleware, adminOnly, adminRoutes)` → `routes/admin.js` (**admin only**)
 - `app.use('/api/awards', authMiddleware, awardsRoutes)` → `routes/awards.js`
-- `app.use('/api/radio', authMiddleware, radioRoutes)` → `routes/radio.js`
 - `app.use('/api/expenses', authMiddleware, expensesRoutes)` → `routes/expenses.js`
 - `app.use('/api/store-recovery', authMiddleware, storeRecoveryRoutes)` → `routes/storeRecovery.js`
 - `app.use('/api/pickups', authMiddleware, pickupsRoutes)` → `routes/pickups.js`
@@ -203,18 +199,6 @@ Mounted in `server.js`:
 - `GET /api/store-recovery/lookup?epc=...&sku=...&ean=...`
 - `POST /api/store-recovery/scan` (persists scan + broadcasts SSE update)
 
-### `/api/radio` — `routes/radio.js`
-- `GET /api/radio/status`
-- `GET /api/radio/live`
-- `GET /api/radio/config`
-- `POST /api/radio/config` (privileged: admin/manager/canConfigRadio)
-- Service controls:
-  - `GET /api/radio/service`
-  - `POST /api/radio/service/start`
-  - `POST /api/radio/service/stop`
-  - `POST /api/radio/rtl/kill`
-- `GET /api/radio/transcripts`
-
 ### `/api/shipments` — `routes/shipments.js`
 - `GET /api/shipments`
 - `POST /api/shipments/add`
@@ -307,7 +291,6 @@ The JSON DAL defines canonical paths in `utils/dal/json.js`:
   - `data/store-metrics/`
   - `data/scheduler-logs/`
   - `data/cache/`
-  - `data/radio/`
 
 ### Work-Related Expenses (Employee Discount)
 - Looker email import assets live under `files/dashboard-work_related_expenses/`
@@ -364,8 +347,6 @@ The JSON DAL defines canonical paths in `utils/dal/json.js`:
 Current running processes:
 - `stockroom-dashboard` (id:6) - Main Express server
 - `gmail-watch-renewal` (id:7) - Gmail watch auto-renewal cron
-- `radio` (id:1) - Radio monitoring service
-- `radio-transcriber` (id:4) - Radio transcription service
 
 ## Environment Variables
 

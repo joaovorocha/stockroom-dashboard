@@ -14,9 +14,6 @@ const fs = require('fs');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const cors = require('cors');
-const dgram = require('dgram');
-const { WebSocketServer } = require('ws');
-const { spawn } = require('child_process');
 
 const authRoutes = require('./routes/auth-pg');
 const shipmentsRoutes = require('./routes/shipments');
@@ -27,7 +24,6 @@ const timeoffRoutes = require('./routes/timeoff-pg');
 const feedbackRoutes = require('./routes/feedback-pg');
 const adminRoutes = require('./routes/admin');
 const awardsRoutes = require('./routes/awards');
-const radioRoutes = require('./routes/radio');
 const expensesRoutes = require('./routes/expenses');
 const storeRecoveryRoutes = require('./routes/storeRecovery');
 const pickupsRoutes = require('./routes/pickups');
@@ -39,6 +35,7 @@ const printersRoutes = require('./routes/printers');
 const mockApiRoutes = require('./routes/mock-api');
 const webhookRoutes = require('./routes/webhooks'); // Import webhook routes
 const aiAssignmentRoutes = require('./routes/ai-assignment'); // Import AI assignment routes
+const systemHealthRoutes = require('./routes/system-health'); // Import system health routes
 
 // SECURITY PATCH: CRITICAL-01 - Use Redis-based auth middleware
 const authMiddleware = require('./middleware/auth-redis');
@@ -46,15 +43,6 @@ const dal = require('./utils/dal');
 const { query: pgQuery } = require('./utils/dal/pg');
 const { markActive } = require('./utils/active-users');
 
-const RADIO_DATA_DIR = path.join(dal.paths.dataDir, 'radio');
-const RADIO_LIVE_PATH = path.join(RADIO_DATA_DIR, 'live.json');
-const RADIO_SEGMENTS_PATH = path.join(RADIO_DATA_DIR, 'segments.jsonl');
-
-const RADIO_WATCHDOG_ENABLED = process.env.RADIO_WATCHDOG !== 'false';
-const RADIO_WATCHDOG_STALE_MS = Number.parseInt(process.env.RADIO_WATCHDOG_STALE_MS || '120000', 10);
-const RADIO_WATCHDOG_COOLDOWN_MS = Number.parseInt(process.env.RADIO_WATCHDOG_COOLDOWN_MS || '180000', 10);
-const RADIO_WATCHDOG_INTERVAL_MS = Number.parseInt(process.env.RADIO_WATCHDOG_INTERVAL_MS || '30000', 10);
-let lastRadioRestartAt = 0;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -309,13 +297,6 @@ app.use((req, res, next) => {
 
 // Serve static files from public directory (css/js/images)
 // Avoid stale assets when we deploy quick fixes.
-// Special-case: admin-only HTML pages should not be reachable via express.static.
-app.use((req, res, next) => {
-  if (req.path === '/radio-admin.html') {
-    return authMiddleware(req, res, () => adminOnly(req, res, () => res.redirect('/radio-admin')));
-  }
-  return next();
-});
 
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
@@ -339,7 +320,6 @@ app.use('/api/feedback', authMiddleware, feedbackRoutes);
 app.use('/api/closing-duties', authMiddleware, closingDutiesRoutes);
 app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
 app.use('/api/awards', authMiddleware, awardsRoutes);
-app.use('/api/radio', authMiddleware, radioRoutes);
 app.use('/api/expenses', authMiddleware, expensesRoutes);
 app.use('/api/store-recovery', authMiddleware, storeRecoveryRoutes);
 app.use('/api/pickups', authMiddleware, pickupsRoutes);
@@ -347,6 +327,7 @@ app.use('/api/waitwhile', authMiddleware, waitwhileRoutes);
 app.use('/api/manhattan', authMiddleware, manhattanRoutes);
 app.use('/api/rfid', authMiddleware, rfidRoutes);
 app.use('/api/logs', clientLogsRoutes);
+app.use('/api/system-health', authMiddleware, adminOnly, systemHealthRoutes);
 app.use('/api/printers', authMiddleware, printersRoutes);
 app.use('/api/ai', authMiddleware, aiAssignmentRoutes); // AI task assignment routes
 // Mock API routes - no auth required for testing
@@ -407,7 +388,8 @@ app.get('/dashboard', authMiddleware, (req, res) => {
   const role = (req.user?.role || '').toUpperCase();
   if (role === 'TAILOR') return res.redirect('/gameplan-tailors');
   if (role === 'BOH') return res.redirect('/gameplan-boh');
-  if (role === 'MANAGEMENT' || role === 'ADMIN') return res.redirect('/gameplan-management');
+  // Note: ADMIN role deprecated - all admins should use MANAGEMENT role with is_admin flag
+  if (role === 'MANAGEMENT') return res.redirect('/gameplan-management');
   return res.redirect('/gameplan-sa');
 });
 
@@ -510,17 +492,6 @@ app.get('/qr-decode', authMiddleware, (req, res) => {
 
 // CampusShip import page removed (shipments are captured from UPS emails now).
 
-app.get('/radio', authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'radio.html'));
-});
-
-app.get('/radio-transcripts', authMiddleware, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'radio-transcripts.html'));
-});
-
-app.get('/radio-admin', authMiddleware, adminOnly, (req, res) => {
-  return res.redirect('/admin#radio');
-});
 
 app.get('/closing-duties', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'closing-duties.html'));
@@ -606,197 +577,6 @@ function broadcastUpdate(updateType, data) {
 // Export broadcastUpdate for use in route handlers
 app.set('broadcastUpdate', broadcastUpdate);
 
-// --- Radio live audio monitor (UDP -> WebSocket) ---
-// Capture process sends 100ms chunks of mono int16 PCM @ 24000 Hz to UDP 127.0.0.1:7355.
-const RADIO_MONITOR_UDP_HOST = process.env.RADIO_MONITOR_UDP_HOST || '127.0.0.1';
-const RADIO_MONITOR_UDP_PORT = Number.parseInt(process.env.RADIO_MONITOR_UDP_PORT || '7355', 10) || 7355;
-const RADIO_MONITOR_SAMPLE_RATE = Number.parseInt(process.env.RADIO_MONITOR_SAMPLE_RATE || '24000', 10) || 24000;
-
-
-function parseCookieHeader(headerValue) {
-  const header = (headerValue || '').toString();
-  const out = {};
-  header.split(';').forEach(part => {
-    const idx = part.indexOf('=');
-    if (idx < 0) return;
-    const k = part.slice(0, idx).trim();
-    const v = part.slice(idx + 1).trim();
-    if (!k) return;
-    out[k] = v;
-  });
-  return out;
-}
-
-function decodeCookieValue(v) {
-  const raw = (v || '').toString();
-  try {
-    return decodeURIComponent(raw);
-  } catch {
-    return raw;
-  }
-}
-
-async function validateSessionFromCookie(cookieHeader) {
-  const cookies = parseCookieHeader(cookieHeader);
-  const sessionRaw = cookies.userSession;
-  if (!sessionRaw) return null;
-
-  let sessionObj = null;
-  try {
-    sessionObj = JSON.parse(decodeCookieValue(sessionRaw));
-  } catch {
-    sessionObj = null;
-  }
-
-  try {
-    if (pgQuery) {
-      const result = await pgQuery(`
-        SELECT 
-          u.id, u.employee_id, u.name, u.email, u.role,
-          u.image_url, u.is_manager, u.is_admin, u.can_edit_gameplan,
-          u.can_config_radio, u.can_manage_lost_punch, u.must_change_password
-        FROM user_sessions s 
-        JOIN users u ON s.user_id = u.id 
-        WHERE s.session_token = $1 
-          AND s.expires_at > NOW()
-          AND u.is_active = true
-        LIMIT 1
-      `, [sessionRaw]);
-
-      if (result?.rows?.length) {
-        const user = result.rows[0];
-        return {
-          userId: user.id,
-          id: user.id,
-          employeeId: user.employee_id,
-          name: user.name,
-          email: user.email || '',
-          role: user.role,
-          imageUrl: user.image_url,
-          isManager: user.is_manager,
-          isAdmin: user.is_admin,
-          canEditGameplan: user.can_edit_gameplan,
-          canManageLostPunch: user.can_manage_lost_punch,
-          mustChangePassword: user.must_change_password,
-        };
-      }
-    }
-  } catch {
-    // fall through to file-based lookup
-  }
-
-  const usersFile = dal.paths.usersFile;
-  try {
-    if (!sessionObj) return null;
-    if (!fs.existsSync(usersFile)) return null;
-    const usersData = JSON.parse(fs.readFileSync(usersFile, 'utf8'));
-    const list = usersData.users || [];
-    const employeeId = sessionObj.employeeId || sessionObj.userId;
-    const found = list.find(u => u.employeeId === employeeId || u.id === employeeId) || null;
-    if (!found) return null;
-    return found;
-  } catch {
-    return null;
-  }
-}
-
-const radioMonitorClients = new Set();
-
-function getMtimeMs(filePath) {
-  try {
-    const st = fs.statSync(filePath);
-    return Number(st.mtimeMs || 0);
-  } catch {
-    return 0;
-  }
-}
-
-function restartRadioServices(reason) {
-  const now = Date.now();
-  if (now - lastRadioRestartAt < RADIO_WATCHDOG_COOLDOWN_MS) return;
-  lastRadioRestartAt = now;
-  console.log(`[radio-watchdog] Restarting radio services: ${reason}`);
-  try {
-    const child = spawn('pm2', ['restart', 'radio', 'radio-transcriber'], { cwd: __dirname });
-    child.on('error', (err) => {
-      console.error('[radio-watchdog] PM2 restart failed:', err?.message || err);
-    });
-  } catch (err) {
-    console.error('[radio-watchdog] Restart failed:', err?.message || err);
-  }
-}
-
-if (RADIO_WATCHDOG_ENABLED) {
-  setInterval(() => {
-    try {
-      const now = Date.now();
-      const liveM = getMtimeMs(RADIO_LIVE_PATH);
-      const segM = getMtimeMs(RADIO_SEGMENTS_PATH);
-      const lastM = Math.max(liveM, segM);
-      if (lastM <= 0) return;
-      if (now - lastM > RADIO_WATCHDOG_STALE_MS) {
-        restartRadioServices(`stale data (last update ${(now - lastM) / 1000}s ago)`);
-      }
-    } catch (err) {
-      console.error('[radio-watchdog] Error:', err?.message || err);
-    }
-  }, RADIO_WATCHDOG_INTERVAL_MS);
-}
-
-let radioMonitorLastFrameAt = 0;
-
-function broadcastRadioPcm(buf) {
-  if (!buf || !buf.length) return;
-  radioMonitorLastFrameAt = Date.now();
-  const clientCount = radioMonitorClients.size;
-  let sent = 0;
-  for (const ws of radioMonitorClients) {
-    if (!ws || ws.readyState !== 1) continue;
-    // Drop frames for slow clients to avoid backpressure and memory growth.
-    if (ws.bufferedAmount > 512 * 1024) continue;
-    try {
-      ws.send(buf);
-      sent++;
-    } catch {
-      // ignore
-    }
-  }
-  // Log every 5 seconds
-  if (!broadcastRadioPcm._lastLog) broadcastRadioPcm._lastLog = 0;
-  if (Date.now() - broadcastRadioPcm._lastLog > 5000) {
-    console.log(`[radio-monitor] Clients: ${clientCount}, Sent: ${sent}, Buf: ${buf.length} bytes`);
-    broadcastRadioPcm._lastLog = Date.now();
-  }
-}
-
-const radioMonitorUdp = dgram.createSocket('udp4');
-radioMonitorUdp.on('message', (msg) => {
-  broadcastRadioPcm(msg);
-});
-radioMonitorUdp.on('error', (err) => {
-  console.error('Radio monitor UDP error:', err?.message || err);
-});
-try {
-  radioMonitorUdp.bind(RADIO_MONITOR_UDP_PORT, RADIO_MONITOR_UDP_HOST, () => {
-    console.log(`Radio monitor UDP listening on ${RADIO_MONITOR_UDP_HOST}:${RADIO_MONITOR_UDP_PORT}`);
-  });
-} catch (e) {
-  console.error('Failed to bind radio monitor UDP:', e?.message || e);
-}
-
-const wssRadioMonitor = new WebSocketServer({ noServer: true });
-wssRadioMonitor.on('connection', (ws, req) => {
-  radioMonitorClients.add(ws);
-  try {
-    ws.send(JSON.stringify({ type: 'hello', format: 's16le', channels: 1, sampleRate: RADIO_MONITOR_SAMPLE_RATE }));
-  } catch {}
-
-  ws.on('close', () => {
-    radioMonitorClients.delete(ws);
-  });
-});
-
-
 // Start unified Gmail processor
 const UNIFIED_GMAIL_CRON = process.env.UNIFIED_GMAIL_CRON || '*/30 * * * *'; // Every 30 minutes
 try {
@@ -826,40 +606,11 @@ try {
   console.error('Failed to start report scheduler:', e.message);
 }
 
-// Use HTTP server so WebSocket upgrades work.
+// Use HTTP server.
 const server = http.createServer(app);
 
-server.on('upgrade', (req, socket, head) => {
-  let pathname = '';
-  try {
-    pathname = new URL(req.url || '', 'http://localhost').pathname;
-  } catch {
-    pathname = '';
-  }
 
-  if (pathname !== '/ws/radio-monitor') {
-    return;
-  }
-
-  (async () => {
-    const user = await validateSessionFromCookie(req.headers.cookie || '');
-    if (!user) {
-      try {
-        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      } catch {}
-      try { socket.destroy(); } catch {}
-      return;
-    }
-
-    wssRadioMonitor.handleUpgrade(req, socket, head, (ws) => {
-      ws.user = user;
-      wssRadioMonitor.emit('connection', ws, req);
-    });
-  })();
-});
-
-
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', async () => {
   console.log(`\n╔═══════════════════════════════════════════════════════════╗`);
   console.log(`║  🖥️  STOCKROOM DASHBOARD SERVER                          ║`);
   console.log(`╠═══════════════════════════════════════════════════════════╣`);
@@ -867,6 +618,14 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`║  Network: http://<server-ip>:${PORT}                      ║`);
   console.log(`║  Press Ctrl+C to stop                                     ║`);
   console.log(`╚═══════════════════════════════════════════════════════════╝\n`);
+
+  // Start System Health Monitoring Service
+  try {
+    const monitoringService = require('./utils/monitoring');
+    await monitoringService.start();
+  } catch (error) {
+    console.error('⚠️  Failed to start monitoring service:', error.message);
+  }
 });
 
 // Global error handlers to prevent silent crashes

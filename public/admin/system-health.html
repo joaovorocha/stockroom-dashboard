@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Health Monitoring - Stockroom Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: 20px 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            border: 1px solid #334155;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .icon {
+            font-size: 20px;
+        }
+
+        .metric-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .metric-label {
+            font-size: 13px;
+            opacity: 0.7;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-ok {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-warning {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .status-critical {
+            background: #ef4444;
+            color: white;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #334155;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .progress-ok {
+            background: linear-gradient(90deg, #10b981, #34d399);
+        }
+
+        .progress-warning {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+
+        .progress-critical {
+            background: linear-gradient(90deg, #ef4444, #f87171);
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 600;
+            color: #60a5fa;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        .alert-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .alert-item {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid;
+        }
+
+        .alert-critical {
+            border-color: #ef4444;
+        }
+
+        .alert-warning {
+            border-color: #f59e0b;
+        }
+
+        .alert-info {
+            border-color: #3b82f6;
+        }
+
+        .alert-time {
+            font-size: 11px;
+            opacity: 0.6;
+            margin-top: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            opacity: 0.6;
+        }
+
+        .error {
+            background: #7f1d1d;
+            color: #fecaca;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .updating {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .user-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .user-item {
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #60a5fa;
+        }
+
+        .user-details {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        #lastUpdate {
+            font-size: 12px;
+            opacity: 0.6;
+            text-align: right;
+            margin-top: 20px;
+        }
+
+        .navbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .nav-button {
+            padding: 10px 20px;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .nav-button:hover {
+            background: #334155;
+        }
+
+        .nav-button.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🖥️ System Health Monitoring</h1>
+            <p class="subtitle">Real-time system metrics and performance monitoring</p>
+        </header>
+
+        <div class="navbar">
+            <a href="/home" class="nav-button">← Back to Dashboard</a>
+            <a href="/admin/system-health" class="nav-button active">System Health</a>
+        </div>
+
+        <div id="error" style="display: none;" class="error"></div>
+
+        <!-- Main Metrics Grid -->
+        <div class="grid">
+            <!-- CPU Card -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">⚙️</span>
+                        CPU Usage
+                    </div>
+                    <span id="cpu-status" class="status-badge">Loading...</span>
+                </div>
+                <div class="metric-value" id="cpu-value">--</div>
+                <div class="metric-label">Current Usage</div>
+                <div class="progress-bar">
+                    <div id="cpu-progress" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="cpu-cores">--</div>
+                        <div class="stat-label">Cores</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="cpu-temp">--</div>
+                        <div class="stat-label">Temperature</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Memory Card -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">💾</span>
+                        Memory
+                    </div>
+                    <span id="memory-status" class="status-badge">Loading...</span>
+                </div>
+                <div class="metric-value" id="memory-value">--</div>
+                <div class="metric-label">RAM Usage</div>
+                <div class="progress-bar">
+                    <div id="memory-progress" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="memory-used">--</div>
+                        <div class="stat-label">Used</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="memory-total">--</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Disk Card -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">💿</span>
+                        Disk Space
+                    </div>
+                    <span id="disk-status" class="status-badge">Loading...</span>
+                </div>
+                <div class="metric-value" id="disk-value">--</div>
+                <div class="metric-label">Disk Usage</div>
+                <div class="progress-bar">
+                    <div id="disk-progress" class="progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="disk-free">--</div>
+                        <div class="stat-label">Free</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="disk-total">--</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Card -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🌐</span>
+                        Network
+                    </div>
+                    <span class="status-badge status-ok">Active</span>
+                </div>
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="network-rx">-- MB/s</div>
+                        <div class="stat-label">Download</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="network-tx">-- MB/s</div>
+                        <div class="stat-label">Upload</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="network-connections">--</div>
+                        <div class="stat-label">Connections</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="network-bandwidth">--</div>
+                        <div class="stat-label">Total (Mbps)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Second Row -->
+        <div class="grid">
+            <!-- Active Users -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">👥</span>
+                        Active Users
+                    </div>
+                    <span id="user-count" class="status-badge status-ok">0</span>
+                </div>
+                <div id="user-list" class="user-list">
+                    <div class="loading">Loading users...</div>
+                </div>
+            </div>
+
+            <!-- Active Alerts -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">🚨</span>
+                        Active Alerts
+                    </div>
+                    <span id="alert-count" class="status-badge status-ok">0</span>
+                </div>
+                <div id="alert-list" class="alert-list">
+                    <div class="loading">No active alerts</div>
+                </div>
+            </div>
+
+            <!-- Processes -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="icon">⚡</span>
+                        Top Processes
+                    </div>
+                    <span id="process-count" class="status-badge">--</span>
+                </div>
+                <div id="process-list" class="user-list">
+                    <div class="loading">Loading processes...</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="lastUpdate"></div>
+    </div>
+
+    <script>
+        let updateInterval;
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/system-health/metrics/current');
+                const result = await response.json();
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to fetch data');
+                }
+
+                updateUI(result.data);
+                document.getElementById('error').style.display = 'none';
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('error').textContent = `Error: ${error.message}`;
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        function updateUI(data) {
+            // Update CPU
+            if (data.cpu) {
+                const cpuUsage = data.cpu.usage || 0;
+                document.getElementById('cpu-value').textContent = `${cpuUsage.toFixed(1)}%`;
+                document.getElementById('cpu-cores').textContent = data.cpu.cores || '--';
+                document.getElementById('cpu-temp').textContent = data.cpu.temperature ? `${data.cpu.temperature.toFixed(1)}°C` : 'N/A';
+                
+                const cpuProgress = document.getElementById('cpu-progress');
+                cpuProgress.style.width = `${cpuUsage}%`;
+                cpuProgress.className = `progress-fill ${getProgressClass(cpuUsage, 75, 90)}`;
+                
+                const cpuStatus = document.getElementById('cpu-status');
+                cpuStatus.textContent = getStatusText(cpuUsage, 75, 90);
+                cpuStatus.className = `status-badge ${getStatusClass(cpuUsage, 75, 90)}`;
+            }
+
+            // Update Memory
+            if (data.memory) {
+                const memUsage = data.memory.usagePercent || 0;
+                document.getElementById('memory-value').textContent = `${memUsage.toFixed(1)}%`;
+                document.getElementById('memory-used').textContent = `${(data.memory.usedMB / 1024).toFixed(1)} GB`;
+                document.getElementById('memory-total').textContent = `${(data.memory.totalMB / 1024).toFixed(1)} GB`;
+                
+                const memProgress = document.getElementById('memory-progress');
+                memProgress.style.width = `${memUsage}%`;
+                memProgress.className = `progress-fill ${getProgressClass(memUsage, 80, 95)}`;
+                
+                const memStatus = document.getElementById('memory-status');
+                memStatus.textContent = getStatusText(memUsage, 80, 95);
+                memStatus.className = `status-badge ${getStatusClass(memUsage, 80, 95)}`;
+            }
+
+            // Update Disk
+            if (data.disk) {
+                const diskUsage = data.disk.usagePercent || 0;
+                document.getElementById('disk-value').textContent = `${diskUsage.toFixed(1)}%`;
+                document.getElementById('disk-free').textContent = `${data.disk.freeGB.toFixed(1)} GB`;
+                document.getElementById('disk-total').textContent = `${data.disk.totalGB.toFixed(1)} GB`;
+                
+                const diskProgress = document.getElementById('disk-progress');
+                diskProgress.style.width = `${diskUsage}%`;
+                diskProgress.className = `progress-fill ${getProgressClass(diskUsage, 85, 95)}`;
+                
+                const diskStatus = document.getElementById('disk-status');
+                diskStatus.textContent = getStatusText(diskUsage, 85, 95);
+                diskStatus.className = `status-badge ${getStatusClass(diskUsage, 85, 95)}`;
+            }
+
+            // Update Network
+            if (data.network) {
+                document.getElementById('network-rx').textContent = `${data.network.rxMBps.toFixed(2)} MB/s`;
+                document.getElementById('network-tx').textContent = `${data.network.txMBps.toFixed(2)} MB/s`;
+                document.getElementById('network-connections').textContent = data.network.activeConnections || 0;
+                const totalMbps = ((data.network.rxMBps + data.network.txMBps) * 8).toFixed(1);
+                document.getElementById('network-bandwidth').textContent = `${totalMbps} Mbps`;
+            }
+
+            // Update Active Users count
+            document.getElementById('user-count').textContent = data.activeUsers || 0;
+
+            // Update last update time
+            document.getElementById('lastUpdate').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+
+            // Fetch additional data
+            fetchActiveUsers();
+            fetchActiveAlerts();
+            fetchTopProcesses();
+        }
+
+        async function fetchActiveUsers() {
+            try {
+                const response = await fetch('/api/system-health/users/active');
+                const result = await response.json();
+
+                if (result.success && result.data.sessions) {
+                    const userList = document.getElementById('user-list');
+                    
+                    if (result.data.sessions.length === 0) {
+                        userList.innerHTML = '<div class="loading">No active users</div>';
+                    } else {
+                        userList.innerHTML = result.data.sessions.slice(0, 5).map(session => `
+                            <div class="user-item">
+                                <div class="user-name">${session.username || 'Unknown'}</div>
+                                <div class="user-details">
+                                    ${session.device_type || 'desktop'} • ${session.ip_address || 'N/A'} • 
+                                    Idle: ${Math.round(session.idle_minutes || 0)}m
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching users:', error);
+            }
+        }
+
+        async function fetchActiveAlerts() {
+            try {
+                const response = await fetch('/api/system-health/alerts/active');
+                const result = await response.json();
+
+                if (result.success) {
+                    const alertList = document.getElementById('alert-list');
+                    const alertCount = document.getElementById('alert-count');
+                    
+                    alertCount.textContent = result.data.length;
+                    alertCount.className = `status-badge ${result.data.length > 0 ? 'status-warning' : 'status-ok'}`;
+
+                    if (result.data.length === 0) {
+                        alertList.innerHTML = '<div class="loading">No active alerts</div>';
+                    } else {
+                        alertList.innerHTML = result.data.map(alert => `
+                            <div class="alert-item alert-${alert.severity}">
+                                <strong>${alert.title}</strong>
+                                <div style="font-size: 13px; margin-top: 5px;">${alert.message}</div>
+                                <div class="alert-time">${new Date(alert.timestamp).toLocaleString()}</div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching alerts:', error);
+            }
+        }
+
+        async function fetchTopProcesses() {
+            try {
+                const response = await fetch('/api/system-health/processes/top');
+                const result = await response.json();
+
+                if (result.success && result.data.topCPU) {
+                    const processList = document.getElementById('process-list');
+                    const processCount = document.getElementById('process-count');
+                    
+                    processCount.textContent = `${result.data.topCPU.length} processes`;
+
+                    processList.innerHTML = result.data.topCPU.slice(0, 5).map(proc => `
+                        <div class="user-item">
+                            <div class="user-name">${proc.name}</div>
+                            <div class="user-details">
+                                CPU: ${proc.cpu.toFixed(1)}% • Memory: ${proc.memory.toFixed(1)}% • PID: ${proc.pid}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Error fetching processes:', error);
+            }
+        }
+
+        function getProgressClass(value, warning, critical) {
+            if (value >= critical) return 'progress-critical';
+            if (value >= warning) return 'progress-warning';
+            return 'progress-ok';
+        }
+
+        function getStatusClass(value, warning, critical) {
+            if (value >= critical) return 'status-critical';
+            if (value >= warning) return 'status-warning';
+            return 'status-ok';
+        }
+
+        function getStatusText(value, warning, critical) {
+            if (value >= critical) return 'Critical';
+            if (value >= warning) return 'Warning';
+            return 'Normal';
+        }
+
+        // Start monitoring
+        fetchData();
+        updateInterval = setInterval(fetchData, 5000); // Update every 5 seconds
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (updateInterval) clearInterval(updateInterval);
+        });
+    </script>
+</body>
+</html>

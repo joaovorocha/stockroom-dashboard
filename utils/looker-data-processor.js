@@ -211,8 +211,17 @@ class LookerDataProcessor {
         console.log('[LOOKER SYNC] No database pool available');
         return { synced: 0, errors: [] };
       }
+      
+      // Get list of valid employee emails/names from users table
+      const validUsersResult = await pool.query(
+        `SELECT id, LOWER(email) as email, LOWER(name) as name FROM users WHERE is_active = true`
+      );
+      const validEmails = new Set(validUsersResult.rows.map(r => r.email));
+      const validNames = new Set(validUsersResult.rows.map(r => r.name));
+      console.log(`[LOOKER SYNC] Found ${validEmails.size} valid employees in database`);
 
       let synced = 0;
+      let skipped = 0;
       const errors = [];
       const scanDate = date || new Date().toISOString().split('T')[0];
 
@@ -224,6 +233,23 @@ class LookerDataProcessor {
           
           // Only sync if employee has actually done scans
           if (countsDone === 0) continue;
+          
+          // Skip if employee is not in the users table
+          const lowerCountedBy = countedBy.toLowerCase();
+          if (!validEmails.has(lowerCountedBy) && !validNames.has(lowerCountedBy)) {
+            console.log(`[LOOKER SYNC] Skipping ${countedBy} - not a valid employee in database`);
+            skipped++;
+            continue;
+          }
+          
+          // Skip generic store emails
+          if (lowerCountedBy === 'sanfrancisco@suitsupply.com' || 
+              lowerCountedBy.includes('store@') ||
+              /^j\d+$/i.test(countedBy)) {
+            console.log(`[LOOKER SYNC] Skipping ${countedBy} - generic/store identifier`);
+            skipped++;
+            continue;
+          }
 
           // Check if this employee already has a scan record for this date
           const existing = await pool.query(
@@ -234,8 +260,9 @@ class LookerDataProcessor {
           );
 
           if (existing.rows.length > 0) {
-            // Record already exists from CSV or previous Looker sync - skip to avoid conflicts
+            // Record already exists - skip to avoid conflicts
             console.log(`[LOOKER SYNC] Skipping ${countedBy} - already has scan on ${scanDate}`);
+            skipped++;
             continue;
           }
 
@@ -267,8 +294,8 @@ class LookerDataProcessor {
         }
       }
 
-      console.log(`[LOOKER SYNC] Synced ${synced} Looker records to database`);
-      return { synced, errors };
+      console.log(`[LOOKER SYNC] Synced ${synced} Looker records to database (skipped ${skipped} invalid employees)`);
+      return { synced, skipped, errors };
     } catch (error) {
       console.error('[LOOKER SYNC] Error in syncLookerDataToDatabase:', error);
       return { synced: 0, errors: [{ error: error.message }] };

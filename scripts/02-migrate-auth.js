@@ -72,10 +72,10 @@ async function migrateAuth() {
           INSERT INTO users (
             employee_id, login_alias, name, email, phone, password_hash,
             role, store_id, image_url, is_manager, is_admin,
-            can_edit_gameplan, can_config_radio, can_manage_lost_punch,
+            can_edit_gameplan, can_manage_lost_punch,
             can_access_admin, must_change_password, last_login, created_at, updated_at
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
           )
         `, [
           user.employeeId || null,
@@ -90,7 +90,6 @@ async function migrateAuth() {
           user.isManager || false,
           user.isAdmin || false,
           user.canEditGameplan || false,
-          user.canConfigRadio || false,
           user.canManageLostPunch || false,
           user.canAccessAdmin || false,
           user.mustChangePassword || false,

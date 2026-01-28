@@ -12,7 +12,8 @@ async function main() {
     const res = await query('SELECT id, employee_id, name, email, role, image_url, is_active FROM users WHERE is_active = true ORDER BY role, name');
     const rows = res.rows || [];
 
-    const roleToType = { SA: 'SA', BOH: 'BOH', MANAGEMENT: 'MANAGEMENT', TAILOR: 'TAILOR', ADMIN: 'MANAGEMENT' };
+    // Note: ADMIN role deprecated - all admins should use MANAGEMENT role with is_admin flag
+    const roleToType = { SA: 'SA', BOH: 'BOH', MANAGEMENT: 'MANAGEMENT', TAILOR: 'TAILOR' };
     const canonical = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
 
     for (const row of rows) {

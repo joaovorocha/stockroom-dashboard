@@ -83,8 +83,6 @@ const SharedHeader = {
     '/employee-discount': 'Employee Discount',
     '/shipments': 'Shipments',
     '/boh-shipments': 'BOH Shipments',
-    '/radio': 'Radio Transcription',
-    '/radio-transcripts': 'Radio Transcripts',
     '/lost-punch': 'Lost Punch',
     '/closing-duties': 'Closing Duties',
     '/time-off': 'Time Off',
@@ -103,8 +101,6 @@ const SharedHeader = {
     '/employee-discount': '💳',
     '/shipments': '📦',
     '/boh-shipments': '📦',
-    '/radio': '🎙️',
-    '/radio-transcripts': '📝',
     '/lost-punch': '🕒',
     '/closing-duties': '✅',
     '/time-off': '🗓️',
@@ -144,7 +140,6 @@ const SharedHeader = {
       { href: '/awards', label: 'Awards', id: 'navAwards' },
       { href: '/daily-scan-performance', label: 'Daily Scan', id: 'navDailyScan' },
       { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' },
-      { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' },
       { href: '/shipments', label: 'Shipments', id: 'navShipments', badge: 'shipmentsBadge' },
       { href: '/lost-punch', label: 'Lost Punch', id: 'navLostPunch' },
       { href: '/closing-duties', label: 'Closing Duties', id: 'navClosingDuties' },
@@ -415,8 +410,7 @@ const SharedHeader = {
     if (!nav) return;
 
     const desired = [
-      { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' },
-      { href: '/radio-transcripts', label: 'Radio Transcripts', id: 'navRadioTranscripts' }
+      { href: '/employee-discount', label: 'Employee Discount', id: 'navExpenses', badge: 'expensesBadge' }
     ];
 
     const normalizePath = (href) => {
@@ -435,7 +429,6 @@ const SharedHeader = {
 
         // Backward-compat for older hardcoded links.
         if (targetPath === '/employee-discount' && (path === '/expenses' || path === '/expenses.html')) return a;
-        if (targetPath === '/radio-transcripts' && path === '/radio-transcripts.html') return a;
       }
       return null;
     };
@@ -462,7 +455,6 @@ const SharedHeader = {
         // Normalize legacy `.html` links to canonical routes.
         if (existingPath === `${item.href}.html`) existing.setAttribute('href', item.href);
         if (item.href === '/employee-discount' && (existingPath === '/expenses' || existingPath === '/expenses.html')) existing.setAttribute('href', item.href);
-        if (item.href === '/radio-transcripts' && existingPath === '/radio-transcripts.html') existing.setAttribute('href', item.href);
 
         if (item.id && !existing.id) existing.id = item.id;
         if (item.badge) ensureBadge(existing, item.badge);
@@ -489,8 +481,6 @@ const SharedHeader = {
           insertAfter(document.getElementById('navAwards')) ||
           insertAfter(document.getElementById('navOperationsMetrics')) ||
           insertAfter(document.getElementById('navGamePlan'));
-      } else if (item.href === '/radio-transcripts') {
-        inserted = insertAfter(document.getElementById('navExpenses'));
       }
       if (!inserted) nav.appendChild(a);
     });

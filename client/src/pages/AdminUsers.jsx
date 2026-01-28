@@ -13,8 +13,8 @@ const AdminUsers = () => {
   const [photoFile, setPhotoFile] = useState(null);
 
   useEffect(() => {
-    if (user && user.role !== 'MGMT') {
-      // Redirect or show error if not management
+    // Allow access for users with MANAGEMENT role or admin flag
+    if (user && user.role !== 'MANAGEMENT' && !user.isAdmin && !user.isManager) {
       alert('Access denied. Management role required.');
       return;
     }
@@ -137,7 +137,7 @@ const AdminUsers = () => {
               >
                 <option value="SA">SA</option>
                 <option value="BOH">BOH</option>
-                <option value="MGMT">MGMT</option>
+                <option value="MANAGEMENT">MANAGEMENT</option>
                 <option value="Tailor">Tailor</option>
               </select>
             </div>
@@ -214,7 +214,7 @@ const AdminUsers = () => {
                   >
                     <option value="SA">SA</option>
                     <option value="BOH">BOH</option>
-                    <option value="MGMT">MGMT</option>
+                    <option value="MANAGEMENT">MANAGEMENT</option>
                     <option value="Tailor">Tailor</option>
                   </select>
                 </div>

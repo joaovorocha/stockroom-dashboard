@@ -786,7 +786,12 @@ async function loadGameplan() {
     const today = await getStoreDayInfo();
     const clientDate = today?.date || getLocalISODate();
 
-      const response = await fetch(`/api/gameplan/date/${clientDate}`, {
+      // Use /today endpoint for today's date (has DB assignments with fitting rooms)
+      // Use /date/:date for historical dates (JSON file format)
+      const isTodayDate = clientDate === (today?.date || getLocalISODate());
+      const endpoint = isTodayDate ? '/api/gameplan/today' : `/api/gameplan/date/${clientDate}`;
+      
+      const response = await fetch(endpoint, {
         credentials: 'include',
         cache: 'no-store'
       });
@@ -855,7 +860,7 @@ function clearDailyAssignmentFields(emp) {
   if (!emp) return;
   emp.zones = [];
   emp.zone = '';
-  emp.fittingRoom = '';
+  emp.fittingRooms = [];
   emp.scheduledLunch = '';
   emp.closingSections = [];
   emp.shift = '';
@@ -1651,8 +1656,14 @@ function renderSAAssignmentStatus() {
   const userEmployee = findCurrentUserEmployee('SA');
   const frAssignments = {};
   allSAs.forEach(sa => {
-    const key = (sa?.fittingRoom || '').toString().trim();
-    if (key) frAssignments[key] = sa.name;
+    const rooms = Array.isArray(sa?.fittingRooms) ? sa.fittingRooms : (sa?.fittingRoom ? [sa.fittingRoom] : []);
+    rooms.forEach(room => {
+      const key = (room || '').toString().trim();
+      if (key) {
+        if (!frAssignments[key]) frAssignments[key] = [];
+        frAssignments[key].push(sa.name);
+      }
+    });
   });
 
   if (!Array.isArray(allFittingRooms) || allFittingRooms.length === 0) {
@@ -1664,14 +1675,17 @@ function renderSAAssignmentStatus() {
       .filter(Boolean);
 
     frListEl.innerHTML = roomNames.map(roomName => {
-      const assignee = frAssignments[roomName] || '';
-      const isMine = !!(userEmployee?.fittingRoom && roomName === (userEmployee.fittingRoom || '').toString().trim());
-      const isAvailable = !assignee;
+      const assignees = frAssignments[roomName] || [];
+      const userRooms = Array.isArray(userEmployee?.fittingRooms) ? userEmployee.fittingRooms : (userEmployee?.fittingRoom ? [userEmployee.fittingRoom] : []);
+      const isMine = userRooms.some(r => roomName === (r || '').toString().trim());
+      const isAvailable = assignees.length === 0;
       let cls = 'expandable-list-item';
       if (isMine) cls += ' mine';
       else if (isAvailable) cls += ' available';
 
-      const displayAssignee = isMine ? 'You' : (assignee ? assignee.split(' ')[0] : '');
+      const displayAssignee = isMine 
+        ? 'You' + (assignees.length > 1 ? ` +${assignees.length - 1}` : '')
+        : (assignees.length > 0 ? assignees.map(n => n.split(' ')[0]).join(', ') : '');
       return `
         <div class="${cls}">
           <span class="item-name">${roomName}</span>
@@ -2320,19 +2334,23 @@ function createSACard(emp, isCurrentUser = false) {
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
 
+  // Extract first name only
+  const displayName = emp.name ? emp.name.split(' ')[0] : 'Unknown';
+
   const loanWarning = hasLoanOverdue(emp.name)
     ? '<div class="loan-warning">Loan Overdue</div>'
     : '';
 
   const scan = getDailyScanStatsForEmployee(emp);
-  const scanAccuracyHtml = Number.isFinite(scan?.accuracy)
-    ? `
-      <div class="card-field">
-        <span class="field-label">Scan Accuracy</span>
-        <span class="field-value ${scan.accuracy >= 99.5 ? 'positive' : scan.accuracy >= 99 ? 'warning' : 'negative'}">${scan.accuracy}%</span>
-      </div>
-    `
-    : '';
+  
+  // Get scan metrics for SA as well
+  const accuracy = emp.metrics?.inventoryAccuracy !== undefined ? Number(emp.metrics.inventoryAccuracy) : scan?.accuracy;
+  const countsDone = emp.metrics?.storeCountsCompleted !== undefined ? Number(emp.metrics.storeCountsCompleted) : scan?.countsDone;
+  const missedReserved = emp.metrics?.missedReserved !== undefined ? Number(emp.metrics.missedReserved) : scan?.missedReserved;
+  const hasAnyScanStats = accuracy !== undefined || countsDone !== undefined || missedReserved !== undefined;
+  
+  const accuracyClass = Number.isFinite(accuracy) ? (accuracy >= 99.5 ? 'positive' : accuracy >= 99 ? 'warning' : 'negative') : 'muted';
+  const missedClass = Number.isFinite(missedReserved) ? ((missedReserved || 0) === 0 ? 'positive' : 'negative') : 'muted';
 
   const perPersonTarget = getRetailWeekTargetPerPerson();
 
@@ -2341,7 +2359,7 @@ function createSACard(emp, isCurrentUser = false) {
       <div class="card-header">
         ${photoHtml}
         <div class="employee-info">
-          <h4>${emp.name}</h4>
+          <h4>${displayName}</h4>
           <span class="role day-off-badge">Day Off</span>
         </div>
       </div>
@@ -2353,7 +2371,7 @@ function createSACard(emp, isCurrentUser = false) {
 		    <div class="card-header">
 	      ${photoHtml}
 	      <div class="employee-info">
-	        <h4>${emp.name}</h4>
+	        <h4>${displayName}</h4>
         <span class="role">Sales Associate</span>
       </div>
     </div>
@@ -2378,8 +2396,23 @@ function createSACard(emp, isCurrentUser = false) {
         <span class="field-label">Closing Sections</span>
         <span class="field-value">${Array.isArray(emp.closingSections) ? emp.closingSections.join(', ') : emp.closingSections || '-'}</span>
       </div>
-      ${scanAccuracyHtml}
     </div>
+    ${hasAnyScanStats ? `
+    <div class="boh-metrics">
+      <div class="boh-metric">
+        <span class="value ${accuracyClass}">${Number.isFinite(accuracy) ? `${accuracy}%` : '--'}</span>
+        <span class="label">Scan %</span>
+      </div>
+      <div class="boh-metric">
+        <span class="value ${Number.isFinite(countsDone) ? '' : 'muted'}">${Number.isFinite(countsDone) ? countsDone : '--'}</span>
+        <span class="label">Scans</span>
+      </div>
+      <div class="boh-metric">
+        <span class="value ${missedClass}">${Number.isFinite(missedReserved) ? missedReserved : '--'}</span>
+        <span class="label">Missed</span>
+      </div>
+    </div>
+    ` : ''}
     ${emp.metrics ? `
     <div class="sa-metrics">
       <div class="sa-metric">
@@ -2453,12 +2486,15 @@ function createBOHCard(emp, isCurrentUser = false) {
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
 
+  // Extract first name only
+  const displayName = emp.name ? emp.name.split(' ')[0] : 'Unknown';
+
   if (isDayOff) {
     card.innerHTML = `
       <div class="card-header">
         ${photoHtml}
         <div class="employee-info">
-          <h4>${emp.name}</h4>
+          <h4>${displayName}</h4>
           <span class="role day-off-badge">Day Off</span>
         </div>
       </div>
@@ -2481,7 +2517,7 @@ function createBOHCard(emp, isCurrentUser = false) {
     <div class="card-header">
       ${photoHtml}
       <div class="employee-info">
-        <h4>${emp.name}</h4>
+        <h4>${displayName}</h4>
         <span class="role">Back of House</span>
       </div>
     </div>
@@ -2568,6 +2604,8 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
     card.className = `employee-card${isCurrentUser ? ' current-user' : ''}${isDayOff ? ' day-off' : ''}`;
 
     const empName = emp?.name || 'Unknown';
+    // Extract first name only for managers
+    const displayName = empName.split(' ')[0];
     const photoHtml = emp.imageUrl
       ? `<img src="${emp.imageUrl}" alt="${empName}" class="employee-photo">`
       : `<div class="employee-photo placeholder">${getInitials(empName)}</div>`;
@@ -2581,7 +2619,7 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
         <div class="card-header">
           ${photoHtml}
           <div class="employee-info">
-            <h4>${empName}</h4>
+            <h4>${displayName}</h4>
             <span class="role day-off-badge">Day Off</span>
           </div>
         </div>
@@ -2590,14 +2628,15 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
     }
     
     const scan = getDailyScanStatsForEmployee(emp);
-    const scanRow = Number.isFinite(scan?.accuracy)
-      ? `
-        <div class="card-field">
-          <span class="field-label">Scan %</span>
-          <span class="field-value ${scan.accuracy >= 99.5 ? 'positive' : scan.accuracy >= 99 ? 'warning' : 'negative'}">${scan.accuracy}%</span>
-        </div>
-      `
-      : '';
+    
+    // Scan metrics - use same format as BOH
+    const accuracy = emp.metrics?.inventoryAccuracy !== undefined ? Number(emp.metrics.inventoryAccuracy) : scan?.accuracy;
+    const countsDone = emp.metrics?.storeCountsCompleted !== undefined ? Number(emp.metrics.storeCountsCompleted) : scan?.countsDone;
+    const missedReserved = emp.metrics?.missedReserved !== undefined ? Number(emp.metrics.missedReserved) : scan?.missedReserved;
+    const hasAnyScanStats = accuracy !== undefined || countsDone !== undefined || missedReserved !== undefined;
+    
+    const accuracyClass = Number.isFinite(accuracy) ? (accuracy >= 99.5 ? 'positive' : accuracy >= 99 ? 'warning' : 'negative') : 'muted';
+    const missedClass = Number.isFinite(missedReserved) ? ((missedReserved || 0) === 0 ? 'positive' : 'negative') : 'muted';
 
     // Employee discount or expense info (if available)
     const discount = emp.metrics?.discountLc || emp.metrics?.employeeDiscount || emp.discount || null;
@@ -2633,7 +2672,7 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
       <div class="card-header">
         ${photoHtml}
         <div class="employee-info">
-          <h4>${emp.name}</h4>
+          <h4>${displayName}</h4>
           <span class="role">${position || 'Management'}</span>
         </div>
       </div>
@@ -2646,10 +2685,25 @@ function createManagementCard(emp, isCurrentUser = false, isDayOff = false) {
           <span class="field-label">Lunch</span>
           <span class="field-value">${lunch}</span>
         </div>
-        ${scanRow}
         ${discountRow}
         ${ipcSalesRow}
       </div>
+      ${hasAnyScanStats ? `
+      <div class="boh-metrics">
+        <div class="boh-metric">
+          <span class="value ${accuracyClass}">${Number.isFinite(accuracy) ? `${accuracy}%` : '--'}</span>
+          <span class="label">Scan %</span>
+        </div>
+        <div class="boh-metric">
+          <span class="value ${Number.isFinite(countsDone) ? '' : 'muted'}">${Number.isFinite(countsDone) ? countsDone : '--'}</span>
+          <span class="label">Scans</span>
+        </div>
+        <div class="boh-metric">
+          <span class="value ${missedClass}">${Number.isFinite(missedReserved) ? missedReserved : '--'}</span>
+          <span class="label">Missed</span>
+        </div>
+      </div>
+      ` : ''}
       ${loanWarning}
     `;
     return card;
@@ -2694,12 +2748,15 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
     ? `<img src="${emp.imageUrl}" alt="${emp.name}" class="employee-photo">`
     : `<div class="employee-photo placeholder">${getInitials(emp.name)}</div>`;
 
+  // Extract first name only
+  const displayName = emp.name ? emp.name.split(' ')[0] : 'Unknown';
+
   if (isDayOff) {
     card.innerHTML = `
       <div class="card-header">
         ${photoHtml}
         <div class="employee-info">
-          <h4>${emp.name}</h4>
+          <h4>${displayName}</h4>
           <span class="role day-off-badge">Day Off</span>
         </div>
       </div>
@@ -2722,7 +2779,7 @@ function createTailorCard(emp, isCurrentUser = false, isDayOff = false) {
       <div class="card-header">
         ${photoHtml}
         <div class="employee-info">
-          <h4>${emp.name}</h4>
+          <h4>${displayName}</h4>
           <span class="role">Tailor</span>
         </div>
       </div>

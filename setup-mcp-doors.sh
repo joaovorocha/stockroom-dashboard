@@ -35,13 +35,6 @@ cat > mcp-client-config.json << 'EOF'
       "env": {
         "STOCKROOM_DATA_DIR": "/var/lib/stockroom-dashboard/data"
       }
-    },
-    "stockroom-radio": {
-      "command": "python",
-      "args": ["mcp-servers/radio-server.py"],
-      "env": {
-        "PYTHONPATH": "/var/www/stockroom-dashboard"
-      }
     }
   }
 }
@@ -54,10 +47,8 @@ echo "1. Configure your AI client to use the mcp-client-config.json"
 echo "2. Each MCP server provides tools for different aspects of your stockroom:"
 echo "   - stockroom-inventory: Inventory management and queries"
 echo "   - stockroom-shipments: Shipping and package tracking"
-echo "   - stockroom-radio: Radio communication monitoring"
 echo ""
 echo "Example tools available:"
 echo "- get_inventory_status: Get inventory statistics"
 echo "- search_inventory: Search for items"
 echo "- get_shipments: List shipments"
-echo "- get_radio_status: Check radio monitoring status"

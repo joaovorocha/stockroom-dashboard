@@ -41,6 +41,13 @@
             if (email) {
               employeeNameMap[email] = firstName;
               if (emp.photo) employeePhotoMap[email] = emp.photo;
+              
+              // Also map by email prefix (everything before @)
+              if (email.includes('@')) {
+                const prefix = email.split('@')[0];
+                employeeNameMap[prefix] = firstName;
+                if (emp.photo) employeePhotoMap[prefix] = emp.photo;
+              }
             }
             if (employeeId) {
               employeeNameMap[employeeId] = firstName;
@@ -62,6 +69,9 @@
         });
         
         console.log('Employee name mapping loaded:', employeeNameMap);
+        console.log('Employee photo mapping loaded:', employeePhotoMap);
+        console.log('Total employees loaded:', allEmployees.length);
+        console.log('Sample employee data:', allEmployees.slice(0, 2));
       }
     } catch (error) {
       console.error('Error loading employee names:', error);
@@ -314,9 +324,9 @@
   async function init() {
     await loadEmployeeNames();
     updateDynamicLabels(); // Set initial labels
-    await loadTodayAssignment();
     await loadLookerData();
     await loadScanData();
+    await loadTodayAssignment(); // Load after scanData is populated
     await loadEmployeePerformance();
     setupFilters();
     setupImport();
@@ -324,7 +334,10 @@
     // Refresh data when date range changes (if element exists)
     const dateFilter = document.getElementById('dateRangeFilter');
     if (dateFilter) {
-      dateFilter.addEventListener('change', loadScanData);
+      dateFilter.addEventListener('change', async () => {
+        await loadScanData();
+        await loadTodayAssignment(); // Refresh today's data when filter changes
+      });
     }
   }
 
@@ -376,43 +389,88 @@
   async function loadTodayAssignment() {
     try {
       const today = new Date().toISOString().split('T')[0];
-      const response = await fetch(`/api/gameplan/daily-scan/check?date=${today}`, {
-        credentials: 'include'
+      
+      // First, check if there's a scan in the database for today
+      // Handle both string and Date object formats from PostgreSQL
+      const todayResult = scanData.find(scan => {
+        const scanDate = scan.scan_date instanceof Date 
+          ? scan.scan_date.toISOString().split('T')[0]
+          : (scan.scan_date || '').split('T')[0]; // Handle both Date objects and ISO strings
+        return scanDate === today;
       });
-
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('Session expired. Please log in again.');
-      }
-
-      if (response.ok) {
-        const data = await response.json();
+      
+      if (todayResult) {
+        // Show actual scan data from database
+        // Check if there was a scheduled employee (assignment from gameplan)
+        const assignedTo = todayResult.scheduled_employee 
+          ? getEmployeeDisplayName(todayResult.scheduled_employee)
+          : 'Unscheduled';
         
-        if (data.assigned) {
-          document.getElementById('assignedEmployee').textContent = data.employeeName || 'Unknown';
-          
-          // Check if today's scan is completed
-          const todayResult = scanData.find(scan => 
-            scan.scan_date === today && 
-            scan.counted_by && 
-            scan.counted_by.toLowerCase().includes(data.employeeName.toLowerCase().split(' ')[0])
-          );
+        document.getElementById('assignedEmployee').textContent = assignedTo;
+        document.getElementById('todayExpected').textContent = todayResult.expected_units.toLocaleString();
+        document.getElementById('todayCounted').textContent = todayResult.counted_units.toLocaleString();
+        
+        const accuracy = todayResult.expected_units > 0 
+          ? ((todayResult.counted_units / todayResult.expected_units) * 100)
+          : 0;
+        const accuracyFormatted = accuracy.toFixed(1) + '%';
+        
+        // Apply color coding based on accuracy
+        const accuracyEl = document.getElementById('todayAccuracy');
+        accuracyEl.textContent = accuracyFormatted;
+        accuracyEl.className = '';
+        if (accuracy >= 99.8) {
+          accuracyEl.classList.add('accuracy-excellent');
+        } else if (accuracy >= 99.5) {
+          accuracyEl.classList.add('accuracy-good');
+        } else {
+          accuracyEl.classList.add('accuracy-poor');
+        }
+        
+        // Set status based on scan status
+        const statusEl = document.getElementById('todayStatus');
+        const statusEmployeeEl = document.getElementById('todayStatusEmployee');
+        const completedBy = getEmployeeDisplayName(todayResult.counted_by);
+        
+        if (todayResult.status === 'COMPLETED') {
+          statusEl.textContent = 'Completed';
+          statusEl.className = 'scan-status-badge completed';
+          // Show employee name in green next to status
+          if (statusEmployeeEl) {
+            statusEmployeeEl.textContent = completedBy;
+            statusEmployeeEl.style.color = '#10b981';
+          }
+        } else if (todayResult.status === 'CANCELLED') {
+          statusEl.textContent = 'Cancelled';
+          statusEl.className = 'scan-status-badge cancelled';
+          if (statusEmployeeEl) statusEmployeeEl.textContent = '';
+        } else {
+          statusEl.textContent = todayResult.status;
+          statusEl.className = 'scan-status-badge';
+          if (statusEmployeeEl) statusEmployeeEl.textContent = '';
+        }
+      } else {
+        // No scan found in database for today - check assignment
+        const response = await fetch(`/api/gameplan/daily-scan/check?date=${today}`, {
+          credentials: 'include'
+        });
 
-          if (todayResult) {
-            document.getElementById('todayStatus').textContent = 'Completed';
-            document.getElementById('todayStatus').className = 'scan-status-badge completed';
-            document.getElementById('todayExpected').textContent = todayResult.expected_units.toLocaleString();
-            document.getElementById('todayCounted').textContent = todayResult.counted_units.toLocaleString();
-            
-            const accuracy = ((todayResult.counted_units / todayResult.expected_units) * 100).toFixed(1);
-            document.getElementById('todayAccuracy').textContent = accuracy + '%';
-          } else {
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('Session expired. Please log in again.');
+        }
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.assigned) {
+            document.getElementById('assignedEmployee').textContent = data.employeeName || 'Unknown';
             document.getElementById('todayStatus').textContent = 'Pending';
             document.getElementById('todayStatus').className = 'scan-status-badge pending';
+          } else {
+            document.getElementById('assignedEmployee').textContent = 'Not Assigned';
+            document.getElementById('todayStatus').textContent = 'Not Started';
+            document.getElementById('todayStatus').className = 'scan-status-badge not-started';
           }
-        } else {
-          document.getElementById('assignedEmployee').textContent = 'Not Assigned';
-          document.getElementById('todayStatus').textContent = 'Not Started';
-          document.getElementById('todayStatus').className = 'scan-status-badge not-started';
         }
       }
     } catch (error) {
@@ -551,14 +609,37 @@
     const avgAccuracy = totalExpected > 0 ? ((totalCounted / totalExpected) * 100).toFixed(1) : '0.0';
     
     const avgAccuracyEl = document.getElementById('avgAccuracy');
-    if (avgAccuracyEl) avgAccuracyEl.textContent = avgAccuracy + '%';
+    if (avgAccuracyEl) {
+      avgAccuracyEl.textContent = avgAccuracy + '%';
+      // Apply color to the percentage value
+      avgAccuracyEl.classList.remove('success', 'warning', 'error');
+      if (parseFloat(avgAccuracy) >= 99.8) {
+        avgAccuracyEl.classList.add('success');
+      } else if (parseFloat(avgAccuracy) >= 99.5) {
+        avgAccuracyEl.classList.add('warning');
+      } else {
+        avgAccuracyEl.classList.add('error');
+      }
+    }
+    
+    // Update accuracy trend text
+    const accuracyTrendEl = document.getElementById('accuracyTrend');
+    if (accuracyTrendEl) {
+      const dateFilter = document.getElementById('filterDateRange');
+      const days = dateFilter ? dateFilter.value : '7';
+      const periodText = days === '7' ? 'Last 7 days' : 
+                        days === '30' ? 'Last 30 days' :
+                        days === '90' ? 'Last 90 days' :
+                        days === '365' ? 'Last year' : 'All time';
+      accuracyTrendEl.textContent = periodText;
+    }
     
     const kpiAccuracy = document.getElementById('kpiAccuracy');
     if (kpiAccuracy) {
       kpiAccuracy.classList.remove('success', 'warning', 'error');
-      if (parseFloat(avgAccuracy) >= 99) {
+      if (parseFloat(avgAccuracy) >= 99.8) {
         kpiAccuracy.classList.add('success');
-      } else if (parseFloat(avgAccuracy) >= 95) {
+      } else if (parseFloat(avgAccuracy) >= 99.5) {
         kpiAccuracy.classList.add('warning');
       } else {
         kpiAccuracy.classList.add('error');
@@ -630,8 +711,8 @@
     const ctx = document.getElementById('accuracyTrendChart');
     if (!ctx) return;
 
-    // Sort by date
-    const sortedData = [...scanData].sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Sort by date ASCENDING (oldest to newest, left to right)
+    const sortedData = [...scanData].sort((a, b) => new Date(a.scan_date) - new Date(b.scan_date));
     
     const labels = sortedData.map(scan => {
       const date = new Date(scan.scan_date);
@@ -913,8 +994,8 @@
       
       // Color code accuracy
       let accuracyClass = '';
-      if (emp.accuracy >= 99) accuracyClass = 'style="color:#10b981;font-weight:600;"';
-      else if (emp.accuracy >= 95) accuracyClass = 'style="color:#f59e0b;font-weight:600;"';
+      if (emp.accuracy >= 99.8) accuracyClass = 'style="color:#10b981;font-weight:600;"';
+      else if (emp.accuracy >= 99.5) accuracyClass = 'style="color:#f59e0b;font-weight:600;"';
       else if (emp.accuracy > 0) accuracyClass = 'style="color:#ef4444;font-weight:600;"';
       
       // Color code missed scans
@@ -946,8 +1027,8 @@
       if (totalAccuracyEl) {
         totalAccuracyEl.textContent = totalAccuracyPct + '%';
         // Color code total accuracy
-        if (parseFloat(totalAccuracyPct) >= 99) totalAccuracyEl.style.color = '#10b981';
-        else if (parseFloat(totalAccuracyPct) >= 95) totalAccuracyEl.style.color = '#f59e0b';
+        if (parseFloat(totalAccuracyPct) >= 99.8) totalAccuracyEl.style.color = '#10b981';
+        else if (parseFloat(totalAccuracyPct) >= 99.5) totalAccuracyEl.style.color = '#f59e0b';
         else totalAccuracyEl.style.color = '#ef4444';
       }
       if (totalCountsDoneEl) totalCountsDoneEl.textContent = totalCountsDone.toLocaleString();
@@ -1011,12 +1092,28 @@
       const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase();
       const accuracy = p.avgAccuracy.toFixed(1);
       
+      // Simple direct lookup - p.employee should be the full email like "DIraheta@suitsupply.com"
+      let photoUrl = null;
+      const matchedEmp = employeeDataCache.find(emp => {
+        if (!emp.id) return false;
+        return emp.id.toLowerCase() === p.employee.toLowerCase();
+      });
+      
+      if (matchedEmp && matchedEmp.photo) {
+        photoUrl = matchedEmp.photo;
+      }
+      
+      console.log('Employee:', p.employee, 'Found:', !!matchedEmp, 'Photo:', photoUrl, 'Display:', displayName);
+      
+      // Create avatar HTML - use photo if available, otherwise show initials
+      const avatarHtml = photoUrl 
+        ? `<img src="${photoUrl}" alt="${displayName}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" />`
+        : `<div class="employee-avatar" style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 18px; flex-shrink: 0;">${initials}</div>`;
+      
       return `
         <div class="performer-item" style="display: flex; align-items: center; gap: 16px; padding: 12px; margin-bottom: 8px; background: var(--background); border-radius: 8px; border: 2px solid ${index === 0 ? '#fbbf24' : index === 1 ? '#9ca3af' : index === 2 ? '#d97706' : 'var(--border)'};">
           <div style="font-size: 32px; min-width: 40px; text-align: center;">${medals[index]}</div>
-          <div class="employee-avatar" style="width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 18px; flex-shrink: 0;">
-            ${initials}
-          </div>
+          ${avatarHtml}
           <div style="flex: 1; min-width: 0;">
             <div style="font-weight: 600; font-size: 15px; color: var(--text); margin-bottom: 2px;">${displayName}</div>
             <div style="font-size: 12px; color: var(--text-secondary);">Scan Accuracy</div>
@@ -1165,7 +1262,8 @@
     const sortedData = [...filteredData].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     tbody.innerHTML = sortedData.map(scan => {
-      const accuracy = ((scan.counted_units / scan.expected_units) * 100).toFixed(1);
+      const isCancelled = scan.status === 'CANCELLED';
+      const accuracy = isCancelled ? 'N/A' : ((scan.counted_units / scan.expected_units) * 100).toFixed(1);
       const totalMissed = (scan.missed_available || 0) + (scan.missed_reserved || 0);
       const date = new Date(scan.scan_date).toLocaleDateString('en-US', { 
         month: 'short', 
@@ -1174,8 +1272,10 @@
       });
       
       let accuracyColor = '#10b981';
-      if (accuracy < 95) accuracyColor = '#ef4444';
-      else if (accuracy < 99) accuracyColor = '#f59e0b';
+      if (!isCancelled) {
+        if (accuracy < 99.5) accuracyColor = '#ef4444';
+        else if (accuracy < 99.8) accuracyColor = '#f59e0b';
+      }
 
       // Render scheduled scan status
       let scheduledScanBadge = '';
@@ -1200,8 +1300,14 @@
         scheduledScanBadge = `<span style="padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;background:#fee2e2;color:#991b1b;">✗ ${getEmployeeDisplayName(scheduledEmployee)}</span>`;
       }
 
+      // Style for cancelled scans - red background
+      const rowStyle = isCancelled ? 'background-color:#fee2e2;' : '';
+      const accuracyDisplay = isCancelled 
+        ? '<span style="color:#999;">--</span>' 
+        : `<span style="color:${accuracyColor};font-weight:600;">${accuracy}%</span>`;
+
       return `
-        <tr>
+        <tr style="${rowStyle}">
           <td>${date}</td>
           <td>${getEmployeeDisplayName(scan.counted_by)}</td>
           <td>${scheduledScanBadge}</td>
@@ -1210,7 +1316,7 @@
           <td>${totalMissed.toLocaleString()}</td>
           <td>${(scan.new_units || 0).toLocaleString()}</td>
           <td>${(scan.undecodable_units || 0).toLocaleString()}</td>
-          <td style="color:${accuracyColor};font-weight:600;">${accuracy}%</td>
+          <td>${accuracyDisplay}</td>
           <td><span style="padding:4px 8px;border-radius:12px;font-size:11px;font-weight:600;background:${scan.status === 'COMPLETED' ? '#d1fae5' : '#fee2e2'};color:${scan.status === 'COMPLETED' ? '#065f46' : '#991b1b'}">${scan.status}</span></td>
         </tr>
       `;

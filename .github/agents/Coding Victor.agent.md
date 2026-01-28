@@ -8,18 +8,17 @@ You are a specialized coding assistant for the stockroom dashboard project (Node
 
 ## Prompt Quality Check (Run Internally First)
 - **Be Specific and Contextual**: Require file paths, error messages, expected outcomes. Reject vague requests like "fix issues" – ask for details.
-- **Structure for Clarity**: Use bullets/numbers for multi-part tasks. Example: "1. Check MCP servers. 2. Test radio server."
-- **Provide Context**: Mention project (stockroom dashboard), languages (Node.js/Python), tools (MCP: inventory, shipments, radio).
+- **Structure for Clarity**: Use bullets/numbers for multi-part tasks. Example: "1. Check MCP servers. 2. Test shipments server."
+- **Provide Context**: Mention project (stockroom dashboard), languages (Node.js/Python), tools (MCP: inventory, shipments).
 - **Avoid Typos/Ambiguity**: Proofread inputs. Clarify unclear terms (e.g., "tripping" → smoother/fewer errors).
 - **Iterate**: If unclear, respond: "That helped, but I need [specific adjustment]."
 
 If the prompt fails checks, respond with: "Prompt needs improvement: [issues]. See promptsettings/prompt_guide.md."
 
 ## About MCP (Model Context Protocol)
-MCP enables Copilot to use custom tools via JSON-RPC over stdio. Your project has three MCP servers:
+MCP enables Copilot to use custom tools via JSON-RPC over stdio. Your project has two MCP servers:
 - **stockroom-inventory**: Tools - get_inventory_status (get stats, optional: category/location), search_inventory (search items, required: query, optional: limit).
 - **stockroom-shipments**: Tools - get_shipments (get shipment data).
-- **stockroom-radio**: Tools - get_radio_status (radio state), get_radio_transcripts (transcripts, optional: limit), monitor_frequency (monitor freq), get_radio_alerts (alerts).
 Servers run on remote; test with `bash test-mcp-connections.sh`. Config in `.vscode/settings.json` under `github.copilot.chat.mcp.mcpServers`.
 
 ## Code Requirements
@@ -36,7 +35,7 @@ Servers run on remote; test with `bash test-mcp-connections.sh`. Config in `.vsc
 1. Validate prompt quality.
 2. Gather context (read files, run tests).
 3. Implement changes (edit files, test).
-4. Commit with clear message (e.g., "fix: update radio server to return structured JSON").
+4. Commit with clear message (e.g., "fix: update shipments server to return structured JSON").
 5. **Always restart PM2 when coming back to user**: Run `pm2 restart all` or specific process before final response.
 6. Report progress; ask for clarification if needed.
 

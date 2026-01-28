@@ -1,0 +1,48 @@
+                                        Table "public.employees"
+   Column   |            Type             | Collation | Nullable |                Default                
+------------+-----------------------------+-----------+----------+---------------------------------------
+ id         | integer                     |           | not null | nextval('employees_id_seq'::regclass)
+ user_id    | character varying(100)      |           | not null | 
+ email      | character varying(255)      |           | not null | 
+ name       | character varying(255)      |           | not null | 
+ role       | character varying(50)       |           | not null | 
+ department | character varying(100)      |           |          | 
+ specialty  | character varying(255)      |           |          | 
+ active     | boolean                     |           |          | true
+ hire_date  | date                        |           |          | 
+ phone      | character varying(50)       |           |          | 
+ created_at | timestamp without time zone |           |          | now()
+ updated_at | timestamp without time zone |           |          | now()
+Indexes:
+    "employees_pkey" PRIMARY KEY, btree (id)
+    "employees_email_key" UNIQUE CONSTRAINT, btree (email)
+    "employees_user_id_key" UNIQUE CONSTRAINT, btree (user_id)
+    "idx_employees_active" btree (active)
+    "idx_employees_email" btree (email)
+    "idx_employees_role" btree (role)
+Check constraints:
+    "employees_role_check" CHECK (role::text = ANY (ARRAY['SA'::character varying, 'Tailor'::character varying, 'BOH'::character varying, 'Manager'::character varying, 'Admin'::character varying]::text[]))
+Referenced by:
+    TABLE "monitoring_config" CONSTRAINT "monitoring_config_updated_by_fkey" FOREIGN KEY (updated_by) REFERENCES employees(id)
+    TABLE "pickup_items" CONSTRAINT "pickup_items_last_scanned_by_id_fkey" FOREIGN KEY (last_scanned_by_id) REFERENCES employees(id)
+    TABLE "pickups" CONSTRAINT "pickups_boh_contact_id_fkey" FOREIGN KEY (boh_contact_id) REFERENCES employees(id)
+    TABLE "pickups" CONSTRAINT "pickups_style_advisor_id_fkey" FOREIGN KEY (style_advisor_id) REFERENCES employees(id)
+    TABLE "pickups" CONSTRAINT "pickups_tailor_id_fkey" FOREIGN KEY (tailor_id) REFERENCES employees(id)
+    TABLE "production_stages" CONSTRAINT "production_stages_employee_id_fkey" FOREIGN KEY (employee_id) REFERENCES employees(id)
+    TABLE "rfid_scans" CONSTRAINT "rfid_scans_scanned_by_id_fkey" FOREIGN KEY (scanned_by_id) REFERENCES employees(id)
+    TABLE "shipment_items" CONSTRAINT "shipment_items_picked_by_id_fkey" FOREIGN KEY (picked_by_id) REFERENCES employees(id)
+    TABLE "shipment_items" CONSTRAINT "shipment_items_rfid_scanned_by_id_fkey" FOREIGN KEY (rfid_scanned_by_id) REFERENCES employees(id)
+    TABLE "shipment_scan_events" CONSTRAINT "shipment_scan_events_scanned_by_id_fkey" FOREIGN KEY (scanned_by_id) REFERENCES employees(id)
+    TABLE "shipments" CONSTRAINT "shipments_assigned_picker_id_fkey" FOREIGN KEY (assigned_picker_id) REFERENCES employees(id)
+    TABLE "shipments" CONSTRAINT "shipments_label_generated_by_id_fkey" FOREIGN KEY (label_generated_by_id) REFERENCES employees(id)
+    TABLE "shipments" CONSTRAINT "shipments_packed_by_id_fkey" FOREIGN KEY (packed_by_id) REFERENCES employees(id)
+    TABLE "shipments" CONSTRAINT "shipments_picked_by_id_fkey" FOREIGN KEY (picked_by_id) REFERENCES employees(id)
+    TABLE "shipments" CONSTRAINT "shipments_requested_by_id_fkey" FOREIGN KEY (requested_by_id) REFERENCES employees(id)
+    TABLE "system_alerts" CONSTRAINT "system_alerts_acknowledged_by_fkey" FOREIGN KEY (acknowledged_by) REFERENCES employees(id)
+    TABLE "system_events_log" CONSTRAINT "system_events_log_resolved_by_fkey" FOREIGN KEY (resolved_by) REFERENCES employees(id)
+    TABLE "system_events_log" CONSTRAINT "system_events_log_user_id_fkey" FOREIGN KEY (user_id) REFERENCES employees(id)
+    TABLE "user_sessions_log" CONSTRAINT "user_sessions_log_user_id_fkey" FOREIGN KEY (user_id) REFERENCES employees(id)
+    TABLE "waitwhile_appointments" CONSTRAINT "waitwhile_appointments_assigned_sa_id_fkey" FOREIGN KEY (assigned_sa_id) REFERENCES employees(id)
+Triggers:
+    update_employees_updated_at BEFORE UPDATE ON employees FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+

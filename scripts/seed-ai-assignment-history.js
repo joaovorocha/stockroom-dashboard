@@ -54,12 +54,13 @@ async function main() {
   async function getEmployeesFromDb() {
     const users = await pgQuery('SELECT * FROM users WHERE is_active = true');
     const employees = { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] };
+    // Note: ADMIN role deprecated - all admins should use MANAGEMENT role with is_admin flag
     const roleToType = {
       'SA': 'SA',
       'Tailor': 'TAILOR',
       'BOH': 'BOH',
       'Manager': 'MANAGEMENT',
-      'Admin': 'MANAGEMENT'
+      'MANAGEMENT': 'MANAGEMENT'
     };
 
     for (const user of users) {

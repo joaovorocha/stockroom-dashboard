@@ -9,7 +9,6 @@ The Stockroom Dashboard is a comprehensive retail operations management system b
 - **RFID Location Tracking**: Zebra RFID system for inventory and asset management
 - **Employee Management**: Time tracking, scheduling, and performance metrics
 - **Gameplan Management**: Daily operational planning and goal tracking
-- **Radio Communication**: Two-way radio monitoring and spectrum analysis
 - **WaitWhile Integration**: Customer appointment and visit management
 - **Manhattan Active® Integration**: Enterprise inventory and order management
 - **PredictSpring Integration**: Demand forecasting and inventory optimization
@@ -20,13 +19,13 @@ The Stockroom Dashboard is a comprehensive retail operations management system b
 - **Runtime**: Node.js with Express.js framework
 - **Database**: PostgreSQL with connection pooling
 - **Authentication**: Session-based with scrypt password hashing
-- **Real-time Communication**: WebSocket for radio monitoring, Server-Sent Events (SSE) for updates
+- **Real-time Communication**: Server-Sent Events (SSE) for updates
 - **Process Management**: PM2 with ecosystem configuration
 - **Email Processing**: Gmail IMAP integration with automated shipment capture
 
 ### Frontend
 - **Framework**: Vanilla JavaScript with HTML5/CSS3
-- **Real-time Updates**: WebSocket connections for live data
+- **Real-time Updates**: Server-Sent Events (SSE) for live data
 - **Responsive Design**: Mobile-first approach for iOS PWA compatibility
 
 ### External Integrations
@@ -39,7 +38,6 @@ The Stockroom Dashboard is a comprehensive retail operations management system b
 
 ### Development Tools
 - **MCP Servers**: Model Context Protocol servers for AI-assisted operations
-- **Radio Services**: Python-based radio monitoring and spectrum analysis
 - **Build Tools**: NPM scripts for deployment and maintenance
 
 ## Database Schema
@@ -60,7 +58,6 @@ users (
   is_manager BOOLEAN DEFAULT false,
   is_admin BOOLEAN DEFAULT false,
   can_edit_gameplan BOOLEAN DEFAULT false,
-  can_config_radio BOOLEAN DEFAULT false,
   can_manage_lost_punch BOOLEAN DEFAULT false,
   must_change_password BOOLEAN DEFAULT false,
   is_active BOOLEAN DEFAULT true,
@@ -294,22 +291,6 @@ waitwhile_appointments (
 **Purpose**: Get current RFID locations
 **Response**: Current tag locations
 
-### Radio API (`/api/radio/`)
-
-#### GET `/api/radio/status`
-**Purpose**: Get radio system status
-**Response**: Radio configuration and status
-
-#### POST `/api/radio/config`
-**Purpose**: Update radio configuration
-**Body**: Radio settings
-**Response**: Updated configuration
-
-#### GET `/api/radio/transcripts`
-**Purpose**: Get radio transcripts
-**Query Params**: `date`, `channel`, `limit`
-**Response**: `{ transcripts: [...] }`
-
 ### Admin API (`/api/admin/`)
 
 #### GET `/api/admin/users`
@@ -356,7 +337,6 @@ const roles = {
 
 const permissions = {
   canEditGameplan: ['Manager', 'Admin'],
-  canConfigRadio: ['Admin'],
   canManageLostPunch: ['Manager', 'Admin'],
   isManager: ['Manager', 'Admin'],
   isAdmin: ['Admin']
@@ -401,15 +381,6 @@ GMAIL_APP_PASSWORD=                    # Gmail app password
 UNIFIED_GMAIL_CRON=*/30 * * * *         # Email processing schedule
 ```
 
-#### Radio System
-```bash
-RADIO_MONITOR_UDP_HOST=127.0.0.1
-RADIO_MONITOR_UDP_PORT=7355
-RADIO_MONITOR_SAMPLE_RATE=24000
-RADIO_SPECTRUM_UDP_HOST=127.0.0.1
-RADIO_SPECTRUM_UDP_PORT=7356
-```
-
 #### External Services
 ```bash
 UPS_ACCESS_KEY=                        # UPS API credentials
@@ -435,7 +406,6 @@ PREDICTSPRING_API_KEY=                 # PredictSpring API
 ├── models/                            # Data models
 ├── db/                                # Database schemas and migrations
 ├── mcp-servers/                       # MCP server implementations
-├── radio/                             # Radio service scripts
 ├── scripts/                           # Maintenance scripts
 ├── tests/                             # Test files
 ├── ssl/                               # SSL certificates
@@ -451,8 +421,7 @@ PREDICTSPRING_API_KEY=                 # PredictSpring API
 │   ├── employees.json                 # Employee data (legacy)
 │   ├── shipments.json                 # Shipment data (legacy)
 │   ├── gameplan/                      # Daily gameplan files
-│   ├── metrics/                       # Performance metrics
-│   └── radio/                         # Radio configuration
+│   └── metrics/                       # Performance metrics
 └── files/                             # User-uploaded files
 ```
 
@@ -540,12 +509,6 @@ PREDICTSPRING_API_KEY=                 # PredictSpring API
 - **Status Updates**: Delivery confirmations processed
 - **Error Handling**: Failed parsing logged for manual review
 
-### Radio System Integration
-- **Audio Monitoring**: Live radio channel streaming
-- **Spectrum Analysis**: Frequency monitoring and analysis
-- **Recording**: Automated audio recording and transcription
-- **Alert System**: Keyword detection and notifications
-
 ## Process Management
 
 ### PM2 Configuration
@@ -562,28 +525,6 @@ PREDICTSPRING_API_KEY=                 # PredictSpring API
     "NODE_ENV": "production",
     "TZ": "America/Los_Angeles"
   }
-}
-```
-
-#### Radio Services
-```json
-{
-  "name": "radio",
-  "script": "radio/radio_service.py",
-  "interpreter": "/var/www/stockroom-dashboard/.venv/bin/python",
-  "autorestart": true,
-  "out_file": "/var/www/stockroom-dashboard/logs/radio.log"
-}
-```
-
-#### Spectrum Analysis
-```json
-{
-  "name": "radio-spectrum",
-  "script": "radio/spectrum_service.py",
-  "autostart": false,
-  "restart_delay": 2000,
-  "out_file": "/var/www/stockroom-dashboard/logs/radio-spectrum.log"
 }
 ```
 
@@ -664,7 +605,6 @@ pm2 startup
 - **Application Logs**: `/var/www/stockroom-dashboard/logs/`
 - **PM2 Logs**: `~/.pm2/logs/`
 - **Database Logs**: PostgreSQL log directory
-- **Radio Logs**: `/var/www/stockroom-dashboard/logs/radio-*.log`
 
 This comprehensive documentation covers all aspects of the Stockroom Dashboard system. Use this reference to understand system architecture, troubleshoot issues, plan updates, and ensure operational continuity.</content>
 <parameter name="filePath">/var/www/stockroom-dashboard/COMPREHENSIVE_SYSTEM_DOCUMENTATION.md

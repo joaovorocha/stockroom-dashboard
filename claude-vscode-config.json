@@ -14,13 +14,6 @@
       "env": {
         "STOCKROOM_DATA_DIR": "/var/lib/stockroom-dashboard/data"
       }
-    },
-    "stockroom-radio": {
-      "command": "python",
-      "args": ["/var/www/stockroom-dashboard/mcp-servers/radio-server.py"],
-      "env": {
-        "PYTHONPATH": "/var/www/stockroom-dashboard"
-      }
     }
   }
 }

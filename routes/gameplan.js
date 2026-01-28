@@ -309,12 +309,12 @@ async function pruneEmployeesFile() {
   });
   console.log('[GAMEPLAN] Created maps: usersByEmployeeId size=', usersByEmployeeId.size, 'usersByName size=', usersByName.size);
 
+  // Note: ADMIN role deprecated - all admins should use MANAGEMENT role with is_admin flag
   const roleToType = {
     SA: 'SA',
     BOH: 'BOH',
     MANAGEMENT: 'MANAGEMENT',
-    TAILOR: 'TAILOR',
-    ADMIN: 'MANAGEMENT'
+    TAILOR: 'TAILOR'
   };
 
   const canonical = {
@@ -549,10 +549,12 @@ router.get('/today', async (req, res) => {
     const planData = await gameplanDB.getDailyPlanWithAssignments(today);
     
     // Convert database format to legacy JSON format for compatibility
+    // IMPORTANT: Use employee_id as key to match frontend employee objects
     const assignments = {};
     if (planData.assignments && planData.assignments.length > 0) {
       planData.assignments.forEach(a => {
-        assignments[a.user_id || a.employee_id] = {
+        const key = a.employee_id || a.user_id;
+        assignments[key] = {
           type: a.employee_type,
           isOff: a.is_off,
           shift: a.shift || '',
@@ -563,7 +565,7 @@ router.get('/today', async (req, res) => {
           taskOfTheDay: a.task_of_the_day || '',
           zones: a.zones || [],
           zone: a.zone || '',
-          fittingRoom: a.fitting_room || '',
+          fittingRooms: a.fitting_room || [],
           closingSections: a.closing_sections || []
         };
       });
@@ -657,6 +659,10 @@ router.post('/save', requireManager, async (req, res) => {
     const planDate = gameplan.date || getTodayDate();
     const userId = req.user?.id;
     
+    console.log('[GAMEPLAN SAVE] Received request for date:', planDate);
+    console.log('[GAMEPLAN SAVE] Assignment count:', Object.keys(gameplan.assignments || {}).length);
+    console.log('[GAMEPLAN SAVE] Publish:', req.body.publish);
+    
     // Update plan metadata
     await gameplanDB.updateDailyPlan(planDate, {
       notes: gameplan.notes,
@@ -681,6 +687,14 @@ router.post('/save', requireManager, async (req, res) => {
           zones = assignment.zones.map(z => (z || '').toString().trim()).filter(Boolean);
         } else if (assignment.zone) {
           zones = [(assignment.zone || '').toString().trim()];
+        }
+        
+        // Normalize fitting rooms
+        let fittingRooms = [];
+        if (Array.isArray(assignment.fittingRooms)) {
+          fittingRooms = assignment.fittingRooms.map(fr => (fr || '').toString().trim()).filter(Boolean);
+        } else if (assignment.fittingRoom) {
+          fittingRooms = [(assignment.fittingRoom || '').toString().trim()];
         }
         
         // Normalize closing sections
@@ -738,8 +752,12 @@ router.post('/save', requireManager, async (req, res) => {
           taskOfTheDay: assignment.taskOfTheDay || '',
           zones: zones,
           zone: zones[0] || '',
-          fittingRoom: assignment.fittingRoom || '',
+          fittingRoom: fittingRooms,
           closingSections: closingSections
+        });
+        console.log(`[GAMEPLAN SAVE] Saved assignment for user ${assignmentUserId} (${empId}):`, {
+          fittingRoom: fittingRooms,
+          closingSections
         });
       }
     }
@@ -747,6 +765,7 @@ router.post('/save', requireManager, async (req, res) => {
     // Handle publish state
     if (req.body.publish === true) {
       await gameplanDB.publishDailyPlan(planDate, userId);
+      console.log('[GAMEPLAN SAVE] Published plan for', planDate);
     }
     
     // Log the action
@@ -765,6 +784,7 @@ router.post('/save', requireManager, async (req, res) => {
       });
     }
     
+    console.log('[GAMEPLAN SAVE] Successfully saved gameplan');
     res.json({ success: true, date: planDate });
   } catch (error) {
     console.error('[GAMEPLAN] Error saving gameplan:', error);
@@ -832,7 +852,7 @@ router.post('/unlock/:date', requireManager, (req, res) => {
 });
 
 // GET /api/gameplan/date/:date - Get gameplan for a specific date
-router.get('/date/:date', (req, res) => {
+router.get('/date/:date', async (req, res) => {
   const { date } = req.params;
   
   // Validate date format (YYYY-MM-DD)
@@ -840,14 +860,63 @@ router.get('/date/:date', (req, res) => {
     return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
   }
   
-  const gameplanFile = path.join(GAMEPLAN_DIR, `${date}.json`);
-  const gameplan = readJsonFile(gameplanFile, null);
-  
-  if (!gameplan) {
-    return res.status(404).json({ error: 'No gameplan found for this date' });
+  try {
+    // Get from database first (includes fitting rooms and closing sections)
+    const planData = await gameplanDB.getDailyPlanWithAssignments(date);
+    
+    // Convert database format to legacy JSON format for compatibility
+    // IMPORTANT: Use employee_id as key to match frontend employee objects
+    const assignments = {};
+    if (planData.assignments && planData.assignments.length > 0) {
+      planData.assignments.forEach(a => {
+        const key = a.employee_id || a.user_id;
+        assignments[key] = {
+          type: a.employee_type,
+          isOff: a.is_off,
+          shift: a.shift || '',
+          scheduledLunch: a.scheduled_lunch || '',
+          lunch: a.lunch || '',
+          role: a.role || '',
+          station: a.station || '',
+          taskOfTheDay: a.task_of_the_day || '',
+          zones: a.zones || [],
+          zone: a.zone || '',
+          fittingRoom: a.fitting_room || '',
+          closingSections: a.closing_sections || []
+        };
+      });
+    }
+    
+    const gameplan = {
+      date: date,
+      notes: planData.notes || '',
+      weatherNotes: planData.weather_notes || '',
+      morningNotes: planData.morning_notes || '',
+      closingNotes: planData.closing_notes || '',
+      salesGoal: planData.sales_goal,
+      targetSph: planData.target_sph,
+      targetIpc: planData.target_ipc,
+      inheritedFromDate: planData.inherited_from_date,
+      isPublished: planData.is_published,
+      publishedAt: planData.published_at,
+      published: planData.is_published, // Legacy field name
+      assignments
+    };
+    
+    res.json(gameplan);
+  } catch (error) {
+    console.error('[GAMEPLAN] Error fetching plan for date:', date, error);
+    
+    // Fallback to JSON file if database query fails
+    const gameplanFile = path.join(GAMEPLAN_DIR, `${date}.json`);
+    const gameplan = readJsonFile(gameplanFile, null);
+    
+    if (!gameplan) {
+      return res.status(404).json({ error: 'No gameplan found for this date' });
+    }
+    
+    res.json(gameplan);
   }
-  
-  res.json(gameplan);
 });
 
 // POST /api/gameplan/import-shifts - upload a shift CSV and prepopulate future drafts
@@ -2832,6 +2901,7 @@ router.get('/daily-scan/results', async (req, res) => {
         ds.scan_status,
         ds.completed_by_other
        FROM daily_scan_results ds
+       INNER JOIN users u ON LOWER(ds.counted_by) = LOWER(u.email) AND u.is_active = true
        WHERE ds.scan_date >= $1
        ORDER BY ds.scan_date DESC`,
       [startDate.toISOString().split('T')[0]]
@@ -2856,17 +2926,30 @@ router.get('/daily-scan/performance', async (req, res) => {
     startDate.setDate(startDate.getDate() - days);
 
     const result = await pgPool.query(
-      `SELECT 
-        counted_by,
+      `WITH normalized_scans AS (
+        SELECT 
+          ds.*,
+          u.email as user_email,
+          u.name as user_name
+        FROM daily_scan_results ds
+        INNER JOIN users u ON (
+          LOWER(ds.counted_by) = LOWER(u.email) OR
+          LOWER(ds.counted_by) = LOWER(u.name)
+        ) AND u.is_active = true
+        WHERE ds.scan_date >= $1 
+          AND ds.status = 'COMPLETED'
+          AND ds.expected_units > 1000
+      )
+      SELECT 
+        user_email as counted_by,
         COUNT(*) as total_scans,
         AVG((counted_units::FLOAT / NULLIF(expected_units, 0)) * 100) as avg_accuracy,
         SUM(missed_units_available + missed_units_reserved) as total_missed,
         SUM(new_units) as total_new,
         SUM(undecodable_units) as total_undecodable
-       FROM daily_scan_results
-       WHERE scan_date >= $1 AND status = 'COMPLETED'
-       GROUP BY counted_by
-       ORDER BY avg_accuracy DESC`,
+      FROM normalized_scans
+      GROUP BY user_email
+      ORDER BY avg_accuracy DESC`,
       [startDate.toISOString().split('T')[0]]
     );
 

@@ -1,6 +1,6 @@
 # Daily Operations Dashboard
 
-A comprehensive Progressive Web Application for managing retail operations, including game plans, shipments, employee scheduling, radio communications, task management, and real-time email processing.
+A comprehensive Progressive Web Application for managing retail operations, including game plans, shipments, employee scheduling, task management, and real-time email processing.
 
 **Current Status:** Production (Single Store) | **Technology:** Node.js, PostgreSQL, MCP Servers, Gmail API, Real-time Updates
 
@@ -15,9 +15,8 @@ A comprehensive Progressive Web Application for managing retail operations, incl
 - **Closing Duties** - Automated end-of-day task management and checklists
 
 ### Real-time Communications
-- **Radio System** - Integrated radio communications with MCP server and live monitoring
 - **Gmail Push Notifications** - Real-time email processing using Google Cloud Pub/Sub (Jan 2026)
-- **WebSocket Updates** - Live data synchronization across all connected clients
+- **SSE Updates** - Live data synchronization across all connected clients
 
 ### Mobile & PWA
 - **Mobile-First Design** - Optimized for iOS, Android, and desktop
@@ -26,7 +25,7 @@ A comprehensive Progressive Web Application for managing retail operations, incl
 - **Smart Network Detection** - Auto-switches between WiFi (fast) and Tailscale (secure) (Jan 2026)
 
 ### Integrations
-- **MCP Integration** - Model Context Protocol servers for inventory, shipments, and radio operations
+- **MCP Integration** - Model Context Protocol servers for inventory and shipments
 - **Gmail API** - OAuth 2.0 with automatic watch renewal for real-time email notifications
 - **UPS API** - Automated shipment tracking and status updates
 - **Looker Data** - Automated sales data extraction from email reports with intelligent deduplication (Jan 2026)
@@ -34,7 +33,7 @@ A comprehensive Progressive Web Application for managing retail operations, incl
 ## 📊 Business Impact
 
 **Current Deployment:** Single store production system  
-**Technology Stack:** Node.js 18+, PostgreSQL 15, Redis, MCP servers, Gmail API, WebSockets  
+**Technology Stack:** Node.js 18+, PostgreSQL 15, Redis, MCP servers, Gmail API, SSE  
 **Performance:** < 200ms response times, real-time data processing, 100x faster on local WiFi  
 **App Name:** Daily Operations (formerly Stockroom Dashboard)
 
@@ -115,10 +114,10 @@ See `legacy-docs/` folder for historical migration guides, completed feature pla
 
 ```
 stockroom-dashboard/
-├── routes/          # API endpoints (auth, gameplan, shipments, radio, etc.)
+├── routes/          # API endpoints (auth, gameplan, shipments, etc.)
 ├── middleware/      # Request processing (authentication, validation)
 ├── utils/           # Shared utilities (database, email, APIs, MCP clients)
-├── mcp-servers/     # Model Context Protocol servers (inventory, shipments, radio)
+├── mcp-servers/     # Model Context Protocol servers (inventory, shipments)
 ├── public/          # Static assets (HTML, CSS, JS, images)
 ├── models/          # Data models and schemas
 ├── scripts/         # Utility scripts and migrations
@@ -186,7 +185,7 @@ See [Database Schema](docs/POSTGRESQL_MIGRATION_PLAN.md) for details.
 ### Key Components
 - **Authentication System:** Session-based with role permissions
 - **Email Processing:** Automated Looker report ingestion
-- **MCP Servers:** Inventory, shipments, and radio management
+- **MCP Servers:** Inventory and shipments management
 - **Real-time Updates:** WebSocket synchronization
 - **Mobile Support:** PWA with offline capabilities
 
@@ -286,7 +285,7 @@ See [DEPLOYMENT.md > Troubleshooting](docs/DEPLOYMENT.md#troubleshooting) for mo
 
 ### ✅ Completed (2025-2026)
 - [x] PostgreSQL migration from JSON files
-- [x] MCP server integration (inventory, shipments, radio)
+- [x] MCP server integration (inventory, shipments)
 - [x] Automated email processing (Looker reports)
 - [x] Real-time WebSocket updates
 - [x] Mobile PWA implementation

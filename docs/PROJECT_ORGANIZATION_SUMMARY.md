@@ -76,7 +76,6 @@ Daily Operations
 ├── Operations Metrics
 ├── Awards
 ├── Employee Discount
-├── Radio Transcripts
 ├── Shipments
 ├── BOH Shipments ⭐ NEW
 ├── Printer Manager ⭐ NEW

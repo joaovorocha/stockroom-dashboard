@@ -28,7 +28,7 @@ const authMiddleware = async (req, res, next) => {
       const devEmail = process.env.DEV_AUTH_USER_EMAIL || req.get('x-dev-user');
       if (devEmail) {
         try {
-          const r = await query('SELECT id, employee_id, name, email, role, image_url, is_manager, is_admin, can_edit_gameplan, can_config_radio, can_manage_lost_punch, must_change_password FROM users WHERE email = $1 LIMIT 1', [devEmail]);
+          const r = await query('SELECT id, employee_id, name, email, role, image_url, is_manager, is_admin, can_edit_gameplan, can_manage_lost_punch, must_change_password FROM users WHERE email = $1 LIMIT 1', [devEmail]);
           if (r.rows && r.rows.length > 0) {
             const user = r.rows[0];
             req.user = {
@@ -78,7 +78,7 @@ const authMiddleware = async (req, res, next) => {
       SELECT 
         id, employee_id, name, email, role, 
         image_url, is_manager, is_admin, can_edit_gameplan,
-        can_config_radio, can_manage_lost_punch, must_change_password
+        can_manage_lost_punch, must_change_password
       FROM users 
       WHERE id = $1 AND is_active = true
       LIMIT 1
