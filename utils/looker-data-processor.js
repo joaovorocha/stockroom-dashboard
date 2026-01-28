@@ -12,7 +12,13 @@ const path = require('path');
 const pdfParse = require('pdf-parse');
 
 const { getDataDir, getFilesDir } = require('./paths');
-const { parseEmailSubject, isMultiStoreCSV } = require('./multi-store-parser');
+const { 
+  parseEmailSubject, 
+  isMultiStoreCSV, 
+  extractStoreCodeFromLocation, 
+  getStoreIdByCode, 
+  getAllStoreIds 
+} = require('./multi-store-parser');
 
 const DATA_DIR = getDataDir();
 const FILES_DIR = getFilesDir();
@@ -600,6 +606,83 @@ class LookerDataProcessor {
       this.errors.push(`CSV read error: ${filePath}`);
     }
     return [];
+  }
+
+  // Get default store ID (San Francisco for backward compatibility)
+  async getDefaultStoreId() {
+    return await getStoreIdByCode('SF') || 1;
+  }
+
+  // Determine store ID based on email context
+  async determineStoreId(storeCode = null) {
+    // If storeCode provided, use it
+    if (storeCode) {
+      return await getStoreIdByCode(storeCode);
+    }
+    
+    // Check email context
+    if (this.emailInfo) {
+      if (this.emailInfo.storeCode) {
+        return await getStoreIdByCode(this.emailInfo.storeCode);
+      }
+    }
+    
+    // Default to SF for backward compatibility
+    return await this.getDefaultStoreId();
+  }
+
+  /**
+   * Process multi-store CSV data - groups rows by store
+   * @param {Array} csvData - Parsed CSV data
+   * @param {string} locationColumnName - Name of column containing store location
+   * @returns {Promise<Object>} Object with store_id as keys, rows as values
+   */
+  async processMultiStoreCSV(csvData, locationColumnName = 'Location Name') {
+    const storeData = {};
+    
+    for (const row of csvData) {
+      const locationName = row[locationColumnName];
+      if (!locationName) continue;
+      
+      // Extract store code from location name
+      const storeCode = extractStoreCodeFromLocation(locationName);
+      if (!storeCode) {
+        console.warn(`Could not map location to store: ${locationName}`);
+        continue;
+      }
+      
+      // Get store ID from database
+      const storeId = await getStoreIdByCode(storeCode);
+      if (!storeId) {
+        console.warn(`Store ID not found for code: ${storeCode}`);
+        continue;
+      }
+      
+      // Group rows by store ID
+      if (!storeData[storeId]) {
+        storeData[storeId] = [];
+      }
+      storeData[storeId].push(row);
+    }
+    
+    return storeData;
+  }
+
+  /**
+   * Replicate single-value data to all stores
+   * Used when CSV has one value but email is marked (ALL)
+   * @param {Object} data - Data object to replicate
+   * @returns {Promise<Object>} Object with store_id as keys
+   */
+  async replicatToAllStores(data) {
+    const storeIds = await getAllStoreIds();
+    const replicatedData = {};
+    
+    for (const storeId of storeIds) {
+      replicatedData[storeId] = { ...data };
+    }
+    
+    return replicatedData;
   }
 
   // Parse amount strings like "185.5K", "$1,234", etc.

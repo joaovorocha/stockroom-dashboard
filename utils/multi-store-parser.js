@@ -142,7 +142,7 @@ async function getStoreIdByCode(storeCode) {
   try {
     const { query } = require('./dal/pg');
     const result = await query(
-      'SELECT id FROM stores WHERE store_code = $1 AND active = true',
+      'SELECT id FROM stores WHERE code = $1 AND is_active = true',
       [storeCode.toUpperCase()]
     );
     return result.rows[0]?.id || null;
@@ -160,7 +160,7 @@ async function getAllStoreIds() {
   try {
     const { query } = require('./dal/pg');
     const result = await query(
-      'SELECT id FROM stores WHERE active = true ORDER BY id'
+      'SELECT id FROM stores WHERE is_active = true ORDER BY id'
     );
     return result.rows.map(r => r.id);
   } catch (error) {
