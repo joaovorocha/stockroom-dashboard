@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../api';
 
 const Header = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, activeStore, storeAccessRole } = useAuth();
   const location = useLocation();
   const [currentDate, setCurrentDate] = useState('');
   const [shipmentsBadge, setShipmentsBadge] = useState(0);
@@ -47,7 +47,9 @@ const Header = () => {
     '/closing-duties': '✅',
     '/time-off': '🗓️',
     '/ops-dashboard': '📈',
-    '/admin-users': '🔐'
+    '/admin-users': '🔐',
+    '/store': '🏪',
+    '/admin': '⚙️'
   };
 
   const navItems = [
@@ -61,8 +63,13 @@ const Header = () => {
     { href: '/closing-duties', label: 'Closing Duties' },
     { href: '/time-off', label: 'Time Off' },
     { href: '/ops-dashboard', label: 'Looker Dashboards' },
-    { href: '/admin-users', label: 'Admin', adminOnly: true }
+    { href: '/admin-users', label: 'Admin', adminOnly: true },
+    { href: '/store', label: 'Store Admin', storeAdminOnly: true },
+    { href: '/admin', label: 'Super Admin', superAdminOnly: true }
   ];
+
+  // Check if user has store admin access
+  const hasStoreAdminAccess = user?.isSuperAdmin || ['admin', 'manager'].includes(storeAccessRole);
 
   // Get page title
   const getPageTitle = () => {
@@ -148,6 +155,14 @@ const Header = () => {
             if (item.adminOnly && user?.role !== 'MGMT' && !user?.isAdmin) {
               return null;
             }
+            // Hide store admin items unless user has access
+            if (item.storeAdminOnly && !hasStoreAdminAccess) {
+              return null;
+            }
+            // Hide super admin items unless user is super admin
+            if (item.superAdminOnly && !user?.isSuperAdmin) {
+              return null;
+            }
 
             return (
               <Link
@@ -201,6 +216,12 @@ const Header = () => {
             <div className="mobile-menu-items">
               {navItems.map((item) => {
                 if (item.adminOnly && user?.role !== 'MGMT' && !user?.isAdmin) {
+                  return null;
+                }
+                if (item.storeAdminOnly && !hasStoreAdminAccess) {
+                  return null;
+                }
+                if (item.superAdminOnly && !user?.isSuperAdmin) {
                   return null;
                 }
                 return (
