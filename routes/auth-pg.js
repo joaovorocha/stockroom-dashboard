@@ -23,6 +23,12 @@ const {
   setActiveStore,
   userHasStoreAccess 
 } = require('../middleware/storeAccess');
+const { 
+  loginRateLimiter, 
+  trackFailedLogin, 
+  clearFailedAttempts, 
+  isEmailBlocked 
+} = require('../middleware/rateLimit');
 
 // Helper to get real IP address (handles proxies and load balancers)
 function getRealIpAddress(req) {
@@ -276,8 +282,8 @@ async function getVerifiedSessionUser(req) {
 // ===================================
 
 // POST /api/auth/login
-// Enhanced with store selection support
-router.post('/login', async (req, res) => {
+// Enhanced with store selection support + rate limiting
+router.post('/login', loginRateLimiter, async (req, res) => {
   try {
     const { employeeId, password, remember, storeId } = req.body;
     const clientIp = req.ip || req.connection.remoteAddress;
@@ -286,9 +292,21 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Employee ID and password are required' });
     }
 
+    // Check if email/employeeId is blocked due to too many attempts
+    const blockStatus = isEmailBlocked(employeeId);
+    if (blockStatus.blocked) {
+      return res.status(429).json({ 
+        success: false, 
+        error: blockStatus.message,
+        retryAfter: Math.ceil(blockStatus.remainingMs / 1000)
+      });
+    }
+
     // Find user
     const user = await findUserByLogin(employeeId);
     if (!user) {
+      // Track failed attempt
+      await trackFailedLogin(employeeId, clientIp);
       await query(`
         INSERT INTO user_audit_log (user_id, action, changes, ip_address)
         VALUES (NULL, $1, $2, $3)
@@ -298,12 +316,26 @@ router.post('/login', async (req, res) => {
 
     // Verify password
     if (!verifyPassword(password, user.password_hash)) {
+      // Track failed attempt
+      const attemptResult = await trackFailedLogin(employeeId, clientIp);
       await query(`
         INSERT INTO user_audit_log (user_id, action, changes, ip_address)
         VALUES ($1, $2, $3, $4)
-      `, [user.id, 'LOGIN_FAILED_BAD_PASSWORD', JSON.stringify({ employeeId }), clientIp]);
+      `, [user.id, 'LOGIN_FAILED_BAD_PASSWORD', JSON.stringify({ employeeId, attempts: attemptResult.attempts }), clientIp]);
+      
+      // Return warning if close to lockout
+      if (attemptResult.warning) {
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Invalid Employee ID or password',
+          warning: attemptResult.message
+        });
+      }
       return res.status(401).json({ success: false, error: 'Invalid Employee ID or password' });
     }
+
+    // Clear failed attempts on successful login
+    clearFailedAttempts(employeeId);
 
     // Check if first login
     const isFirstLogin = !user.last_login;

@@ -744,7 +744,7 @@ export function AdminNav({ isSuperAdmin }) {
 - [x] Input validation on all settings updates
 - [x] Audit log for admin actions
 - [x] Password requirements enforced
-- [ ] Rate limiting on login attempts (TODO: implement)
+- [x] Rate limiting on login attempts ✅ ADDED
 - [x] SQL injection prevention (parameterized queries)
 - [x] XSS prevention (React escaping)
 

@@ -1,0 +1,46 @@
+# Stockroom Dashboard Cron Jobs
+# Add these to your crontab with: crontab -e
+
+# ==============================================
+# AUDIT LOG MONITORING
+# ==============================================
+
+# Run audit monitoring every hour
+0 * * * * cd /var/www/stockroom-dashboard && /usr/bin/node scripts/audit-monitor.js >> /var/log/stockroom/audit-monitor.log 2>&1
+
+# ==============================================
+# DATABASE BACKUP
+# ==============================================
+
+# Daily database backup at 2 AM
+0 2 * * * pg_dump -U suit stockroom_dashboard | gzip > /var/backups/stockroom/daily_$(date +\%Y\%m\%d).sql.gz
+
+# Weekly full backup on Sunday at 3 AM
+0 3 * * 0 pg_dump -U suit stockroom_dashboard | gzip > /var/backups/stockroom/weekly_$(date +\%Y\%m\%d).sql.gz
+
+# Keep only last 7 daily backups
+0 4 * * * find /var/backups/stockroom -name "daily_*.sql.gz" -mtime +7 -delete
+
+# ==============================================
+# LOG ROTATION
+# ==============================================
+
+# Rotate PM2 logs weekly
+0 0 * * 0 pm2 flush
+
+# ==============================================
+# HEALTH CHECK
+# ==============================================
+
+# Health check every 5 minutes
+*/5 * * * * curl -s http://localhost:3001/api/health > /dev/null || pm2 restart stockroom-dashboard
+
+# ==============================================
+# CLEANUP
+# ==============================================
+
+# Clean old session data monthly
+0 0 1 * * psql -U suit -d stockroom_dashboard -c "DELETE FROM sessions WHERE expires < NOW()"
+
+# Clean old audit logs (keep 90 days)
+0 0 1 * * psql -U suit -d stockroom_dashboard -c "DELETE FROM admin_audit_log WHERE created_at < NOW() - INTERVAL '90 days'"
