@@ -674,7 +674,7 @@ class LookerDataProcessor {
    * @param {Object} data - Data object to replicate
    * @returns {Promise<Object>} Object with store_id as keys
    */
-  async replicatToAllStores(data) {
+  async replicateToAllStores(data) {
     const storeIds = await getAllStoreIds();
     const replicatedData = {};
     
