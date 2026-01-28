@@ -1352,6 +1352,8 @@
                   <th>Time</th>
                   <th>User</th>
                   <th>Action</th>
+                  <th>IP Address</th>
+                  <th>Region</th>
                   <th>Details</th>
                 </tr>
               </thead>
@@ -1924,14 +1926,25 @@
 
     function renderActivity(logs) {
       const tbody = document.getElementById('activityTableBody');
-      tbody.innerHTML = logs.map(log => `
+      tbody.innerHTML = logs.map(log => {
+        const timestamp = log.createdAt ? new Date(log.createdAt).toLocaleString() : 'Unknown';
+        const userName = log.userName || 'Unknown';
+        const action = (log.action || '').replace(/_/g, ' ');
+        const ip = log.ipAddress || 'N/A';
+        const region = log.region || 'Unknown';
+        const details = log.changes ? (typeof log.changes === 'string' ? log.changes : JSON.stringify(log.changes, null, 2)) : '{}';
+        
+        return `
         <tr>
-          <td>${new Date(log.timestamp).toLocaleString()}</td>
-          <td>${log.userName}</td>
-          <td>${log.action.replace(/_/g, ' ')}</td>
-          <td><code>${JSON.stringify(log.details)}</code></td>
+          <td style="white-space: nowrap;">${timestamp}</td>
+          <td><strong>${userName}</strong></td>
+          <td>${action}</td>
+          <td style="font-family: monospace; font-size: 12px;">${ip}</td>
+          <td>${region}</td>
+          <td><code style="font-size: 11px; max-width: 300px; display: block; overflow: auto;">${details}</code></td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     }
 
     // Settings actions

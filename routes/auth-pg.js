@@ -17,6 +17,15 @@ const { query, getClient } = require('../utils/dal/pg');
 const { sendPasswordResetEmail, getAppBaseUrl: getAppBaseUrlFromMailer } = require('../utils/mailer');
 const { compressUploadedImages } = require('../utils/image-compressor');
 
+// Helper to get real IP address (handles proxies and load balancers)
+function getRealIpAddress(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+         req.headers['x-real-ip'] ||
+         req.ip ||
+         req.connection?.remoteAddress ||
+         'unknown';
+}
+
 // Constants
 const UPLOAD_DIR = path.join(__dirname, '../public/user-uploads');
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -180,14 +189,30 @@ async function getUserFromSession(sessionToken) {
 
 // Log audit
 async function logUserAudit(userId, action, changes = {}, req) {
+  const ipAddress = getRealIpAddress(req);
+  
+  // Simple region detection based on IP
+  let region = 'Unknown';
+  if (ipAddress && ipAddress !== 'unknown') {
+    // Check if it's a local/private IP
+    if (ipAddress === '::1' || ipAddress === '127.0.0.1' || ipAddress.startsWith('192.168.') || ipAddress.startsWith('10.') || ipAddress.startsWith('172.')) {
+      region = 'Local Network';
+    } else {
+      // For production, you could use a geolocation service here
+      // For now, we'll mark external IPs as "External"
+      region = 'External';
+    }
+  }
+  
   await query(`
-    INSERT INTO user_audit_log (user_id, action, changes, ip_address)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO user_audit_log (user_id, action, changes, ip_address, region)
+    VALUES ($1, $2, $3, $4, $5)
   `, [
     userId,
     action,
     JSON.stringify(changes),
-    req.ip || req.connection?.remoteAddress
+    ipAddress,
+    region
   ]);
 }
 
@@ -899,7 +924,7 @@ router.get('/activity', async (req, res) => {
 
     const result = await query(`
       SELECT 
-        a.id, a.user_id, a.action, a.changes, a.ip_address, a.created_at,
+        a.id, a.user_id, a.action, a.changes, a.ip_address, a.region, a.created_at,
         u.name as user_name, u.employee_id
       FROM user_audit_log a
       LEFT JOIN users u ON a.user_id = u.id
@@ -915,6 +940,7 @@ router.get('/activity', async (req, res) => {
       action: log.action,
       changes: log.changes,
       ipAddress: log.ip_address,
+      region: log.region,
       createdAt: log.created_at
     }));
 
