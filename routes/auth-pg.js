@@ -2,6 +2,7 @@
  * Auth Routes - Redis Session Version
  * SECURITY PATCH: CRITICAL-01 - Migrated to Redis sessions
  * SECURITY PATCH: CRITICAL-02 - Added role guards
+ * PHASE 2: Multi-Store Login - Store selection support
  */
 
 const express = require('express');
@@ -16,6 +17,12 @@ const fs = require('fs');
 const { query, getClient } = require('../utils/dal/pg');
 const { sendPasswordResetEmail, getAppBaseUrl: getAppBaseUrlFromMailer } = require('../utils/mailer');
 const { compressUploadedImages } = require('../utils/image-compressor');
+const { 
+  getUserAccessibleStores, 
+  getUserStorePermissions, 
+  setActiveStore,
+  userHasStoreAccess 
+} = require('../middleware/storeAccess');
 
 // Helper to get real IP address (handles proxies and load balancers)
 function getRealIpAddress(req) {
@@ -216,24 +223,37 @@ async function logUserAudit(userId, action, changes = {}, req) {
   ]);
 }
 
-// Format user for response
-function formatUserResponse(user) {
+// Format user for response (enhanced with store info)
+function formatUserResponse(user, storePermissions = null) {
   const needsProfileCompletion = !String(user.email || '').trim();
   
-  return {
+  const response = {
     userId: user.id,
     employeeId: user.employee_id,
     name: user.name,
     email: user.email || '',
     role: user.role,
+    jobRole: user.job_role,
+    accessRole: user.access_role,
     imageUrl: user.image_url,
     isManager: user.is_manager,
     isAdmin: user.is_admin,
+    isSuperAdmin: user.is_super_admin || false,
     canEditGameplan: user.can_edit_gameplan,
     canManageLostPunch: user.can_manage_lost_punch,
     needsProfileCompletion,
     mustChangePassword: user.must_change_password
   };
+
+  // Add store permissions if provided
+  if (storePermissions) {
+    response.canSwitchStores = storePermissions.canSwitchStores;
+    response.defaultStoreId = storePermissions.defaultStoreId;
+    response.defaultStoreName = storePermissions.defaultStoreName;
+    response.accessibleStores = storePermissions.accessibleStores;
+  }
+
+  return response;
 }
 
 // Get verified session user (Redis version)
@@ -256,9 +276,10 @@ async function getVerifiedSessionUser(req) {
 // ===================================
 
 // POST /api/auth/login
+// Enhanced with store selection support
 router.post('/login', async (req, res) => {
   try {
-    const { employeeId, password, remember } = req.body;
+    const { employeeId, password, remember, storeId } = req.body;
     const clientIp = req.ip || req.connection.remoteAddress;
 
     if (!employeeId || !password) {
@@ -290,23 +311,71 @@ router.post('/login', async (req, res) => {
     // Force password change on first login or if flag is set
     const mustChangePassword = user.must_change_password || isFirstLogin;
 
+    // Get user's store permissions
+    const storePermissions = await getUserStorePermissions(user.id);
+
+    // Determine which store to activate
+    let activeStore = null;
+    let activeStoreId = null;
+
+    if (storeId) {
+      // User specified a store - verify they have access
+      const hasAccess = await userHasStoreAccess(user.id, parseInt(storeId));
+      if (!hasAccess) {
+        return res.status(403).json({ 
+          success: false, 
+          error: 'You do not have access to the selected store' 
+        });
+      }
+      activeStoreId = parseInt(storeId);
+    } else if (user.last_store_id) {
+      // Use last accessed store
+      activeStoreId = user.last_store_id;
+    } else if (user.default_store_id) {
+      // Use default store
+      activeStoreId = user.default_store_id;
+    } else if (storePermissions?.accessibleStores?.length > 0) {
+      // Use first accessible store
+      activeStoreId = storePermissions.accessibleStores[0].store_id;
+    }
+
     // Update last login
     await query('UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE id = $1', [user.id]);
 
-    // Log audit
-    await logUserAudit(user.id, 'LOGIN_SUCCESS', { role: user.role }, req);
+    // Log audit with store info
+    await logUserAudit(user.id, 'LOGIN_SUCCESS', { 
+      role: user.access_role, 
+      storeId: activeStoreId,
+      isSuperAdmin: user.is_super_admin
+    }, req);
 
-    // Create Redis session
+    // Create Redis session with store context
     const maxAge = remember ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
     await createRedisSession(req, user.id, maxAge);
 
-    // Return user data
-    const userData = formatUserResponse(user);
+    // Set active store in session
+    if (activeStoreId && req.session) {
+      req.session.activeStoreId = activeStoreId;
+      
+      // Update user's last_store_id
+      await query('UPDATE users SET last_store_id = $1 WHERE id = $2', [activeStoreId, user.id]);
+      
+      // Get active store details
+      const storeResult = await query('SELECT id, name, code FROM stores WHERE id = $1', [activeStoreId]);
+      activeStore = storeResult.rows[0] || null;
+    }
+
+    // Return user data with store info
+    const userData = formatUserResponse(user, storePermissions);
     userData.mustChangePassword = mustChangePassword;
+    userData.activeStore = activeStore;
+    userData.requiresStoreSelection = !activeStoreId && storePermissions?.accessibleStores?.length > 1;
 
     return res.json({
       success: true,
-      user: userData
+      user: userData,
+      activeStore,
+      stores: storePermissions?.accessibleStores || []
     });
 
   } catch (error) {
@@ -345,6 +414,122 @@ router.post('/logout', async (req, res) => {
     console.error('Logout error:', error);
     res.clearCookie('userSession', getUserSessionCookieOptions(req));
     return res.json({ success: true });
+  }
+});
+
+// ===================================
+// STORE SELECTION ROUTES (Phase 2)
+// ===================================
+
+// GET /api/auth/accessible-stores - Get stores user can access
+router.get('/accessible-stores', async (req, res) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const stores = await getUserAccessibleStores(req.session.userId);
+    const permissions = await getUserStorePermissions(req.session.userId);
+
+    return res.json({
+      success: true,
+      stores,
+      canSwitchStores: permissions?.canSwitchStores || false,
+      isSuperAdmin: permissions?.isSuperAdmin || false,
+      defaultStoreId: permissions?.defaultStoreId,
+      activeStoreId: req.session.activeStoreId
+    });
+
+  } catch (error) {
+    console.error('[ACCESSIBLE-STORES] Error:', error);
+    return res.status(500).json({ error: 'Failed to fetch accessible stores' });
+  }
+});
+
+// POST /api/auth/switch-store - Switch active store
+router.post('/switch-store', async (req, res) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { storeId } = req.body;
+    if (!storeId) {
+      return res.status(400).json({ error: 'Store ID is required' });
+    }
+
+    const userId = req.session.userId;
+
+    // Check if user can switch stores
+    const permissions = await getUserStorePermissions(userId);
+    if (!permissions?.canSwitchStores && !permissions?.isSuperAdmin) {
+      return res.status(403).json({ error: 'You are not authorized to switch stores' });
+    }
+
+    // Verify access to the requested store
+    const hasAccess = await userHasStoreAccess(userId, parseInt(storeId));
+    if (!hasAccess) {
+      return res.status(403).json({ error: 'You do not have access to this store' });
+    }
+
+    // Set active store
+    const activeStore = await setActiveStore(req, parseInt(storeId));
+
+    // Log the switch
+    await logUserAudit(userId, 'STORE_SWITCH', { 
+      fromStoreId: req.session.activeStoreId,
+      toStoreId: parseInt(storeId)
+    }, req);
+
+    return res.json({
+      success: true,
+      activeStore,
+      message: `Switched to ${activeStore?.name || 'store'}`
+    });
+
+  } catch (error) {
+    console.error('[SWITCH-STORE] Error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to switch store' });
+  }
+});
+
+// GET /api/auth/session - Get current session info including store context
+router.get('/session', async (req, res) => {
+  try {
+    if (!req.session || !req.session.userId) {
+      return res.json({ authenticated: false });
+    }
+
+    const userId = req.session.userId;
+
+    // Get user
+    const userResult = await query('SELECT * FROM users WHERE id = $1 AND is_active = true', [userId]);
+    if (userResult.rows.length === 0) {
+      await destroySession(req);
+      return res.json({ authenticated: false });
+    }
+
+    const user = userResult.rows[0];
+    const storePermissions = await getUserStorePermissions(userId);
+
+    // Get active store details
+    let activeStore = null;
+    if (req.session.activeStoreId) {
+      const storeResult = await query('SELECT id, name, code FROM stores WHERE id = $1', [req.session.activeStoreId]);
+      activeStore = storeResult.rows[0] || null;
+    }
+
+    return res.json({
+      authenticated: true,
+      user: formatUserResponse(user, storePermissions),
+      activeStore,
+      activeStoreId: req.session.activeStoreId,
+      stores: storePermissions?.accessibleStores || []
+    });
+
+  } catch (error) {
+    console.error('[SESSION] Error:', error);
+    return res.status(500).json({ error: 'Failed to get session info' });
   }
 });
 
