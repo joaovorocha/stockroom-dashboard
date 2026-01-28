@@ -270,7 +270,12 @@ class GmailLookerFetcher {
       }
     }
 
-    return savedFiles;
+    // Return both files and email subject for multi-store processing
+    return {
+      files: savedFiles,
+      subject: email.subject || '',
+      date: email.date || new Date().toISOString()
+    };
   }
 
   // Extract CSV files from a ZIP attachment
@@ -371,9 +376,18 @@ class GmailLookerFetcher {
           }
 
           // Process attachments
-          const savedFiles = await this.processAttachments(email);
+          const attachmentResults = await this.processAttachments(email);
+          const savedFiles = attachmentResults.files || [];
           results.filesExtracted.push(...savedFiles);
           results.emailsProcessed++;
+          
+          // Store email subject for multi-store processing
+          if (!results.emailSubjects) results.emailSubjects = [];
+          results.emailSubjects.push({
+            subject: attachmentResults.subject,
+            date: attachmentResults.date,
+            filesCount: savedFiles.length
+          });
           
           // Mark for deletion if we extracted files
           if (savedFiles.length > 0 && deleteAfterProcess) {

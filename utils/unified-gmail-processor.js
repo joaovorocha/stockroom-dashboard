@@ -466,10 +466,20 @@ class UnifiedGmailProcessor {
 
         // Extract attachments from Looker emails
         const extractedFiles = [];
+        let lookerEmailMetadata = [];
         for (const email of deduplicatedEmails) {
           try {
-            const files = await lookerFetcher.processAttachments(email);
+            const attachmentResults = await lookerFetcher.processAttachments(email);
+            const files = attachmentResults.files || [];
             extractedFiles.push(...files);
+            
+            // Store email metadata for multi-store processing
+            if (!lookerEmailMetadata) lookerEmailMetadata = [];
+            lookerEmailMetadata.push({
+              subject: attachmentResults.subject,
+              date: attachmentResults.date,
+              filesCount: files.length
+            });
           } catch (err) {
             this.log('Error extracting Looker attachments:', err.message);
             results.errors.push(`Looker extraction: ${err.message}`);
@@ -477,11 +487,12 @@ class UnifiedGmailProcessor {
         }
 
         if (extractedFiles.length > 0) {
-          // Process the extracted files
+          // Process the extracted files with email subject for multi-store detection
           const processor = new LookerDataProcessor();
           results.lookerResults = await processor.processAll({
             syncBy: 'unified-processor',
             emailDate: new Date().toISOString(),
+            emailSubject: lookerEmailMetadata && lookerEmailMetadata.length > 0 ? lookerEmailMetadata[0].subject : null,
             importStats: {
               recordsImported: extractedFiles.length,
               files: extractedFiles

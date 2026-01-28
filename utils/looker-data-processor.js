@@ -12,6 +12,7 @@ const path = require('path');
 const pdfParse = require('pdf-parse');
 
 const { getDataDir, getFilesDir } = require('./paths');
+const { parseEmailSubject, isMultiStoreCSV } = require('./multi-store-parser');
 
 const DATA_DIR = getDataDir();
 const FILES_DIR = getFilesDir();
@@ -36,6 +37,7 @@ class LookerDataProcessor {
   constructor() {
     this.errors = [];
     this.processedFiles = [];
+    this.emailInfo = null; // Will be set in processAll() for multi-store detection
   }
 
   // Get today's date string
@@ -1954,12 +1956,32 @@ class LookerDataProcessor {
   async processAll(options = {}) {
     console.log('=== Looker Data Processor ===');
     console.log(`Date: ${this.getTodayDate()}`);
+    
+    // Parse email subject for multi-store detection
+    const emailSubject = options.emailSubject || '';
+    const emailInfo = parseEmailSubject(emailSubject);
+    
+    if (emailInfo.isAllStores) {
+      console.log('🌐 MULTI-STORE EMAIL DETECTED');
+      console.log(`Subject: "${emailSubject}"`);
+      console.log('Will process data for ALL stores');
+    } else if (emailInfo.storeName) {
+      console.log(`🏪 Single-store email: ${emailInfo.storeName} (${emailInfo.storeCode})`);
+    } else {
+      console.log('📧 Email subject not provided - defaulting to San Francisco (backward compatible)');
+    }
     console.log('');
+
+    // Store email info for use by other methods
+    this.emailInfo = emailInfo;
 
     const results = {
       success: false,
       date: this.getTodayDate(),
       processedAt: new Date().toISOString(),
+      emailSubject: emailSubject,
+      isMultiStore: emailInfo.isAllStores,
+      storeCode: emailInfo.storeCode || 'SF', // Default to SF for backward compatibility
       storeMetrics: null,
       appointments: null,
       employeeMetrics: null,
