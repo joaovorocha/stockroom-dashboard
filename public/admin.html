@@ -1446,24 +1446,6 @@
 	      const isAdminEl = document.getElementById('userIsAdmin');
 	      const row = document.getElementById('userCanEditGameplanRow');
 	      const canEditEl = document.getElementById('userCanEditGameplan');
-	      const radioRow = document.getElementById('userCanConfigRadioRow');
-	      const radioEl = document.getElementById('userCanConfigRadio');
-	      const lostRow = document.getElementById('userCanManageLostPunchRow');
-	      const lostEl = document.getElementById('userCanManageLostPunch');
-	      if (!isManagerEl || !isAdminEl || !row || !canEditEl) return;
-
-	      const isManagerLike = !!isManagerEl.checked || !!isAdminEl.checked;
-
-	      row.style.display = isManagerLike ? 'none' : 'block';
-	      canEditEl.disabled = isManagerLike;
-	      if (isManagerLike) canEditEl.checked = false;
-
-	      // Managers/admins already have these abilities; only show toggles for non-managers.
-	      if (radioRow && radioEl) {
-	        radioRow.style.display = isManagerLike ? 'none' : 'block';
-	        radioEl.disabled = isManagerLike;
-	        if (isManagerLike) radioEl.checked = false;
-	      }
 	      if (lostRow && lostEl) {
 	        lostRow.style.display = isManagerLike ? 'none' : 'block';
 	        lostEl.disabled = isManagerLike;
@@ -1503,7 +1485,6 @@
 		        imageUrl: photoMode === 'url' ? document.getElementById('userPhotoUrl').value : '',
 		        isManager: document.getElementById('userIsManager').checked,
 		        canEditGameplan: document.getElementById('userCanEditGameplan').checked,
-		        canConfigRadio: document.getElementById('userCanConfigRadio').checked,
 		        canManageLostPunch: document.getElementById('userCanManageLostPunch').checked,
 		        isAdmin: document.getElementById('userIsAdmin').checked
 		      };
@@ -1631,11 +1612,7 @@
       }
 
       window.addEventListener('hashchange', activateTabFromHash);
-      // Initial hash navigation (supports redirects like /admin#radio)
       window.setTimeout(activateTabFromHash, 0);
-
-        if (radioAdmin?.draft) discardRadioDraftBestEffort();
-      });
 
       // --- Health ---
       let healthTimer = null;
