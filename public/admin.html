@@ -811,10 +811,6 @@
 	          <input type="checkbox" id="userCanEditGameplan">
 	          <label for="userCanEditGameplan">Can Edit Game Plan (without being a manager)</label>
 	        </div>
-	        <div class="checkbox-group" id="userCanConfigRadioRow">
-	          <input type="checkbox" id="userCanConfigRadio">
-	          <label for="userCanConfigRadio">Can Configure Radio</label>
-	        </div>
 	        <div class="checkbox-group" id="userCanManageLostPunchRow">
 	          <input type="checkbox" id="userCanManageLostPunch">
 	          <label for="userCanManageLostPunch">Can Manage Lost Punch</label>
@@ -1371,7 +1367,6 @@
       setPhotoMode('url');
 	      document.getElementById('userIsManager').checked = false;
 	      document.getElementById('userCanEditGameplan').checked = false;
-	      document.getElementById('userCanConfigRadio').checked = false;
 	      document.getElementById('userCanManageLostPunch').checked = false;
 	      document.getElementById('userIsAdmin').checked = false;
 	      syncCanEditGameplanVisibility();
@@ -1397,7 +1392,6 @@
       setPhotoMode('url');
 	      document.getElementById('userIsManager').checked = user.isManager || false;
 	      document.getElementById('userCanEditGameplan').checked = user.canEditGameplan || false;
-	      document.getElementById('userCanConfigRadio').checked = user.canConfigRadio || false;
 	      document.getElementById('userCanManageLostPunch').checked = user.canManageLostPunch || false;
 	      document.getElementById('userIsAdmin').checked = user.isAdmin || false;
 	      syncCanEditGameplanVisibility();
