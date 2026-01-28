@@ -372,7 +372,6 @@
 	                  <th class="sortable" data-sort-key="role">Role <span class="sort-indicator" aria-hidden="true"></span></th>
 	                  <th class="sortable" data-sort-key="manager">Manager <span class="sort-indicator" aria-hidden="true"></span></th>
 	                  <th class="sortable" data-sort-key="gameplan">Game Plan <span class="sort-indicator" aria-hidden="true"></span></th>
-	                  <th class="sortable" data-sort-key="admin">Admin <span class="sort-indicator" aria-hidden="true"></span></th>
 	                  <th class="sortable" data-sort-key="lastLogin">Last Login <span class="sort-indicator" aria-hidden="true"></span></th>
 	                  <th>Actions</th>
 	                </tr>
@@ -912,7 +911,6 @@
 
 		      const getRole = (u) => (u?.role || '').toString().toUpperCase();
 		      const isManagerLike = (u) => !!(u?.isManager || u?.isAdmin);
-		      const isAdminLike = (u) => !!u?.isAdmin;
 		      const canEditGameplanLike = (u) => !!(u?.canEditGameplan || isManagerLike(u));
 		      const lastLoginMs = (u) => {
 		        const t = Date.parse(u?.lastLogin || '');
@@ -924,7 +922,6 @@
 		        if (key === 'employeeId') return (u?.employeeId || '').toString().toLowerCase();
 		        if (key === 'role') return getRole(u);
 		        if (key === 'manager') return isManagerLike(u) ? 1 : 0;
-		        if (key === 'admin') return isAdminLike(u) ? 1 : 0;
 		        if (key === 'gameplan') return canEditGameplanLike(u) ? 1 : 0;
 		        if (key === 'lastLogin') return lastLoginMs(u);
 		        return '';
@@ -1255,7 +1252,6 @@
 	      const tbody = document.getElementById('usersTableBody');
 	      tbody.innerHTML = users.map(user => {
 	        const managerLike = !!user.isManager || !!user.isAdmin;
-	        const adminLike = !!user.isAdmin;
 	        const gameplanLike = !!user.canEditGameplan || managerLike;
 
 	        return `
@@ -1271,7 +1267,6 @@
 	          <td><span class="badge badge-${user.role.toLowerCase()}">${user.role}</span></td>
 	          <td>${managerLike ? 'Yes' : 'No'}</td>
 	          <td>${gameplanLike ? 'Yes' : 'No'}</td>
-	          <td>${adminLike ? 'Yes' : 'No'}</td>
 	          <td>${user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}</td>
 	          <td>
 	            <button class="btn btn-sm btn-secondary" onclick="editUser('${user.id}')">Edit</button>
