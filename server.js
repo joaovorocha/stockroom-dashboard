@@ -23,6 +23,8 @@ const gameplanRoutes = require('./routes/gameplan');
 const timeoffRoutes = require('./routes/timeoff-pg');
 const feedbackRoutes = require('./routes/feedback-pg');
 const adminRoutes = require('./routes/admin');
+const superAdminRoutes = require('./routes/super-admin'); // Phase 3: Super Admin Panel
+const storeAdminRoutes = require('./routes/store-admin'); // Phase 4: Store Admin Panel
 const awardsRoutes = require('./routes/awards');
 const expensesRoutes = require('./routes/expenses');
 const storeRecoveryRoutes = require('./routes/storeRecovery');
@@ -319,6 +321,8 @@ app.use('/api/timeoff', authMiddleware, timeoffRoutes);
 app.use('/api/feedback', authMiddleware, feedbackRoutes);
 app.use('/api/closing-duties', authMiddleware, closingDutiesRoutes);
 app.use('/api/admin', authMiddleware, adminOnly, adminRoutes);
+app.use('/api/super-admin', authMiddleware, superAdminRoutes); // Phase 3: Super Admin Panel (auth check in routes)
+app.use('/api/store-admin', authMiddleware, storeAdminRoutes); // Phase 4: Store Admin Panel
 app.use('/api/awards', authMiddleware, awardsRoutes);
 app.use('/api/expenses', authMiddleware, expensesRoutes);
 app.use('/api/store-recovery', authMiddleware, storeRecoveryRoutes);

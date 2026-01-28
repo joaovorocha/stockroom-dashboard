@@ -1,5 +1,0 @@
- scan_date  |       counted_by        | expected_units | counted_units |  status   
-------------+-------------------------+----------------+---------------+-----------
- 2026-01-23 | DIraheta@suitsupply.com |           7894 |          7787 | COMPLETED
-(1 row)
-

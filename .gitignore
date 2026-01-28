@@ -91,3 +91,20 @@ IOS_TESTING_CHECKLIST.md
 WAITWHILE_INTEGRATION_SPEC.md
 CLEANUP_SUMMARY.md
 done
+
+# Temporary files and command fragments
+*.txt
+ole.log*
+ql -*
+tockroom*
+cookiejar.txt
+cookies.txt
+f:
+t-*.js
+v.reader*
+
+# Legacy config files (use config/ directory)
+*-config.json
+!package.json
+!package-lock.json
+!tsconfig.json
