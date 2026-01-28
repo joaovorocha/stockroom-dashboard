@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS stores (
   currency VARCHAR(10) DEFAULT 'USD',
   regional_manager VARCHAR(255),
   store_manager VARCHAR(255),
-  active BOOLEAN DEFAULT true,
+  is_active BOOLEAN DEFAULT true,
   settings JSONB DEFAULT '{}',
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS stores (
 
 CREATE INDEX idx_stores_code ON stores(store_code);
 CREATE INDEX idx_stores_region ON stores(region);
-CREATE INDEX idx_stores_active ON stores(active);
+CREATE INDEX idx_stores_active ON stores(is_active);
 CREATE INDEX idx_stores_country ON stores(country);
 CREATE INDEX idx_stores_email ON stores(LOWER(store_email));
 

@@ -76,7 +76,7 @@ SELECT
   'Active Stores' as metric,
   COUNT(*)::text as value
 FROM stores 
-WHERE active = true
+WHERE is_active = true
 
 UNION ALL
 
@@ -106,7 +106,7 @@ SELECT
   city || ', ' || state_province as location,
   country
 FROM stores 
-WHERE region = 'North America' AND active = true
+WHERE region = 'North America' AND is_active = true
 ORDER BY country, state_province, city
 LIMIT 10;
 "
