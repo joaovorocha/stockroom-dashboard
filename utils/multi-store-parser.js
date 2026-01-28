@@ -83,8 +83,13 @@ const STORE_NAME_TO_CODE = {
  * @returns {object} { isAllStores, storeName, storeCode }
  */
 function parseEmailSubject(subject) {
-  if (!subject) {
-    return { isAllStores: true, storeName: null, storeCode: null };
+  if (!subject || subject.trim() === '') {
+    // Backward compatibility: no subject = assume SF (single store)
+    return { 
+      isAllStores: false, 
+      storeName: null, 
+      storeCode: null
+    };
   }
 
   const subjectLower = subject.toLowerCase().trim();
