@@ -100,9 +100,13 @@ GMAIL_PUBSUB_TOPIC=projects/trusty-bearing-484422-t3/topics/gmail-notifications
 - `public/css/app-home.css` - Viewport-based sizing
 - `public/css/mobile.css` - Hide desktop-only on mobile
 - `README.md` - Updated documentation
-- **New:** `GMAIL_PROCESSING_FLOW.md` - Architecture documentation
-- **New:** `LOOKER_OPTIMIZATION.md` - Deduplication strategy
-- **New:** `fix-looker-sync.sh` - Quick reference guide
+- **Reference:** `docs/archived/CHANGES_JAN_22_2026.md` - January optimization details
+- **Reference:** `docs/API.md` - Current API contracts
+- **Reference:** `docs/DEPLOYMENT.md` - Current deployment guide
+
+### Frontend Runtime Mode
+- Production traffic is served from vanilla pages in `public/*.html`
+- React migration app runs from `client/` (Vite dev server) during incremental migration
 
 ---
 
@@ -190,9 +194,9 @@ node utils/gmail-watch-setup.js status
 
 ## 📚 Documentation
 
-- [GMAIL_PROCESSING_FLOW.md](GMAIL_PROCESSING_FLOW.md) - Architecture & flow diagrams
-- [LOOKER_OPTIMIZATION.md](LOOKER_OPTIMIZATION.md) - Deduplication strategy
-- [fix-looker-sync.sh](fix-looker-sync.sh) - Quick troubleshooting guide
+- [docs/archived/CHANGES_JAN_22_2026.md](docs/archived/CHANGES_JAN_22_2026.md) - Gmail and Looker optimization change log
+- [docs/API.md](docs/API.md) - API endpoint reference
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) - Production deployment and operations
 - [README.md](README.md) - Main project documentation
 
 ---

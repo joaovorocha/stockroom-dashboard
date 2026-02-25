@@ -395,7 +395,7 @@ const storeId = await processor.determineStoreId();
 - [Email Processing Guide](./docs/MULTISTORE_EMAIL_PROCESSING.md)
 - [Phase 1 Docs](./docs/MULTISTORE_IMPLEMENTATION_PHASE1.md)
 - [Phase 2 Docs](./docs/MULTISTORE_IMPLEMENTATION_PHASE2.md)
-- [Enterprise Scaling Plan](./ENTERPRISE_SCALING_PLAN.md)
+- [Enterprise Architecture](./docs/ENTERPRISE_ARCHITECTURE.md)
 
 **Run Tests**:
 ```bash

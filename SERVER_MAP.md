@@ -7,6 +7,12 @@
 
 This repo's server entrypoint is `server.js` (Express). Route handlers live in `routes/*.js` (21 route files). Persistent data is stored in PostgreSQL via the DAL in `utils/dal/pg.js`.
 
+## Frontend Modes
+
+- **Vanilla app (production):** `public/*.html` served directly by Express (`server.js`)
+- **React app (migration):** `client/` served by Vite dev server on `:5173` (proxying `/api` to `:3000`)
+- **Shared backend:** both apps use the same API routes under `/api/*`
+
 ## Quick Stats
 
 - **Total API Endpoints:** 58+
@@ -32,7 +38,7 @@ This repo's server entrypoint is `server.js` (Express). Route handlers live in `
 ### Entrypoint
 - `server.js`
   - Starts Express on `PORT` (default `3000`) and binds `0.0.0.0`
-  - Mounts all `/api/*` routers and serves `public/*.html` pages
+  - Mounts all `/api/*` routers and serves vanilla `public/*.html` pages
   - Provides WebSocket updates at various endpoints
 
 ### Static Assets
@@ -44,7 +50,7 @@ This repo's server entrypoint is `server.js` (Express). Route handlers live in `
   - `GET /user-uploads/*` → `data/user-uploads/`
 
 ### Auth Model (high level)
-- Cookie session is handled by `middleware/auth-pg.js` + `routes/auth-pg.js`
+- Cookie session is handled by `middleware/auth-redis.js` + `routes/auth-pg.js`
 - PostgreSQL stores user sessions and authentication data
 - Any direct request for a `.html` file is forced through auth middleware (prevents bypassing routes)
 
@@ -132,7 +138,7 @@ Mounted in `server.js`:
 - `GET /api/admin/backup.zip`
 - `GET /api/admin/export.zip`
 
-### `/api/auth` — `routes/auth.js`
+### `/api/auth` — `routes/auth-pg.js`
 - `POST /api/auth/login`
 - `POST /api/auth/password-reset/request`
 - `POST /api/auth/password-reset/confirm`

@@ -12,7 +12,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [14.x, 16.x, 18.x]
+        node-version: [18.x, 20.x]
     
     steps:
     - name: Checkout code
@@ -66,6 +66,14 @@ jobs:
     
     - name: Build project
       run: npm run build --if-present
+
+    - name: Install client dependencies
+      run: npm ci
+      working-directory: client
+
+    - name: Build React client
+      run: npm run build
+      working-directory: client
     
     - name: Verify server starts
       run: |

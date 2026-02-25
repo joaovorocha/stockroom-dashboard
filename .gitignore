@@ -96,6 +96,7 @@ done
 *.txt
 ole.log*
 ql -*
+client/tart*
 tockroom*
 cookiejar.txt
 cookies.txt

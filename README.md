@@ -4,6 +4,13 @@ A comprehensive Progressive Web Application for managing retail operations, incl
 
 **Current Status:** Production (Single Store) | **Technology:** Node.js, PostgreSQL, MCP Servers, Gmail API, Real-time Updates
 
+## 🧩 Frontend Architecture (Two Apps)
+
+- **Production App (Vanilla):** Served by `server.js` from `public/*.html` on port `3000`
+- **React App (Migration):** Lives in `client/` and runs with Vite on port `5173`
+- **API Backend:** Shared Express API at `/api/*` on port `3000`
+- **Current Strategy:** Incremental migration of vanilla views/components into React
+
 ## 🎯 Key Features
 
 ### Core Operations
@@ -59,6 +66,15 @@ npm start
 # Open http://localhost:3000
 ```
 
+React migration app (optional during migration):
+
+```bash
+cd client
+npm install
+npm run dev
+# Open http://localhost:5173
+```
+
 ### Production
 
 See [Deployment Guide](docs/DEPLOYMENT.md) for full setup instructions.
@@ -75,11 +91,12 @@ pm2 start ecosystem.config.json
 
 ### Active Documentation
 - **[Server Map](SERVER_MAP.md)** - Complete API endpoint reference and route documentation
-- **[Network Optimization](NETWORK_OPTIMIZATION.md)** - Smart WiFi/Tailscale detection setup
-- **[Gmail Push Setup](GMAIL_PUSH_QUICKSTART.md)** - Quick start for Gmail real-time notifications  
-- **[Gmail Push Details](GMAIL_PUSH_SETUP.md)** - Complete Gmail API integration guide
-- **[Gmail Processing Flow](GMAIL_PROCESSING_FLOW.md)** - How Gmail polling and webhooks work (Jan 2026)
-- **[Looker Optimization](LOOKER_OPTIMIZATION.md)** - Email deduplication strategy (Jan 2026)
+- **[System Status](SYSTEM_STATUS.md)** - Current production status and operational notes
+- **[App Structure](docs/APP_STRUCTURE.md)** - Dual-app architecture and migration boundaries
+- **[GitHub Sync Checklist](docs/GITHUB_SYNC_CHECKLIST.md)** - Clean PR/push workflow for this repository
+- **[API Documentation](docs/API.md)** - Core API endpoints and contracts
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment and server setup
+- **[January 2026 Changes (Archived)](docs/archived/CHANGES_JAN_22_2026.md)** - Gmail/Looker migration and optimization history
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute code
 - **[Quick Reference](QUICK_REFERENCE.md)** - Common commands and workflows
 
@@ -114,10 +131,12 @@ See `legacy-docs/` folder for historical migration guides, completed feature pla
 
 ```
 stockroom-dashboard/
+├── .github/         # GitHub workflows, PR template, and automation config
 ├── routes/          # API endpoints (auth, gameplan, shipments, etc.)
 ├── middleware/      # Request processing (authentication, validation)
 ├── utils/           # Shared utilities (database, email, APIs, MCP clients)
 ├── mcp-servers/     # Model Context Protocol servers (inventory, shipments)
+├── client/          # React migration app (Vite, incremental feature porting)
 ├── public/          # Static assets (HTML, CSS, JS, images)
 ├── models/          # Data models and schemas
 ├── scripts/         # Utility scripts and migrations
@@ -171,7 +190,8 @@ See [Database Schema](docs/POSTGRESQL_MIGRATION_PLAN.md) for details.
 
 ### Technology Stack
 - **Backend:** Node.js 18+, Express.js, PostgreSQL
-- **Frontend:** Vanilla JavaScript, HTML5, CSS3, Progressive Web App
+- **Frontend (Production):** Vanilla JavaScript, HTML5, CSS3, Progressive Web App
+- **Frontend (Migration):** React + Vite (`client/`)
 - **Real-time:** WebSockets for live updates
 - **Integration:** Gmail IMAP, UPS API, MCP servers
 - **Deployment:** PM2 process management, Linux servers
@@ -192,16 +212,13 @@ See [Database Schema](docs/POSTGRESQL_MIGRATION_PLAN.md) for details.
 ## 🧪 Testing
 
 ```bash
-# Run all tests
-npm test
+# Backend syntax check
+node --check server.js
 
-# Run with coverage
-npm test -- --coverage
+# Frontend (React) production build check
+cd client && npm run build
 
-# Lint code
-npm run lint
-
-# Check security vulnerabilities
+# Dependency vulnerability scan
 npm audit
 ```
 

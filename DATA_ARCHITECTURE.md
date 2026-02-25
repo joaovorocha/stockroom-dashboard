@@ -6,7 +6,7 @@ The Stockroom Dashboard uses a **hybrid data architecture** combining PostgreSQL
 
 ## Data Storage Strategy
 
-### PostgrexSQL Database (Primary Storage)
+### PostgreSQL Database (Primary Storage)
 
 **Location:** `stockroom_dashboard` database at `localhost:5432`
 
