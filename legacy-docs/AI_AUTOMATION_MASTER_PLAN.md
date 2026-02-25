@@ -385,7 +385,7 @@
 ### Documentation
 - [AI System Architecture](docs/AI_SYSTEM_ARCHITECTURE.md) - Full technical specs
 - [Algorithm Explained](public/ai-algorithm-explained.html) - User-facing docs
-- [Comprehensive System Docs](COMPREHENSIVE_SYSTEM_DOCUMENTATION.md) - System overview
+- [Comprehensive System Docs](../docs/server/COMPREHENSIVE_SYSTEM_DOCUMENTATION.md) - System overview
 
 ### External Resources
 - OpenVINO Toolkit: https://github.com/openvinotoolkit/openvino

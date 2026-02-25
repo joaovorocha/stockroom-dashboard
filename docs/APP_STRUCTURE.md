@@ -52,8 +52,8 @@ Both apps share:
 - **Production routing truth:** `server.js`
 - **API contract truth:** route files in `routes/`
 - **Migration target truth:** React files in `client/src/`
-- **Operational status truth:** `SYSTEM_STATUS.md`
-- **Route inventory truth:** `SERVER_MAP.md`
+- **Operational status truth:** `docs/server/SYSTEM_STATUS.md`
+- **Route inventory truth:** `docs/server/SERVER_MAP.md`
 
 ---
 

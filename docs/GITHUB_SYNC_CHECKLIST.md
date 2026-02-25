@@ -24,8 +24,8 @@ cd client && npm run build
 ## 3) Validate Documentation
 
 - Update `README.md` for major behavior changes
-- Update `SERVER_MAP.md` when routes/auth/runtime change
-- Update `SYSTEM_STATUS.md` for operational changes
+- Update `docs/server/SERVER_MAP.md` when routes/auth/runtime change
+- Update `docs/server/SYSTEM_STATUS.md` for operational changes
 - Keep links valid in updated docs
 
 ## 4) Stage by Scope
@@ -34,7 +34,7 @@ cd client && npm run build
 # Example scope-based staging
 git add routes/ server.js middleware/ utils/
 git add client/src/ client/vite.config.js
-git add README.md SERVER_MAP.md SYSTEM_STATUS.md docs/
+git add README.md docs/server/SERVER_MAP.md docs/server/SYSTEM_STATUS.md docs/
 ```
 
 ## 5) Review Diff

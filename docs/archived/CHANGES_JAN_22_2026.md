@@ -191,7 +191,7 @@ Based on email subject line:
    - Categories detected
    - Code examples
 
-3. **[SYSTEM_STATUS.md](SYSTEM_STATUS.md)**
+3. **[SYSTEM_STATUS.md](../server/SYSTEM_STATUS.md)**
    - Current configuration
    - Running services
    - Known issues

@@ -90,15 +90,15 @@ pm2 start ecosystem.config.json
 ## 📚 Documentation
 
 ### Active Documentation
-- **[Server Map](SERVER_MAP.md)** - Complete API endpoint reference and route documentation
-- **[System Status](SYSTEM_STATUS.md)** - Current production status and operational notes
+- **[Server Map](docs/server/SERVER_MAP.md)** - Complete API endpoint reference and route documentation
+- **[System Status](docs/server/SYSTEM_STATUS.md)** - Current production status and operational notes
 - **[App Structure](docs/APP_STRUCTURE.md)** - Dual-app architecture and migration boundaries
 - **[GitHub Sync Checklist](docs/GITHUB_SYNC_CHECKLIST.md)** - Clean PR/push workflow for this repository
 - **[API Documentation](docs/API.md)** - Core API endpoints and contracts
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment and server setup
 - **[January 2026 Changes (Archived)](docs/archived/CHANGES_JAN_22_2026.md)** - Gmail/Looker migration and optimization history
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute code
-- **[Quick Reference](QUICK_REFERENCE.md)** - Common commands and workflows
+- **[Quick Reference](docs/server/QUICK_REFERENCE.md)** - Common commands and workflows
 
 ### Legacy Documentation
 See `legacy-docs/` folder for historical migration guides, completed feature plans, and deprecated documentation.
