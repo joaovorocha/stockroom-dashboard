@@ -97,6 +97,9 @@ async function createSession(req, userId, maxAge = 24 * 60 * 60 * 1000) {
     req.session.ipAddress = req.ip || req.connection?.remoteAddress;
     req.session.userAgent = req.get('user-agent');
     
+    // Update cookie maxAge for "remember me" functionality
+    req.session.cookie.maxAge = maxAge;
+    
     req.session.save((err) => {
       if (err) {
         console.error('[SESSION] Error creating session:', err);

@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const printerClient = require('../utils/printer-client');
-const { pool } = require('../server');
+const { query: pgQuery } = require('../utils/dal/pg');
 
 // ============================================================================
 // PRINTER DISCOVERY & MANAGEMENT
@@ -110,11 +110,15 @@ router.post('/print/product-label', async (req, res) => {
     const result = await printerClient.printZPL(zpl, printerIp);
     
     // Log to database
-    await pool.query(
-      `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      ['product_label', { sku, barcode }, result.printer, 'completed']
-    );
+    try {
+      await pgQuery(
+        `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        ['product_label', { sku, barcode }, result.printer, 'completed']
+      );
+    } catch (logError) {
+      console.warn('[Printers] Failed to log product label print job:', logError.message);
+    }
     
     res.json({ success: true, ...result });
   } catch (error) {
@@ -143,11 +147,15 @@ router.post('/print/shelf-label', async (req, res) => {
     
     const result = await printerClient.printZPL(zpl, printerIp);
     
-    await pool.query(
-      `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      ['shelf_label', { location, zone }, result.printer, 'completed']
-    );
+    try {
+      await pgQuery(
+        `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        ['shelf_label', { location, zone }, result.printer, 'completed']
+      );
+    } catch (logError) {
+      console.warn('[Printers] Failed to log shelf label print job:', logError.message);
+    }
     
     res.json({ success: true, ...result });
   } catch (error) {
@@ -171,11 +179,15 @@ router.post('/print/rfid-label', async (req, res) => {
     const zpl = printerClient.generateRFIDLabel(sgtin, sku, description);
     const result = await printerClient.printZPL(zpl, printerIp);
     
-    await pool.query(
-      `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      ['rfid_label', { sgtin, sku }, result.printer, 'completed']
-    );
+    try {
+      await pgQuery(
+        `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        ['rfid_label', { sgtin, sku }, result.printer, 'completed']
+      );
+    } catch (logError) {
+      console.warn('[Printers] Failed to log RFID label print job:', logError.message);
+    }
     
     res.json({ success: true, ...result });
   } catch (error) {
@@ -197,7 +209,7 @@ router.post('/print/shipping-label', async (req, res) => {
     }
     
     // Fetch shipment data
-    const shipmentResult = await pool.query(
+    const shipmentResult = await pgQuery(
       'SELECT * FROM shipments WHERE id = $1',
       [shipmentId]
     );
@@ -213,18 +225,22 @@ router.post('/print/shipping-label', async (req, res) => {
     const result = await printerClient.printZPL(zpl, printerIp);
     
     // Update shipment status
-    await pool.query(
+    await pgQuery(
       `UPDATE shipments 
        SET status = 'LABEL_PRINTED', label_printed_at = NOW()
        WHERE id = $1`,
       [shipmentId]
     );
-    
-    await pool.query(
-      `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      ['shipping_label', { shipment_id: shipmentId }, result.printer, 'completed']
-    );
+
+    try {
+      await pgQuery(
+        `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        ['shipping_label', { shipment_id: shipmentId }, result.printer, 'completed']
+      );
+    } catch (logError) {
+      console.warn('[Printers] Failed to log shipping label print job:', logError.message);
+    }
     
     res.json({ success: true, ...result });
   } catch (error) {
@@ -278,11 +294,15 @@ router.post('/print/receipt', async (req, res) => {
     
     const result = await printerClient.printReceipt(orderData, printerIp);
     
-    await pool.query(
-      `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
-       VALUES ($1, $2, $3, $4, NOW())`,
-      ['receipt', { psu_number: psuNumber }, result.printer, 'completed']
-    );
+    try {
+      await pgQuery(
+        `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        ['receipt', { psu_number: psuNumber }, result.printer, 'completed']
+      );
+    } catch (logError) {
+      console.warn('[Printers] Failed to log receipt print job:', logError.message);
+    }
     
     res.json({ success: true, ...result });
   } catch (error) {
@@ -311,6 +331,44 @@ router.post('/print/receipt-data', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/printers/print/freezer-label
+ * Print freezer label receipt data (Epson ESC/POS)
+ */
+router.post('/print/freezer-label', async (req, res) => {
+  try {
+    const { labelData, printerIp } = req.body;
+
+    if (!labelData) {
+      return res.status(400).json({ error: 'Label data required' });
+    }
+
+    const requiredFields = ['foodItem', 'fullName', 'email', 'createdBy', 'createdAt', 'expiresAt', 'expirationDays'];
+    for (const field of requiredFields) {
+      if (!labelData[field]) {
+        return res.status(400).json({ error: `${field} is required` });
+      }
+    }
+
+    const result = await printerClient.printFreezerLabel(labelData, printerIp);
+
+    try {
+      await pgQuery(
+        `INSERT INTO print_jobs (type, data, printer_ip, status, created_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        ['freezer_label', labelData, result.printer, 'completed']
+      );
+    } catch (logError) {
+      console.warn('[Printers] Failed to log freezer label print job:', logError.message);
+    }
+
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('[Printers] Freezer label print error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============================================================================
 // PRINT HISTORY
 // ============================================================================
@@ -322,7 +380,7 @@ router.post('/print/receipt-data', async (req, res) => {
 router.get('/print-jobs', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
-    const result = await pool.query(
+    const result = await pgQuery(
       `SELECT * FROM print_jobs 
        ORDER BY created_at DESC 
        LIMIT $1`,
@@ -332,6 +390,28 @@ router.get('/print-jobs', async (req, res) => {
     res.json({ jobs: result.rows });
   } catch (error) {
     console.error('[Printers] Print jobs error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/printers/print/freezer-history
+ * Get recent freezer label print jobs
+ */
+router.get('/print/freezer-history', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const result = await pgQuery(
+      `SELECT * FROM print_jobs
+       WHERE type = 'freezer_label'
+       ORDER BY created_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+
+    res.json({ jobs: result.rows });
+  } catch (error) {
+    console.error('[Printers] Freezer history error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -395,7 +475,7 @@ async function fetchOrderData(identifier) {
     }
     
     // Fallback to local database
-    const result = await pool.query(
+    const result = await pgQuery(
       `SELECT * FROM orders WHERE psu_number = $1 OR order_number = $1 LIMIT 1`,
       [identifier]
     );
@@ -407,7 +487,7 @@ async function fetchOrderData(identifier) {
     const order = result.rows[0];
     
     // Fetch items
-    const itemsResult = await pool.query(
+    const itemsResult = await pgQuery(
       'SELECT * FROM order_items WHERE order_id = $1',
       [order.id]
     );

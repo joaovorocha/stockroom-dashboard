@@ -7,7 +7,7 @@ const pool = new Pool({
 });
 
 // GET /api/lost-punch - Get all lost punch requests
-router.get('/api/lost-punch', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     // Get user from middleware (set by auth-pg.js)
     const user = req.user;
@@ -60,7 +60,7 @@ router.get('/api/lost-punch', async (req, res) => {
 });
 
 // GET /api/lost-punch/:id - Get single lost punch request
-router.get('/api/lost-punch/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -145,7 +145,7 @@ router.post('/api/lost-punch', async (req, res) => {
 });
 
 // PUT /api/lost-punch/:id - Update lost punch request
-router.put('/api/lost-punch/:id', async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -264,7 +264,7 @@ router.put('/api/lost-punch/:id', async (req, res) => {
 });
 
 // DELETE /api/lost-punch/:id - Delete lost punch request
-router.delete('/api/lost-punch/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -291,7 +291,7 @@ router.delete('/api/lost-punch/:id', async (req, res) => {
 });
 
 // POST /api/lost-punch/batch - Batch update punch requests
-router.post('/api/lost-punch/batch', async (req, res) => {
+router.post('/batch', async (req, res) => {
   const client = await pool.connect();
   
   try {

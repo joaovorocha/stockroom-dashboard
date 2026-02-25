@@ -813,7 +813,7 @@ router.get('/users', authMiddleware, requireAdmin, async (req, res) => {
 
     const result = await query(`
       SELECT 
-        id, employee_id, login_alias, name, email, phone, role, 
+        id, employee_id, login_alias, name, email, phone, access_role AS role, 
         image_url, is_manager, is_admin, can_edit_gameplan, 
         can_manage_lost_punch,
         is_active, last_login, created_at
@@ -830,7 +830,7 @@ router.get('/users', authMiddleware, requireAdmin, async (req, res) => {
       loginAlias: u.login_alias,
       name: u.name,
       email: u.email,
-      role: u.role,
+      role: u.access_role,
       imageUrl: u.image_url,
       isManager: u.is_manager,
       isAdmin: u.is_admin,
@@ -889,7 +889,7 @@ router.post('/users', authMiddleware, requireAdmin, async (req, res) => {
     // Insert user
     const result = await query(`
       INSERT INTO users (
-        store_id, employee_id, name, password_hash, role, 
+        store_id, employee_id, name, password_hash, access_role, 
         email, image_url,
         is_manager, is_admin, can_edit_gameplan, can_manage_lost_punch,
         must_change_password

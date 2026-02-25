@@ -155,7 +155,7 @@ async function getScanPerformance(date) {
         `SELECT DISTINCT ON (spm.user_id)
            spm.*,
            u.image_url,
-           u.role,
+           u.access_role,
            u.name as user_name
          FROM scan_performance_metrics spm
          INNER JOIN users u ON spm.user_id = u.id AND u.is_active = true

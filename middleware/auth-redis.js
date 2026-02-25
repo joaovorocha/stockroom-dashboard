@@ -28,7 +28,7 @@ const authMiddleware = async (req, res, next) => {
       const devEmail = process.env.DEV_AUTH_USER_EMAIL || req.get('x-dev-user');
       if (devEmail) {
         try {
-          const r = await query('SELECT id, employee_id, name, email, role, image_url, is_manager, is_admin, can_edit_gameplan, can_manage_lost_punch, must_change_password FROM users WHERE email = $1 LIMIT 1', [devEmail]);
+          const r = await query('SELECT id, employee_id, name, email, access_role AS role, image_url, is_manager, is_admin, can_edit_gameplan, can_manage_lost_punch, must_change_password FROM users WHERE email = $1 LIMIT 1', [devEmail]);
           if (r.rows && r.rows.length > 0) {
             const user = r.rows[0];
             req.user = {
@@ -76,9 +76,10 @@ const authMiddleware = async (req, res, next) => {
     // Get user from PostgreSQL database
     const result = await query(`
       SELECT 
-        id, employee_id, name, email, role, 
+        id, employee_id, name, email, access_role, 
         image_url, is_manager, is_admin, can_edit_gameplan,
-        can_manage_lost_punch, must_change_password
+        can_manage_lost_punch, must_change_password,
+        is_super_admin, default_store_id, can_switch_stores
       FROM users 
       WHERE id = $1 AND is_active = true
       LIMIT 1
@@ -104,15 +105,25 @@ const authMiddleware = async (req, res, next) => {
       employeeId: user.employee_id,
       name: user.name,
       email: user.email || '',
-      role: user.role,
+      role: user.access_role,
+      accessRole: user.access_role,
       imageUrl: user.image_url,
       isManager: user.is_manager,
       isAdmin: user.is_admin,
+      isSuperAdmin: user.is_super_admin,
+      defaultStoreId: user.default_store_id,
+      canSwitchStores: user.can_switch_stores,
       canEditGameplan: user.can_edit_gameplan,
       canManageLostPunch: user.can_manage_lost_punch,
       needsProfileCompletion,
       mustChangePassword: user.must_change_password
     };
+
+    // Also attach store context from session if available
+    if (req.session.activeStoreId) {
+      req.user.activeStoreId = req.session.activeStoreId;
+      req.user.storeAccessRole = req.session.storeAccessRole;
+    }
 
     next();
 

@@ -195,6 +195,10 @@ app.use((req, res, next) => {
 
   // Allow Vite dev server origins for development
   const allowedDevOrigins = [
+    'localhost:5173',
+    '127.0.0.1:5173',
+    '100.84.243.127:5173',
+    '10.201.48.17:5173',
     'localhost:5174',
     '127.0.0.1:5174',
     '100.84.243.127:5174',
@@ -431,6 +435,14 @@ app.get('/login-v2', (req, res) => {
 
 app.get('/shipments', authMiddleware, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'shipments.html'));
+});
+
+app.get('/freezer-labels', authMiddleware, (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'freezer-labels.html'));
+});
+
+app.get('/freezer-labels.html', authMiddleware, (req, res) => {
+  res.redirect('/freezer-labels');
 });
 
 app.get('/awards', authMiddleware, (req, res) => {

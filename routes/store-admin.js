@@ -8,7 +8,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { query } = require('../database');
+const { query } = require('../utils/dal/pg');
 const { requireStoreAdmin, userHasStoreAccess } = require('../middleware/storeAccess');
 
 /**
@@ -317,7 +317,7 @@ router.get('/team', async (req, res) => {
     const storeId = req.storeId;
 
     const team = await query(
-      `SELECT u.id, u.name, u.email, u.id_number, u.role_title, u.image_url,
+      `SELECT u.id, u.name, u.email, u.employee_id, u.job_role, u.image_url,
               u.created_at, u.last_login,
               usa.access_role, usa.granted_at, usa.is_active,
               grantor.name as granted_by_name

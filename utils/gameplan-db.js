@@ -34,19 +34,19 @@ async function getOrCreateDailyPlan(planDate) {
 }
 
 /**
- * Get daily plan with all assignments
+ * Get daily plan with all assignments (filtered by store_id)
  */
-async function getDailyPlanWithAssignments(planDate) {
+async function getDailyPlanWithAssignments(planDate, storeId = 1) {
   try {
     const plan = await getOrCreateDailyPlan(planDate);
     
     const assignmentsResult = await pgQuery(
-      `SELECT pa.*, u.name, u.email, u.role, u.image_url
+      `SELECT pa.*, u.name, u.email, u.access_role as role, u.image_url
        FROM plan_assignments pa
        LEFT JOIN users u ON pa.user_id = u.id
-       WHERE pa.plan_id = $1
+       WHERE pa.plan_id = $1 AND u.store_id = $2
        ORDER BY pa.employee_type, pa.employee_name`,
-      [plan.id]
+      [plan.id, storeId]
     );
     
     return {

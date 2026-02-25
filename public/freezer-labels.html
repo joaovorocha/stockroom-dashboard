@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="view-transition" content="same-origin" />
+  <title>Freezer Labels | Suitsupply</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Daily Operations">
+
+  <link rel="stylesheet" href="/css/theme.css?v=14" />
+  <link rel="stylesheet" href="/css/shared-header.css?v=22">
+  <link rel="stylesheet" href="/css/dashboard.css?v=17" />
+  <link rel="stylesheet" href="/css/mobile.css?v=7">
+
+  <style>
+    .label-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 1.1fr) minmax(240px, 0.9fr);
+      gap: 24px;
+      align-items: start;
+    }
+
+    .label-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    .label-card h2 {
+      font-size: 18px;
+      margin-bottom: 12px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--background);
+      font-size: 14px;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .radio-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .radio-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 14px;
+      background: var(--background);
+      transition: all 0.2s ease;
+    }
+
+    .radio-pill input {
+      accent-color: var(--primary);
+    }
+
+    .radio-pill.active {
+      border-color: var(--primary);
+      background: rgba(0, 0, 0, 0.06);
+    }
+
+    .receipt-preview {
+      width: 72mm;
+      max-width: 100%;
+      margin: 0 auto;
+      border: 1px dashed #999;
+      padding: 12px;
+      font-family: "Courier New", monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      background: #fff;
+      color: #111;
+    }
+
+    .receipt-title {
+      text-align: center;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .receipt-line {
+      margin: 4px 0;
+      word-wrap: break-word;
+    }
+
+    .receipt-divider {
+      border-top: 1px dashed #444;
+      margin: 8px 0;
+    }
+
+    .receipt-muted {
+      color: #444;
+    }
+
+    .receipt-footer {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 11px;
+    }
+
+    .actions-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .history-card {
+      margin-top: 20px;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .history-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: var(--background);
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .history-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      font-weight: 600;
+    }
+
+    .history-meta {
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .history-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .help-note {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 8px;
+    }
+
+    @media (max-width: 1000px) {
+      .label-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .receipt-preview {
+        width: 100%;
+        max-width: 360px;
+      }
+    }
+
+    @media print {
+      body * {
+        visibility: hidden !important;
+      }
+
+      .receipt-print {
+        visibility: visible !important;
+      }
+
+      .receipt-print {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 80mm;
+        margin: 0;
+        padding: 0;
+      }
+
+      .receipt-preview {
+        border: none;
+        width: 72mm;
+        padding: 0;
+      }
+    }
+  </style>
+
+</head>
+<body>
+  <div id="shared-header-mount"></div>
+
+  <div class="dashboard-layout dashboard-layout--single">
+    <main class="main-content">
+      <section class="section">
+        <div class="section-header">
+          <h1>🧊 Freezer Expiration Labels</h1>
+          <div class="actions">
+            <button class="btn btn-outline" id="refreshTimestampBtn">⏱️ Reset Timestamp</button>
+            <button class="btn btn-primary" id="printLabelBtn">🖨️ Print Receipt</button>
+          </div>
+        </div>
+        <p class="help-note">
+          Select an expiration window (3, 5, or 7 days) and print the receipt label for freezer items.
+          The print dialog will let you choose the Epson receipt printer.
+        </p>
+        <p class="help-note" style="font-weight:600;">
+          All food after the valid date will be thrown away.
+        </p>
+      </section>
+
+      <section class="section">
+        <div class="label-layout">
+          <div class="label-card">
+            <h2>Label Details</h2>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="foodItem">Food Item *</label>
+                <input type="text" id="foodItem" placeholder="e.g. Chicken Breast" required />
+              </div>
+              <div class="form-group">
+                <label for="fullName">Full Name *</label>
+                <input type="text" id="fullName" placeholder="Employee name" required />
+              </div>
+              <div class="form-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" placeholder="name@suitsupply.com" required />
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 8px;">
+              <label>Created By</label>
+              <div id="createdByDisplay" class="help-note">Loading...</div>
+            </div>
+
+            <div style="margin-top: 16px;">
+              <div class="form-group">
+                <label>Expiration Window</label>
+                <div class="radio-group" id="expirationGroup">
+                  <label class="radio-pill">
+                    <input type="radio" name="expirationDays" value="3" />
+                    3 Days
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="expirationDays" value="5" />
+                    5 Days
+                  </label>
+                  <label class="radio-pill">
+                    <input type="radio" name="expirationDays" value="7" />
+                    7 Days
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-top: 12px;">
+                <label for="notes">Notes (optional)</label>
+                <textarea id="notes" placeholder="Storage notes or special handling"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="label-card receipt-print">
+            <h2>Receipt Preview</h2>
+            <div class="receipt-preview" id="receiptPreview">
+              <div class="receipt-title">FREEZER LABEL</div>
+              <div class="receipt-line" id="receiptFood">Food: —</div>
+              <div class="receipt-divider"></div>
+              <div class="receipt-line" id="receiptName">Name: —</div>
+              <div class="receipt-line" id="receiptEmail">Email: —</div>
+              <div class="receipt-line" id="receiptCreatedBy">Created by: —</div>
+              <div class="receipt-line" id="receiptCreatedAt">Created: —</div>
+              <div class="receipt-line" id="receiptExpires">Expires: —</div>
+              <div class="receipt-divider"></div>
+              <div class="receipt-line receipt-muted" id="receiptNotes">Notes: —</div>
+              <div class="receipt-line receipt-muted">All food after the valid date will be thrown away.</div>
+              <div class="receipt-footer">Please keep label on item</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="label-card history-card">
+          <div class="section-header">
+            <h2>Label History</h2>
+            <div class="actions">
+              <button class="btn btn-outline" id="clearHistoryBtn">🔄 Refresh History</button>
+            </div>
+          </div>
+          <div class="help-note">Recent labels printed on this device.</div>
+          <div class="history-list" id="historyList"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/shared-header.js?v=24"></script>
+  <script src="/js/freezer-labels.js?v=2"></script>
+  <script>
+    (async () => {
+      try { await SharedHeader.init(); } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

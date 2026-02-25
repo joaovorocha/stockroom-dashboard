@@ -3,6 +3,7 @@ const router = express.Router();
 const dal = require('../utils/dal');
 const axios = require('axios');
 const path = require('path');
+const { query: pgQuery } = require('../utils/dal/pg');
 
 const SCAN_LOG_FILE = dal.paths.storeRecoveryScanLogFile;
 const CONFIG_FILE = dal.paths.storeRecoveryConfigFile || path.join(dal.paths.dataDir, 'store-recovery-config.json');
@@ -54,7 +55,13 @@ function normalizeScan(body) {
   };
 }
 
-function getLookupConfig() {
+function getStoreIdFromReq(req) {
+  const raw = req.session?.activeStoreId || req.user?.storeId || req.body?.store_id || req.query?.store_id;
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
+async function getLookupConfig(storeId = 1) {
   const envBaseUrl = (process.env.STORE_RECOVERY_PRODUCT_API_BASE_URL || '').toString().trim();
   const envApiKey = (process.env.STORE_RECOVERY_PRODUCT_API_KEY || '').toString().trim();
   const envHeaderName = (process.env.STORE_RECOVERY_PRODUCT_API_KEY_HEADER || 'x-api-key').toString().trim();
@@ -87,7 +94,19 @@ function getLookupConfig() {
     };
   }
 
-  const saved = CONFIG_FILE ? (dal.readJson(CONFIG_FILE, null) || {}) : {};
+  let saved = null;
+  try {
+    const result = await pgQuery(
+      'SELECT value FROM admin_settings WHERE store_id = $1 AND setting_type = $2',
+      [storeId, 'store_recovery']
+    );
+    saved = result.rows?.[0]?.value || null;
+  } catch (e) {
+    console.error('[STORE_RECOVERY] Failed to read admin_settings:', e.message);
+  }
+  if (!saved) {
+    saved = CONFIG_FILE ? (dal.readJson(CONFIG_FILE, null) || {}) : {};
+  }
   const baseUrl = (envBaseUrl || saved.baseUrl || saved.apiBaseUrl || DEFAULT_STORE_RECOVERY_BASE_URL).toString().trim();
   const authType = (envAuthType || saved.authType || saved.lookupAuthType || saved.productAuthType || '').toString().trim();
   const apiKey = (envApiKey || saved.apiKey || saved.key || '').toString().trim();
@@ -355,7 +374,8 @@ router.get('/lookup', async (req, res) => {
   const ean = (req.query?.ean || req.query?.gtin || '').toString().trim();
   if (!epc && !sku && !ean) return res.status(400).json({ success: false, error: 'Missing epc, sku, or ean' });
 
-  const cfg = getLookupConfig();
+  const storeId = getStoreIdFromReq(req);
+  const cfg = await getLookupConfig(storeId);
   cfg.baseUrl = (cfg.baseUrl || DEFAULT_STORE_RECOVERY_BASE_URL).toString().trim();
   if (!cfg.baseUrl) {
     return res.status(501).json({ success: false, error: 'Product lookup is not configured on the server' });

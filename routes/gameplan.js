@@ -37,7 +37,30 @@ try {
 // Initialize Looker data processor
 const lookerProcessor = new LookerDataProcessor();
 
-function readWorkExpensesConfig() {
+function getStoreIdFromReq(req) {
+  const raw = req.session?.activeStoreId || req.user?.storeId || req.body?.store_id || req.query?.store_id;
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
+async function readWorkExpensesConfig(storeId = 1) {
+  try {
+    const result = await pgQuery(
+      'SELECT value FROM admin_settings WHERE store_id = $1 AND setting_type = $2',
+      [storeId, 'work_expenses']
+    );
+    const cfg = result.rows?.[0]?.value;
+    if (cfg) {
+      return {
+        globalMonthlyLimit: Number.isFinite(Number(cfg.globalMonthlyLimit)) ? Number(cfg.globalMonthlyLimit) : null,
+        globalYearlyLimit: Number.isFinite(Number(cfg.globalYearlyLimit)) ? Number(cfg.globalYearlyLimit) : 2500,
+        overrides: cfg.overrides && typeof cfg.overrides === 'object' ? cfg.overrides : {}
+      };
+    }
+  } catch (e) {
+    console.error('[GAMEPLAN] Failed to read admin_settings:', e.message);
+  }
+
   try {
     const cfg = dal.readJson(WORK_EXPENSES_CONFIG_FILE, null) || {};
     return {
@@ -54,10 +77,10 @@ function normalizeEmail(value) {
   return (value || '').toString().trim().toLowerCase();
 }
 
-function attachExpenseLimits(exp) {
+async function attachExpenseLimits(exp, storeId = 1) {
   if (!exp || !Array.isArray(exp.employees)) return exp;
 
-  const cfg = readWorkExpensesConfig();
+  const cfg = await readWorkExpensesConfig(storeId);
   const overrides = cfg?.overrides && typeof cfg.overrides === 'object' ? cfg.overrides : {};
 
   const withLimits = exp.employees.map(e => {
@@ -259,9 +282,19 @@ function normalizeName(value) {
   return (value || '').toString().trim().toLowerCase();
 }
 
-async function fetchUsersFromDB() {
+async function fetchUsersFromDB(storeId = null) {
   try {
-    const result = await pgQuery('SELECT id, employee_id, name, email, role, image_url, is_active FROM users WHERE is_active = true ORDER BY role, name');
+    let query = 'SELECT id, employee_id, name, email, access_role AS role, image_url, is_active, store_id FROM users WHERE is_active = true';
+    const params = [];
+    
+    if (storeId) {
+      query += ' AND store_id = $1';
+      params.push(storeId);
+    }
+    
+    query += ' ORDER BY role, name';
+    
+    const result = await pgQuery(query, params);
     return result.rows.map(row => ({
       id: row.id,
       employeeId: row.employee_id,
@@ -269,7 +302,8 @@ async function fetchUsersFromDB() {
       email: row.email,
       role: row.role,
       imageUrl: row.image_url,
-      isActive: row.is_active
+      isActive: row.is_active,
+      storeId: row.store_id
     }));
   } catch (error) {
     console.error('[GAMEPLAN] Error fetching users from database:', error);
@@ -277,8 +311,8 @@ async function fetchUsersFromDB() {
   }
 }
 
-async function pruneEmployeesFile() {
-  console.log('[GAMEPLAN] Reading employees from:', EMPLOYEES_FILE);
+async function pruneEmployeesFile(storeId = null) {
+  console.log('[GAMEPLAN] Reading employees from:', EMPLOYEES_FILE, 'for store:', storeId || 'all');
   const employees = readJsonFile(EMPLOYEES_FILE, { employees: {} });
   const empCounts = {
     SA: (employees.employees?.SA || []).length,
@@ -288,9 +322,9 @@ async function pruneEmployeesFile() {
   };
   console.log('[GAMEPLAN] Read from file - SA:', empCounts.SA, 'BOH:', empCounts.BOH, 'MGMT:', empCounts.MANAGEMENT, 'TAILOR:', empCounts.TAILOR);
   
-  // Fetch users from PostgreSQL database instead of users.json
-  const dbUsers = await fetchUsersFromDB();
-  console.log('[GAMEPLAN] Fetched', dbUsers.length, 'users from database');
+  // Fetch users from PostgreSQL database (filtered by store if provided)
+  const dbUsers = await fetchUsersFromDB(storeId);
+  console.log('[GAMEPLAN] Fetched', dbUsers.length, 'users from database for store', storeId || 'all');
   const usersData = { users: dbUsers };
   
   const today = getTodayDate();
@@ -363,8 +397,16 @@ async function pruneEmployeesFile() {
       }
       processedCount++;
 
-      const targetType = roleToType[(user.role || '').toString().toUpperCase()] || 'SA';
+      // Determine employee type: prioritize DB role, fallback to existing employee type, then 'SA'
+      const dbRole = (user.role || '').toString().toUpperCase();
+      const existingType = (emp.type || '').toString().toUpperCase();
+      const targetType = roleToType[dbRole] || roleToType[existingType] || 'SA';
       const targetList = canonical[targetType] || canonical.SA;
+      
+      // Log type assignment for debugging
+      if (dbRole && existingType && dbRole !== existingType) {
+        console.log(`[GAMEPLAN] Type mismatch for ${emp.name}: DB=${dbRole}, File=${existingType}, Using=${targetType}`);
+      }
 
       const canonicalEmployeeId = user.employeeId?.toString?.().trim?.() || employeeIdRaw;
       if (canonicalEmployeeId && seenEmployeeIds.has(canonicalEmployeeId)) continue;
@@ -491,9 +533,10 @@ function maybeBackfillLastWeekOverview(metrics) {
   };
 }
 
-// GET /api/gameplan/employees - Get all employees
+// GET /api/gameplan/employees - Get all employees (filtered by user's store)
 router.get('/employees', async (req, res) => {
-  const employees = await pruneEmployeesFile();
+  const storeId = req.user?.storeId || 1; // Default to SF if not set
+  const employees = await pruneEmployeesFile(storeId);
   res.json(employees);
 });
 
@@ -542,18 +585,19 @@ router.post('/employees', requireManager, async (req, res) => {
   }
 });
 
-// GET /api/gameplan/today - Get today's gameplan (DATABASE VERSION)
+// GET /api/gameplan/today - Get today's gameplan (DATABASE VERSION with store filtering)
 router.get('/today', async (req, res) => {
   try {
     const today = getTodayDate();
-    const planData = await gameplanDB.getDailyPlanWithAssignments(today);
+    const storeId = req.user?.storeId || 1; // Default to SF if not set
+    const planData = await gameplanDB.getDailyPlanWithAssignments(today, storeId);
     
     // Convert database format to legacy JSON format for compatibility
-    // IMPORTANT: Use employee_id as key to match frontend employee objects
+    // IMPORTANT: Use user_id as key to match frontend employee objects (format: user_id directly)
     const assignments = {};
     if (planData.assignments && planData.assignments.length > 0) {
       planData.assignments.forEach(a => {
-        const key = a.employee_id || a.user_id;
+        const key = a.user_id; // Use user_id directly
         assignments[key] = {
           type: a.employee_type,
           isOff: a.is_off,
@@ -851,7 +895,7 @@ router.post('/unlock/:date', requireManager, (req, res) => {
   res.json({ success: true });
 });
 
-// GET /api/gameplan/date/:date - Get gameplan for a specific date
+// GET /api/gameplan/date/:date - Get gameplan for a specific date (with store filtering)
 router.get('/date/:date', async (req, res) => {
   const { date } = req.params;
   
@@ -861,8 +905,17 @@ router.get('/date/:date', async (req, res) => {
   }
   
   try {
-    // Get from database first (includes fitting rooms and closing sections)
-    const planData = await gameplanDB.getDailyPlanWithAssignments(date);
+    const storeId = req.user?.storeId || 1; // Default to SF if not set
+    
+    // Get from database first (includes fitting rooms and closing sections, filtered by store)
+    const planData = await gameplanDB.getDailyPlanWithAssignments(date, storeId);
+    
+    // Get employees data to include names (filtered by store)
+    const employeesData = await pruneEmployeesFile(storeId);
+    const allEmployees = {};
+    Object.values(employeesData.employees || {}).flat().forEach(emp => {
+      allEmployees[emp.id] = emp;
+    });
     
     // Convert database format to legacy JSON format for compatibility
     // IMPORTANT: Use employee_id as key to match frontend employee objects
@@ -870,7 +923,10 @@ router.get('/date/:date', async (req, res) => {
     if (planData.assignments && planData.assignments.length > 0) {
       planData.assignments.forEach(a => {
         const key = a.employee_id || a.user_id;
+        const employee = allEmployees[key] || {};
         assignments[key] = {
+          name: a.name || a.employee_name || employee.name || 'Unknown',
+          employeeName: a.name || a.employee_name || employee.name || 'Unknown',
           type: a.employee_type,
           isOff: a.is_off,
           shift: a.shift || '',
@@ -1113,7 +1169,7 @@ router.get('/metrics', async (req, res) => {
         ...computed,
         source: 'saved',
         dataSources,
-        workRelatedExpenses: attachExpenseLimits(savedData.workRelatedExpenses || null),
+        workRelatedExpenses: await attachExpenseLimits(savedData.workRelatedExpenses || null, getStoreIdFromReq(req)),
         lastSyncTime: savedData.lastSyncTime,
         lastSyncBy: savedData.lastSyncBy,
         lastEmailReceived: savedData.lastEmailReceived, // When the email was actually received
@@ -1253,7 +1309,7 @@ router.get('/metrics', async (req, res) => {
       ...storeMetrics,
       source: 'live',
       dataSources,
-      workRelatedExpenses: attachExpenseLimits(workRelatedExpenses),
+      workRelatedExpenses: await attachExpenseLimits(workRelatedExpenses, getStoreIdFromReq(req)),
       importedAt: new Date().toISOString(),
       appointments: appointments,
       operationsHealth: operations.operationsHealth || {},
@@ -2196,18 +2252,47 @@ router.get('/sync-status', (req, res) => {
   }
 });
 
-// GET /api/gameplan/settings - Get settings
-router.get('/settings', (req, res) => {
-  const settingsFile = path.join(DATA_DIR, 'settings.json');
-  const settings = readJsonFile(settingsFile, {
-    zones: [],
-    shifts: [],
-    closingSections: [],
-    fittingRooms: [],
-    lunchTimes: [],
-    tailorStations: []
-  });
-  res.json(settings);
+// GET /api/gameplan/settings - Get settings from database
+router.get('/settings', async (req, res) => {
+  try {
+    const storeId = req.user?.storeId || 1;
+    
+    // Fetch settings from database
+    const result = await pgQuery(
+      'SELECT setting_type, value, display_order FROM gameplan_settings WHERE store_id = $1 ORDER BY setting_type, display_order',
+      [storeId]
+    );
+    
+    // Group by setting_type and create proper structure
+    const grouped = {};
+    result.rows.forEach(row => {
+      if (!grouped[row.setting_type]) {
+        grouped[row.setting_type] = [];
+      }
+      grouped[row.setting_type].push(row.value);
+    });
+    
+    // Format as expected by frontend (with IDs)
+    const settings = {
+      lastUpdated: new Date().toISOString().split('T')[0],
+      store: {
+        name: "San Francisco",
+        code: "SR-US-SanFrancisco-Maiden"
+      },
+      zones: (grouped.zone || []).map((name, i) => ({ id: `zone-${i+1}`, name })),
+      fittingRooms: (grouped.fitting_room || []).map((name, i) => ({ id: `fr-${i+1}`, name })),
+      shifts: (grouped.shift || []).map((name, i) => ({ id: `shift-${i+1}`, name })),
+      closingSections: (grouped.closing_section || []).map((name, i) => ({ id: `cs-${i+1}`, name })),
+      managementRoles: (grouped.management_role || []).map((name, i) => ({ id: name.toLowerCase().replace(/\s+/g, '-'), name })),
+      tailorStations: (grouped.tailor_station || []).map((name, i) => ({ id: `ts-${i+1}`, name })),
+      lunchTimes: grouped.lunch_time || []
+    };
+    
+    res.json(settings);
+  } catch (error) {
+    console.error('[GAMEPLAN] Error fetching settings:', error);
+    res.status(500).json({ error: 'Failed to load settings' });
+  }
 });
 
 // GET /api/gameplan/store-config - Read-only store configuration (authenticated users)
@@ -2461,13 +2546,47 @@ router.delete('/templates/:id', requireManager, (req, res) => {
   return res.json({ success: true });
 });
 
-// POST /api/gameplan/settings - Save settings
-router.post('/settings', requireManager, (req, res) => {
-  const settingsFile = path.join(DATA_DIR, 'settings.json');
-  const settings = req.body;
-  settings.lastUpdated = getTodayDate();
-  writeJsonFile(settingsFile, settings);
-  res.json({ success: true });
+// POST /api/gameplan/settings - Save settings to database
+router.post('/settings', requireManager, async (req, res) => {
+  try {
+    const storeId = req.user?.storeId || 1;
+    const settings = req.body;
+    
+    // Delete existing settings for this store
+    await pgQuery('DELETE FROM gameplan_settings WHERE store_id = $1', [storeId]);
+    
+    // Insert new settings
+    const settingTypes = ['zones', 'fittingRooms', 'shifts', 'closingSections', 'managementRoles', 'tailorStations', 'lunchTimes'];
+    
+    for (const type of settingTypes) {
+      const items = settings[type] || [];
+      let settingType = type;
+      
+      // Map frontend keys to database setting_type values
+      if (type === 'fittingRooms') settingType = 'fitting_room';
+      else if (type === 'closingSections') settingType = 'closing_section';
+      else if (type === 'managementRoles') settingType = 'management_role';
+      else if (type === 'tailorStations') settingType = 'tailor_station';
+      else if (type === 'lunchTimes') settingType = 'lunch_time';
+      else if (type === 'zones') settingType = 'zone';
+      else if (type === 'shifts') settingType = 'shift';
+      
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const value = typeof item === 'string' ? item : item.name;
+        
+        await pgQuery(
+          'INSERT INTO gameplan_settings (store_id, setting_type, value, display_order) VALUES ($1, $2, $3, $4)',
+          [storeId, settingType, value, i + 1]
+        );
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[GAMEPLAN] Error saving settings:', error);
+    res.status(500).json({ error: 'Failed to save settings' });
+  }
 });
 
 // POST /api/gameplan/metrics - Save metrics manually

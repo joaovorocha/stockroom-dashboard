@@ -302,6 +302,41 @@ class PrinterClient {
   }
 
   /**
+   * Print freezer label receipt to Epson printer
+   */
+  async printFreezerLabel(labelData, printerIp = null) {
+    const printer = printerIp
+      ? { ip: printerIp, type: this.PRINTER_TYPES.EPSON_ESCPOS }
+      : this.getDefaultPrinter(this.PRINTER_TYPES.EPSON_ESCPOS);
+
+    if (!printer) {
+      throw new Error('No Epson printer configured');
+    }
+
+    const escposCommands = this.generateFreezerLabelESCPOS(labelData);
+
+    return new Promise((resolve, reject) => {
+      const client = new net.Socket();
+
+      client.connect(this.EPSON_PORT, printer.ip, () => {
+        console.log(`[Epson] Connected to ${printer.ip}`);
+        client.write(escposCommands);
+        client.end();
+      });
+
+      client.on('close', () => {
+        console.log('[Epson] Freezer label printed successfully');
+        resolve({ success: true, printer: printer.ip });
+      });
+
+      client.on('error', (err) => {
+        console.error('[Epson] Print error:', err.message);
+        reject(new Error(`Failed to print receipt: ${err.message}`));
+      });
+    });
+  }
+
+  /**
    * Generate ESC/POS commands for order receipt
    */
   generateReceiptESCPOS(data) {
@@ -363,6 +398,48 @@ class PrinterClient {
     // Cut paper
     receipt += GS + 'V' + '\x41' + '\x03';
     
+    return Buffer.from(receipt, 'utf8');
+  }
+
+  /**
+   * Generate ESC/POS commands for freezer label
+   */
+  generateFreezerLabelESCPOS(data = {}) {
+    const ESC = '\x1B';
+    const GS = '\x1D';
+
+    const safe = (value) => (value === null || value === undefined || value === '' ? '—' : String(value));
+
+    let receipt = '';
+    receipt += ESC + '@';
+
+    // Title centered + bold
+    receipt += ESC + 'a' + '\x01';
+    receipt += ESC + 'E' + '\x01';
+    receipt += 'FREEZER LABEL\n';
+    receipt += ESC + 'E' + '\x00';
+    receipt += ESC + 'a' + '\x00';
+
+    receipt += '------------------------------\n';
+    receipt += `Food: ${safe(data.foodItem)}\n`;
+    receipt += `Name: ${safe(data.fullName)}\n`;
+    receipt += `Email: ${safe(data.email)}\n`;
+    receipt += `Created by: ${safe(data.createdBy)}\n`;
+    receipt += `Created: ${safe(data.createdAt)}\n`;
+    receipt += `Expires (${safe(data.expirationDays)} days): ${safe(data.expiresAt)}\n`;
+    receipt += '------------------------------\n';
+    receipt += `Notes: ${safe(data.notes)}\n`;
+    receipt += `${safe(data.warning || 'All food after the valid date will be thrown away.')}\n`;
+    receipt += '\n';
+
+    receipt += ESC + 'a' + '\x01';
+    receipt += 'Please keep label on item\n';
+    receipt += ESC + 'a' + '\x00';
+    receipt += '\n\n\n';
+
+    // Cut paper
+    receipt += GS + 'V' + '\x41' + '\x03';
+
     return Buffer.from(receipt, 'utf8');
   }
 

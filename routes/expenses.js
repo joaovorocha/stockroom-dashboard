@@ -23,7 +23,32 @@ function writeJson(filePath, payload) {
   return dal.writeJsonAtomic(filePath, payload, { pretty: true });
 }
 
-function getConfig() {
+function getStoreIdFromReq(req) {
+  const raw = req.session?.activeStoreId || req.user?.storeId || req.body?.store_id || req.query?.store_id;
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : 1;
+}
+
+async function getConfig(storeId = 1) {
+  try {
+    const result = await pgQuery(
+      'SELECT value FROM admin_settings WHERE store_id = $1 AND setting_type = $2',
+      [storeId, 'work_expenses']
+    );
+    const cfg = result.rows?.[0]?.value;
+    if (cfg) {
+      return {
+        globalMonthlyLimit: Number.isFinite(Number(cfg.globalMonthlyLimit)) ? Number(cfg.globalMonthlyLimit) : null,
+        globalYearlyLimit: Number.isFinite(Number(cfg.globalYearlyLimit)) ? Number(cfg.globalYearlyLimit) : 2500,
+        overrides: cfg.overrides && typeof cfg.overrides === 'object' ? cfg.overrides : {},
+        updatedAt: cfg.updatedAt || null,
+        updatedBy: cfg.updatedBy || null
+      };
+    }
+  } catch (err) {
+    console.error('[EXPENSES] Failed to read admin_settings:', err.message);
+  }
+
   const cfg = readJson(CONFIG_FILE, null) || {};
   return {
     globalMonthlyLimit: Number.isFinite(Number(cfg.globalMonthlyLimit)) ? Number(cfg.globalMonthlyLimit) : null,
@@ -76,7 +101,7 @@ async function readUsersIndex() {
     // Try to read from PostgreSQL database first
     if (pgQuery) {
       const result = await pgQuery(`
-        SELECT id, employee_id, name, email, image_url, role, is_manager, is_admin
+        SELECT id, employee_id, name, email, image_url, access_role AS role, is_manager, is_admin
         FROM users
         WHERE is_active = true
       `);
@@ -89,7 +114,7 @@ async function readUsersIndex() {
             name: u.name,
             email: u.email,
             imageUrl: u.image_url,
-            role: u.role,
+            role: u.access_role,
             isManager: u.is_manager,
             isAdmin: u.is_admin
           };
@@ -391,8 +416,9 @@ const upload = multer({
 });
 
 // GET /api/expenses/config - read-only config for UI (all authed users)
-router.get('/config', (req, res) => {
-  const config = getConfig();
+router.get('/config', async (req, res) => {
+  const storeId = getStoreIdFromReq(req);
+  const config = await getConfig(storeId);
   const limits = resolveLimits(config, req.user?.email);
   return res.json({ ...config, limits });
 });
@@ -417,7 +443,7 @@ router.get('/', async (req, res) => {
   const exp = getSavedExpenses();
   if (!exp) return res.json({ success: true, source: null, orders: [], employees: [], storeTotals: null });
 
-  const config = getConfig();
+  const config = await getConfig(getStoreIdFromReq(req));
   const usersIndex = await readUsersIndex();
 
   const requestedRaw = (req.query.employeeEmail || '').toString().trim();
@@ -451,7 +477,7 @@ router.get('/', async (req, res) => {
 // GET /api/expenses/status - current user's limit status (for header/banner)
 router.get('/status', async (req, res) => {
   const exp = getSavedExpenses();
-  const config = getConfig();
+  const config = await getConfig(getStoreIdFromReq(req));
   const limits = resolveLimits(config, req.user?.email);
   const usersIndex = await readUsersIndex();
 
