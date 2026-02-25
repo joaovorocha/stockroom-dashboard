@@ -1,0 +1,60 @@
+.health-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.health-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.health-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.health-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.health-card {
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.health-card h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.health-card p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #374151;
+}
+
+.health-empty {
+  padding: 20px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.health-error {
+  padding: 12px;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #991b1b;
+}

@@ -1,234 +1,250 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import React, { useState, useEffect } from 'react'
+import client from '../api/client'
+import { useAuth } from '../context/AuthContext'
 
 const Gameplan = () => {
-  const { user } = useAuth();
-  const [employees, setEmployees] = useState({ SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] });
-  const [loading, setLoading] = useState(true);
-  const [syncLoading, setSyncLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [error, setError] = useState('');
-
-  const isManagement = user?.role?.toLowerCase() === 'management' || user?.isAdmin;
+  const { user, isManager } = useAuth()
+  const [employees, setEmployees] = useState({ SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] })
+  const [gameplan, setGameplan] = useState({ notes: '', assignments: {}, published: false })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [currentDate, setCurrentDate] = useState('')
+  const [activeSection, setActiveSection] = useState('SA')
 
   useEffect(() => {
-    loadEmployees();
-  }, []);
+    fetchData()
+  }, [])
 
-  const loadEmployees = async () => {
+  const fetchData = async () => {
     try {
-      setLoading(true);
-      const response = await axios.get('/api/gameplan/employees', { withCredentials: true });
-      setEmployees(response.data.employees || { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] });
+      setLoading(true)
+      const [employeesRes, gameplanRes, businessDayRes] = await Promise.all([
+        client.get('/gameplan/employees'),
+        client.get('/gameplan/today'),
+        client.get('/gameplan/business-day')
+      ])
+
+      setEmployees(employeesRes.data?.employees || { SA: [], BOH: [], MANAGEMENT: [], TAILOR: [] })
+      setGameplan(gameplanRes.data || { notes: '', assignments: {}, published: false })
+      setCurrentDate(businessDayRes.data?.date || new Date().toISOString().slice(0, 10))
     } catch (err) {
-      setError('Failed to load employees');
-      console.error('Error loading employees:', err);
+      setError(err.message || 'Failed to load game plan')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const handleSync = async () => {
-    try {
-      setSyncLoading(true);
-      const response = await axios.post('/api/gameplan/sync', {}, { withCredentials: true });
-      if (response.data.success) {
-        alert('Sync completed successfully!');
-        loadEmployees(); // Reload employees after sync
-      }
-    } catch (err) {
-      alert('Sync failed: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setSyncLoading(false);
-    }
-  };
+  const getAssignment = (employeeId) => {
+    return gameplan.assignments?.[employeeId] || {}
+  }
 
-  const handleEmployeeUpdate = async (employeeId, updates) => {
-    try {
-      await axios.post('/api/gameplan/employees', {
-        id: employeeId,
-        ...updates
-      }, { withCredentials: true });
-      loadEmployees(); // Reload to show changes
-    } catch (err) {
-      alert('Failed to update employee: ' + (err.response?.data?.error || err.message));
-    }
-  };
+  const formatShift = (shift) => {
+    if (!shift) return '—'
+    return shift
+  }
 
-  // Filter employees based on search term
-  const filteredEmployees = useMemo(() => {
-    if (!searchTerm) return employees;
-
-    const filtered = {};
-    Object.keys(employees).forEach(role => {
-      filtered[role] = employees[role].filter(emp =>
-        emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        emp.employeeId?.toString().includes(searchTerm) ||
-        role.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    });
-    return filtered;
-  }, [employees, searchTerm]);
-
-  const renderEmployeeCard = (employee, role) => {
-    const canEdit = isManagement;
-
-    return (
-      <div key={employee.employeeId} className="employee-card">
-        <div className="employee-header">
-          {employee.imageUrl && (
-            <img
-              src={employee.imageUrl}
-              alt={employee.name}
-              className="employee-avatar"
-            />
-          )}
-          <div className="employee-info">
-            <h3 className="employee-name">{employee.name}</h3>
-            <p className="employee-details">
-              ID: {employee.employeeId} • {role}
-            </p>
-          </div>
-        </div>
-
-        <div className="employee-fields">
-          {/* Zone */}
-          <div className="field-group">
-            <label className="field-label">Zone</label>
-            {canEdit ? (
-              <select
-                value={employee.zone || ''}
-                onChange={(e) => handleEmployeeUpdate(employee.employeeId, { zone: e.target.value })}
-                className="form-select"
-              >
-                <option value="">Not Assigned</option>
-                <option value="A">Zone A</option>
-                <option value="B">Zone B</option>
-                <option value="C">Zone C</option>
-                <option value="D">Zone D</option>
-                <option value="Fitting">Fitting Room</option>
-              </select>
-            ) : (
-              <div className="field-value">
-                {employee.zone || 'Not Assigned'}
-              </div>
-            )}
-          </div>
-
-          {/* Shift */}
-          <div className="field-group">
-            <label className="field-label">Shift</label>
-            {canEdit ? (
-              <select
-                value={employee.shift || ''}
-                onChange={(e) => handleEmployeeUpdate(employee.employeeId, { shift: e.target.value })}
-                className="form-select"
-              >
-                <option value="">Not Set</option>
-                <option value="9-5">9 AM - 5 PM</option>
-                <option value="10-6">10 AM - 6 PM</option>
-                <option value="11-7">11 AM - 7 PM</option>
-                <option value="12-8">12 PM - 8 PM</option>
-              </select>
-            ) : (
-              <div className="field-value">
-                {employee.shift || 'Not Set'}
-              </div>
-            )}
-          </div>
-
-          {/* Lunch */}
-          <div className="field-group">
-            <label className="field-label">Lunch</label>
-            {canEdit ? (
-              <select
-                value={employee.lunch || ''}
-                onChange={(e) => handleEmployeeUpdate(employee.employeeId, { lunch: e.target.value })}
-                className="form-select"
-              >
-                <option value="">Not Set</option>
-                <option value="11-12">11 AM - 12 PM</option>
-                <option value="12-1">12 PM - 1 PM</option>
-                <option value="1-2">1 PM - 2 PM</option>
-                <option value="2-3">2 PM - 3 PM</option>
-              </select>
-            ) : (
-              <div className="field-value">
-                {employee.lunch || 'Not Set'}
-              </div>
-            )}
-          </div>
-
-          {/* Status */}
-          <div className="field-group">
-            <label className="field-label">Status</label>
-            <div className={`status-badge ${employee.isOff ? 'status-off' : 'status-working'}`}>
-              {employee.isOff ? 'Off Today' : 'Working'}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const sections = [
+    { key: 'SA', label: 'Sales Associates', icon: '👔' },
+    { key: 'BOH', label: 'Back of House', icon: '📦' },
+    { key: 'MANAGEMENT', label: 'Management', icon: '👔' },
+    { key: 'TAILOR', label: 'Tailors', icon: '✂️' }
+  ]
 
   if (loading) {
-    return <div className="loading">Loading employees...</div>;
+    return (
+      <div className="container" style={{ textAlign: 'center', padding: '40px' }}>
+        <div style={{ fontSize: '24px', marginBottom: '12px' }}>⏳</div>
+        <div style={{ color: 'var(--text-secondary)' }}>Loading game plan...</div>
+      </div>
+    )
   }
 
   if (error) {
-    return <div className="error">{error}</div>;
+    return (
+      <div className="container">
+        <div className="card" style={{ padding: '20px', background: '#f8d7da', color: '#721c24' }}>
+          <strong>Error:</strong> {error}
+          <button className="btn btn-secondary" onClick={fetchData} style={{ marginLeft: '12px' }}>
+            Retry
+          </button>
+        </div>
+      </div>
+    )
   }
 
+  const currentEmployees = employees[activeSection] || []
+
   return (
-    <div className="container-fluid">
-      <div className="page-header">
-        <div className="page-header-content">
-          <h1>Daily Gameplan</h1>
-          {isManagement && (
-            <button
-              onClick={handleSync}
-              disabled={syncLoading}
-              className="btn btn-primary"
-            >
-              {syncLoading ? 'Syncing...' : 'Sync from Database'}
-            </button>
-          )}
+    <div className="container">
+      {/* Page Header */}
+      <div className="page-header" style={{ marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Daily Operations</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, margin: 0 }}>📋 Game Plan</h1>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>{currentDate}</p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {gameplan.published ? (
+              <span className="badge badge-success">Published</span>
+            ) : (
+              <span className="badge badge-warning">Draft</span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Search */}
-      <div className="search-container">
-        <input
-          type="text"
-          placeholder="Search employees by name, ID, or role..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="form-control search-input"
-        />
-      </div>
-
-      {/* Employee Grid */}
-      {Object.entries(filteredEmployees).map(([role, employeeList]) => (
-        employeeList.length > 0 && (
-          <div key={role} className="employee-section">
-            <h2 className="section-title">
-              {role} ({employeeList.length})
-            </h2>
-            <div className="employee-grid">
-              {employeeList.map(employee => renderEmployeeCard(employee, role))}
-            </div>
+      {/* Notes */}
+      {gameplan.notes && (
+        <div className="card" style={{ marginBottom: '16px', background: '#fffbeb', borderColor: '#ffc107' }}>
+          <div className="card-body">
+            <h4 style={{ margin: '0 0 8px', fontSize: '14px', fontWeight: 600 }}>📝 Manager Notes</h4>
+            <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{gameplan.notes}</p>
           </div>
-        )
-      ))}
-
-      {Object.values(filteredEmployees).every(list => list.length === 0) && searchTerm && (
-        <div className="no-results">
-          No employees found matching "{searchTerm}"
         </div>
       )}
-    </div>
-  );
-};
 
-export default Gameplan;
+      {/* Section Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto' }}>
+        {sections.map(section => (
+          <button
+            key={section.key}
+            onClick={() => setActiveSection(section.key)}
+            style={{
+              padding: '10px 16px',
+              border: activeSection === section.key ? '2px solid var(--primary)' : '1px solid var(--border)',
+              borderRadius: '8px',
+              background: activeSection === section.key ? 'var(--primary)' : 'var(--background)',
+              color: activeSection === section.key ? '#fff' : 'var(--text-primary)',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>{section.icon}</span>
+            {section.label}
+            <span style={{ 
+              background: activeSection === section.key ? 'rgba(255,255,255,0.3)' : 'var(--surface)',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              fontSize: '12px'
+            }}>
+              {(employees[section.key] || []).length}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Employee Cards */}
+      <div style={{ display: 'grid', gap: '12px' }}>
+        {currentEmployees.length === 0 ? (
+          <div style={{ padding: '24px', border: '1px dashed var(--border)', borderRadius: '10px', background: 'var(--surface)', color: 'var(--text-secondary)', textAlign: 'center' }}>
+            No employees in this section
+          </div>
+        ) : (
+          currentEmployees.map((emp) => {
+            const assignment = getAssignment(emp.id)
+            const isOff = assignment.isOff
+
+            return (
+              <div 
+                key={emp.id}
+                className="card"
+                style={{ 
+                  padding: '16px',
+                  opacity: isOff ? 0.6 : 1,
+                  background: isOff ? 'var(--surface)' : 'var(--background)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {emp.imageUrl ? (
+                      <img 
+                        src={emp.imageUrl} 
+                        alt={emp.name}
+                        style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+                        onError={(e) => { e.target.style.display = 'none' }}
+                      />
+                    ) : (
+                      <div style={{ 
+                        width: '48px', 
+                        height: '48px', 
+                        borderRadius: '50%', 
+                        background: 'var(--surface)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '18px',
+                        fontWeight: 600,
+                        color: 'var(--text-secondary)'
+                      }}>
+                        {(emp.name || '?').charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '15px' }}>{emp.name}</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        {emp.role || activeSection}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    {isOff ? (
+                      <span className="badge badge-secondary">Day Off</span>
+                    ) : (
+                      <span style={{ fontSize: '14px', fontWeight: 500 }}>
+                        {formatShift(assignment.shift)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {!isOff && (
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+                    gap: '12px', 
+                    marginTop: '12px',
+                    paddingTop: '12px',
+                    borderTop: '1px solid var(--border)'
+                  }}>
+                    {assignment.zones && assignment.zones.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Zone</div>
+                        <div style={{ fontSize: '14px' }}>{assignment.zones.join(', ')}</div>
+                      </div>
+                    )}
+                    {assignment.fittingRoom && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Fitting Room</div>
+                        <div style={{ fontSize: '14px' }}>{assignment.fittingRoom}</div>
+                      </div>
+                    )}
+                    {assignment.lunch && (
+                      <div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Lunch</div>
+                        <div style={{ fontSize: '14px' }}>{assignment.lunch}</div>
+                      </div>
+                    )}
+                    {assignment.taskOfTheDay && (
+                      <div style={{ gridColumn: '1 / -1' }}>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>Task of the Day</div>
+                        <div style={{ fontSize: '14px' }}>{assignment.taskOfTheDay}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default Gameplan

@@ -1,8 +1,13 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import 'bootstrap/dist/css/bootstrap.min.css'
-import './index.css'
 import App from './App.jsx'
+
+// Import legacy CSS (raw CSS, no Bootstrap or UI libraries)
+import './assets/theme.css'
+import './assets/shared-header.css'
+import './assets/dashboard.css'
+import './assets/app-home.css'
+import './assets/mobile.css'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

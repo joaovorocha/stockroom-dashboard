@@ -1,0 +1,80 @@
+.store-recovery {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.store-recovery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.store-recovery-header h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.store-recovery-status {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.store-recovery-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.store-recovery-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.store-recovery-block label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.store-recovery-block input,
+.store-recovery-block select,
+.store-recovery-block textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+  background: white;
+}
+
+.store-recovery-test {
+  margin-top: 10px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.store-recovery-test h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.store-recovery-test pre {
+  margin: 8px 0 0;
+  background: #f3f4f6;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  max-height: 220px;
+  overflow: auto;
+}

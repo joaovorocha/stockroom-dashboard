@@ -1,0 +1,140 @@
+.store-settings {
+  width: 100%;
+}
+
+.settings-grid {
+  display: grid;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+@media (min-width: 1200px) {
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1800px) {
+  .settings-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.settings-card {
+  padding: 24px;
+  background: var(--surface, #f9fafb);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+}
+
+.settings-card h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 20px 0;
+  color: var(--text-primary, #111827);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+}
+
+.form-group.checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.form-group.checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  text-transform: none;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-primary, #111827);
+}
+
+.form-group.checkbox input {
+  width: auto;
+  margin: 0;
+}
+
+.help-text,
+.info-text {
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  line-height: 1.5;
+  margin: 16px 0 0 0;
+}
+
+.meta-text {
+  font-size: 12px;
+  color: var(--text-tertiary, #9ca3af);
+  margin: 16px 0 0 0;
+}
+
+.btn-secondary {
+  padding: 10px 20px;
+  background: white;
+  color: var(--text-primary, #111827);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-secondary:hover {
+  background: var(--surface, #f3f4f6);
+}
+
+.save-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 24px;
+  border-top: 1px solid var(--border, #e5e7eb);
+}
+
+.btn-save {
+  padding: 12px 32px;
+  background: var(--primary, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: var(--primary-dark, #1d4ed8);
+}
+
+.btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.store-recovery {
+  margin-top: 16px;
+}

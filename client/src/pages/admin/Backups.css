@@ -1,0 +1,49 @@
+.backups-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.backups-card {
+  padding: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.backups-card h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.backups-card p {
+  margin: 0 0 16px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.backups-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-primary {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-secondary {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #111827;
+  font-weight: 600;
+  cursor: pointer;
+}

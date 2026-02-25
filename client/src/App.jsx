@@ -1,120 +1,67 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import Header from './components/Header';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Shipments from './pages/Shipments';
-import Gameplan from './pages/Gameplan';
-import AdminUsers from './pages/AdminUsers';
-import TimeOff from './pages/TimeOff';
-import ClosingDuties from './pages/ClosingDuties';
-// Super Admin Panel
-import AdminLayout from './components/admin/AdminLayout';
-import { 
-  AdminDashboard, 
-  StoreManagement, 
-  GlobalSettings, 
-  UserManagement, 
-  SupportTickets 
-} from './pages/admin';
-// Store Admin Panel
-import StoreAdminLayout from './components/store/StoreAdminLayout';
-import {
-  StoreDashboard,
-  StoreSettings,
-  TeamManagement,
-  StoreReports
-} from './pages/store';
-import './App.css';
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import Layout from './components/Layout'
+import Login from './pages/Login'
+import Home from './pages/Home'
+import Gameplan from './pages/gameplan'
+import Awards from './pages/Awards'
+import DailyScan from './pages/DailyScan'
+import Expenses from './pages/Expenses'
+import Shipments from './pages/Shipments'
+import LostPunch from './pages/LostPunch'
+import ClosingDuties from './pages/ClosingDuties'
+import TimeOff from './pages/TimeOff'
+import OpsDashboard from './pages/OpsDashboard'
+import StoreCountAnalysis from './pages/StoreCountAnalysis'
+import Admin from './pages/Admin'
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="App">
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={
+        <Routes>
+          <Route path="/login" element={<Login />} />
+
+          <Route
+            element={
               <ProtectedRoute>
-                <>
-                  <Header />
-                  <Dashboard />
-                </>
+                <Layout />
               </ProtectedRoute>
-            } />
-            <Route path="/shipments" element={
-              <ProtectedRoute>
-                <>
-                  <Header />
-                  <Shipments />
-                </>
-              </ProtectedRoute>
-            } />
-            <Route path="/gameplan" element={
-              <ProtectedRoute>
-                <>
-                  <Header />
-                  <Gameplan />
-                </>
-              </ProtectedRoute>
-            } />
-            <Route path="/admin-users" element={
-              <ProtectedRoute>
-                <>
-                  <Header />
-                  <AdminUsers />
-                </>
-              </ProtectedRoute>
-            } />
-            <Route path="/time-off" element={
-              <ProtectedRoute>
-                <>
-                  <Header />
-                  <TimeOff />
-                </>
-              </ProtectedRoute>
-            } />
-            <Route path="/closing-duties" element={
-              <ProtectedRoute>
-                <>
-                  <Header />
-                  <ClosingDuties />
-                </>
-              </ProtectedRoute>
-            } />
-            
-            {/* Super Admin Panel Routes */}
-            <Route path="/admin" element={
-              <ProtectedRoute>
-                <AdminLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<AdminDashboard />} />
-              <Route path="stores" element={<StoreManagement />} />
-              <Route path="stores/:storeId" element={<StoreManagement />} />
-              <Route path="users" element={<UserManagement />} />
-              <Route path="settings" element={<GlobalSettings />} />
-              <Route path="tickets" element={<SupportTickets />} />
-            </Route>
-            
-            {/* Store Admin Panel Routes */}
-            <Route path="/store" element={
-              <ProtectedRoute>
-                <StoreAdminLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<StoreDashboard />} />
-              <Route path="settings" element={<StoreSettings />} />
-              <Route path="team" element={<TeamManagement />} />
-              <Route path="reports" element={<StoreReports />} />
-            </Route>
-          </Routes>
-        </div>
+            }
+          >
+            <Route index element={<Navigate to="/home" replace />} />
+            <Route path="/home" element={<Home />} />
+            <Route path="/app" element={<Home />} />
+            <Route path="/dashboard" element={<Gameplan />} />
+            <Route path="/gameplan" element={<Gameplan />} />
+            <Route path="/store-count-analysis" element={<StoreCountAnalysis />} />
+            <Route path="/awards" element={<Awards />} />
+            <Route path="/daily-scan-performance" element={<DailyScan />} />
+            <Route path="/employee-discount" element={<Expenses />} />
+            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/shipments" element={<Shipments />} />
+            <Route path="/boh-shipments" element={<Shipments />} />
+            <Route path="/lost-punch" element={<LostPunch />} />
+            <Route path="/closing-duties" element={<ClosingDuties />} />
+            <Route path="/time-off" element={<TimeOff />} />
+            <Route path="/ops-dashboard" element={<OpsDashboard />} />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute requireAdmin>
+                  <Admin />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/home" replace />} />
+        </Routes>
       </Router>
     </AuthProvider>
-  );
+  )
 }
 
-export default App;
+export default App

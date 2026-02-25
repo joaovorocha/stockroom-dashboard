@@ -1,143 +1,100 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import client from '../api/client'
 
-const AuthContext = createContext();
+const AuthContext = createContext(null)
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
+  const context = useContext(AuthContext)
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error('useAuth must be used within an AuthProvider')
   }
-  return context;
-};
+  return context
+}
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [activeStore, setActiveStore] = useState(null);
-  const [accessibleStores, setAccessibleStores] = useState([]);
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Check authentication status on app load
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await axios.get('/api/auth/session', { withCredentials: true });
-        if (response.data.authenticated) {
-          setUser(response.data.user);
-          setActiveStore(response.data.activeStore);
-          setAccessibleStores(response.data.stores || []);
-        } else {
-          setUser(null);
-          setActiveStore(null);
-          setAccessibleStores([]);
-        }
-      } catch (error) {
-        setUser(null);
-        setActiveStore(null);
-        setAccessibleStores([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  // Login function with store selection
-  const login = async (employeeId, password, storeId = null) => {
+  // Check if user is already logged in on mount
+  const checkAuth = useCallback(async () => {
     try {
-      const response = await axios.post('/api/auth/login', {
+      const response = await client.get('/auth/me', { withCredentials: true })
+      if (response.data?.user) {
+        setUser(response.data.user)
+      }
+    } catch (err) {
+      // Not logged in - that's okay
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
+
+  // Login function
+  const login = async (employeeId, password, remember = false) => {
+    setError(null)
+    try {
+      const response = await client.post('/auth/login', {
         employeeId,
         password,
-        storeId
-      }, { withCredentials: true });
+        remember
+      }, { withCredentials: true })
 
-      if (response.data.success) {
-        setUser(response.data.user);
-        setActiveStore(response.data.activeStore);
-        setAccessibleStores(response.data.stores || []);
-        return { 
-          success: true,
-          requiresStoreSelection: response.data.user?.requiresStoreSelection,
-          stores: response.data.stores
-        };
+      if (response.data?.success) {
+        setUser(response.data.user)
+        return { success: true, user: response.data.user }
+      } else {
+        const errorMsg = response.data?.error || 'Login failed'
+        setError(errorMsg)
+        return { success: false, error: errorMsg }
       }
-      return { success: false, error: 'Login failed' };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Login failed'
-      };
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Connection error. Please try again.'
+      setError(errorMsg)
+      return { success: false, error: errorMsg }
     }
-  };
-
-  // Switch store function
-  const switchStore = async (storeId) => {
-    try {
-      const response = await axios.post('/api/auth/switch-store', {
-        storeId
-      }, { withCredentials: true });
-
-      if (response.data.success) {
-        setActiveStore(response.data.activeStore);
-        return { success: true, store: response.data.activeStore };
-      }
-      return { success: false, error: 'Failed to switch store' };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Failed to switch store'
-      };
-    }
-  };
-
-  // Fetch accessible stores
-  const fetchAccessibleStores = async () => {
-    try {
-      const response = await axios.get('/api/auth/accessible-stores', { withCredentials: true });
-      if (response.data.success) {
-        setAccessibleStores(response.data.stores || []);
-        return response.data.stores;
-      }
-      return [];
-    } catch (error) {
-      console.error('Failed to fetch accessible stores:', error);
-      return [];
-    }
-  };
+  }
 
   // Logout function
   const logout = async () => {
     try {
-      await axios.post('/api/auth/logout', {}, { withCredentials: true });
-    } catch (error) {
-      console.error('Logout error:', error);
+      await client.post('/auth/logout', {}, { withCredentials: true })
+    } catch (err) {
+      console.error('Logout error:', err)
     } finally {
-      setUser(null);
-      setActiveStore(null);
-      setAccessibleStores([]);
+      setUser(null)
+      window.location.href = '/login'
     }
-  };
+  }
 
-  const isAuthenticated = !!user;
-  const canSwitchStores = user?.canSwitchStores || user?.isSuperAdmin || accessibleStores.length > 1;
+  // Role checks
+  const isAdmin = user?.role === 'MGMT' || user?.isAdmin
+  const isManager = user?.role === 'MGMT' || user?.isAdmin
+  const isSuperAdmin = user?.isSuperAdmin
 
   const value = {
     user,
     loading,
-    isAuthenticated,
-    activeStore,
-    accessibleStores,
-    canSwitchStores,
+    error,
     login,
     logout,
-    switchStore,
-    fetchAccessibleStores
-  };
+    checkAuth,
+    isAuthenticated: !!user,
+    isAdmin,
+    isManager,
+    isSuperAdmin
+  }
 
   return (
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
-  );
-};
+  )
+}
+
+export default AuthContext
