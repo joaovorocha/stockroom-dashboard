@@ -269,9 +269,6 @@ See [DEPLOYMENT.md > Troubleshooting](docs/DEPLOYMENT.md#troubleshooting) for mo
 - **Contributions** - See [CONTRIBUTING.md](CONTRIBUTING.md)
 - **Security** - Email security@example.com
 
-## 📄 License
-
-[Your License Here]
 
 ## 👥 Team
 
