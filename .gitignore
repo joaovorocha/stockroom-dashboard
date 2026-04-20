@@ -90,4 +90,7 @@ COO_DEMO_SCRIPT.md
 IOS_TESTING_CHECKLIST.md
 WAITWHILE_INTEGRATION_SPEC.md
 CLEANUP_SUMMARY.md
-done
+
+# Google Cloud SDK (should not be in repo)
+9870/
+google-cloud-sdk/
